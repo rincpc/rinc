@@ -163,6 +163,18 @@ else()
   add_test(NAME export_help_runs COMMAND ${helps} -frames 1 -data ${CMAKE_CURRENT_BINARY_DIR}/helps-data)
   set_tests_properties(export_help_runs PROPERTIES DEPENDS export_help PASS_REGULAR_EXPRESSION "rinc/SUMMARY true # Summary[\r\n]+true -1 -1")
   add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help.rio -frames 30 -type "\\t\\n")
+  # an app's own help, in its folder (apps/demo/help/intro.md): demo/intro
+  set(apphelp ${CMAKE_CURRENT_BINARY_DIR}/apphelp-data)
+  add_test(NAME app_help_setup COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/tests/apphelp ${apphelp}/apps)
+  add_test(NAME app_help_own COMMAND rinc -data ${apphelp} -app demo -frames 1)
+  set_tests_properties(app_help_own PROPERTIES DEPENDS app_help_setup PASS_REGULAR_EXPRESSION "found # Intro")
+  # an app's stash: none the first time, then what it wrote
+  set(stash ${CMAKE_CURRENT_BINARY_DIR}/stash-data)
+  add_test(NAME stash_clear COMMAND ${CMAKE_COMMAND} -E rm -rf ${stash})
+  add_test(NAME stash_first COMMAND rinc -data ${stash} ${CMAKE_CURRENT_LIST_DIR}/tests/stash.rio -frames 1)
+  add_test(NAME stash_again COMMAND rinc -data ${stash} ${CMAKE_CURRENT_LIST_DIR}/tests/stash.rio -frames 1)
+  set_tests_properties(stash_first PROPERTIES DEPENDS stash_clear PASS_REGULAR_EXPRESSION "^none[^h]*0")
+  set_tests_properties(stash_again PROPERTIES DEPENDS stash_first PASS_REGULAR_EXPRESSION "^here[^h]*0")
   # an app's memory: the -m report
   add_test(NAME memory_report COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/apps/chord.rio -m)
   set_tests_properties(memory_report PROPERTIES PASS_REGULAR_EXPRESSION "fits in the 256 KB app space")

@@ -4,6 +4,12 @@
 
 [Rinc](README.md)
 
+# Using Rinc
+
+- [Help](using/help.md)
+- [The editor](using/edit.md)
+- [The console](using/console.md)
+
 # Making apps
 
 - [A first app](apps/first-app.md)

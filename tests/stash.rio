@@ -1,0 +1,9 @@
+# Stash: what it had stashed last time, if anything, then this time's (pc.stashRead, stashWrite)
+buf: Blob[16]
+n := pc.stashRead(buf[:])
+if n < 0
+  log("none")
+else
+  log(buf[0:n].asString())
+end
+log(pc.stashWrite("here"))

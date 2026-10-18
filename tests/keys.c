@@ -144,6 +144,9 @@ int main(void) {
       printf("FAIL: guide and LB didn't switch to a\n");
       return 1;
     }
+    /* Sys+R: this app (b, the latest started) again */
+    rinc_systemKey(0, 3, 0, 0); rinc_systemKey(0, 0, 0, 0);
+    if (!rinc_systemKey(0, 0, 1, rinc_SysKey_r) || strcmp(rinc_launchName, "b")) { printf("FAIL: Sys+R didn't start b again\n"); return 1; }
   }
   { /* a controller's RB and LB type Tab and Shift+Tab as they're pressed, to a game */
     static const char game[] = "update* :: proc()\n  c := pc.key()\n  for c >= 0\n    log(c)\n    c = pc.key()\n  end\nend\n";

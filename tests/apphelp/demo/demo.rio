@@ -1,0 +1,10 @@
+# Demo: an app with help of its own, for a test
+name: Blob[64]
+text: Blob[64]
+for i in 0..<pc.helps()
+  k := pc.helpName(i, name[:])
+  if name[0:k].asString() == "demo/intro"
+    n := pc.helpRead("demo/intro", text[:])
+    log("found", text[0:n].asString())
+  end
+end

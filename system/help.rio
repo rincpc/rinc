@@ -500,6 +500,10 @@ histName: [32]Blob[..64] # where it's been, as a browser keeps it: back and forw
 histTop: [32]Int
 histLen := 0
 histAt := 0
+place: Blob[..4096]    # (where it's been, as text, saved for next time)
+placeDirty := false    # (to be saved: right away, or a second after scrolling stops)
+placeWait := 0        # (frames till it's saved: 60, a second, after scrolling)
+placeTop := 0
 
 names: Blob[8192]      # the help texts there are
 nameAt: [128]Int
@@ -747,6 +751,8 @@ visit :: proc(name: Blob, anchor: Blob)
   histTop[histLen] = top
   histAt = histLen
   histLen += 1
+  placeDirty = true
+  placeWait = 0 # (saved right away)
 end
 
 follow :: proc()
@@ -764,6 +770,72 @@ move :: proc(by: Int)
   histAt += by
   ok := open(histName[histAt][0:histName[histAt].len()], doc[0:0])
   top = histTop[histAt]
+  placeDirty = true
+  placeWait = 0
+end
+
+# where it's been, kept in its stash for next time (Sys+R starts over): the place it's at, then each place's
+# scroll and name, a line each. Saved on going somewhere, and a second after scrolling stops
+savePlace :: proc()
+  histTop[histAt] = top
+  place.clear()
+  ok := place.format(histAt)
+  ok = place.push(10)
+  for i in 0..<histLen
+    ok = place.format(histTop[i], " ")
+    ok = place.pushAll(histName[i][0:histName[i].len()])
+    ok = place.push(10)
+  end
+  ok = pc.stashWrite(place[0:place.len()].asString()) == 0
+  placeDirty = false
+end
+
+# where it was last, from its save file: false if there's none to go back to
+restorePlace :: proc() -> Bool
+  n := min(pc.stashRead(place[0:0]), 4096)
+  if n <= 0
+    return false
+  end
+  place.clear()
+  for i in 0..<n
+    ok := place.push(0)
+  end
+  n = min(pc.stashRead(place[0:n]), n)
+  at := 0
+  k := 0
+  for k < n and place[k] != 10
+    at = at * 10 + place[k] - 48
+    k += 1
+  end
+  k += 1
+  histLen = 0
+  for k < n and histLen < 32
+    t := 0
+    for k < n and place[k] >= 48 and place[k] <= 57
+      t = t * 10 + place[k] - 48
+      k += 1
+    end
+    k += 1 # (the space)
+    histName[histLen].clear()
+    for k < n and place[k] != 10
+      ok := histName[histLen].push(place[k])
+      k += 1
+    end
+    k += 1
+    histTop[histLen] = t
+    histLen += 1
+  end
+  if histLen == 0 or at >= histLen
+    histLen = 0
+    return false
+  end
+  histAt = at
+  if not open(histName[histAt][0:histName[histAt].len()], doc[0:0])
+    histLen = 0
+    return false
+  end
+  top = min(histTop[histAt], max(0, rowCount - ROWS))
+  return true
 end
 
 # up a level: a text's contents (its set's SUMMARY), and from there (or a text in no set), all of them
@@ -849,6 +921,8 @@ update* :: proc()
       move(1)
     case c == 130 | 1024
       up()
+    case c == 132 | 1024 # Alt+Home: all the contents
+      visit(doc[0:0], doc[0:0])
     case k == 130
       scroll(-1)
     case k == 131
@@ -897,6 +971,17 @@ update* :: proc()
     move(-1)
   end
   held = bits
+  if top != placeTop # (scrolled: saved once it stops)
+    placeTop = top
+    placeDirty = true
+    placeWait = 60
+  end
+  if placeDirty
+    if placeWait <= 0
+      savePlace()
+    end
+    placeWait -= 1
+  end
 end
 
 # ---------------------------------------------------------------- the screen
@@ -971,8 +1056,15 @@ for k in 0..<topicLen
     hash = k
   end
 end
-if topicLen == 0 or not open(topic[0:hash], topic[min(hash + 1, topicLen):topicLen])
-  ok := open(doc[0:0], doc[0:0])
+if topicLen > 0 and open(topic[0:hash], topic[min(hash + 1, topicLen):topicLen])
+  histLen = 0 # (opened at a topic: a fresh history, from there)
+else
+  if not restorePlace()
+    ok := open(doc[0:0], doc[0:0])
+  end
 end
-ok := histName[0].pushAll(doc[0:doc.len()]) # (where it's been: here)
-histLen = 1
+if histLen == 0
+  ok := histName[0].pushAll(doc[0:doc.len()]) # (where it's been: here)
+  histLen = 1
+  histAt = 0
+end

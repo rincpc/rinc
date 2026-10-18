@@ -169,7 +169,7 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     const has = k => held.has(k + "Left") || held.has(k + "Right");
     const other = [...held].some(k => !/^(Shift|Control|Alt|Meta)/.test(k));
     return (has("Shift") ? 1 : 0) | (other ? 2 : 0) | (held.has("Escape") || pad.back ? 4 : 0) | (pad.guide ? 8 : 0) |
-      (has("Control") ? 256 : 0) | (has("Alt") ? 512 : 0) |
+      (has("Control") ? 256 : 0) | (has("Alt") ? 512 : 0) | (held.has("KeyR") ? 1024 : 0) |
       (held.has("Tab") ? 16 : 0) | (held.has("KeyQ") ? 32 : 0) | (held.has("KeyP") ? 64 : 0) | (held.has("Enter") || held.has("NumpadEnter") ? 128 : 0);
   };
   const tick = now => {
