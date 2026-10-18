@@ -388,7 +388,7 @@ static void rinc_sdlKey(const SDL_KeyboardEvent *k) {
 
 /* the screen in a window, scaled up by whole steps; a game gets a frame every 1/60 s */
 static int rinc_window(const char *title) {
-  SDL_Window *w; SDL_Renderer *r; SDL_Texture *tex; uint64_t next; int running = 1;
+  SDL_Window *w; SDL_Renderer *r; SDL_Texture *tex; uint64_t next; int running = 1, fullscreen = 0;
   SDL_AudioSpec spec;
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD)) { fprintf(stderr, "rinc: %s\n", SDL_GetError()); return 1; }
   spec.format = SDL_AUDIO_S16; spec.channels = 2; spec.freq = rinc_RATE;
@@ -408,6 +408,7 @@ static int rinc_window(const char *title) {
     SDL_Event e; const bool *k; uint16_t *px; int pitch, x, y;
     while (SDL_PollEvent(&e)) {
       if (e.type == SDL_EVENT_QUIT) running = 0;
+      if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_F11 && !e.key.repeat) { rinc_fullscreen = !rinc_fullscreen; continue; } /* (the window's own: apps get no F keys) */
       if (rinc_systemHeld() && (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_TEXT_INPUT)) continue; /* (a system combination: not the app's) */
       if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) rinc_textEsc(); /* (Esc is the app's: closing the window quits) */
       if (e.type == SDL_EVENT_TEXT_INPUT) { const char *t = e.text.text; while (*t) rinc_textPush((unsigned char)*t++); } /* (key(): typing) */
@@ -418,16 +419,20 @@ static int rinc_window(const char *title) {
     k = SDL_GetKeyboardState(0);
     rinc_buttons = rinc_readPad() | (uint16_t)(k[SDL_SCANCODE_LEFT] * rinc_Button_left | k[SDL_SCANCODE_RIGHT] * rinc_Button_right | k[SDL_SCANCODE_UP] * rinc_Button_up |
       k[SDL_SCANCODE_DOWN] * rinc_Button_down | k[SDL_SCANCODE_V] * rinc_Button_a | k[SDL_SCANCODE_C] * rinc_Button_b | k[SDL_SCANCODE_X] * rinc_Button_x | k[SDL_SCANCODE_Z] * rinc_Button_y);
-    { /* the system key: Shift tapped twice (the Windows key is the desktop's own), or a controller's guide button */
-      int other = 0, s;
-      for (s = 0; s < SDL_SCANCODE_COUNT; s++) other |= k[s] && s != SDL_SCANCODE_LSHIFT && s != SDL_SCANCODE_RSHIFT;
+    { /* the system key: Ctrl and Shift tapped together (the Windows key is the desktop's own), or a
+         controller's guide button; and the locks */
+      int other = 0, s, mods = (k[SDL_SCANCODE_LSHIFT] || k[SDL_SCANCODE_RSHIFT] ? 1 : 0) | (k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL] ? 2 : 0) |
+                               (k[SDL_SCANCODE_LALT] || k[SDL_SCANCODE_RALT] ? 4 : 0);
+      for (s = 0; s < SDL_SCANCODE_COUNT; s++)
+        other |= k[s] && (s < SDL_SCANCODE_LCTRL || s > SDL_SCANCODE_RGUI); /* (all but the modifiers) */
       int keys = (k[SDL_SCANCODE_ESCAPE] || (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_BACK)) ? rinc_SysKey_esc : 0) |
                  (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) |
                  (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER] ? rinc_SysKey_enter : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? rinc_SysKey_next : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? rinc_SysKey_prev : 0);
-      if (rinc_systemKey(rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_GUIDE), k[SDL_SCANCODE_LSHIFT] || k[SDL_SCANCODE_RSHIFT], other, keys))
+      if (rinc_systemKey(rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_GUIDE), mods, other, keys))
         rinc_launch = 1; /* (to rinc_launchName) */
+      if (rinc_fullscreen != fullscreen) SDL_SetWindowFullscreen(w, (fullscreen = rinc_fullscreen) != 0); /* (Sys+Enter, F11) */
       if (rinc_systemHeld()) rinc_buttons = 0; /* (a system combination: not the app's) */
     }
     while (rinc_game && SDL_GetTicksNS() >= next) { /* 60 frames a second, whatever the display's rate */
@@ -443,7 +448,7 @@ static int rinc_window(const char *title) {
     }
     if (SDL_LockTexture(tex, 0, (void **)&px, &pitch)) {
       for (y = 0; y < rinc_H; y++)
-        for (x = 0; x < rinc_W; x++) px[y * (pitch / 2) + x] = rinc_palette[rinc_shownRow(y)[x]];
+        for (x = 0; x < rinc_W; x++) px[y * (pitch / 2) + x] = rinc_palette[rinc_shownAt(x, y)];
       SDL_UnlockTexture(tex);
     }
     SDL_RenderClear(r);

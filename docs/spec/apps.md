@@ -100,15 +100,15 @@ title, and starts what's picked with `pc.launch`.
 
 ## The system key
 
-One key belongs to the Rinc, not to apps: the **system key**. Held, it makes combinations for the Rinc
-itself; on its own it does nothing, so it isn't pressed by accident. While it's held, what's typed isn't
-the app's. It's:
+One key belongs to the Rinc, not to apps: the **system key**. With another key it makes a
+combination for the Rinc itself; on its own it does nothing, so it isn't pressed by accident. While it's
+on, what's typed isn't the app's. It's:
 
-- the Windows key, on a keyboard that has one and a Rinc that gets it (the Fruit Jam);
-- a controller's guide button (the Xbox button);
-- or, anywhere, Shift tapped twice, within 0.4 seconds: the system key while the second press is held,
-  and for the next key within 0.7 seconds after it's let go (so it works where Shift+Esc belongs to a
-  browser). A Shift held while typing other keys doesn't count, so capitals are fine.
+- the Windows key, held, on a keyboard that has one and a Rinc that gets it (the Fruit Jam);
+- a controller's guide button (the Xbox button), held;
+- or, anywhere, Ctrl and Shift tapped together: the system key for the next key, as a lock (SYS). The
+  next key uses it up, whether it makes a combination or not; tapping Ctrl and Shift again turns it off.
+  (Ctrl+Shift+Esc belongs to Windows, so the system key here is a lock, never held.)
 
 | combination | |
 |---|---|
@@ -117,12 +117,20 @@ the app's. It's:
 | system + Shift+Tab (or LB) | the switcher, from the other end |
 | system + Q | back to the app before, this one left out of the recent apps |
 | system + P | the performance strip, on or off |
+| system + Enter | the whole display, or a window again, where the Rinc can (the desktop's F11 too) |
 
-While the system key is held, a strip across the bottom of the screen shows these, apart from the app's
+While the system key is on, a strip across the bottom of the screen shows these, apart from the app's
 own screen (which it doesn't change), and the app gets none of the keys or buttons that make them. In
-the switcher, Tab and Shift+Tab (RB and LB) move along the recent apps;
-letting go of the system key, or Enter, switches to the one picked, and Esc stays. (With Shift tapped
-twice and let go, the switcher stays up until Enter, or switches after a second untouched.)
+the switcher, Tab and Shift+Tab (RB and LB) move along the recent apps; Enter, or letting go of a held
+system key, switches to the one picked, and Esc stays. Nothing here has a time limit.
+
+**Locks.** Shift, Ctrl or Alt tapped twice locks it: it then counts as held for every key typed, until
+it's tapped again. A tap is a press of those keys alone, let go within 0.4 seconds, with the two taps of
+a lock within 0.4 seconds of each other; any other key pressed during them means no lock, so typing
+capitals or Ctrl+letter never locks anything. A locked Shift capitalizes letters, a locked Ctrl makes a
+letter Ctrl+letter, and on a key that isn't a character each adds its bit, as held ones do. Each lock
+on shows as a badge at the bottom right (SHIFT, CTRL, ALT, SYS), over the screen, which shows through
+around them.
 
 The performance strip shows how long each frame's `update*` and `draw*` take, against the 1/60 s a
 frame has: the latest, and a bar for each of the last few seconds' frames, 8 pixels high for the whole

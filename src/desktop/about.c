@@ -28,9 +28,10 @@ const char rinc_help[] =
   "Storage is a rinc folder in your user data: %APPDATA% on Windows, ~/Library/Application Support on\n"
   "macOS, else $XDG_DATA_HOME or ~/.local/share. Apps keep to it, each with a save space of its own.\n"
   "\n"
-  "Playing: the arrows and V, C, X and Z, or a controller. Shift tapped twice is the system key (a\n"
-  "controller's guide button): then Esc (or Back) goes home, Tab switches among recent apps, Q goes back\n"
-  "to the app before, and P shows how long frames take. Docs: https://rincpc.com/docs/\n";
+  "Playing: the arrows and V, C, X and Z, or a controller. Ctrl and Shift tapped together are the system\n"
+  "key (a controller's guide button, held): then Esc (or Back) goes home, Tab switches among recent apps,\n"
+  "Q goes back to the app before, P shows how long frames take, and Enter (or F11) fills the display.\n"
+  "Shift, Ctrl or Alt tapped twice locks it, until it's tapped again. Docs: https://rincpc.com/docs/\n";
 
 const char rinc_license[] =
   "Rinc\n"

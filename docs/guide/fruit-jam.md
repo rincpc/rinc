@@ -27,8 +27,8 @@ cmake -S . -B build -G Ninja "-DRINC_BUNDLE=$PWD/apps/breakout.rio|$PWD/system/c
 
 Rinc starts at home on the HDMI screen (640x480, each pixel 2x2): the apps on the SD card, sorted, and
 the console. Type to narrow the list, up and down (or the d-pad) to choose, Enter (or A) to start. The
-system key with Esc comes back home from anywhere: Windows+Esc, a controller's Xbox+Back, or Shift tapped
-twice and then Esc. Esc and Ctrl+C alone belong to apps. A keyboard's volume knob or keys set the volume (both
+system key with Esc comes back home from anywhere: Windows+Esc, a controller's Xbox+Back, or Ctrl and
+Shift tapped together and then Esc. Esc and Ctrl+C alone belong to apps. A keyboard's volume knob or keys set the volume (both
 outputs, in 2.5 dB steps, and mute).
 
 An app that isn't a game, or one that stops with an error, leaves its log and the error on the screen,

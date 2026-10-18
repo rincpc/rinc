@@ -50,25 +50,32 @@ int rinc_hostProcs(rio_Vm *vm);
 #define rinc_MAX_SOURCE (64 << 10)
 int rinc_compile(rio_Vm *vm, void *space, uint32_t size, const char *src, uint32_t len);
 int rinc_atLimit(const char *error); /* is this compile error about running out of something? */
-/* the system key (docs/spec/apps.md): the Windows key or a controller's guide button (sysDown), or,
-   where the system around Rinc keeps the Windows key, Shift tapped twice (held the second time, or
-   with the next key right after).
-   Held, it makes combinations: with Esc (or a controller's Back) home, Tab the switcher of recent apps
-   (Tab and Shift+Tab move, and a controller's RB and LB; letting go or Enter switches, Esc doesn't), Q back to the app before (this
-   one forgotten), P the performance strip. Call each frame with what's down (otherDown: any key but
-   Shift; keys: rinc_SysKey_* bits): 1 to start rinc_launchName now. While it's held (rinc_systemHeld),
+/* the system key (docs/spec/apps.md): the Windows key or a controller's guide button, held (sysDown), or
+   Ctrl and Shift tapped together, for the next combination. With it: Esc (or a controller's Back) home,
+   Tab the switcher of recent apps (Tab and Shift+Tab move, and a controller's RB and LB; letting go,
+   Enter or a second untouched switches, Esc doesn't), Q back to the app before (this one forgotten), P
+   the performance strip, Enter the whole display (rinc_fullscreen). And the locks: Shift, Ctrl or Alt
+   tapped twice locks it, for every key typed, until it's tapped again. Call each frame with what's down
+   (mods: 1 Shift, 2 Ctrl, 4 Alt; otherDown: any other key, the system key's own aside; keys:
+   rinc_SysKey_* bits): 1 to start rinc_launchName now. While the system key is on (rinc_systemHeld),
    what's typed isn't the app's */
 enum { rinc_SysKey_esc = 1, rinc_SysKey_tab = 2, rinc_SysKey_q = 4, rinc_SysKey_p = 8, rinc_SysKey_enter = 16,
        rinc_SysKey_next = 32, rinc_SysKey_prev = 64 }; /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
-int rinc_systemKey(int sysDown, int shiftDown, int otherDown, int keys);
+int rinc_systemKey(int sysDown, int mods, int otherDown, int keys);
 int rinc_systemHeld(void);
-/* the system overlay: a strip of Rinc's own over the screen's bottom rows, shown while the system key is
-   held (what it does), apart from the app's screen: a platform shows each row as rinc_shownRow gives it */
+extern int rinc_fullscreen; /* whether the screen should fill the display (Sys+Enter): a platform that can, follows */
+/* the overlay: Rinc's own over the screen's bottom rows, apart from the app's screen: a strip while the
+   system key is on (what it does; the switcher) or the performance strip is, and the locks' badges.
+   Where it's rinc_SEE_THROUGH, the screen shows; a platform shows each pixel as rinc_shownAt gives it */
 #define rinc_OVERLAY_H 11
+#define rinc_SEE_THROUGH 255
 extern uint8_t rinc_overlay[rinc_OVERLAY_H][rinc_W];
 extern volatile int rinc_overlayOn;
-static inline const uint8_t *rinc_shownRow(int y) {
-  return rinc_overlayOn && y >= rinc_H - rinc_OVERLAY_H ? rinc_overlay[y - (rinc_H - rinc_OVERLAY_H)] : rinc_screen[y];
+static inline uint8_t rinc_shownAt(int x, int y) {
+  uint8_t o;
+  if (!rinc_overlayOn || y < rinc_H - rinc_OVERLAY_H) return rinc_screen[y][x];
+  o = rinc_overlay[y - (rinc_H - rinc_OVERLAY_H)][x];
+  return o == rinc_SEE_THROUGH ? rinc_screen[y][x] : o;
 }
 /* one frame of a game: the app's update* and then draw* (each optional). 0: ran, 1: the app has
    neither (it isn't a game), -1: a runtime error (rio_error says) */
