@@ -496,6 +496,7 @@ static int rinc_window(const char *title) {
           rinc_mouseButtons(held);
         }
       }
+      if (e.type == SDL_EVENT_WINDOW_MOUSE_LEAVE) rinc_mouseGone(); /* (while a button's held, SDL keeps the mouse's motion coming) */
       if (e.type == SDL_EVENT_GAMEPAD_ADDED && !rinc_pad) rinc_pad = SDL_OpenGamepad(e.gdevice.which);
       if (e.type == SDL_EVENT_GAMEPAD_REMOVED && rinc_pad && SDL_GetGamepadID(rinc_pad) == e.gdevice.which) { SDL_CloseGamepad(rinc_pad); rinc_pad = 0; }
     }

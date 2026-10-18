@@ -68,6 +68,7 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys);
 void rinc_mouseMove(float x, float y);
 void rinc_mouseButtons(int held);
 void rinc_mouseWheel(float dx, float dy);
+void rinc_mouseGone(void); /* it left the window: the pointer hides, unless a button's held (dragging) */
 int rinc_systemHeld(void);
 extern int rinc_fullscreen; /* whether the screen should fill the display (Sys+Enter): a platform that can, follows */
 /* the overlay: Rinc's own over the screen's bottom rows, apart from the app's screen: a strip while the

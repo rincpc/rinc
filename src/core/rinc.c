@@ -836,10 +836,16 @@ void rinc_mouseMove(float x, float y) {
   rinc_pointerShow(1);
 }
 void rinc_mouseButtons(int held) { if (held & ~rinc_mouseHeld) rinc_pointerShow(1); rinc_mouseHeld = held; } /* (pressing one shows it) */
+void rinc_mouseGone(void) { if (!rinc_mouseHeld) rinc_pointerOn = rinc_pointerOnScreen = 0; } /* (not while dragging) */
 void rinc_mouseWheel(float dx, float dy) { rinc_scrolled[0] += dx; rinc_scrolled[1] += dy; }
 /* each frame: in pointer mode, the controller moves it, scrolls, and clicks */
 static void rinc_pointerFrame(void) {
-  int held = rinc_mouseHeld;
+  static int arrows;
+  int held = rinc_mouseHeld, now = rinc_buttons & (rinc_Button_left | rinc_Button_right | rinc_Button_up | rinc_Button_down |
+                                                  rinc_Button_start | rinc_Button_back);
+  now |= rinc_systemHeld() ? 0x10000 : 0; /* (and the system key: a controller's guide button, Ctrl and Shift) */
+  if (now & ~arrows) rinc_pointerOn = rinc_pointerOnScreen = 0; /* (an arrow pressed, the d-pad's too, or a center button: as typing, it hides the pointer) */
+  arrows = now;
   if (rinc_pointerMode == 1) {
     float lx = rinc_stickAt(0), ly = rinc_stickAt(1), rx = rinc_stickAt(2), ry = rinc_stickAt(3);
     if (lx || ly) { /* (faster the further: up to 5 pixels a frame) */
