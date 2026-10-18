@@ -16,7 +16,8 @@ The first time (or if the board isn't answering on USB), hold BOOT while resetti
 `build/rinc.uf2` to the drive that appears.
 
 The firmware's bundle is a build setting: `RINC_BUNDLE`, its apps' `.rio` files separated by `|` (home,
-the console and the editor by default), and `RINC_HOME`, the one home means (by default the only app, or one named
+the console, the editor and help by default), `RINC_HELP`, the help texts (`name=folder` pairs: Rinc's
+docs as `rinc`, Rio's as `rio`), and `RINC_HOME`, the one home means (by default the only app, or one named
 home). A firmware of your own apps is just a different list:
 
 ```sh
@@ -49,7 +50,8 @@ as `send.py`. A serial terminal sees each line once it's entered, not as it's ty
 
 ## Apps on the SD card
 
-The firmware carries home, the console and the editor; an app of the same name on the card takes its
+The firmware carries home, the console, the editor and help, with Rinc's and Rio's docs to read in it; an
+app of the same name on the card takes its
 place, so a home, console or editor of your own goes there. A FAT32 card holds apps as `/rinc/apps/name/name.rio` (and each
 app's own files in `/rinc/save/name`), managed from the console with `ls`, `run`,
 `load`, `save`, `delete` and `home` (see [the console](../spec/apps.md#the-console)). From a PC,

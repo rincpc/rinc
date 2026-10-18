@@ -3,7 +3,7 @@ pc.cls(1)
 for y in 0..<240
   for x in 0..<320
     if (x + y) % 32 < 16
-      pc.pset(x, y, 16 + (x / 20) % 36)
+      pc.pset(x, y, 32 + (x / 20) % 36)
     end
   end
 end

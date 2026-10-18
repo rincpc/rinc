@@ -58,14 +58,24 @@ if(RINC_PLATFORM STREQUAL rp2350)
   set(TUSB ${PICO_SDK_PATH}/lib/tinyusb/src)
   # the firmware's bundle (docs/spec/apps.md#bundles): the apps it carries, home, the console and the
   # editor by default (the SD card's apps of the same names take their place); RINC_HOME is the one home means
-  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit.rio" CACHE STRING
+  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help.rio" CACHE STRING
     "the firmware's apps, their .rio files, separated by |")
   set(RINC_HOME "" CACHE STRING "the firmware's home app, by name (by default the only app, else one named home)")
+  # and its help texts, for the help app: each name=folder's Markdown, as help/<name>/... (rinc's docs and rio's)
+  set(RINC_HELP "rinc=${CMAKE_CURRENT_LIST_DIR}/docs|rio=${RIO_DIR}/docs" CACHE STRING
+    "the firmware's help texts: name=folder pairs, separated by |, each folder's .md files")
   string(REPLACE "|" ";" bundleApps "${RINC_BUNDLE}")
+  set(helpDocs "") # (so the bundle is made again when a help text changes)
+  string(REPLACE "|" ";" helpSets "${RINC_HELP}")
+  foreach(set ${helpSets})
+    string(REGEX REPLACE "^[^=]*=" "" dir "${set}")
+    file(GLOB_RECURSE more "${dir}/*.md")
+    list(APPEND helpDocs ${more})
+  endforeach()
   set(bundle ${CMAKE_CURRENT_BINARY_DIR}/bundle.c)
   add_custom_command(OUTPUT ${bundle}
-    COMMAND ${CMAKE_COMMAND} "-DAPPS=${RINC_BUNDLE}" -DHOME=${RINC_HOME} -DOUT=${bundle} -P ${CMAKE_CURRENT_LIST_DIR}/tools/bundle.cmake
-    DEPENDS ${bundleApps} tools/bundle.cmake VERBATIM)
+    COMMAND ${CMAKE_COMMAND} "-DAPPS=${RINC_BUNDLE}" "-DHELP=${RINC_HELP}" -DHOME=${RINC_HOME} -DOUT=${bundle} -P ${CMAKE_CURRENT_LIST_DIR}/tools/bundle.cmake
+    DEPENDS ${bundleApps} ${helpDocs} tools/bundle.cmake VERBATIM)
   add_executable(rinc ${bundle} src/rp2350/main.c src/rp2350/video.c src/rp2350/keyboard.c src/rp2350/audio.c src/rp2350/hdmi_packet.c src/rp2350/gamepad.c src/rp2350/sd.c
     lib/fatfs/ff.c lib/fatfs/ffunicode.c
     ${TUSB}/host/usbh.c ${TUSB}/host/hub.c ${TUSB}/class/hid/hid_host.c ${TUSB}/portable/raspberrypi/pio_usb/hcd_pio_usb.c)
@@ -147,6 +157,12 @@ else()
   add_test(NAME app_edit COMMAND rinc -data ${data} -app edit -frames 200
     -type "\\e\\x0elog(1)\\x1alog(6 * 7 + 1000)\\x12t1\\n")
   set_tests_properties(app_edit PROPERTIES DEPENDS install PASS_REGULAR_EXPRESSION "(^|[\r\n])1042[\r\n]")
+  # help texts: bundled with -docs, listed and read by an app (pc.helps, helpName, helpRead); and the help app runs
+  set(helps ${CMAKE_CURRENT_BINARY_DIR}/helps-game${CMAKE_EXECUTABLE_SUFFIX})
+  add_test(NAME export_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/helps.rio -docs rinc=${CMAKE_CURRENT_LIST_DIR}/docs -export ${helps})
+  add_test(NAME export_help_runs COMMAND ${helps} -frames 1 -data ${CMAKE_CURRENT_BINARY_DIR}/helps-data)
+  set_tests_properties(export_help_runs PROPERTIES DEPENDS export_help PASS_REGULAR_EXPRESSION "rinc/SUMMARY true # Summary[\r\n]+true -1 -1")
+  add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help.rio -frames 30 -type "\\t\\n")
   # an app's memory: the -m report
   add_test(NAME memory_report COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/apps/chord.rio -m)
   set_tests_properties(memory_report PROPERTIES PASS_REGULAR_EXPRESSION "fits in the 256 KB app space")

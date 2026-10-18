@@ -26,6 +26,7 @@ rinc app.rio -i app.img           compile to an image, and list the host procs i
 rinc a.rio b.rio -export game     a program to hand out (game.exe on Windows): rinc with the apps in it
   -home a                         the one it starts at (by default the only one, or one named home)
   -name folder                    its storage folder's name (by default its home app's)
+  -docs rinc=docs                 help texts for the help app: the folder's .md files, as rinc/... (repeatable)
   -runner path/to/rinc            a copy of that rinc instead, such as another system's from a release
 rinc a.rio b.rio -web game.html   a page that plays them (see the web)
 rinc -help                        all this; and rinc -license, the licenses of what's in it

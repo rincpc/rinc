@@ -28,7 +28,8 @@ or, compiled for a Rinc without a compiler, `apps/<name>/<name>.img` (a Rio imag
 space) with its description in `apps/<name>/<name>.info`. A bundle also names its **home app**, the one
 `home` means, and its **storage folder**, where its apps' save spaces go.
 
-- **The Fruit Jam's firmware** bundles home, the console and the editor by default, home as home.
+- **The Fruit Jam's firmware** bundles home, the console, the editor and help by default, home as home,
+  and Rinc's and Rio's docs as help texts.
 - **The desktop and the web** carry none, so their programs stay small.
 - **An exported game** carries its own apps, starting at its home app. One app on its own is home.
   It carries them compiled, unless one of them runs Rio itself or writes apps (the console, the
@@ -150,6 +151,26 @@ The console (`system/console.rio`) is an ordinary app: Rio, typed and run in a s
 | `save name` | what's typed or pasted next, until Ctrl-D, becomes app `name`'s source (Ctrl-C gives up) |
 | `delete name` | remove app `name` |
 | `home` | back home |
+
+## Help texts
+
+Help texts are Markdown, for the help app (`system/help.rio`) and any app that shows help. A Rinc finds
+them in storage as `/rinc/help/<name>.md` (in folders too) and in its bundle as `help/<name>.md`; storage
+takes the place of the bundle, as for apps. A name is its path there, `.md` left off: `rinc/spec/apps`.
+A set of texts (the first part of their names) with a `SUMMARY` text is listed by that, as the docs'
+tables of contents are.
+
+| proc | |
+|---|---|
+| `pc.helps() -> Int` | looks again, and says how many help texts there are (the first 128, by name) |
+| `pc.helpName(i, out) -> Int` | text `i`'s name |
+| `pc.helpRead(name, out) -> Int` | its text, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.help(topic)` | after this frame, the help app, at that text and maybe a heading: `pc.help("rio/spec/statements#if")` |
+| `pc.helpTopic(out) -> Int` | for the help app: the topic it was opened at, taken (0: none) |
+
+The help app shows a text with its headings, lists, tables, code and links: up and down, Page Up and
+Down scroll, Tab and Shift+Tab pick a link and Enter follows it (to another text, or a heading in one),
+Backspace or Esc comes back, and Ctrl+O shows the contents.
 
 ## The editor
 

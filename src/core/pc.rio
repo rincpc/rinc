@@ -55,6 +55,16 @@ appSource* :: @host proc(name: String, out: Blob) -> Int
 appSave* :: @host proc(name: String, text: String) -> Int   # 0, or -1
 appDelete* :: @host proc(name: String) -> Int               # 0, or -1
 
+# ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
+
+helps* :: @host proc() -> Int                        # the help texts (Markdown): how many, in order of name
+helpName* :: @host proc(i: Int, out: Blob) -> Int    # text i's name (its path, .md left off: rinc/spec/apps), into out: how long
+# a help text into out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none
+helpRead* :: @host proc(name: String, out: Blob) -> Int
+# the help app, after this frame, at a help text (and maybe a heading): help("rio/spec/statements#if")
+help* :: @host proc(topic: String)
+helpTopic* :: @host proc(out: Blob) -> Int             # for the help app: the topic it was opened at, taken (0: none)
+
 # ---------------------------------------------------------------- this app's own files: /rinc/save/<app>
 
 # a file's contents into out, as much as fits: its whole length, or -1 if there's no such file. Names are

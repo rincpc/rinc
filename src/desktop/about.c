@@ -20,6 +20,7 @@ const char rinc_help[] =
   "                             a program to hand out (game.exe on Windows): rinc with the apps in it\n"
   "    -home a                  the one it starts at (by default the only one, or one named home)\n"
   "    -name folder             its storage folder's name (by default its home app's)\n"
+  "    -docs name=folder        help texts, for the help app: folder's .md files, as name/... (repeatable)\n"
   "    -runner path/to/rinc     a copy of that rinc instead, such as another system's\n"
   "  rinc a.rio b.rio -web game.html\n"
   "                             one page that plays them in a browser, all inline\n"

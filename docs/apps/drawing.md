@@ -1,8 +1,8 @@
 # Drawing
 
 The screen is 320 by 240 pixels, `x` from the left and `y` from the top. Each pixel is a color number
-from 0 to 255, picked from Rinc's palette: the 16 PICO-8 colors first, then a cube of 216 colors, then
-24 grays. The screen keeps what's drawn until something draws over it, so a game usually starts its
+from 0 to 255, picked from Rinc's palette: the 16 PICO-8 colors first, then PICO-8's 16 secret colors,
+then a cube of 216 colors, then 8 grays. The screen keeps what's drawn until something draws over it, so a game usually starts its
 `draw` with `pc.cls`.
 
 ```rio
@@ -24,12 +24,13 @@ Drawing off the screen is fine: it's cut off at the edges, and reading a pixel o
 | colors | |
 |---|---|
 | 0 to 15 | PICO-8's: 0 black, 1 dark blue, 2 dark purple, 3 dark green, 4 brown, 5 dark gray, 6 light gray, 7 white, 8 red, 9 orange, 10 yellow, 11 green, 12 blue, 13 lavender, 14 pink, 15 peach |
-| 16 to 231 | a color cube: `16 + 36 * r + 6 * g + b`, each of `r g b` from 0 to 5 |
-| 232 to 255 | grays, dark to light |
+| 16 to 31 | PICO-8's secret palette, darker and in-between shades of those (see [the screen](../spec/screen.md#the-palette)) |
+| 32 to 247 | a color cube: `32 + 36 * r + 6 * g + b`, each of `r g b` from 0 to 5 |
+| 248 to 255 | grays, dark to light |
 
 ```rio
 cube :: proc(r, g, b: Int) -> Int
-  return 16 + 36 * r + 6 * g + b
+  return 32 + 36 * r + 6 * g + b
 end
 for x in 0..<6
   pc.rect(x * 20, 0, 20, 20, cube(5, x, 0))   # red through orange to yellow
@@ -38,7 +39,7 @@ log(cube(5, 5, 5))
 ```
 
 ```output
-231
+247
 ```
 
 ## Pictures as data
