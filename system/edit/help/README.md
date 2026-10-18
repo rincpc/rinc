@@ -1,6 +1,6 @@
 # The editor
 
-The editor (`system/edit.rio`, built into the Fruit Jam's firmware) edits an app's source: one at a
+The editor (`system/edit/edit.rio`, built into the Fruit Jam's firmware) edits an app's source: one at a
 time, up to 32 KB, with the keys of most editors. It starts with the app it had last, where it was.
 Ctrl+R saves and runs the app, and the system key with Tab comes back to the editor.
 

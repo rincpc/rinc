@@ -1,6 +1,6 @@
 # The console
 
-The console (`system/console.rio`, built into the Fruit Jam's firmware) runs Rio as it's typed, a line
+The console (`system/console/console.rio`, built into the Fruit Jam's firmware) runs Rio as it's typed, a line
 or a block at a time, in a session of its own: try things out, and look at what apps do. On the Fruit
 Jam, Ctrl+C over the USB serial port opens it from anywhere, which is how `tools/send.py` sends apps.
 

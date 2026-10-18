@@ -4,11 +4,7 @@
 
 [Rinc](README.md)
 
-# Using Rinc
-
-- [Help](using/help.md)
-- [The editor](using/edit.md)
-- [The console](using/console.md)
+<!-- (The built-in apps' own help, system/<app>/help, goes in as "Using Rinc" when the site's made.) -->
 
 # Making apps
 

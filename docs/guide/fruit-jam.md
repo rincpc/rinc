@@ -21,7 +21,7 @@ docs as `rinc`, Rio's as `rio`), and `RINC_HOME`, the one home means (by default
 home). A firmware of your own apps is just a different list:
 
 ```sh
-cmake -S . -B build -G Ninja "-DRINC_BUNDLE=$PWD/apps/breakout.rio|$PWD/system/console.rio" -DRINC_HOME=breakout
+cmake -S . -B build -G Ninja "-DRINC_BUNDLE=$PWD/apps/breakout.rio|$PWD/system/console/console.rio" -DRINC_HOME=breakout
 ```
 
 ## Using it

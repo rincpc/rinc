@@ -1,6 +1,6 @@
 # Help
 
-Help (`system/help.rio`, built into the Fruit Jam's firmware) reads the help texts a Rinc has: Rinc's
+Help (`system/help/help.rio`, built into the Fruit Jam's firmware) reads the help texts a Rinc has: Rinc's
 docs and Rio's, these pages among them, and any app's own. It starts where it was last, or with the
 contents: a list of the sets of texts, each by its own table of contents.
 
@@ -39,4 +39,4 @@ listed in the contents by that, as these docs are.
 ## For apps
 
 An app opens help at a text, and a heading in it, with `pc.help("rio/spec/statements#if")`. The rest of
-what help uses is there for any app: [help texts](../spec/apps.md#help-texts) in the platform's spec.
+what help uses is there for any app: see "Help texts", in "Apps and storage", in Rinc's docs.

@@ -58,14 +58,19 @@ if(RINC_PLATFORM STREQUAL rp2350)
   set(TUSB ${PICO_SDK_PATH}/lib/tinyusb/src)
   # the firmware's bundle (docs/spec/apps.md#bundles): the apps it carries, home, the console and the
   # editor by default (the SD card's apps of the same names take their place); RINC_HOME is the one home means
-  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help.rio" CACHE STRING
+  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio" CACHE STRING
     "the firmware's apps, their .rio files, separated by |")
   set(RINC_HOME "" CACHE STRING "the firmware's home app, by name (by default the only app, else one named home)")
   # and its help texts, for the help app: each name=folder's Markdown, as help/<name>/... (rinc's docs and rio's)
   set(RINC_HELP "rinc=${CMAKE_CURRENT_LIST_DIR}/docs|rio=${RIO_DIR}/docs" CACHE STRING
     "the firmware's help texts: name=folder pairs, separated by |, each folder's .md files")
   string(REPLACE "|" ";" bundleApps "${RINC_BUNDLE}")
-  set(helpDocs "") # (so the bundle is made again when a help text changes)
+  set(helpDocs "") # (so the bundle is made again when a help text changes: the apps' own, and the rest)
+  foreach(app ${bundleApps})
+    get_filename_component(dir "${app}" DIRECTORY)
+    file(GLOB_RECURSE more "${dir}/help/*.md")
+    list(APPEND helpDocs ${more})
+  endforeach()
   string(REPLACE "|" ";" helpSets "${RINC_HELP}")
   foreach(set ${helpSets})
     string(REGEX REPLACE "^[^=]*=" "" dir "${set}")
@@ -144,8 +149,8 @@ else()
   # the built-in apps: home runs, and the console, typed at, runs Rio and its commands
   # storage in a folder of the tests' own (never the user's): apps installed there, then run by name
   set(data ${CMAKE_CURRENT_BINARY_DIR}/test-data)
-  add_test(NAME install COMMAND rinc -data ${data} -install ${CMAKE_CURRENT_LIST_DIR}/system/home.rio
-    ${CMAKE_CURRENT_LIST_DIR}/system/console.rio ${CMAKE_CURRENT_LIST_DIR}/system/edit.rio ${CMAKE_CURRENT_LIST_DIR}/apps/hello.rio)
+  add_test(NAME install COMMAND rinc -data ${data} -install ${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio
+    ${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio ${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio ${CMAKE_CURRENT_LIST_DIR}/apps/hello.rio)
   add_test(NAME app_by_name COMMAND rinc -data ${data} -app hello -frames 2)
   set_tests_properties(app_by_name PROPERTIES DEPENDS install PASS_REGULAR_EXPRESSION "drawn at")
   add_test(NAME app_home COMMAND rinc -data ${data} -frames 30)
@@ -162,7 +167,7 @@ else()
   add_test(NAME export_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/helps.rio -docs rinc=${CMAKE_CURRENT_LIST_DIR}/docs -export ${helps})
   add_test(NAME export_help_runs COMMAND ${helps} -frames 1 -data ${CMAKE_CURRENT_BINARY_DIR}/helps-data)
   set_tests_properties(export_help_runs PROPERTIES DEPENDS export_help PASS_REGULAR_EXPRESSION "rinc/SUMMARY true # Summary[\r\n]+true -1 -1")
-  add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help.rio -frames 30 -type "\\t\\n")
+  add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio -frames 30 -type "\\t\\n")
   # an app's own help, in its folder (apps/demo/help/intro.md): demo/intro
   set(apphelp ${CMAKE_CURRENT_BINARY_DIR}/apphelp-data)
   add_test(NAME app_help_setup COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/tests/apphelp ${apphelp}/apps)
@@ -210,7 +215,7 @@ else()
   if(RINC_WEB_WASM)
     add_test(NAME export_web COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/apps/breakout.rio -web ${CMAKE_CURRENT_BINARY_DIR}/breakout.html)
     if(RINC_WEB_WASM_FULL) # (the console runs Rio itself, so its page gets the player with the compiler)
-      add_test(NAME export_web_full COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/home.rio ${CMAKE_CURRENT_LIST_DIR}/system/console.rio
+      add_test(NAME export_web_full COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio ${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio
         -web ${CMAKE_CURRENT_BINARY_DIR}/rinc.html)
     endif()
   endif()

@@ -13,7 +13,7 @@ with the first key or click, as browsers require.
 A page can carry several apps, as an exported program does (see [the desktop](desktop.md)):
 
 ```sh
-rinc system/home.rio system/console.rio apps/*.rio -home home -name rinc -web rinc.html
+rinc system/home/home.rio system/console/console.rio apps/*.rio -home home -name rinc -web rinc.html
 ```
 
 is the whole Rinc, as on the Fruit Jam. [Storage](../spec/apps.md#storage) is the browser's

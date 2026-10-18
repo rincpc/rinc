@@ -115,7 +115,7 @@ clear that, at any time, and the app carries on, only slower.
 
 ## Home
 
-A Rinc with apps starts at `home` (on the Fruit Jam, `system/home.rio`), which lists the apps in order of
+A Rinc with apps starts at `home` (on the Fruit Jam, `system/home/home.rio`), which lists the apps in order of
 title, and starts what's picked with `pc.launch`.
 
 ## The system key
@@ -158,12 +158,12 @@ frame has: the latest, and a bar for each of the last few seconds' frames, 8 pix
 
 ## The console
 
-The console (`system/console.rio`) is an ordinary app: Rio, typed and run in a session of its own (see
-[Rio inside an app](rio.md)), and commands for the apps in storage. See [the console](../using/console.md).
+The console (`system/console/console.rio`) is an ordinary app: Rio, typed and run in a session of its own (see
+[Rio inside an app](rio.md)), and commands for the apps in storage. Its help text, `console/README`, says how.
 
 ## Help texts
 
-Help texts are Markdown, for the help app (`system/help.rio`) and any app that shows help. Each app's
+Help texts are Markdown, for the help app (`system/help/help.rio`) and any app that shows help. Each app's
 own are in its folder, as `/rinc/apps/<app>/help/<path>.md` (named `<app>/<path>`), and those that are
 no app's in `/rinc/help/<path>.md` (named `<path>`); a bundle carries them the same way
 (`apps/<app>/help/...`, `help/...`), and storage takes the place of the bundle, as for apps. A name
@@ -178,9 +178,9 @@ text is listed by that, as the docs' tables of contents are.
 | `pc.help(topic)` | after this frame, the help app, at that text and maybe a heading: `pc.help("rio/spec/statements#if")` |
 | `pc.helpTopic(out) -> Int` | for the help app: the topic it was opened at, taken (0: none) |
 
-The help app shows them, and follows their links: see [help](../using/help.md).
+The help app shows them, and follows their links; its own help text, `help/README`, says how.
 
 ## The editor
 
-The editor (`system/edit.rio`) is an ordinary app too: one app's source at a time, up to 32 KB, with
-the keys of most editors. See [the editor](../using/edit.md).
+The editor (`system/edit/edit.rio`) is an ordinary app too: one app's source at a time, up to 32 KB, with
+the keys of most editors. Its help text, `edit/README`, lists them.

@@ -567,6 +567,7 @@ end
 
 setName: Blob[..64]
 summary: Blob[..80]
+readme: Blob[..80]
 
 # the contents, as Markdown: each set of texts (the first part of their names), by its SUMMARY if it
 # has one, else each of its texts; then the texts in no set
@@ -602,12 +603,31 @@ contents :: proc()
       summary.clear()
       ok = summary.pushAll(setName[0:setName.len()])
       ok = summary.pushAll("/SUMMARY")
+      readme.clear()
+      ok = readme.pushAll(setName[0:setName.len()])
+      ok = readme.pushAll("/README")
       if hasName(summary[0:summary.len()].asString())
         addSrc("- [")
         addSrcBlob(setName[0:setName.len()])
         addSrc("](")
         addSrcBlob(summary[0:summary.len()])
         addSrc("): its contents\n")
+      case hasName(readme[0:readme.len()].asString()) # (a set with a README: by its name, the README first)
+        addSrc("- [")
+        addSrcBlob(setName[0:setName.len()])
+        addSrc("](")
+        addSrcBlob(readme[0:readme.len()])
+        addSrc(")\n")
+        for j in i..<nameCount
+          jn := names[nameAt[j]:nameAt[j] + nameLen[j]]
+          if inSet(j, setName[0:setName.len()]) and jn.asString() != readme[0:readme.len()].asString()
+            addSrc("  - [")
+            addSrcBlob(jn)
+            addSrc("](")
+            addSrcBlob(jn)
+            addSrc(")\n")
+          end
+        end
       else
         for j in i..<nameCount
           if inSet(j, setName[0:setName.len()])
