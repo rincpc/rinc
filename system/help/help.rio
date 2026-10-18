@@ -4,9 +4,10 @@
 # more in storage, /rinc/help/name.md), rendered from Markdown: headings, lists, tables, code, and links
 # to follow. Up and down, Page Up and Down, Home and End scroll; Tab and Shift+Tab pick a link, Enter
 # follows it, Backspace or Esc (or Alt+Left) goes back and Alt+Right forward, Alt+Up goes up to the
-# contents (a set's, then all), and Ctrl+O shows all the contents. With a controller: the d-pad
-# scrolls (left and right, or LB and RB, pick links), A follows, B goes back. Other apps open it at a text, and a
-# heading in it, with pc.help("rio/spec/statements#if").
+# contents (a set's, then all), and Ctrl+O shows all the contents. With a mouse: click a link, the
+# wheel scrolls, the right button goes back. With a controller: the d-pad scrolls (left and right, or LB
+# and RB, pick links), A follows, B goes back; or the left stick points, the right one scrolls, and A
+# clicks. Other apps open it at a text, and a heading in it, with pc.help("rio/spec/statements#if").
 
 COLS :: 52            # characters a row, 6 pixels each
 ROWS :: 24            # rows, 9 pixels each
@@ -1013,7 +1014,33 @@ pickNext :: proc(dir: Int)
   end
 end
 
+# the link at a point on the screen, or -1
+linkAt :: proc(px: Int, py: Int) -> Int
+  row := (py - TOP_Y + 1) / 9
+  if py < TOP_Y - 1 or row >= ROWS or top + row >= rowCount
+    return -1
+  end
+  r := top + row
+  x := TEXT_X + rowIndent[r] * 6
+  if px < x
+    return -1
+  end
+  at := rowAt[r] + (px - x) / 6
+  if at >= rowAt[r] + rowLen[r]
+    return -1
+  end
+  for l in 0..<linkCount
+    if linkFrom[l] <= at and at < linkTo[l]
+      return l
+    end
+  end
+  return -1
+end
+
 held := 0
+clicked := 0 # (the pointer's buttons, last frame)
+wasShown := 0
+pc.pointer(1)
 update* :: proc()
   c := pc.key()
   for c >= 0
@@ -1055,7 +1082,25 @@ update* :: proc()
     end
     c = pc.key()
   end
-  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8 + pc.btn(4) * 16 + pc.btn(5) * 32
+  # the pointer: a click on a link follows it (A's too; A with the pointer hidden, and not on a link,
+  # follows the picked one); the secondary button (or B) goes back; scrolling, two rows a step
+  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
+  if click & ~clicked & 1 != 0
+    l := linkAt(pc.pointerX(), pc.pointerY())
+    if l >= 0
+      pick = l
+      follow()
+    case wasShown == 0
+      follow()
+    end
+  end
+  if click & ~clicked & 2 != 0
+    move(-1)
+  end
+  clicked = click
+  wasShown = pc.pointerShown()
+  scroll(-2 * pc.scroll(1))
+  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8
   pressed := bits & ~held
   if pressed & 4 != 0
     scroll(-1)
@@ -1068,12 +1113,6 @@ update* :: proc()
   end
   if pressed & 2 != 0
     pickNext(1)
-  end
-  if pressed & 16 != 0
-    follow()
-  end
-  if pressed & 32 != 0
-    move(-1)
   end
   held = bits
   if top != placeTop # (scrolled: saved once it stops)

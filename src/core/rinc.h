@@ -63,6 +63,12 @@ int rinc_atLimit(const char *error); /* is this compile error about running out 
 enum { rinc_SysKey_esc = 1, rinc_SysKey_tab = 2, rinc_SysKey_q = 4, rinc_SysKey_p = 8, rinc_SysKey_enter = 16,
        rinc_SysKey_next = 32, rinc_SysKey_prev = 64, rinc_SysKey_r = 128 }; /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
 int rinc_systemKey(int sysDown, int mods, int otherDown, int keys);
+/* a mouse's, from the platform: where it is in screen pixels (fractions as they come), the buttons held
+   (1 primary, 2 secondary, 4 middle), and its wheel (steps, + right and up) */
+void rinc_mouseMove(float x, float y);
+void rinc_mouseButtons(int held);
+void rinc_mouseWheel(float dx, float dy);
+void rinc_mouseGone(void); /* it left the window: the pointer hides, unless a button's held (dragging) */
 int rinc_systemHeld(void);
 extern int rinc_fullscreen; /* whether the screen should fill the display (Sys+Enter): a platform that can, follows */
 /* the overlay: Rinc's own over the screen's bottom rows, apart from the app's screen: a strip while the
@@ -72,8 +78,14 @@ extern int rinc_fullscreen; /* whether the screen should fill the display (Sys+E
 #define rinc_SEE_THROUGH 255
 extern uint8_t rinc_overlay[rinc_OVERLAY_H][rinc_W];
 extern volatile int rinc_overlayOn;
+/* the pointer, over all that while it's shown: its image's top left corner is its point */
+extern volatile int rinc_pointerOnScreen;
+extern int rinc_pointerAtX, rinc_pointerAtY;
+extern uint8_t rinc_pointerImage[8][8];
 static inline uint8_t rinc_shownAt(int x, int y) {
   uint8_t o;
+  if (rinc_pointerOnScreen && (unsigned)(x - rinc_pointerAtX) < 8 && (unsigned)(y - rinc_pointerAtY) < 8 &&
+      (o = rinc_pointerImage[y - rinc_pointerAtY][x - rinc_pointerAtX]) != rinc_SEE_THROUGH) return o;
   if (!rinc_overlayOn || y < rinc_H - rinc_OVERLAY_H) return rinc_screen[y][x];
   o = rinc_overlay[y - (rinc_H - rinc_OVERLAY_H)][x];
   return o == rinc_SEE_THROUGH ? rinc_screen[y][x] : o;

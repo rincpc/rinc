@@ -9,7 +9,7 @@ frame. A Rinc may have no controller, or (in principle) no keyboard; the procs t
 
 | `i` | button | keyboard | controller |
 |---|---|---|---|
-| 0, 1, 2, 3 | left, right, up, down | arrows | d-pad, or the left stick pushed past half way |
+| 0, 1, 2, 3 | left, right, up, down | arrows | d-pad, or the left stick pushed past half way (but not in pointer mode: see below) |
 | 4 | A | V | A |
 | 5 | B | C | B |
 | 6 | X | X | X |
@@ -57,6 +57,63 @@ while they're held (the arrows, V, C, X and Z), so an app reads them either way.
 A terminal's escape sequences (`ESC [ A` for up, `ESC [ 3 ~` for Delete, and so on) become the key codes
 above, so a Rinc fed by a serial terminal types the same keys. Modifiers come as xterm sends them:
 `ESC [ 1 ; 5 C` is Ctrl+Right, `ESC [ Z` Shift+Tab, and `ESC [ 27 ; m ; k ~` key `k` with modifiers `m`.
+
+## The pointer
+
+A mouse moves a pointer, and Rinc draws it: a small arrow over the screen, which `pc.pointerX()` and
+`pc.pointerY()` give the point of, in screen pixels. Moving the mouse or pressing one of its buttons shows
+it; typing hides it, as do the arrows (the d-pad's too), a controller's center buttons (Start, Back and
+guide) and the system key, and so does the mouse leaving the window, unless a button's held. So it's
+there only while it's in use, and a drag goes on outside the window till the button's let go. `pc.pointerShown()` is 1 while it's shown.
+`pc.pointerDown(i)` is 1 while button `i` is held: 0 the primary (left) one, 1 the secondary (right), 2
+the middle. `pc.scroll(i)` is the whole steps scrolled since it was last asked, the rest kept for later:
+`i` 0 across (+ right), 1 up and down (+ up, away from you, as on a wheel).
+
+`pc.pointer(mode)` says what the pointer is for, until the app ends:
+
+| mode | |
+|---|---|
+| 0 | a game's, each app's to start: the mouse's only; the left stick is still the arrows |
+| 1 | a pointer app's: a controller's too, its left stick moving the pointer (faster the further it's pushed), its right one scrolling, and A and B its primary and secondary buttons (still `pc.btn` 4 and 5 too) |
+| 2 | none: it's never shown |
+
+The d-pad is the arrows in every mode, and everything a pointer does should have keys too, since not
+every Rinc has a mouse or a controller. A list that a click picks from, and the arrows too:
+
+```rio
+items := [3]String{"Play", "Options", "Quit"}
+picked := 0
+clicked := 0
+pc.pointer(1)
+update* :: proc()
+  k := pc.key()
+  for k >= 0
+    switch
+    case k == 130 # up
+      picked = (picked + 2) % 3
+    case k == 131 # down
+      picked = (picked + 1) % 3
+    end
+    k = pc.key()
+  end
+  down := pc.pointerDown(0)
+  y := pc.pointerY()
+  if down == 1 and clicked == 0 and y >= 100 and y < 100 + 3 * 10
+    picked = (y - 100) / 10
+  end
+  clicked = down
+end
+draw* :: proc()
+  pc.cls(1)
+  for i in 0..<3
+    c := 6
+    if i == picked
+      c = 7
+    end
+    pc.print(items[i], 140, 100 + i * 10, c)
+  end
+end
+```
 
 ## Time
 

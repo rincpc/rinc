@@ -471,6 +471,7 @@ static int rinc_window(const char *title) {
   SDL_SetRenderLogicalPresentation(r, rinc_W, rinc_H, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
   SDL_SetRenderVSync(r, 1);
   SDL_StartTextInput(w);
+  SDL_HideCursor(); /* (over the window: Rinc draws its own pointer) */
   tex = SDL_CreateTexture(r, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, rinc_W, rinc_H);
   SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_NEAREST);
   rinc_time = rinc_sdlNow;
@@ -484,6 +485,18 @@ static int rinc_window(const char *title) {
       if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) rinc_textEsc(); /* (Esc is the app's: closing the window quits) */
       if (e.type == SDL_EVENT_TEXT_INPUT) { const char *t = e.text.text; while (*t) rinc_textPush((unsigned char)*t++); } /* (key(): typing) */
       if (e.type == SDL_EVENT_KEY_DOWN) rinc_sdlKey(&e.key);
+      if (e.type == SDL_EVENT_MOUSE_MOTION || e.type == SDL_EVENT_MOUSE_WHEEL || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+        int held; /* the mouse: in screen pixels (Rinc draws the pointer, not the desktop) */
+        SDL_ConvertEventToRenderCoordinates(r, &e);
+        if (e.type == SDL_EVENT_MOUSE_MOTION) rinc_mouseMove(e.motion.x, e.motion.y);
+        if (e.type == SDL_EVENT_MOUSE_WHEEL) rinc_mouseWheel(e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e.wheel.x : e.wheel.x, e.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -e.wheel.y : e.wheel.y);
+        if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) {
+          SDL_MouseButtonFlags b = SDL_GetMouseState(0, 0);
+          held = (b & SDL_BUTTON_LMASK ? 1 : 0) | (b & SDL_BUTTON_RMASK ? 2 : 0) | (b & SDL_BUTTON_MMASK ? 4 : 0);
+          rinc_mouseButtons(held);
+        }
+      }
+      if (e.type == SDL_EVENT_WINDOW_MOUSE_LEAVE) rinc_mouseGone(); /* (while a button's held, SDL keeps the mouse's motion coming) */
       if (e.type == SDL_EVENT_GAMEPAD_ADDED && !rinc_pad) rinc_pad = SDL_OpenGamepad(e.gdevice.which);
       if (e.type == SDL_EVENT_GAMEPAD_REMOVED && rinc_pad && SDL_GetGamepadID(rinc_pad) == e.gdevice.which) { SDL_CloseGamepad(rinc_pad); rinc_pad = 0; }
     }
