@@ -163,6 +163,26 @@ int main(void) {
     for (p = out; *p; p++) if (*p == '\r') memmove((char *)p, p + 1, strlen(p));
     if (strcmp(out, "9\n265\n")) { printf("FAIL: RB and LB typed\n%s", out); return 1; }
   }
+  { /* the pointer: a mouse moves and shows it, typing hides it; in pointer mode, the left stick moves it
+       (and isn't the arrows), A clicks, and the wheel's steps add up */
+    static const char game[] =
+      "update* :: proc()\n  log(pc.pointerX())\n  log(pc.pointerY())\n  log(pc.pointerDown(0))\n  log(pc.pointerShown())\n"
+      "  log(pc.scroll(1))\n  log(pc.btn(1))\n  for pc.key() >= 0\n  end\n  if pc.btn(13) == 1\n    pc.pointer(1)\n  end\nend\n";
+    static const char want[] = "10\n20\n0\n1\n0\n0\n" "10\n20\n0\n0\n1\n0\n" "10\n20\n0\n0\n0\n1\n" "15\n20\n1\n1\n0\n0\n";
+    outLen = 0; out[0] = 0;
+    if (rinc_appBegin(&vm, space, sizeof space, "point", put) || rinc_appRun(&vm, space, sizeof space, "point", game, sizeof game - 1, 0) || !rinc_game) {
+      printf("FAIL: %s\n", rio_error(&vm));
+      return 1;
+    }
+    outLen = 0; out[0] = 0;
+    rinc_mouseMove(10.5f, 20); rinc_gameFrame(&vm);
+    rinc_textPush('a'); rinc_mouseWheel(0, 1.5f); rinc_gameFrame(&vm);
+    rinc_axes[0] = 32767; rinc_buttons = rinc_Button_back; rinc_gameFrame(&vm); /* (mode 0 still: the stick's the arrows; then mode 1) */
+    rinc_buttons = rinc_Button_a; rinc_gameFrame(&vm);
+    rinc_axes[0] = 0; rinc_buttons = 0;
+    for (p = out; *p; p++) if (*p == '\r') memmove((char *)p, p + 1, strlen(p));
+    if (strcmp(out, want)) { printf("FAIL: the pointer gave\n%swanted\n%s", out, want); return 1; }
+  }
   printf("all keys came through\n");
   return 0;
 }

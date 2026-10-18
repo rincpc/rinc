@@ -74,9 +74,10 @@ static int rinc_locked(int c) {
   if ((c & 255) >= 1 && (c & 255) <= 26 && (c & 255) != 9) return c | (rinc_locks & ~rinc_Mod_ctrl); /* (Ctrl+letter says Ctrl) */
   return c | rinc_locks;
 }
+static int rinc_pointerOn; /* (the pointer's, below) */
 static void rinc_queue(rinc_Text *t, int c) {
   int next = (t->head + 1) % rinc_TEXT_CAP;
-  if (t == &rinc_typed) c = rinc_locked(c);
+  if (t == &rinc_typed) { c = rinc_locked(c); rinc_pointerOn = rinc_pointerOnScreen = 0; } /* (typing hides the pointer) */
   if (next != t->tail) { t->q[t->head] = (uint16_t)c; t->head = next; }
 }
 static int rinc_dequeue(rinc_Text *t) {
@@ -499,8 +500,17 @@ void rinc_stashDrop(const char *app) {
   rinc_fs->remove(rinc_stashGone); /* (the folder, empty now) */
 }
 static void rinc_hostStashWrite(rio_Vm *v, rio_Val *a) {
-  char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
-  if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
+  char path[96], folder[64]; int named = rinc_stashPath(v, a, path, sizeof path);
+  rio_Val keep[4];
+  if (!named) { a[0].i = -1; return; }
+  memcpy(keep, a, sizeof keep); /* (a[0] takes the result: for trying again) */
+  rinc_writeFile(v, a, path);
+  if (a[0].i < 0 && rinc_fs) { /* (a stash from before keys, a file where its folder goes: dropped, and again) */
+    snprintf(folder, sizeof folder, "/rinc/stash/%.32s", rinc_appNow);
+    rinc_fs->remove(folder);
+    memcpy(a, keep, sizeof keep);
+    rinc_writeFile(v, a, path);
+  }
 }
 static void rinc_hostStashRead(rio_Vm *v, rio_Val *a) {
   char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_stashPath(v, a, path, sizeof path);
@@ -802,6 +812,64 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
   return go;
 }
 
+/* the pointer (docs/spec/input.md#the-pointer): a mouse's, and in pointer mode a controller's too (its left
+   stick moves it, its right one scrolls, A and B click), drawn by Rinc over the screen while it's shown:
+   moving it shows it, typing hides it. Modes: 0 (the default, for games) a mouse's only, the left stick
+   still the arrows; 1 a pointer app's; 2 none */
+int rinc_pointerMode, rinc_pointerAtX = 160, rinc_pointerAtY = 120;
+volatile int rinc_pointerOnScreen;
+uint8_t rinc_pointerImage[8][8];
+static float rinc_pointerX = 160, rinc_pointerY = 120, rinc_scrolled[2];
+static int rinc_mouseHeld, rinc_pointerHeld;
+static void rinc_pointerShow(int on) {
+  static const char *const arrow[8] = {"K.......", "KK......", "KWK.....", "KWWK....", "KWWWK...", "KWWWWK..", "KWWKKKK.", "KKK....."};
+  int x, y;
+  if (!rinc_pointerImage[0][7]) /* (the arrow, the first time: K its edge, W its fill) */
+    for (y = 0; y < 8; y++) for (x = 0; x < 8; x++) rinc_pointerImage[y][x] = arrow[y][x] == 'K' ? 0 : arrow[y][x] == 'W' ? 7 : rinc_SEE_THROUGH;
+  rinc_pointerOn = on && rinc_pointerMode != 2;
+  rinc_pointerAtX = (int)rinc_pointerX; rinc_pointerAtY = (int)rinc_pointerY;
+  rinc_pointerOnScreen = rinc_pointerOn;
+}
+void rinc_mouseMove(float x, float y) {
+  rinc_pointerX = x < 0 ? 0 : x > rinc_W - 1 ? rinc_W - 1 : x;
+  rinc_pointerY = y < 0 ? 0 : y > rinc_H - 1 ? rinc_H - 1 : y;
+  rinc_pointerShow(1);
+}
+void rinc_mouseButtons(int held) { if (held & ~rinc_mouseHeld) rinc_pointerShow(1); rinc_mouseHeld = held; } /* (pressing one shows it) */
+void rinc_mouseWheel(float dx, float dy) { rinc_scrolled[0] += dx; rinc_scrolled[1] += dy; }
+/* each frame: in pointer mode, the controller moves it, scrolls, and clicks */
+static void rinc_pointerFrame(void) {
+  int held = rinc_mouseHeld;
+  if (rinc_pointerMode == 1) {
+    float lx = rinc_stickAt(0), ly = rinc_stickAt(1), rx = rinc_stickAt(2), ry = rinc_stickAt(3);
+    if (lx || ly) { /* (faster the further: up to 5 pixels a frame) */
+      rinc_pointerX += lx * (lx < 0 ? -lx : lx) * 5.0f; rinc_pointerY += ly * (ly < 0 ? -ly : ly) * 5.0f;
+      rinc_mouseMove(rinc_pointerX, rinc_pointerY);
+    }
+    rinc_scrolled[0] += rx * 0.3f; rinc_scrolled[1] -= ry * 0.3f; /* (up: scrolled up, as a wheel) */
+    if (rinc_buttons & rinc_Button_a) held |= 1;
+    if (rinc_buttons & rinc_Button_b) held |= 2;
+    if (held & ~rinc_pointerHeld) rinc_pointerShow(1);
+  }
+  rinc_pointerHeld = held;
+}
+/* pointer(mode); pointerX() -> Int, pointerY() -> Int; pointerDown(i) -> Int (0 primary, 1 secondary, 2
+   middle); pointerShown() -> Int; scroll(i) -> Int: the whole steps scrolled since (0 across, + right; 1
+   up and down, + up), taken */
+static void rinc_hostPointer(rio_Vm *v, rio_Val *a) { (void)v; rinc_pointerMode = a[0].i < 0 || a[0].i > 2 ? 0 : a[0].i; rinc_pointerShow(rinc_pointerOn); }
+static void rinc_hostPointerX(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX; }
+static void rinc_hostPointerY(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerY; }
+static void rinc_hostPointerDown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 3 ? rinc_pointerHeld >> a[0].i & 1 : 0; }
+static void rinc_hostPointerShown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_pointerOnScreen; }
+static void rinc_hostScroll(rio_Vm *v, rio_Val *a) {
+  int k;
+  (void)v;
+  if (a[0].u > 1) { a[0].i = 0; return; }
+  k = (int)rinc_scrolled[a[0].i];
+  rinc_scrolled[a[0].i] -= (float)k;
+  a[0].i = k;
+}
+
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", "i", rinc_hostCls) || rio_addFfi(vm, "pc.pset", "iii", rinc_hostPset) || rio_addFfi(vm, "pc.pget", "ii>i", rinc_hostPget) ||
          rio_addFfi(vm, "pc.rect", "iiiii", rinc_hostRect) || rio_addFfi(vm, "pc.print", "siii", rinc_hostPrint) || rio_addFfi(vm, "pc.btn", "i>i", rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", ">f", rinc_hostTime) ||
@@ -815,6 +883,9 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.helpTopic", "b>i", rinc_hostHelpTopic) ||
          rio_addFfi(vm, "pc.stashWrite", "ss>i", rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", "sb>i", rinc_hostStashRead) ||
          rio_addFfi(vm, "pc.stashDelete", "s>i", rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", ">i", rinc_hostBoot) ||
+         rio_addFfi(vm, "pc.pointer", "i", rinc_hostPointer) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
+         rio_addFfi(vm, "pc.pointerY", ">i", rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", "i>i", rinc_hostPointerDown) ||
+         rio_addFfi(vm, "pc.pointerShown", ">i", rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", "i>i", rinc_hostScroll) ||
          rio_addFfi(vm, "pc.saveRead", "sb>i", rinc_hostSaveRead) || rio_addFfi(vm, "pc.saveWrite", "ss>i", rinc_hostSaveWrite) ||
          rio_addFfi(vm, "pc.saveDelete", "s>i", rinc_hostSaveDelete) || rio_addFfi(vm, "pc.rioStart", "bb>i", rinc_hostRioStart) ||
          rio_addFfi(vm, "pc.rioEval", "s>i", rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", ">i", rinc_hostRioFrame) ||
@@ -835,6 +906,7 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   if (rinc_start(vm, space, size, put)) { rinc_say("can't start rio"); rinc_back(); return -1; }
   rinc_setAppName(name);
   rinc_recentAdd(name);
+  rinc_pointerMode = 0; rinc_scrolled[0] = rinc_scrolled[1] = 0; /* (a game's, until it says) */
   return 0;
 }
 void rinc_appFail(const char *name, const char *why) {
@@ -882,6 +954,7 @@ int rinc_gameFrame(rio_Vm *vm) {
   wasButtons = rinc_buttons;
   if (pressed & rinc_Button_rb) rinc_textKey(9); /* (a controller's RB and LB type Tab and Shift+Tab too) */
   if (pressed & rinc_Button_lb) rinc_textKey(9 | rinc_Mod_shift);
+  rinc_pointerFrame();
   if (!rinc_game) return 1;
   t0 = rinc_time ? rinc_time() : 0;
   res = rinc_frame(vm);
@@ -896,11 +969,14 @@ int rinc_gameFrame(rio_Vm *vm) {
 
 int rinc_frame(rio_Vm *vm) {
   int u = rio_findProc(vm, "update"), d = rio_findProc(vm, "draw");
-  /* the left stick pushed well over also counts as the arrows, as on PICO-8 */
-  if (rinc_axes[0] < -16000) rinc_buttons |= rinc_Button_left;
-  if (rinc_axes[0] > 16000) rinc_buttons |= rinc_Button_right;
-  if (rinc_axes[1] < -16000) rinc_buttons |= rinc_Button_up;
-  if (rinc_axes[1] > 16000) rinc_buttons |= rinc_Button_down;
+  /* the left stick pushed well over also counts as the arrows, as on PICO-8 (but not in pointer mode:
+     there it moves the pointer) */
+  if (rinc_pointerMode != 1) {
+    if (rinc_axes[0] < -16000) rinc_buttons |= rinc_Button_left;
+    if (rinc_axes[0] > 16000) rinc_buttons |= rinc_Button_right;
+    if (rinc_axes[1] < -16000) rinc_buttons |= rinc_Button_up;
+    if (rinc_axes[1] > 16000) rinc_buttons |= rinc_Button_down;
+  }
   if (u < 0 && d < 0) return 1;
   if (u >= 0 && rio_call(vm, u)) return -1;
   if (d >= 0 && rio_call(vm, d)) return -1;

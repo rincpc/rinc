@@ -16,8 +16,10 @@ the contents: a list of the sets of texts, each by its own table of contents.
 | Alt+Up | up: to a text's contents, then to all of them |
 | Alt+Home, Ctrl+O | all the contents |
 
-With a controller, the d-pad scrolls, LB and RB (or left and right) pick links, A follows a link and B
-goes back. Links to web pages show where they go but don't open.
+With a mouse, a click follows a link, the wheel scrolls, and the right button goes back. With a
+controller, the d-pad scrolls, LB and RB (or left and right) pick links, A follows the picked link and
+B goes back; or the left stick moves the pointer, A clicks the link it's on, and the right stick
+scrolls. Links to web pages show where they go but don't open.
 
 Help remembers the last 32 places it's been, back and forward, and where it was in each, through a
 restart; and its contents page, made again when an app comes or goes. That's its stash, which the system

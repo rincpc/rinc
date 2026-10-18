@@ -117,6 +117,19 @@ start :: proc()
   end
 end
 
+# the app listed at a point on the screen, or -1
+rowAt :: proc(px: Int, py: Int) -> Int
+  top := max(0, pick - 12)
+  row := (py - 51) / 13
+  if px < 8 or px >= 312 or py < 51 or row >= min(nshown - top, 14)
+    return -1
+  end
+  return top + row
+end
+
+clicked := 0 # (the pointer's primary button, last frame)
+wasShown := 0
+pc.pointer(1)
 update* :: proc()
   c := pc.key()
   for c >= 0
@@ -140,10 +153,24 @@ update* :: proc()
     narrow()
     c = pc.key()
   end
-  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(4) * 4
-  if bits & 4 == 4 and held & 4 == 0
-    start()
+  # a click on an app opens it (A's too: A with the pointer hidden, and not on one, opens the picked
+  # one); scrolling moves the pick
+  click := pc.pointerDown(0)
+  if click == 1 and clicked == 0
+    i := rowAt(pc.pointerX(), pc.pointerY())
+    if i >= 0
+      pick = i
+      start()
+    case wasShown == 0
+      start()
+    end
   end
+  clicked = click
+  wasShown = pc.pointerShown()
+  if nshown > 0
+    pick = max(0, min(pick - pc.scroll(1), nshown - 1))
+  end
+  bits := pc.btn(2) + pc.btn(3) * 2
   move := 0
   if bits & 3 != held & 3
     repeat = 12

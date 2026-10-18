@@ -25,6 +25,16 @@ key* :: @host proc() -> Int
 stick* :: @host proc(i: Int) -> Float
 trigger* :: @host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1
 time* :: @host proc() -> Float                       # seconds since start
+# the pointer, which Rinc draws while it's shown: a mouse moving it or pressing a button shows it, typing
+# hides it. pointer(mode): 0 (each app starts so) a mouse's only, the left stick still the arrows; 1 a
+# controller's too: its left stick moves it, its right one scrolls, A and B are its buttons; 2 none
+pointer* :: @host proc(mode: Int)
+pointerX* :: @host proc() -> Int                     # where it points, in screen pixels
+pointerY* :: @host proc() -> Int
+pointerDown* :: @host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle
+pointerShown* :: @host proc() -> Int
+# the whole steps scrolled since it was last asked: 0 across, + right; 1 up and down, + up
+scroll* :: @host proc(i: Int) -> Int
 
 # ---------------------------------------------------------------- data
 

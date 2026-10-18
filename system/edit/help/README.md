@@ -19,6 +19,10 @@ Ctrl+R saves and runs the app, and the system key with Tab comes back to the edi
 | Ctrl+F, Ctrl+G | find (Enter finds the next), go to a line |
 | Esc | let go of the selection, or close the bar at the bottom |
 
+With a mouse, a click puts the cursor there and dragging selects (past the top or bottom, scrolling),
+and the wheel scrolls. In the list of apps that Ctrl+O shows, a click opens one, and a click outside
+the list closes it. A controller's left stick moves the pointer, A clicks, and the right stick scrolls.
+
 ## Writing Rio
 
 Enter keeps the line's indent, and goes a step further in after a line that opens a block (`if`, `for`,

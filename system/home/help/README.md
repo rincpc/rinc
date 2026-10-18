@@ -9,9 +9,13 @@ has, in storage and built in, in order of their titles, each with what it does.
 | up, down (or the d-pad) | pick an app |
 | Enter (or A) | start it |
 | Esc | clear what's typed |
+| a click (or A, pointing) | start the app clicked |
+| the wheel (or the right stick) | pick an app further up or down |
 
-From any app, the system key with Esc comes back here: the Windows key, a controller's guide button, or
-Ctrl and Shift tapped together, and then Esc. The system key with Tab switches among the apps used
+A controller's left stick moves the pointer, and its d-pad picks apps, as the arrows do.
+
+From any app, the system key with Esc comes back here: the Windows key (on a Fruit Jam), a controller's
+guide button, or Ctrl and Shift tapped together, and then Esc. The system key with Tab switches among the apps used
 lately, with Q goes back to the app before, and with R starts this one again.
 
 An app's title and description come from its first line, a comment: `# Bounce: the arrow keys tilt

@@ -6,7 +6,7 @@
 # selects all; Ctrl+X, C and V cut, copy and paste (the line, with nothing selected); Ctrl+Z undoes,
 # Ctrl+Y (or Ctrl+Shift+Z) redoes. Tab and Shift+Tab indent and outdent, Alt+Up and Down move lines,
 # Ctrl+Shift+K deletes them, Ctrl+L selects one, Ctrl+F finds, Ctrl+G goes to a line. Up to 32 KB of
-# text. An ordinary app (the Fruit Jam's firmware has it built in).
+# text. With a mouse: a click puts the cursor there, dragging selects, and the wheel scrolls. An ordinary app (the Fruit Jam's firmware has it built in).
 
 CAP :: 32768          # the most text
 MAX_LINES :: 4096
@@ -1136,6 +1136,68 @@ end
 
 movedAt := 0.0 # (the cursor stays lit while it moves)
 
+# where in the text a point on the screen is: the nearest place between characters, on the line it's on
+# (the first or last line shown, above or below them)
+textAt :: proc(px: Int, py: Int) -> Int
+  row := 0
+  if py >= TOP_Y - 1
+    row = min((py - TOP_Y + 1) / 9, ROWS - 1)
+  end
+  l := min(top + row, lineCount - 1)
+  col := left
+  if px >= TEXT_X
+    col = left + (px - TEXT_X + 3) / 6
+  end
+  return lineAt[l] + min(col, lineEnd(l) - lineAt[l])
+end
+
+# the pointer: a click puts the cursor there (dragging, selecting to there); in the
+# list of apps, a click opens one, and one outside it closes it; scrolling, three lines a step
+dragging := false
+clicked := 0
+pc.pointer(1)
+pointer :: proc()
+  down := pc.pointerDown(0)
+  px := pc.pointerX()
+  py := pc.pointerY()
+  if down == 1 and clicked == 0
+    if mode == OPEN
+      from := max(0, pick - LIST_ROWS + 1)
+      row := (py - 52) / 10
+      if px >= 44 and px < 276 and py >= 52 and row < min(nshown - from, LIST_ROWS)
+        pick = from + row
+        promptKey(13)
+      case px < 40 or px >= 280 or py < 24 or py >= 64 + LIST_ROWS * 10
+        promptKey(27)
+      end
+    case mode == NONE and py < 229
+      moveTo(textAt(px, py), false)
+      wantCol = -1
+      dragging = true
+      movedAt = pc.time()
+    end
+  case down == 1 and dragging and mode == NONE
+    was := cursor
+    moveTo(textAt(px, py), true)
+    if py < TOP_Y and top > 0 # (dragged above or below: scrolls)
+      top -= 1
+    case py >= TOP_Y + ROWS * 9 and top + ROWS < lineCount
+      top += 1
+    end
+    if cursor != was
+      movedAt = pc.time()
+    end
+  end
+  if down == 0
+    dragging = false
+  end
+  clicked = down
+  s := pc.scroll(1)
+  if mode == NONE and s != 0
+    top = max(0, min(top - 3 * s, lineCount - 1))
+  end
+end
+
 update* :: proc()
   c := pc.key()
   for c >= 0
@@ -1149,6 +1211,7 @@ update* :: proc()
     end
     c = pc.key()
   end
+  pointer()
 end
 
 # ---------------------------------------------------------------- the screen

@@ -105,6 +105,11 @@ rinc_EXPORT(fullscreen) int rinc_webFullscreen(void) { return rinc_fullscreen; }
    is held */
 rinc_EXPORT(typed) void rinc_webTyped(int c) { if (!rinc_systemHeld()) rinc_textPush(c); }
 rinc_EXPORT(key) void rinc_webKey(int k) { if (!rinc_systemHeld()) { if (k == 27) rinc_textEsc(); else rinc_textKey(k); } }
+/* the mouse, over the canvas: where (in screen pixels), the buttons held (1 primary, 2 secondary, 4
+   middle), its wheel (steps, + right and up) */
+rinc_EXPORT(mouseMove) void rinc_webMouseMove(float x, float y) { rinc_mouseMove(x, y); }
+rinc_EXPORT(mouseButtons) void rinc_webMouseButtons(int held) { rinc_mouseButtons(held); }
+rinc_EXPORT(mouseWheel) void rinc_webMouseWheel(float dx, float dy) { rinc_mouseWheel(dx, dy); }
 /* a controller's sticks and triggers, before a frame (as in rinc_axes) */
 rinc_EXPORT(axes) void rinc_webAxes(int lx, int ly, int rx, int ry, int lt, int rt) {
   rinc_axes[0] = (int16_t)lx; rinc_axes[1] = (int16_t)ly; rinc_axes[2] = (int16_t)rx; rinc_axes[3] = (int16_t)ry; rinc_axes[4] = (int16_t)lt; rinc_axes[5] = (int16_t)rt;
