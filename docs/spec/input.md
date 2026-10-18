@@ -14,7 +14,7 @@ frame. A Rinc may have no controller, or (in principle) no keyboard; the procs t
 | 5 | B | C | B |
 | 6 | X | X | X |
 | 7 | Y | Z | Y |
-| 8, 9 | LB, RB | | shoulder buttons |
+| 8, 9 | LB, RB | | shoulder buttons (pressing one also types Shift+Tab or Tab: see below) |
 | 10, 11 | LS, RS | | sticks pressed in |
 | 12, 13 | Start, Back | | |
 
@@ -49,7 +49,8 @@ Ctrl+Shift+Z 26 + 256 (Ctrl+letter already says Ctrl). Enter and Backspace don't
 easily still held from typing. So `c & 255` is the key without its modifiers, and an app that doesn't
 care about them can use that.
 
-Other keys (function keys, the system key) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
+A controller's RB types Tab as it's pressed, and LB Shift+Tab, so anything moved through with Tab works
+from a controller too. Other keys (function keys, the system key) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
 and one fed text faster than that (a serial port, a paste) waits for room. Keys also hold buttons down
 while they're held (the arrows, V, C, X and Z), so an app reads them either way.
 

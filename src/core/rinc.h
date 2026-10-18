@@ -53,14 +53,15 @@ int rinc_atLimit(const char *error); /* is this compile error about running out 
 /* the system key (docs/spec/apps.md): the Windows key or a controller's guide button, held (sysDown), or
    Ctrl and Shift tapped together, for the next combination. With it: Esc (or a controller's Back) home,
    Tab the switcher of recent apps (Tab and Shift+Tab move, and a controller's RB and LB; letting go,
-   Enter or a second untouched switches, Esc doesn't), Q back to the app before (this one forgotten), P
+   or Enter switches, Esc doesn't; no time limits), Q back to the app before (this one forgotten, its
+   stash dropped), R this app again (its stash dropped), P
    the performance strip, Enter the whole display (rinc_fullscreen). And the locks: Shift, Ctrl or Alt
    tapped twice locks it, for every key typed, until it's tapped again. Call each frame with what's down
    (mods: 1 Shift, 2 Ctrl, 4 Alt; otherDown: any other key, the system key's own aside; keys:
    rinc_SysKey_* bits): 1 to start rinc_launchName now. While the system key is on (rinc_systemHeld),
    what's typed isn't the app's */
 enum { rinc_SysKey_esc = 1, rinc_SysKey_tab = 2, rinc_SysKey_q = 4, rinc_SysKey_p = 8, rinc_SysKey_enter = 16,
-       rinc_SysKey_next = 32, rinc_SysKey_prev = 64 }; /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
+       rinc_SysKey_next = 32, rinc_SysKey_prev = 64, rinc_SysKey_r = 128 }; /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
 int rinc_systemKey(int sysDown, int mods, int otherDown, int keys);
 int rinc_systemHeld(void);
 extern int rinc_fullscreen; /* whether the screen should fill the display (Sys+Enter): a platform that can, follows */

@@ -43,7 +43,7 @@ jobs:
             echo 'main{max-width:720px;margin:auto}a{color:#ffec27}h1{font-size:22px}li{margin:10px 0}p{color:#c2c3c7}</style>'
             echo '</head><body><main><h1>Rinc apps</h1>'
             echo '<p>Rinc apps, playing in the browser: the same Rio VM as on the board and the desktop. Arrows and V C X Z, or a controller. <a href="docs/">Docs</a>: making apps, and what a Rinc provides.</p>'
-            echo '<p><a href="rinc.html">The whole Rinc</a>: home, the console, the editor and every app below, as on the Fruit Jam. What you save stays in this browser. Ctrl and Shift tapped together, and then Esc, goes home.</p><ul>'
+            echo '<p><a href="rinc.html">The whole Rinc</a>: home, the console, the editor, help (with these docs) and every app below, as on the Fruit Jam. What you save stays in this browser. Ctrl and Shift tapped together, and then Esc, goes home.</p><ul>'
             demos=""
             for app in apps/*.rio; do
               name=$(basename "$app" .rio)
@@ -55,10 +55,17 @@ jobs:
             done
             echo '</ul><p><a href="docs/">Docs</a> &middot; <a href="https://github.com/rincpc/rinc">Source</a></p></main></body></html>'
           } > site/index.html
-          build/rinc system/home.rio system/console.rio system/edit.rio $demos -home home -name rinc -web site/rinc.html
+          build/rinc system/home/home.rio system/console/console.rio system/edit/edit.rio system/help/help.rio $demos -home home -name rinc \
+            -docs rinc=docs -docs rio=lib/rio/docs -web site/rinc.html
           ls -l site
       - name: Make the docs
         run: |
+          # the built-in apps' own help (system/<app>/help) as "Using Rinc", after Rinc's intro
+          for d in system/*/help; do app=$(basename "$(dirname "$d")"); mkdir -p "docs/using/$app"; cp -r "$d"/. "docs/using/$app/"; done
+          { sed -n '1,/^\[Rinc\]/p' docs/SUMMARY.md; echo; echo '# Using Rinc'; echo
+            for app in home help edit console; do [ -f "docs/using/$app/README.md" ] &&
+              echo "- [$(head -1 "docs/using/$app/README.md" | sed 's/^# *//')](using/$app/README.md)"; done
+            sed -n '/^\[Rinc\]/,$p' docs/SUMMARY.md | tail -n +2; } > docs/SUMMARY.new && mv docs/SUMMARY.new docs/SUMMARY.md
           v=0.4.40
           curl -sSL "https://github.com/rust-lang/mdBook/releases/download/v$v/mdbook-v$v-x86_64-unknown-linux-gnu.tar.gz" | tar -xz
           ./mdbook build docs --dest-dir ../site/docs

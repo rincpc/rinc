@@ -45,4 +45,4 @@ session's from then on: the app mustn't use it for anything else while the sessi
 starting over, or `pc.rioStart` again, ends the session. A session's keys come only from `pc.rioType`,
 so the app decides what it gets: the console keeps Esc, to stop what's running.
 
-The built-in console, `system/console.rio`, is an ordinary app built on these procs.
+The built-in console, `system/console/console.rio`, is an ordinary app built on these procs.

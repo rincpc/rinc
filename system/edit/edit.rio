@@ -1,4 +1,4 @@
-# Edit: a text editor, for apps' Rio
+# Editor: a text editor, for apps' Rio
 #
 # Ctrl+O opens an app (from a list, or a new name), Ctrl+S saves it, Ctrl+R saves and runs it, Ctrl+N
 # starts a new one. It starts with the app it had last. The keys are most editors': arrows, Home, End,

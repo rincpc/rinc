@@ -38,7 +38,8 @@ character, bit 0 the leftmost pixel.
 
 ## The palette
 
-Colors 0 to 15 are PICO-8's, 16 to 231 a 6x6x6 color cube, and 232 to 255 grays:
+Colors 0 to 15 are PICO-8's, 16 to 31 its secret palette (PICO-8's 128 to 143), 32 to 247 a 6x6x6 color
+cube, and 248 to 255 grays:
 
 | color | RGB | color | RGB |
 |---|---|---|---|
@@ -50,10 +51,18 @@ Colors 0 to 15 are PICO-8's, 16 to 231 a 6x6x6 color cube, and 232 to 255 grays:
 | 5 | `5F574F` dark gray | 13 | `83769C` lavender |
 | 6 | `C2C3C7` light gray | 14 | `FF77A8` pink |
 | 7 | `FFF1E8` white | 15 | `FFCCAA` peach |
+| 16 | `291814` brownish black | 24 | `BE1250` dark red |
+| 17 | `111D35` darker blue | 25 | `FF6C24` dark orange |
+| 18 | `422136` darker purple | 26 | `A8E72E` lime green |
+| 19 | `125359` blue green | 27 | `00B543` medium green |
+| 20 | `742F29` dark brown | 28 | `065AB5` true blue |
+| 21 | `49333B` darker gray | 29 | `754665` mauve |
+| 22 | `A28879` medium gray | 30 | `FF6E59` dark peach |
+| 23 | `F3EF7D` light yellow | 31 | `FF9D81` peach |
 
-- **The cube:** color `16 + 36 * r + 6 * g + b`, for `r`, `g` and `b` from 0 to 5, has each component at
+- **The cube:** color `32 + 36 * r + 6 * g + b`, for `r`, `g` and `b` from 0 to 5, has each component at
   the level 0, 95, 135, 175, 215 or 255.
-- **The grays:** color `232 + i`, for `i` from 0 to 23, has each component at `8 + 10 * i`.
+- **The grays:** color `248 + i`, for `i` from 0 to 7, has each component at `8 + 32 * i`.
 
 Every Rinc shows the palette at 16 bits a pixel, RGB565: each component's top 5, 6 and 5 bits. Where a
 display has more bits, a component `v` of `n` bits becomes `v * 255 / (2^n - 1)`, rounded down, so every

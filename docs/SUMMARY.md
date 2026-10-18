@@ -4,6 +4,8 @@
 
 [Rinc](README.md)
 
+<!-- (The built-in apps' own help, system/<app>/help, goes in as "Using Rinc" when the site's made.) -->
+
 # Making apps
 
 - [A first app](apps/first-app.md)

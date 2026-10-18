@@ -11,7 +11,11 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 
 ```
 /rinc/apps/chord/chord.rio    an app: a folder of its name, holding its Rio file of the same name
-/rinc/save/chord/...          that app's own files (pc.saveRead and so on)
+/rinc/apps/chord/help/...     its help texts, Markdown (see help texts)
+/rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
+/rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
+/rinc/cache/chord/...         what it can make again: anything may clear it
+/rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
 ```
 
 An app's name is 1 to 32 letters, digits, `_` and `-`. If its first line is a comment, that's its
@@ -28,7 +32,8 @@ or, compiled for a Rinc without a compiler, `apps/<name>/<name>.img` (a Rio imag
 space) with its description in `apps/<name>/<name>.info`. A bundle also names its **home app**, the one
 `home` means, and its **storage folder**, where its apps' save spaces go.
 
-- **The Fruit Jam's firmware** bundles home, the console and the editor by default, home as home.
+- **The Fruit Jam's firmware** bundles home, the console, the editor and help by default, home as home,
+  and Rinc's and Rio's docs as help texts.
 - **The desktop and the web** carry none, so their programs stay small.
 - **An exported game** carries its own apps, starting at its home app. One app on its own is home.
   It carries them compiled, unless one of them runs Rio itself or writes apps (the console, the
@@ -93,9 +98,27 @@ log(pc.saveDelete("best.txt"), pc.saveRead("best.txt", out[:]))
 
 Where a Rinc has no storage, an app can't save: these give -1.
 
+## Where an app was: its stash
+
+An app's stash is what it keeps of where it was, for its next start: the text it was showing, an
+unsaved draft, something slow to make again. It keeps it under keys of its own (named as save files
+are), and writes it whenever it likes, as it goes. Unlike its save space, which only the app changes,
+the Rinc drops all of an app's stash when it's told to start the app afresh: the system key with R
+(this app again) or Q (back to the app before).
+
+| proc | |
+|---|---|
+| `pc.stashWrite(key, data) -> Int` | `data` becomes what's kept under `key`: 0, or -1 |
+| `pc.stashRead(key, out) -> Int` | what's kept under `key`, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
+| `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
+
+And what an app can always make again, it keeps in `/rinc/cache/<app>`, by convention: anything may
+clear that, at any time, and the app carries on, only slower.
+
 ## Home
 
-A Rinc with apps starts at `home` (on the Fruit Jam, `system/home.rio`), which lists the apps in order of
+A Rinc with apps starts at `home` (on the Fruit Jam, `system/home/home.rio`), which lists the apps in order of
 title, and starts what's picked with `pc.launch`.
 
 ## The system key
@@ -138,35 +161,29 @@ frame has: the latest, and a bar for each of the last few seconds' frames, 8 pix
 
 ## The console
 
-The console (`system/console.rio`) is an ordinary app: Rio, typed and run in a session of its own (see
-[Rio inside an app](rio.md)). A line on its own can be a command instead:
+The console (`system/console/console.rio`) is an ordinary app: Rio, typed and run in a session of its own (see
+[Rio inside an app](rio.md)), and commands for the apps in storage. Its help text, `console/README`, says how.
 
-| command | |
+## Help texts
+
+Help texts are Markdown, for the help app (`system/help/help.rio`) and any app that shows help. Each app's
+own are in its folder, as `/rinc/apps/<app>/help/<path>.md` (named `<app>/<path>`), and those that are
+no app's in `/rinc/help/<path>.md` (named `<path>`); a bundle carries them the same way
+(`apps/<app>/help/...`, `help/...`), and storage takes the place of the bundle, as for apps. A name
+leaves `.md` off: `rinc/spec/apps`. A set of texts (the first part of their names) with a `SUMMARY`
+text is listed by that, as the docs' tables of contents are.
+
+| proc | |
 |---|---|
-| `run` | run what's been typed as a game, until Esc |
-| `ls` | list the apps |
-| `load name` | app `name`'s source, into a fresh session |
-| `run name` | run app `name`, as itself |
-| `save name` | what's typed or pasted next, until Ctrl-D, becomes app `name`'s source (Ctrl-C gives up) |
-| `delete name` | remove app `name` |
-| `home` | back home |
+| `pc.helps() -> Int` | looks again, and says how many help texts there are (the first 128, by name) |
+| `pc.helpName(i, out) -> Int` | text `i`'s name |
+| `pc.helpRead(name, out) -> Int` | its text, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.help(topic)` | after this frame, the help app, at that text and maybe a heading: `pc.help("rio/spec/statements#if")` |
+| `pc.helpTopic(out) -> Int` | for the help app: the topic it was opened at, taken (0: none) |
+
+The help app shows them, and follows their links; its own help text, `help/README`, says how.
 
 ## The editor
 
-The editor (`system/edit.rio`) is an ordinary app too: one app's source at a time, up to 32 KB, with
-the keys of most editors. It starts with the app it had last, where it was.
-
-| keys | |
-|---|---|
-| arrows, Home, End, Page Up, Page Down | move; with Ctrl, by words and to either end; with Shift, select |
-| Ctrl+O, Ctrl+S, Ctrl+R, Ctrl+N | open an app (from a list, or a new name), save it, save and run it, start a new one |
-| Ctrl+Z, Ctrl+Y (or Ctrl+Shift+Z) | undo, redo |
-| Ctrl+X, Ctrl+C, Ctrl+V | cut, copy, paste (the line, with nothing selected) |
-| Ctrl+A, Ctrl+L | select all, select the line (and the next, again) |
-| Tab, Shift+Tab | indent, outdent (the selected lines) |
-| Alt+Up, Alt+Down, Ctrl+Shift+K | move the lines, delete them |
-| Ctrl+Backspace, Ctrl+Delete | delete a word |
-| Ctrl+F, Ctrl+G | find (Enter: the next), go to a line |
-
-Enter keeps the line's indent, and a step more after a line that opens a block (`if`, `for`, a proc and
-so on); `end`, `else` and `case` step back out as they're typed.
+The editor (`system/edit/edit.rio`) is an ordinary app too: one app's source at a time, up to 32 KB, with
+the keys of most editors. Its help text, `edit/README`, lists them.

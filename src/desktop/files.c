@@ -44,9 +44,10 @@ static int rinc_open(const char *path, int write) {
 static int rinc_read(char *buf, int n) { return rinc_file ? (int)fread(buf, 1, (size_t)n, rinc_file) : -1; }
 static int rinc_write(const char *buf, int n) { return rinc_file && fwrite(buf, 1, (size_t)n, rinc_file) == (size_t)n ? n : -1; }
 static int rinc_close(void) { int bad = !rinc_file || fclose(rinc_file); rinc_file = 0; return bad ? -1 : 0; }
-static int rinc_list(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
+/* each name in a folder on this computer, with whether it's a folder: 0, or -1 */
+static int rinc_listLocal(const char *folder, void (*each)(const char *name, int dir, void *ud), void *ud) {
   char local[1024];
-  if (rinc_local(dir, local, sizeof local)) return -1;
+  if (snprintf(local, sizeof local, "%s", folder) >= (int)sizeof local) return -1;
 #ifdef _WIN32
   {
     struct _finddata_t f; intptr_t h;
@@ -70,6 +71,27 @@ static int rinc_list(const char *dir, void (*each)(const char *name, int dir, vo
   }
 #endif
   return 0;
+}
+static int rinc_list(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
+  char local[1024];
+  return rinc_local(dir, local, sizeof local) ? -1 : rinc_listLocal(local, each, ud);
+}
+/* every file under a folder on this computer, by its path from there (a/b.md), a few folders deep */
+typedef struct { const char *top; const char *in; void (*each)(const char *path, void *ud); void *ud; int depth; } rinc_Walk;
+static void rinc_walked(const char *name, int dir, void *ud) {
+  rinc_Walk *w = (rinc_Walk *)ud; char path[512], folder[1024];
+  snprintf(path, sizeof path, "%s%s%s", w->in, *w->in ? "/" : "", name);
+  if (!dir) { w->each(path, w->ud); return; }
+  if (w->depth < 4) {
+    rinc_Walk deeper = *w;
+    deeper.in = path; deeper.depth++;
+    snprintf(folder, sizeof folder, "%s/%s", w->top, path);
+    rinc_listLocal(folder, rinc_walked, &deeper);
+  }
+}
+int rinc_walkFolder(const char *folder, void (*each)(const char *path, void *ud), void *ud) {
+  rinc_Walk w = {folder, "", each, ud, 0};
+  return rinc_listLocal(folder, rinc_walked, &w);
 }
 static int rinc_remove(const char *path) {
   char local[1024];
