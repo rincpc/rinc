@@ -145,6 +145,21 @@ int main(void) {
       return 1;
     }
   }
+  { /* a controller's RB and LB type Tab and Shift+Tab as they're pressed, to a game */
+    static const char game[] = "update* :: proc()\n  c := pc.key()\n  for c >= 0\n    log(c)\n    c = pc.key()\n  end\nend\n";
+    outLen = 0; out[0] = 0;
+    if (rinc_appBegin(&vm, space, sizeof space, "pad", put) || rinc_appRun(&vm, space, sizeof space, "pad", game, sizeof game - 1, 0) || !rinc_game) {
+      printf("FAIL: %s\n", rio_error(&vm));
+      return 1;
+    }
+    outLen = 0; out[0] = 0;
+    rinc_buttons = rinc_Button_rb; rinc_gameFrame(&vm);
+    rinc_buttons = rinc_Button_rb; rinc_gameFrame(&vm); /* (held: nothing more) */
+    rinc_buttons = 0; rinc_gameFrame(&vm);
+    rinc_buttons = rinc_Button_lb; rinc_gameFrame(&vm);
+    for (p = out; *p; p++) if (*p == '\r') memmove((char *)p, p + 1, strlen(p));
+    if (strcmp(out, "9\n265\n")) { printf("FAIL: RB and LB typed\n%s", out); return 1; }
+  }
   printf("all keys came through\n");
   return 0;
 }

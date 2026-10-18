@@ -3,8 +3,9 @@
 # Reads the help texts a Rinc has (pc.helps: its own, rinc/..., and Rio's, rio/..., in the firmware;
 # more in storage, /rinc/help/name.md), rendered from Markdown: headings, lists, tables, code, and links
 # to follow. Up and down, Page Up and Down, Home and End scroll; Tab and Shift+Tab pick a link, Enter
-# follows it, Backspace or Esc goes back; Ctrl+O shows the contents. With a controller: the d-pad
-# scrolls (left and right pick links), A follows, B goes back. Other apps open it at a text, and a
+# follows it, Backspace or Esc (or Alt+Left) goes back and Alt+Right forward, Alt+Up goes up to the
+# contents (a set's, then all), and Ctrl+O shows all the contents. With a controller: the d-pad
+# scrolls (left and right, or LB and RB, pick links), A follows, B goes back. Other apps open it at a text, and a
 # heading in it, with pc.help("rio/spec/statements#if").
 
 COLS :: 52            # characters a row, 6 pixels each
@@ -495,9 +496,10 @@ doc: Blob[..64]        # the help text shown ("": the contents)
 top := 0               # the first row shown
 pick := -1             # the link picked
 message: Blob[..53]
-backName: [16]Blob[..64]
-backTop: [16]Int
-backCount := 0
+histName: [32]Blob[..64] # where it's been, as a browser keeps it: back and forward move along it
+histTop: [32]Int
+histLen := 0
+histAt := 0
 
 names: Blob[8192]      # the help texts there are
 nameAt: [128]Int
@@ -721,34 +723,71 @@ resolve :: proc(l: Int) -> Bool
   return true
 end
 
-follow :: proc()
-  if pick < 0 or pick >= linkCount or not resolve(pick)
+# to help text name (and its heading anchor), from here: what was forward of here is dropped
+visit :: proc(name: Blob, anchor: Blob)
+  if histLen > 0
+    histTop[histAt] = top
+  end
+  if not open(name, anchor)
     return
   end
-  if backCount == 16
-    for i in 0..<15
-      backName[i].clear()
-      ok := backName[i].pushAll(backName[i + 1][0:backName[i + 1].len()])
-      backTop[i] = backTop[i + 1]
-    end
-    backCount = 15
+  if histLen > 0
+    histLen = histAt + 1
   end
-  backName[backCount].clear()
-  ok := backName[backCount].pushAll(doc[0:doc.len()])
-  backTop[backCount] = top
-  backCount += 1
-  if not open(goName[0:goName.len()], goAnchor[0:goAnchor.len()])
-    backCount -= 1
+  if histLen == 32 # (full: the oldest goes)
+    for i in 0..<31
+      histName[i].clear()
+      ok := histName[i].pushAll(histName[i + 1][0:histName[i + 1].len()])
+      histTop[i] = histTop[i + 1]
+    end
+    histLen = 31
+  end
+  histName[histLen].clear()
+  ok := histName[histLen].pushAll(doc[0:doc.len()])
+  histTop[histLen] = top
+  histAt = histLen
+  histLen += 1
+end
+
+follow :: proc()
+  if pick >= 0 and pick < linkCount and resolve(pick)
+    visit(goName[0:goName.len()], goAnchor[0:goAnchor.len()])
   end
 end
 
-back :: proc()
-  if backCount == 0
+# back (by -1) or forward (1) along where it's been
+move :: proc(by: Int)
+  if histAt + by < 0 or histAt + by >= histLen
     return
   end
-  backCount -= 1
-  ok := open(backName[backCount][0:backName[backCount].len()], doc[0:0])
-  top = backTop[backCount]
+  histTop[histAt] = top
+  histAt += by
+  ok := open(histName[histAt][0:histName[histAt].len()], doc[0:0])
+  top = histTop[histAt]
+end
+
+# up a level: a text's contents (its set's SUMMARY), and from there (or a text in no set), all of them
+upName: Blob[..80]
+one: Blob[1]
+up :: proc()
+  if doc.len() == 0
+    return
+  end
+  slash := -1
+  for k in 0..<doc.len()
+    if slash < 0 and doc[k] == 47
+      slash = k
+    end
+  end
+  upName.clear()
+  if slash > 0
+    ok := upName.pushAll(doc[0:slash])
+    ok = upName.pushAll("/SUMMARY")
+    if (upName.len() == doc.len() and upName[0:upName.len()].asString() == doc[0:doc.len()].asString()) or pc.helpRead(upName[0:upName.len()].asString(), one[:]) < 0
+      upName.clear()
+    end
+  end
+  visit(upName[0:upName.len()], doc[0:0])
 end
 
 # ---------------------------------------------------------------- moving about
@@ -804,6 +843,12 @@ update* :: proc()
     k := c & 255
     message.clear()
     switch
+    case c == 128 | 1024 # Alt+Left, Alt+Right: back, forward; Alt+Up: up a level
+      move(-1)
+    case c == 129 | 1024
+      move(1)
+    case c == 130 | 1024
+      up()
     case k == 130
       scroll(-1)
     case k == 131
@@ -825,9 +870,9 @@ update* :: proc()
     case k == 13
       follow()
     case k == 8 or k == 27
-      back()
+      move(-1)
     case k == 15 # Ctrl+O
-      ok := open(doc[0:0], doc[0:0])
+      visit(doc[0:0], doc[0:0])
     end
     c = pc.key()
   end
@@ -849,7 +894,7 @@ update* :: proc()
     follow()
   end
   if pressed & 32 != 0
-    back()
+    move(-1)
   end
   held = bits
 end
@@ -913,7 +958,7 @@ draw* :: proc()
   if message.len() > 0
     pc.print(message[0:message.len()].asString(), 2, 231, 9)
   else
-    pc.print("Tab link  Enter open  Bksp back  ^O contents", 2, 231, 5)
+    pc.print("Tab link  Enter open  Alt+arrows back fwd up", 2, 231, 5)
   end
 end
 
@@ -929,3 +974,5 @@ end
 if topicLen == 0 or not open(topic[0:hash], topic[min(hash + 1, topicLen):topicLen])
   ok := open(doc[0:0], doc[0:0])
 end
+ok := histName[0].pushAll(doc[0:doc.len()]) # (where it's been: here)
+histLen = 1

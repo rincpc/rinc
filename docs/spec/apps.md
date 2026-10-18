@@ -170,7 +170,9 @@ tables of contents are.
 
 The help app shows a text with its headings, lists, tables, code and links: up and down, Page Up and
 Down scroll, Tab and Shift+Tab pick a link and Enter follows it (to another text, or a heading in one),
-Backspace or Esc comes back, and Ctrl+O shows the contents.
+Backspace or Esc (or Alt+Left) goes back and Alt+Right forward, along the last 32 places, Alt+Up goes
+up to a text's contents (its set's `SUMMARY`, then all of them), and Ctrl+O shows all the contents. A
+controller's d-pad scrolls, LB and RB (or left and right) pick links, A follows and B goes back.
 
 ## The editor
 

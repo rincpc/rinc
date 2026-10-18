@@ -781,8 +781,13 @@ int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const 
   return 0;
 }
 int rinc_gameFrame(rio_Vm *vm) {
+  static uint16_t wasButtons;
   int res;
   float t0;
+  uint16_t pressed = (uint16_t)(rinc_buttons & ~wasButtons);
+  wasButtons = rinc_buttons;
+  if (pressed & rinc_Button_rb) rinc_textKey(9); /* (a controller's RB and LB type Tab and Shift+Tab too) */
+  if (pressed & rinc_Button_lb) rinc_textKey(9 | rinc_Mod_shift);
   if (!rinc_game) return 1;
   t0 = rinc_time ? rinc_time() : 0;
   res = rinc_frame(vm);
