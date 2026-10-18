@@ -19,5 +19,5 @@ So is the console (`system/console.rio`): it runs the Rio you type in a session 
 apps with `pc.appSource`, `pc.appSave` and `pc.appDelete`. And so is the editor (`system/edit.rio`), which
 opens, saves and runs apps with the same procs.
 
-The system key with Esc always goes home: Windows+Esc, a controller's Xbox+Back, or Shift tapped twice
-and then Esc.
+The system key with Esc always goes home: Windows+Esc, a controller's Xbox+Back, or Ctrl and Shift
+tapped together and then Esc.

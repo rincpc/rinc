@@ -102,8 +102,12 @@ static bool rinc_pixelsNext; /* posted an active line's commands; its pixels com
 volatile uint32_t rinc_frames;
 
 static void __scratch_x("") rinc_convert(int y) {
-  const uint8_t *s = rinc_overlayOn && y >= rinc_H - rinc_OVERLAY_H ? rinc_overlay[y - (rinc_H - rinc_OVERLAY_H)] : shown[y]; /* (the system overlay, over the bottom) */
-  uint32_t *d = rinc_line[y & 1]; int x;
+  const uint8_t *s = shown[y]; uint32_t *d = rinc_line[y & 1]; int x;
+  if (rinc_overlayOn && y >= rinc_H - rinc_OVERLAY_H) { /* (the overlay, over the bottom rows: where it isn't see-through) */
+    const uint8_t *o = rinc_overlay[y - (rinc_H - rinc_OVERLAY_H)];
+    for (x = 0; x < rinc_W; x++) d[x] = rinc_palette[o[x] != rinc_SEE_THROUGH ? o[x] : s[x]];
+    return;
+  }
   for (x = 0; x < rinc_W; x += 4) {
     d[x] = rinc_palette[s[x]]; d[x + 1] = rinc_palette[s[x + 1]]; d[x + 2] = rinc_palette[s[x + 2]]; d[x + 3] = rinc_palette[s[x + 3]];
   }

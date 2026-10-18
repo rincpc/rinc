@@ -55,8 +55,25 @@ static void rinc_hostPrint(rio_Vm *v, rio_Val *a) { /* print(s, x, y, c): text a
 #define rinc_TEXT_CAP 64
 typedef struct { uint16_t q[rinc_TEXT_CAP]; int head, tail, esc, escn, escp[3]; } rinc_Text;
 static rinc_Text rinc_typed, rinc_nestTyped;
+/* the modifiers locked (tapped twice: rinc_systemKey), as rinc_Mod_* bits; what they do to a key typed:
+   Shift capitalizes letters, Ctrl makes a letter Ctrl+letter, and on a key that isn't a character each
+   adds its bit (as held ones do: Enter and Backspace take no Shift, Esc nothing) */
+static int rinc_locks;
+static int rinc_locked(int c) {
+  int lowered = c >= 'A' && c <= 'Z' ? c + 32 : c;
+  if (!rinc_locks || c == 27) return c;
+  if (lowered >= 'a' && lowered <= 'z' && c < 128) {
+    if (rinc_locks & rinc_Mod_ctrl) return (lowered - 'a' + 1) | (rinc_locks & (rinc_Mod_shift | rinc_Mod_alt));
+    return rinc_locks & rinc_Mod_shift ? lowered - 32 : c;
+  }
+  if (c >= 32 && c < 127) return c; /* (other characters: as typed) */
+  if ((c & 255) == 13 || (c & 255) == 8) return c | (rinc_locks & ~rinc_Mod_shift);
+  if ((c & 255) >= 1 && (c & 255) <= 26 && (c & 255) != 9) return c | (rinc_locks & ~rinc_Mod_ctrl); /* (Ctrl+letter says Ctrl) */
+  return c | rinc_locks;
+}
 static void rinc_queue(rinc_Text *t, int c) {
   int next = (t->head + 1) % rinc_TEXT_CAP;
+  if (t == &rinc_typed) c = rinc_locked(c);
   if (next != t->tail) { t->q[t->head] = (uint16_t)c; t->head = next; }
 }
 static int rinc_dequeue(rinc_Text *t) {
@@ -497,11 +514,31 @@ static void rinc_perfNote(float ms) { rinc_frameMs[rinc_frameAt++ & 255] = ms; }
 
 static int rinc_switching, rinc_pick; /* the switcher (Sys+Tab) is up, and which recent app it's on */
 
-/* the overlay: the switcher, else the system key's combinations, else the performance strip */
-static void rinc_overlayDraw(void) {
+static int rinc_sysLock; /* Ctrl+Shift tapped: the system key, for the next combination */
+int rinc_fullscreen;      /* Sys+Enter asked for the screen to fill the display, or not (rinc.h) */
+
+/* the locks on, as badges at the bottom right */
+static void rinc_badges(void) {
+  static const char *const names[4] = {"SYS", "ALT", "CTRL", "SHIFT"};
+  int on[4], i, x = rinc_W - 2, y;
+  on[0] = rinc_sysLock; on[1] = rinc_locks & rinc_Mod_alt; on[2] = rinc_locks & rinc_Mod_ctrl; on[3] = rinc_locks & rinc_Mod_shift;
+  for (i = 0; i < 4; i++) {
+    int w = (int)strlen(names[i]) * 6 + 3;
+    if (!on[i]) continue;
+    x -= w;
+    for (y = 1; y < rinc_OVERLAY_H; y++) memset(&rinc_overlay[y][x], i ? 2 : 10, (size_t)w);
+    rinc_overlayText(names[i], x + 2, i ? 7 : 0);
+    x -= 2;
+  }
+}
+
+/* the overlay: the switcher, else the system key's combinations, else the performance strip (strip: one
+   of those, across the bottom), and any locks; where there's no strip, the screen shows through */
+static void rinc_overlayDraw(int strip) {
   int x, i;
-  memset(rinc_overlay, 0, sizeof rinc_overlay);
-  if (rinc_switching) {
+  memset(rinc_overlay, strip ? 0 : rinc_SEE_THROUGH, sizeof rinc_overlay);
+  if (!strip) {
+  } else if (rinc_switching) {
     memset(rinc_overlay[0], 12, rinc_W); /* (a blue edge) */
     x = rinc_overlayText("SWITCH", 4, 12) + 12;
     for (i = 0; i < rinc_recentCount && x < rinc_W; i++) {
@@ -512,9 +549,8 @@ static void rinc_overlayDraw(void) {
     }
   } else if (rinc_systemDown) {
     memset(rinc_overlay[0], 10, rinc_W); /* (a yellow edge) */
-    x = rinc_overlayText("SYSTEM", 4, 10);
-    rinc_overlayText("Esc home  Tab switch  Q back  P perf", x + 12, 7);
-  } else if (rinc_perfOn) { /* the latest frame's time, then a bar a frame, the newest at the right: 8 high is 1/60 s */
+    rinc_overlayText("Esc home Tab switch Q back P perf Enter full", 2, 7);
+  } else { /* the performance strip: the latest frame's time, then a bar a frame, the newest at the right: 8 high is 1/60 s */
     char text[24]; float ms = rinc_frameMs[(rinc_frameAt - 1) & 255];
     int pct = (int)(ms * 6.0f + 0.5f); /* (of 16.67 ms) */
     memset(rinc_overlay[0], 5, rinc_W);
@@ -532,57 +568,62 @@ static void rinc_overlayDraw(void) {
       if (h < 8 && x % 2 == 0) rinc_overlayDot(x, rinc_OVERLAY_H - 9, 5); /* (the budget's line) */
     }
   }
+  rinc_badges();
 }
 
-/* the system key's combinations, each frame (rinc.h). shift: Shift as the system key: tapped (pressed
-   and let go with nothing else), then pressed again within 0.4 s: the system key while it's held, and for
-   0.7 s after it's let go (so Esc can come after, as browsers keep Shift+Esc). 0 nothing yet, 1 the
-   tap's press, 2 tapped, 3 held as the system key, 4 let go, still the system key for the next key */
-int rinc_systemKey(int sysDown, int shiftDown, int otherDown, int keys) {
-  static int shift, frames, wasShift, wasKeys, held, idle;
-  int pressed = keys & ~wasKeys, go = 0;
-  if (frames < 1000) frames++;
+/* the system key's combinations and the locks, each frame (rinc.h). A press of modifiers alone (nothing
+   else down in it), let go within 0.4 s, is a tap: Shift, Ctrl or Alt tapped twice in a row locks it,
+   and a tap unlocks it; Ctrl and Shift tapped together lock the system key, for the next combination */
+int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
+  static int now, down, seen, spoiled, startAt, lastTap, lastTapAt, again, wasKeys, wasOther, held;
+  int pressed = keys & ~wasKeys, otherPressed = otherDown && !wasOther, go = 0, strip;
+  now++;
   wasKeys = keys;
-  if (rinc_switching) { /* Tab and Shift+Tab move; letting go of a held system key, Enter, or a second untouched switch; Esc doesn't */
+  wasOther = otherDown;
+  mods &= 7; /* (1 Shift, 2 Ctrl, 4 Alt) */
+  if (mods && !down) { down = 1; seen = spoiled = 0; startAt = now; again = lastTap && now - lastTapAt <= 24; }
+  if (down) {
+    seen |= mods;
+    if (otherDown || keys) spoiled = 1;
+    if (!mods) { /* let go: a tap? */
+      int bit = seen == 1 ? rinc_Mod_shift : seen == 2 ? rinc_Mod_ctrl : seen == 4 ? rinc_Mod_alt : 0;
+      down = 0;
+      if (spoiled || now - startAt > 24) lastTap = 0;
+      else if (seen == 3) { rinc_sysLock = !rinc_sysLock; lastTap = 0; }
+      else if (bit && (rinc_locks & bit)) { rinc_locks &= ~bit; lastTap = 0; }
+      else if (bit && again && lastTap == seen) { rinc_locks |= bit; lastTap = 0; }
+      else { lastTap = bit ? seen : 0; lastTapAt = now; }
+    }
+  } else if (otherDown || keys) lastTap = 0; /* (typing between taps) */
+  if (rinc_switching) { /* Tab and Shift+Tab move; letting go of a held system key, or Enter, switches; Esc doesn't (no time limits) */
     int n = rinc_recentCount;
-    idle++;
     if ((pressed & (rinc_SysKey_tab | rinc_SysKey_next | rinc_SysKey_prev)) && n > 0) {
-      int back = (pressed & rinc_SysKey_prev) || ((pressed & rinc_SysKey_tab) && shiftDown && shift != 3);
+      int back = (pressed & rinc_SysKey_prev) || ((pressed & rinc_SysKey_tab) && (mods & 1));
       rinc_pick = (rinc_pick + (back ? n - 1 : 1)) % n;
-      idle = 0;
     }
     if (pressed & rinc_SysKey_esc) rinc_switching = 0;
-    else if ((pressed & rinc_SysKey_enter) || (held && !sysDown && !(shiftDown && shift == 3)) || (!held && idle > 60)) {
+    else if ((pressed & rinc_SysKey_enter) || (held && !sysDown)) {
       rinc_switching = 0;
       if (rinc_pick > 0 && rinc_pick < n) { snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recent[rinc_pick]); go = 1; }
     }
-    if (!rinc_switching) shift = 0;
-    wasShift = shiftDown;
-    rinc_systemDown = rinc_switching || sysDown;
-  } else {
-    if (shiftDown && !wasShift) { shift = shift == 2 && frames <= 24 ? 3 : 1; frames = 0; }
-    else if (!shiftDown && wasShift) { shift = shift == 1 && frames <= 24 ? 2 : shift == 3 ? 4 : 0; frames = 0; }
-    else if (shift == 1 && otherDown) shift = 0; /* (Shift held for typing capitals) */
-    else if (shift == 4 && ((otherDown && !keys) || frames > 42)) shift = 0; /* (another key, or too late) */
-    wasShift = shiftDown;
-    rinc_systemDown = sysDown || shift >= 3;
-    if (rinc_systemDown && pressed) { /* (alone, the system key does nothing, so it isn't pressed by accident) */
-      if (pressed & rinc_SysKey_esc) { snprintf(rinc_launchName, sizeof rinc_launchName, "home"); go = 1; }
-      else if ((pressed & (rinc_SysKey_tab | rinc_SysKey_next | rinc_SysKey_prev)) && rinc_recentCount > 1) {
-        int back = (pressed & rinc_SysKey_prev) || ((pressed & rinc_SysKey_tab) && shiftDown && sysDown); /* (Shift+Tab, with the Windows key or guide) */
-        rinc_switching = 1; rinc_pick = back ? rinc_recentCount - 1 : 1; idle = 0;
-        held = sysDown || shift == 3;
-      } else if (pressed & rinc_SysKey_q) { /* back to the app before, this one forgotten */
-        rinc_recentDrop(0);
-        snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recentCount ? rinc_recent[0] : "home");
-        go = 1;
-      } else if (pressed & rinc_SysKey_p) rinc_perfOn = !rinc_perfOn;
-      if (shift == 4 && !rinc_switching) shift = 0;
-      rinc_systemDown = sysDown || shift >= 3 || rinc_switching;
-    }
-  }
+  } else if ((sysDown || rinc_sysLock) && pressed) { /* (alone, the system key does nothing, so it isn't pressed by accident) */
+    if (pressed & rinc_SysKey_esc) { snprintf(rinc_launchName, sizeof rinc_launchName, "home"); go = 1; }
+    else if ((pressed & (rinc_SysKey_tab | rinc_SysKey_next | rinc_SysKey_prev)) && rinc_recentCount > 1) {
+      int back = (pressed & rinc_SysKey_prev) || ((pressed & rinc_SysKey_tab) && (mods & 1));
+      rinc_switching = 1; rinc_pick = back ? rinc_recentCount - 1 : 1;
+      held = sysDown;
+    } else if (pressed & rinc_SysKey_q) { /* back to the app before, this one forgotten */
+      rinc_recentDrop(0);
+      snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recentCount ? rinc_recent[0] : "home");
+      go = 1;
+    } else if (pressed & rinc_SysKey_p) rinc_perfOn = !rinc_perfOn;
+    else if (pressed & rinc_SysKey_enter) rinc_fullscreen = !rinc_fullscreen;
+    rinc_sysLock = 0; /* (used up) */
+  } else if (rinc_sysLock && otherPressed && !down) rinc_sysLock = 0; /* (another key: no combination) */
+  rinc_systemDown = sysDown || rinc_sysLock || rinc_switching;
+  strip = !go && (rinc_systemDown || rinc_perfOn);
   rinc_overlayOn = 0; /* (while it's redrawn) */
-  if (!go && (rinc_systemDown || rinc_switching || rinc_perfOn)) { rinc_overlayDraw(); rinc_overlayOn = 1; }
+  if (strip || rinc_locks || rinc_sysLock) { rinc_overlayDraw(strip); rinc_overlayOn = 1; }
   return go;
 }
 

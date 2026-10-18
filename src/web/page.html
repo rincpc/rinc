@@ -129,7 +129,7 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
   addEventListener("keydown", startAudio); addEventListener("pointerdown", startAudio);
   // btn: arrows, then A (V), B (C), X (X), Y (Z)
   const keys = { ArrowLeft: 1, ArrowRight: 2, ArrowUp: 4, ArrowDown: 8, KeyV: 16, KeyC: 32, KeyX: 64, KeyZ: 128 };
-  let buttons = 0, next = performance.now();
+  let buttons = 0, next = performance.now(), wantFull = 0;
   // a controller, in the browser's standard layout (Xbox's): its buttons as Rinc's, sticks and triggers
   const padBits = [16, 32, 64, 128, 256, 512, 0, 0, 8192, 4096, 1024, 2048, 4, 8, 1, 2];
   const pad = { back: false, guide: false };
@@ -145,12 +145,13 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
   };
   // key(): typing, and the keys that aren't characters (editing keys, Tab, Enter, Backspace, Ctrl+letter)
   // with the modifiers held, as bits: 256 Shift, 512 Ctrl, 1024 Alt (Enter and Backspace without Shift,
-  // Esc without any); and the keys held, for the system key (Shift tapped twice, then Esc: home)
+  // Esc without any); and the keys held, for the system key and the locks
   const editing = { ArrowLeft: 128, ArrowRight: 129, ArrowUp: 130, ArrowDown: 131, Home: 132, End: 133, Delete: 134, PageUp: 135, PageDown: 136, Tab: 9, Enter: 13, Backspace: 8 };
   const held = new Set();
   addEventListener("keydown", e => {
     held.add(e.code);
     if (keys[e.code]) { buttons |= keys[e.code]; e.preventDefault(); }
+    if (e.key === "Alt") { e.preventDefault(); return; } // (Alt is Rinc's: tapped twice, a lock; not the browser's menus)
     const mods = (e.shiftKey ? 256 : 0) | (e.ctrlKey ? 512 : 0) | (e.altKey ? 1024 : 0);
     if (e.key === "Escape") { ex.key(27); return; }
     if (editing[e.key] && !e.metaKey) {
@@ -162,11 +163,13 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     const c = e.key.length === 1 ? e.key.charCodeAt(0) : 0;
     if (c && c < 127 && !e.ctrlKey && !e.metaKey) ex.typed(c);
   });
-  addEventListener("keyup", e => { held.delete(e.code); if (keys[e.code]) buttons &= ~keys[e.code]; });
+  addEventListener("keyup", e => { held.delete(e.code); if (keys[e.code]) buttons &= ~keys[e.code]; if (e.key === "Alt") e.preventDefault(); });
   addEventListener("blur", () => { buttons = 0; held.clear(); });
   const systemKeys = pad => {
-    const shift = held.has("ShiftLeft") || held.has("ShiftRight"), other = [...held].some(k => !k.startsWith("Shift"));
-    return (shift ? 1 : 0) | (other ? 2 : 0) | (held.has("Escape") || pad.back ? 4 : 0) | (pad.guide ? 8 : 0) |
+    const has = k => held.has(k + "Left") || held.has(k + "Right");
+    const other = [...held].some(k => !/^(Shift|Control|Alt|Meta)/.test(k));
+    return (has("Shift") ? 1 : 0) | (other ? 2 : 0) | (held.has("Escape") || pad.back ? 4 : 0) | (pad.guide ? 8 : 0) |
+      (has("Control") ? 256 : 0) | (has("Alt") ? 512 : 0) |
       (held.has("Tab") ? 16 : 0) | (held.has("KeyQ") ? 32 : 0) | (held.has("KeyP") ? 64 : 0) | (held.has("Enter") || held.has("NumpadEnter") ? 128 : 0);
   };
   const tick = now => {
@@ -178,6 +181,8 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
       if (now - next > 100) next = now;
     }
     if (node) feed();
+    if (ex.fullscreen() !== wantFull && (wantFull = ex.fullscreen()) !== +!!document.fullscreenElement) // (Sys+Enter, as it changes)
+      (wantFull ? document.documentElement.requestFullscreen() : document.exitFullscreen()).catch(() => {});
     draw();
     requestAnimationFrame(tick);
   };

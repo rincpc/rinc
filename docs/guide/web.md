@@ -18,8 +18,9 @@ rinc system/home.rio system/console.rio apps/*.rio -home home -name rinc -web ri
 
 is the whole Rinc, as on the Fruit Jam. [Storage](../spec/apps.md#storage) is the browser's
 localStorage, under the bundle's storage name, so what's saved stays in that browser, for pages from the
-same site (or, from disk, the same folder). Shift tapped twice and then Esc goes home (a browser keeps
-Shift+Esc for itself, so the second tap needn't be held); on a controller it's the guide button and Back.
+same site (or, from disk, the same folder). Ctrl and Shift tapped together, and then Esc, goes home; on
+a controller it's the guide button and Back. The page keeps a lone Alt from the browser's menus, as Alt
+tapped twice is Rinc's Alt lock.
 
 ## The two players
 

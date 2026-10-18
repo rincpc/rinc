@@ -31,17 +31,18 @@ static rio_Vm rinc_vm;
 static void rinc_put(const char *s, int n) { fwrite(s, 1, (size_t)n, stdout); fflush(stdout); }
 #define rinc_DOWN(k) (rinc_keysDown[(k) >> 3] >> ((k) & 7) & 1)
 
-/* the system key (rinc_systemKey): the Windows key, a controller's Xbox button, or Shift tapped
-   twice. With Esc (or the controller's Back), Tab, Q or P: 1 to start rinc_launchName */
+/* the system key (rinc_systemKey): the Windows key, a controller's Xbox button, or Ctrl and Shift tapped
+   together; and the locks. With Esc (or the controller's Back), Tab, Q, P or Enter: 1 to start
+   rinc_launchName */
 static int rinc_systemKeys(void) {
-  int k, other = rinc_padButtons != 0;
+  int k, other = rinc_padButtons != 0, m = rinc_keysDown[0xE0 >> 3]; /* (the modifiers: Ctrl Shift Alt GUI, left then right) */
+  int mods = (m & 0x22 ? 1 : 0) | (m & 0x11 ? 2 : 0) | (m & 0x44 ? 4 : 0);
   int keys = (rinc_DOWN(HID_KEY_ESCAPE) || (rinc_padButtons & rinc_Button_back) ? rinc_SysKey_esc : 0) | (rinc_DOWN(HID_KEY_TAB) ? rinc_SysKey_tab : 0) |
              (rinc_DOWN(HID_KEY_Q) ? rinc_SysKey_q : 0) | (rinc_DOWN(HID_KEY_P) ? rinc_SysKey_p : 0) |
              (rinc_DOWN(HID_KEY_ENTER) || rinc_DOWN(HID_KEY_KEYPAD_ENTER) ? rinc_SysKey_enter : 0) |
              (rinc_padButtons & rinc_Button_rb ? rinc_SysKey_next : 0) | (rinc_padButtons & rinc_Button_lb ? rinc_SysKey_prev : 0);
-  for (k = 0; k < 32; k++) other |= k == (0xE0 >> 3) ? rinc_keysDown[k] & ~0xAA : rinc_keysDown[k]; /* (all but Shift and GUI: E1 E3 E5 E7) */
-  return rinc_systemKey(rinc_DOWN(HID_KEY_GUI_LEFT) || rinc_DOWN(HID_KEY_GUI_RIGHT) || rinc_padGuide,
-                        rinc_DOWN(HID_KEY_SHIFT_LEFT) || rinc_DOWN(HID_KEY_SHIFT_RIGHT), other, keys);
+  for (k = 0; k < 32; k++) if (k != (0xE0 >> 3)) other |= rinc_keysDown[k]; /* (all but the modifiers) */
+  return rinc_systemKey(rinc_DOWN(HID_KEY_GUI_LEFT) || rinc_DOWN(HID_KEY_GUI_RIGHT) || rinc_padGuide, mods, other, keys);
 }
 
 /* an app's source: from the SD card (read into the app space's top), or else the firmware's bundle.
