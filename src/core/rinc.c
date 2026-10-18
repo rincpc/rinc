@@ -475,30 +475,61 @@ static void rinc_hostSaveDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_savePath(v, a, path, sizeof path);
   a[0].i = named && rinc_fs && !rinc_fs->remove(path) ? 0 : -1;
 }
-/* an app's stash, /rinc/stash/<app>: what it keeps of where it was, for its next start (a place, a
-   draft), written as it goes; Rinc clears it, where its save space only the app does (Sys+Q, Sys+R).
-   stashWrite(data) -> Int: 0, or -1; stashRead(out) -> Int: as much as fits, and its whole length, or
-   -1 if there's none */
-static void rinc_stashPath(const char *app, char *path, size_t cap) { snprintf(path, cap, "/rinc/stash/%s", app); }
+/* an app's stash, /rinc/stash/<app>/<key>: what it keeps of where it was, for its next start (a place,
+   a draft, something slow to make again), under keys of its own, written as it goes. Rinc drops it all,
+   where its save space only the app changes (Sys+Q, Sys+R). stashWrite(key, data) -> Int: 0, or -1;
+   stashRead(key, out) -> Int: as much as fits, and its whole length, or -1 if there's none;
+   stashDelete(key) -> Int: 0, or -1. Keys are named as save files are */
+static int rinc_stashPath(rio_Vm *v, rio_Val *key, char *path, size_t cap) {
+  char own[33];
+  return rinc_argName(v, key, own, 1) && snprintf(path, cap, "/rinc/stash/%s/%s", rinc_appNow, own) < (int)cap;
+}
+static char rinc_stashGone[96];
+static void rinc_stashFound(const char *name, int dir, void *ud) {
+  char path[160];
+  (void)ud;
+  if (dir) return;
+  snprintf(path, sizeof path, "%s/%.63s", rinc_stashGone, name);
+  rinc_fs->remove(path);
+}
 void rinc_stashDrop(const char *app) {
-  char path[96];
-  rinc_stashPath(app, path, sizeof path);
-  if (rinc_fs) rinc_fs->remove(path);
+  if (!rinc_fs) return;
+  snprintf(rinc_stashGone, sizeof rinc_stashGone, "/rinc/stash/%.32s", app);
+  rinc_fs->list(rinc_stashGone, rinc_stashFound, 0);
+  rinc_fs->remove(rinc_stashGone); /* (the folder, empty now) */
 }
 static void rinc_hostStashWrite(rio_Vm *v, rio_Val *a) {
-  const char *data = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u, bad; char path[96];
-  rinc_stashPath(rinc_appNow, path, sizeof path);
-  a[0].i = -1; /* (after the data's read: it was there) */
-  if (!rinc_fs || rinc_fs->open(path, 1)) return;
-  bad = n > 0 && (!data || rinc_fs->write(data, n) != n);
-  a[0].i = rinc_fs->close() || bad ? -1 : 0;
+  char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
+  if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
 }
 static void rinc_hostStashRead(rio_Vm *v, rio_Val *a) {
-  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a); uint32_t cap = a[1].u, total;
-  rinc_stashPath(rinc_appNow, path, sizeof path);
-  a[0].i = !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
+  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_stashPath(v, a, path, sizeof path);
+  a[0].i = named && !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
 }
-
+static void rinc_hostStashDelete(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
+  a[0].i = named && rinc_fs && !rinc_fs->remove(path) ? 0 : -1;
+}
+/* boot() -> Int: how many times this Rinc has started (kept in /rinc/boot), counted the first time an
+   app asks after each start: so an app can tell a restart from just being opened again (0: no storage) */
+static int rinc_bootNow = -1;
+static void rinc_hostBoot(rio_Vm *v, rio_Val *a) {
+  (void)v;
+  if (rinc_bootNow < 0) {
+    char text[16]; uint32_t total; int k;
+    rinc_bootNow = 0;
+    if (rinc_fs) {
+      if (!rinc_readFile("/rinc/boot", text, sizeof text - 1, &total) && total < sizeof text) {
+        text[total] = 0;
+        for (k = 0; text[k] >= '0' && text[k] <= '9'; k++) rinc_bootNow = rinc_bootNow * 10 + text[k] - '0';
+      }
+      rinc_bootNow++;
+      k = snprintf(text, sizeof text, "%d", rinc_bootNow);
+      if (rinc_fs->open("/rinc/boot", 1) || rinc_fs->write(text, k) != k || rinc_fs->close()) rinc_bootNow = 0;
+    }
+  }
+  a[0].i = rinc_bootNow;
+}
 /* Rio inside an app (docs/spec/rio.md): one session at a time, a REPL in memory the app hands over.
    rioStart(mem, tables) -> Int: a fresh one, its code and data in mem and its compiler's tables in
    tables (0, or -1); rioEval(text) -> Int: compile and run a piece (0 done, 1 unfinished: it needs more,
@@ -782,7 +813,8 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.helps", ">i", rinc_hostHelps) || rio_addFfi(vm, "pc.helpName", "ib>i", rinc_hostHelpName) ||
          rio_addFfi(vm, "pc.helpRead", "sb>i", rinc_hostHelpRead) || rio_addFfi(vm, "pc.help", "s", rinc_hostHelp) ||
          rio_addFfi(vm, "pc.helpTopic", "b>i", rinc_hostHelpTopic) ||
-         rio_addFfi(vm, "pc.stashWrite", "s>i", rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", "b>i", rinc_hostStashRead) ||
+         rio_addFfi(vm, "pc.stashWrite", "ss>i", rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", "sb>i", rinc_hostStashRead) ||
+         rio_addFfi(vm, "pc.stashDelete", "s>i", rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", ">i", rinc_hostBoot) ||
          rio_addFfi(vm, "pc.saveRead", "sb>i", rinc_hostSaveRead) || rio_addFfi(vm, "pc.saveWrite", "ss>i", rinc_hostSaveWrite) ||
          rio_addFfi(vm, "pc.saveDelete", "s>i", rinc_hostSaveDelete) || rio_addFfi(vm, "pc.rioStart", "bb>i", rinc_hostRioStart) ||
          rio_addFfi(vm, "pc.rioEval", "s>i", rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", ">i", rinc_hostRioFrame) ||

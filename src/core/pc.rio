@@ -73,12 +73,14 @@ saveRead* :: @host proc(file: String, out: Blob) -> Int
 saveWrite* :: @host proc(file: String, data: String) -> Int  # 0, or -1
 saveDelete* :: @host proc(file: String) -> Int               # 0, or -1
 
-# ---------------------------------------------------------------- this app's stash: /rinc/stash/<app>
+# ---------------------------------------------------------------- this app's stash: /rinc/stash/<app>/<key>
 
-# what an app keeps of where it was, for its next start, written as it goes; Rinc drops it on Sys+Q and
-# Sys+R, where it never touches the save space
-stashWrite* :: @host proc(data: String) -> Int               # 0, or -1
-stashRead* :: @host proc(out: Blob) -> Int                   # as much as fits: its whole length, or -1 for none
+# what an app keeps of where it was, for its next start, under keys of its own (named as save files are),
+# written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space
+stashWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
+stashRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1 for none
+stashDelete* :: @host proc(key: String) -> Int               # 0, or -1
+boot* :: @host proc() -> Int                                 # how many times this Rinc has started (0: no storage)
 
 # ---------------------------------------------------------------- Rio inside an app: a session
 

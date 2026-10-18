@@ -1,8 +1,8 @@
 # Help
 
-Help (`system/help/help.rio`, built into the Fruit Jam's firmware) reads the help texts a Rinc has: Rinc's
-docs and Rio's, these pages among them, and any app's own. It starts where it was last, or with the
-contents: a list of the sets of texts, each by its own table of contents.
+Help (`system/help/help.rio`, built into the Fruit Jam's firmware) reads the help texts a Rinc has:
+Rinc's docs and Rio's, these pages among them, and any app's own. It starts where it was last, or with
+the contents: a list of the sets of texts, each by its own table of contents.
 
 ## Moving about
 
@@ -20,7 +20,8 @@ With a controller, the d-pad scrolls, LB and RB (or left and right) pick links, 
 goes back. Links to web pages show where they go but don't open.
 
 Help remembers the last 32 places it's been, back and forward, and where it was in each, through a
-restart: that's its stash, which the system key with R drops, to start over.
+restart; and its contents page, made again when an app comes or goes. That's its stash, which the system
+key with R drops, to start over, finding any help texts changed since.
 
 ## Help texts
 

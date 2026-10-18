@@ -1,4 +1,4 @@
-# The editor
+# Editor
 
 The editor (`system/edit/edit.rio`, built into the Fruit Jam's firmware) edits an app's source: one at a
 time, up to 32 KB, with the keys of most editors. It starts with the app it had last, where it was.

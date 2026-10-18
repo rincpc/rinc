@@ -500,7 +500,7 @@ histName: [32]Blob[..64] # where it's been, as a browser keeps it: back and forw
 histTop: [32]Int
 histLen := 0
 histAt := 0
-place: Blob[..4096]    # (where it's been, as text, saved for next time)
+place: Blob[..6144]    # (where it's been, and the contents kept, as text: its stash)
 placeDirty := false    # (to be saved: right away, or a second after scrolling stops)
 placeWait := 0        # (frames till it's saved: 60, a second, after scrolling)
 placeTop := 0
@@ -568,10 +568,41 @@ end
 setName: Blob[..64]
 summary: Blob[..80]
 readme: Blob[..80]
+head: Blob[80]
 
-# the contents, as Markdown: each set of texts (the first part of their names), by its SUMMARY if it
-# has one, else each of its texts; then the texts in no set
-contents :: proc()
+# the set's title: its README's first line, if that's a heading, else the set's name
+addTitle :: proc()
+  n := min(pc.helpRead(readme[0:readme.len()].asString(), head[:]), 80)
+  if n > 2 and head[0] == 35 and head[1] == 32
+    e := 2
+    for e < n and head[e] != 10 and head[e] != 13
+      e += 1
+    end
+    addSrcBlob(head[2:e])
+  else
+    addSrcBlob(setName[0:setName.len()])
+  end
+end
+
+# the contents page, kept in the stash as "contents" with the start of the Rinc (pc.boot) and the apps it
+# was made for: made again when either changes, or after the system key with R drops the stash. Kept as
+# the boot's number, a line, the apps, a line, then the page
+kept: Blob[..3072]
+keptApps: Blob[..1024]
+keptBoot := -1
+keptText: Blob[..4352]
+appsNow: Blob[..1024]
+appName: Blob[32]
+listApps :: proc()
+  appsNow.clear()
+  for i in 0..<pc.apps()
+    n := min(pc.appName(i, appName[:]), 32)
+    ok := appsNow.pushAll(appName[0:n])
+    ok = appsNow.push(44)
+  end
+end
+
+makeContents :: proc()
   srcLen = 0
   nameCount = min(pc.helps(), 128)
   at := 0
@@ -606,15 +637,15 @@ contents :: proc()
       readme.clear()
       ok = readme.pushAll(setName[0:setName.len()])
       ok = readme.pushAll("/README")
-      if hasName(summary[0:summary.len()].asString())
+      if hasName(summary[0:summary.len()].asString()) # (a set with a SUMMARY, or a README: by its title)
         addSrc("- [")
-        addSrcBlob(setName[0:setName.len()])
+        addTitle()
         addSrc("](")
         addSrcBlob(summary[0:summary.len()])
-        addSrc("): its contents\n")
-      case hasName(readme[0:readme.len()].asString()) # (a set with a README: by its name, the README first)
+        addSrc(")\n")
+      case hasName(readme[0:readme.len()].asString())
         addSrc("- [")
-        addSrcBlob(setName[0:setName.len()])
+        addTitle()
         addSrc("](")
         addSrcBlob(readme[0:readme.len()])
         addSrc(")\n")
@@ -647,6 +678,59 @@ contents :: proc()
   if nameCount == 0
     addSrc("No help texts here yet. They go in storage as /rinc/help/name.md.\n")
   end
+end
+
+# the contents, as Markdown: each set of texts (the first part of their names), by its title (its
+# README's heading), to its SUMMARY or README if it has one, else each of its texts; then the texts in
+# no set
+contents :: proc()
+  listApps()
+  if kept.len() == 0 and keptBoot < 0 # (the first time: what was kept, if anything)
+    keptBoot = 0
+    n := min(pc.stashRead("contents", keptText[0:0]), 4352)
+    if n > 0
+      for i in 0..<n
+        ok := keptText.push(0)
+      end
+      n = min(pc.stashRead("contents", keptText[0:n]), n)
+      k := 0
+      b := 0
+      for k < n and keptText[k] != 10
+        b = b * 10 + keptText[k] - 48
+        k += 1
+      end
+      k += 1
+      for k < n and keptText[k] != 10
+        ok := keptApps.push(keptText[k])
+        k += 1
+      end
+      k += 1
+      if k < n
+        ok := kept.pushAll(keptText[k:n])
+        keptBoot = b
+      end
+    end
+  end
+  if kept.len() > 0 and keptBoot == pc.boot() and keptApps[0:keptApps.len()].asString() == appsNow[0:appsNow.len()].asString()
+    srcLen = 0
+    addSrcBlob(kept[0:kept.len()])
+    return
+  end
+  makeContents()
+  kept.clear()
+  if srcLen <= 3072
+    ok := kept.pushAll(src[0:srcLen])
+  end
+  keptApps.clear()
+  ok := keptApps.pushAll(appsNow[0:appsNow.len()])
+  keptBoot = pc.boot()
+  keptText.clear()
+  ok = keptText.format(keptBoot)
+  ok = keptText.push(10)
+  ok = keptText.pushAll(keptApps[0:keptApps.len()])
+  ok = keptText.push(10)
+  ok = keptText.pushAll(kept[0:kept.len()])
+  ok = pc.stashWrite("contents", keptText[0:keptText.len()].asString()) == 0
 end
 
 # help text name, shown from row 0 (or its heading anchor): false if there's none
@@ -794,8 +878,9 @@ move :: proc(by: Int)
   placeWait = 0
 end
 
-# where it's been, kept in its stash for next time (Sys+R starts over): the place it's at, then each place's
-# scroll and name, a line each. Saved on going somewhere, and a second after scrolling stops
+# where it's been, kept in its stash as "place" for next time (Sys+R starts over): the place it's at,
+# then each place's scroll and name, a line each. Saved on going somewhere, and a second after scrolling
+# stops
 savePlace :: proc()
   histTop[histAt] = top
   place.clear()
@@ -806,13 +891,13 @@ savePlace :: proc()
     ok = place.pushAll(histName[i][0:histName[i].len()])
     ok = place.push(10)
   end
-  ok = pc.stashWrite(place[0:place.len()].asString()) == 0
+  ok = pc.stashWrite("place", place[0:place.len()].asString()) == 0
   placeDirty = false
 end
 
 # where it was last, from its save file: false if there's none to go back to
 restorePlace :: proc() -> Bool
-  n := min(pc.stashRead(place[0:0]), 4096)
+  n := min(pc.stashRead("place", place[0:0]), 6144)
   if n <= 0
     return false
   end
@@ -820,7 +905,7 @@ restorePlace :: proc() -> Bool
   for i in 0..<n
     ok := place.push(0)
   end
-  n = min(pc.stashRead(place[0:n]), n)
+  n = min(pc.stashRead("place", place[0:n]), n)
   at := 0
   k := 0
   for k < n and place[k] != 10
@@ -829,7 +914,7 @@ restorePlace :: proc() -> Bool
   end
   k += 1
   histLen = 0
-  for k < n and histLen < 32
+  for k < n and histLen < 32 and place[k] != 10
     t := 0
     for k < n and place[k] >= 48 and place[k] <= 57
       t = t * 10 + place[k] - 48

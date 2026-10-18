@@ -13,7 +13,7 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 /rinc/apps/chord/chord.rio    an app: a folder of its name, holding its Rio file of the same name
 /rinc/apps/chord/help/...     its help texts, Markdown (see help texts)
 /rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
-/rinc/stash/chord             where it was, for its next start (pc.stashRead): Rinc may drop it
+/rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
 /rinc/cache/chord/...         what it can make again: anything may clear it
 /rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
 ```
@@ -101,14 +101,17 @@ Where a Rinc has no storage, an app can't save: these give -1.
 ## Where an app was: its stash
 
 An app's stash is what it keeps of where it was, for its next start: the text it was showing, an
-unsaved draft. It writes it whenever it likes, as it goes. Unlike its save space, which only the app
-changes, the Rinc drops an app's stash when it's told to start the app afresh: the system key with R
+unsaved draft, something slow to make again. It keeps it under keys of its own (named as save files
+are), and writes it whenever it likes, as it goes. Unlike its save space, which only the app changes,
+the Rinc drops all of an app's stash when it's told to start the app afresh: the system key with R
 (this app again) or Q (back to the app before).
 
 | proc | |
 |---|---|
-| `pc.stashWrite(data) -> Int` | `data` becomes the stash: 0, or -1 |
-| `pc.stashRead(out) -> Int` | the stash, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.stashWrite(key, data) -> Int` | `data` becomes what's kept under `key`: 0, or -1 |
+| `pc.stashRead(key, out) -> Int` | what's kept under `key`, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
+| `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
 
 And what an app can always make again, it keeps in `/rinc/cache/<app>`, by convention: anything may
 clear that, at any time, and the app carries on, only slower.
