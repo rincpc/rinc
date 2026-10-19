@@ -1040,7 +1040,7 @@ end
 held := 0
 clicked := 0 # (the pointer's buttons, last frame)
 wasShown := 0
-pc.pointer(1)
+pc.pointer(pc.Pointer.ui)
 update* :: proc()
   c := pc.key()
   for c >= 0

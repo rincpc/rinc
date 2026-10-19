@@ -1,7 +1,7 @@
 # pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).
-# This is what pc is, written in rio. Rinc doesn't read it when running an app (the module comes from
-# what rinc_start registers), but the tests compile it against those registrations, so each
-# declaration's types are checked, and every host proc must be declared here.
+# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what
+# rinc_start registers, so each declaration's types are checked, every host proc must be declared here,
+# and the types they use (pc.Pointer) are here too. (Compiled images keep it, as part of the app.)
 
 # ---------------------------------------------------------------- the screen: 320x240, palette indexes
 
@@ -26,9 +26,13 @@ stick* :: @host proc(i: Int) -> Float
 trigger* :: @host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1
 time* :: @host proc() -> Float                       # seconds since start
 # the pointer, which Rinc draws while it's shown: a mouse moving it or pressing a button shows it; typing,
-# the arrows (the d-pad's too) and a controller's center buttons hide it. pointer(mode): 0 (each app starts so) a mouse's only, the left stick still the arrows; 1 a
-# controller's too: its left stick moves it, its right one scrolls, A and B are its buttons; 2 none
-pointer* :: @host proc(mode: Int)
+# the arrows (the d-pad's too) and a controller's center buttons hide it. What it's for, pointer(mode):
+Pointer* :: enum
+  game  # (each app starts so) a mouse's only: the left stick is still the arrows
+  ui    # a controller's too: its left stick moves it, its right one scrolls, A and B are its buttons
+  none  # never shown
+end
+pointer* :: @host proc(mode: Pointer)
 pointerX* :: @host proc() -> Int                     # where it points, in screen pixels
 pointerY* :: @host proc() -> Int
 pointerDown* :: @host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle

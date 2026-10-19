@@ -568,6 +568,7 @@ static int rinc_noCompiler(void) { return -1; }
 #define rio_replIndent(src, len) 0
 #define rio_compile(vm, src, len) rinc_noCompiler()
 #endif
+static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out); /* (pc.rio: below) */
 static void rinc_hostRioStart(rio_Vm *v, rio_Val *a) {
   uint8_t *mem = (uint8_t *)rio_sliceBytes(v, a), *tables = (uint8_t *)rio_sliceBytes(v, a + 2);
   a[0].i = -1;
@@ -575,6 +576,7 @@ static void rinc_hostRioStart(rio_Vm *v, rio_Val *a) {
   memset(&rinc_nestTyped, 0, sizeof rinc_nestTyped);
   if (v == &rinc_nest || !mem || !tables || rio_init(&rinc_nest, mem, a[1].u, 0, 0)) return;
   rio_setLog(&rinc_nest, rinc_nestLogLine, 0);
+  rio_setLoader(&rinc_nest, rinc_loader, 0); /* (pc as in an app: its types too) */
   if (rinc_hostProcs(&rinc_nest) || rio_autoImport(&rinc_nest, "pc") || rio_replBegin(&rinc_nest, tables, a[3].u, 0)) return;
   rinc_nestOn = 1; a[0].i = 0;
 }
@@ -631,12 +633,28 @@ static void rinc_logLine(void *ud, const char *s, int n) { (void)ud; rinc_out(s,
 /* the way home: on the screen (it's for whoever's looking at it), not in what's printed */
 static void rinc_back(void) { static const char s[] = "\r\n(Sys+Esc: back home)\r\n"; if (rinc_showLog) rinc_consolePut(s, (int)sizeof s - 1); }
 
+/* the modules Rinc has for apps: pc, from pc.rio, built in (its host procs, as declared, and its types).
+   (rinc/lib's to come) */
+#ifdef rio_NO_COMPILER
+static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) { (void)ud; (void)path; (void)kind; (void)out; return 1; } /* (images only) */
+#else
+extern const char rinc_pcSource[];
+extern const int rinc_pcSource_len;
+static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
+  (void)ud;
+  if (!(kind & rio_LoadKind_package) || strcmp(path, "pc")) return 1;
+  out->src = rinc_pcSource; out->len = (uint32_t)rinc_pcSource_len; out->isDir = 0; out->name = "pc.rio";
+  return 0;
+}
+#endif
+
 int rinc_start(rio_Vm *vm, void *mem, uint32_t memsize, void (*put)(const char *s, int n)) {
   rinc_put = put;
   rinc_initPalette();
   if (rio_init(vm, mem, memsize, 0, 0)) return -1; /* no code buffer: the code goes in mem too */
   rinc_audioReset();
   rio_setLog(vm, rinc_logLine, 0);
+  rio_setLoader(vm, rinc_loader, 0);
   if (rinc_hostProcs(vm) || rio_autoImport(vm, "pc")) return -1; /* (pc.cls and so on, everywhere) */
   memset(&rinc_typed, 0, sizeof rinc_typed);
   rinc_nestOn = rinc_nestTried = 0; /* (a session lives in an app's memory, which is starting over) */

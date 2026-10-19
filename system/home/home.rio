@@ -129,7 +129,7 @@ end
 
 clicked := 0 # (the pointer's primary button, last frame)
 wasShown := 0
-pc.pointer(1)
+pc.pointer(pc.Pointer.ui)
 update* :: proc()
   c := pc.key()
   for c >= 0

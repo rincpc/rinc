@@ -1155,7 +1155,7 @@ end
 # list of apps, a click opens one, and one outside it closes it; scrolling, three lines a step
 dragging := false
 clicked := 0
-pc.pointer(1)
+pc.pointer(pc.Pointer.ui)
 pointer :: proc()
   down := pc.pointerDown(0)
   px := pc.pointerX()

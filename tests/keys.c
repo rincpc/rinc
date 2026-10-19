@@ -167,7 +167,7 @@ int main(void) {
        (and isn't the arrows), A clicks, and the wheel's steps add up; the d-pad hides it, as typing does */
     static const char game[] =
       "update* :: proc()\n  log(pc.pointerX())\n  log(pc.pointerY())\n  log(pc.pointerDown(0))\n  log(pc.pointerShown())\n"
-      "  log(pc.scroll(1))\n  log(pc.btn(1))\n  for pc.key() >= 0\n  end\n  if pc.btn(13) == 1\n    pc.pointer(1)\n  end\nend\n";
+      "  log(pc.scroll(1))\n  log(pc.btn(1))\n  for pc.key() >= 0\n  end\n  if pc.btn(13) == 1\n    pc.pointer(pc.Pointer.ui)\n  end\nend\n";
     static const char want[] = "10\n20\n0\n1\n0\n0\n" "10\n20\n0\n0\n1\n0\n" "10\n20\n0\n0\n0\n1\n" "15\n20\n1\n1\n0\n0\n" "15\n20\n0\n0\n0\n0\n";
     outLen = 0; out[0] = 0;
     if (rinc_appBegin(&vm, space, sizeof space, "point", put) || rinc_appRun(&vm, space, sizeof space, "point", game, sizeof game - 1, 0) || !rinc_game) {

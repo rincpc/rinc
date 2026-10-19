@@ -8,9 +8,11 @@ A Rinc provides:
 
 - **[Rio](https://contextfreeinfo.github.io/rio/)**, the language apps are written in, at the version
   in `lib/rio`.
-- **The `pc` module:** the host procs in [`src/core/pc.rio`](https://github.com/rincpc/rinc/blob/main/src/core/pc.rio),
-  with exactly those names and types, visible in every module without an import. The tests check
-  `pc.rio` against what this Rinc registers.
+- **The `pc` module:** [`src/core/pc.rio`](https://github.com/rincpc/rinc/blob/main/src/core/pc.rio),
+  built into Rinc and compiled with each app (and in the console): its host procs, with exactly those
+  names and types, and the types they use, such as `pc.Pointer`, visible in every module without an
+  import. Every host proc this Rinc registers must be declared there, with matching types, or nothing
+  compiles; the tests check it too.
 - **[Running apps](running.md):** compiling one, then its frames, 60 a second.
 - **[The screen](screen.md):** 320x240, a 256-color palette, and a 5x8 font.
 - **[Input](input.md):** buttons, a controller's sticks and triggers, typed text and time.

@@ -69,13 +69,13 @@ there only while it's in use, and a drag goes on outside the window till the but
 the middle. `pc.scroll(i)` is the whole steps scrolled since it was last asked, the rest kept for later:
 `i` 0 across (+ right), 1 up and down (+ up, away from you, as on a wheel).
 
-`pc.pointer(mode)` says what the pointer is for, until the app ends:
+`pc.pointer(mode)` says what the pointer is for, until the app ends, with a `pc.Pointer`:
 
 | mode | |
 |---|---|
-| 0 | a game's, each app's to start: the mouse's only; the left stick is still the arrows |
-| 1 | a pointer app's: a controller's too, its left stick moving the pointer (faster the further it's pushed), its right one scrolling, and A and B its primary and secondary buttons (still `pc.btn` 4 and 5 too) |
-| 2 | none: it's never shown |
+| `game` | each app's to start: the mouse's only; the left stick is still the arrows |
+| `ui` | a pointer app's: a controller's too, its left stick moving the pointer (faster the further it's pushed), its right one scrolling, and A and B its primary and secondary buttons (still `pc.btn` 4 and 5 too) |
+| `none` | it's never shown |
 
 The d-pad is the arrows in every mode, and everything a pointer does should have keys too, since not
 every Rinc has a mouse or a controller. A list that a click picks from, and the arrows too:
@@ -84,7 +84,7 @@ every Rinc has a mouse or a controller. A list that a click picks from, and the 
 items := [3]String{"Play", "Options", "Quit"}
 picked := 0
 clicked := 0
-pc.pointer(1)
+pc.pointer(pc.Pointer.ui)
 update* :: proc()
   k := pc.key()
   for k >= 0

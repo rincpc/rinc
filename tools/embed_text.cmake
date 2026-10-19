@@ -1,5 +1,5 @@
-# cmake -DIN=system/launcher.rio -DOUT=launcher_src.c -DNAME=rinc_launcherSrc -P tools/embed_text.cmake
-# A text file as a C array (0-terminated) and its length: source built into the firmware.
+# cmake -DIN=src/core/pc.rio -DOUT=pc_source.c -DNAME=rinc_pcSource -P tools/embed_text.cmake
+# A text file as a C array (0-terminated) and its length: source built into Rinc.
 file(READ ${IN} text HEX)
 string(LENGTH "${text}" n)
 math(EXPR size "${n} / 2")
