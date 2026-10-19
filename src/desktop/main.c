@@ -517,7 +517,7 @@ static void rinc_sdlKey(const SDL_KeyboardEvent *k) {
 
 /* the screen in a window, scaled up by whole steps; a game gets a frame every 1/60 s */
 static int rinc_window(const char *title) {
-  SDL_Window *w; SDL_Renderer *r; SDL_Texture *tex; uint64_t next; int running = 1, fullscreen = 0;
+  SDL_Window *w; SDL_Renderer *r; SDL_Texture *tex; uint64_t next; int running = 1, fullscreen = 0; SDL_Rect mouseRect = {0, 0, 0, 0};
   SDL_AudioSpec spec;
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD)) { fprintf(stderr, "rinc: %s\n", SDL_GetError()); return 1; }
   spec.format = SDL_AUDIO_S16; spec.channels = 2; spec.freq = rinc_RATE;
@@ -575,7 +575,20 @@ static int rinc_window(const char *title) {
                  rinc_pointerKeys(rinc_buttons); /* (the pointer's: the arrows, V and C, the d-pad, A and B) */
       if (rinc_systemKey(rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_GUIDE), mods, other, keys))
         rinc_launch = 1; /* (to rinc_launchName) */
-      if (rinc_fullscreen != fullscreen) SDL_SetWindowFullscreen(w, (fullscreen = rinc_fullscreen) != 0); /* (Sys+Enter, F11) */
+      if (rinc_fullscreen != fullscreen) { /* (Sys+Enter, F11) */
+        SDL_SetWindowFullscreen(w, (fullscreen = rinc_fullscreen) != 0);
+        if (!fullscreen) { SDL_SetWindowMouseRect(w, 0); mouseRect.w = 0; }
+      }
+      if (fullscreen) { /* (the mouse kept on Rinc's screen, not the bars around it: while it has the focus, so Alt+Tab, Cmd+Tab let it go) */
+        float x0, y0, x1, y1; SDL_Rect at;
+        SDL_RenderCoordinatesToWindow(r, 0, 0, &x0, &y0);
+        SDL_RenderCoordinatesToWindow(r, rinc_W, rinc_H, &x1, &y1);
+        at.x = (int)(x0 + 0.5f); at.y = (int)(y0 + 0.5f); at.w = (int)(x1 - x0); at.h = (int)(y1 - y0);
+        if (at.w > 0 && at.h > 0 && (at.x != mouseRect.x || at.y != mouseRect.y || at.w != mouseRect.w || at.h != mouseRect.h)) {
+          mouseRect = at;
+          SDL_SetWindowMouseRect(w, &mouseRect);
+        }
+      }
       if (rinc_systemHeld()) rinc_buttons = 0; /* (a system combination: not the app's) */
     }
     while (rinc_game && SDL_GetTicksNS() >= next) { /* 60 frames a second, whatever the display's rate */

@@ -36,7 +36,8 @@ rinc -help                        all this; and rinc -license, the licenses of w
 In a window, the arrows and V, C, X and Z are the buttons, any controller SDL knows is player 1 (Xbox,
 PlayStation, Switch and more), and Esc is the app's. The system key is Ctrl and Shift tapped together
 (the operating system keeps the Windows key), or a controller's guide button; with Esc (or Back) it goes
-home. F11, or the system key with Enter, fills the display.
+home. F11, or the system key with Enter, fills the display, and keeps the mouse on it until it's a
+window again (or another window gets the focus: Alt+Tab, Cmd+Tab).
 
 ## Storage
 
