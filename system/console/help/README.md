@@ -30,6 +30,7 @@ A line on its own can be a command instead:
 | `load name` | app `name`'s source, into a fresh session |
 | `run name` | run app `name`, as itself |
 | `save name` | what's typed or pasted next, until Ctrl-D, becomes app `name`'s source (Ctrl-C gives up) |
+| `save name/a/file` | likewise, a file of app `name`'s own, in its folder: `save chord/parts/sound.rio` |
 | `delete name` | remove app `name` |
 | `install name` | install project `name*` as app `name` (its own saves stay with the project) |
 | `active`, `active name` | say which app or project is active (what the editor opens), or make `name` it |

@@ -40,7 +40,7 @@ end
 hist: [16]Hist
 histCount := 0
 back := 0          # how far back up and down have gone (0: the line being typed)
-saveName: Blob[..33]
+saveName: Blob[..100] # (an app, or a file of its own: chord/parts/sound.rio)
 
 blank :: proc(t: String) -> Bool
   for c in t

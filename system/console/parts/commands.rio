@@ -49,7 +49,7 @@ end
 startSave :: proc(name: String)
   saveName.clear()
   if not saveName.pushAll(name)
-    say("names are up to 32 letters, digits, _ and -", RED)
+    say("names are up to 32 letters, digits, _ and -, and a file's path up to 100", RED)
     return
   end
   fileLen = 0
@@ -57,10 +57,34 @@ startSave :: proc(name: String)
   say("type or paste it, then Ctrl-D (Ctrl-C gives up)", GRAY)
 end
 
+# save name: the app's source; save name/a/file: a file of its own, in its folder (chord/parts/sound.rio,
+# or a project's, chord*/parts/sound.rio)
+saveTo :: proc() -> Int
+  slash := -1
+  for i in 0..<saveName.len()
+    if slash < 0 and saveName[i] == '/'
+      slash = i
+    end
+  end
+  if slash < 0
+    return pc.appSave(saveName[:].asString(), file[:fileLen].asString())
+  end
+  if slash == 0
+    return -1
+  end
+  path: Blob[..128]
+  if saveName[slash - 1] == '*'
+    path.format("/rinc/projects/", saveName[0:slash - 1], saveName[slash:])
+  else
+    path.format("/rinc/apps/", saveName[:])
+  end
+  return pc.fileWrite(path[:].asString(), file[:fileLen].asString())
+end
+
 finishSave :: proc()
   msg: Blob[..80]
   mode = .typing
-  if pc.appSave(saveName[:].asString(), file[:fileLen].asString()) != 0
+  if saveTo() != 0
     msg.format("couldn't save ", saveName[:])
     say(msg[:].asString(), RED)
   else
