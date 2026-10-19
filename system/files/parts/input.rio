@@ -1,0 +1,276 @@
+# Files: keys, buttons and the pointer (part of files.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- keys, buttons and the pointer
+
+prompting :: proc() -> Bool
+  return mode == COPY or mode == RENAME or mode == NEW or mode == DELETE or mode == NEW_FOLDER
+end
+
+move :: proc(by: Int)
+  if mode == VIEW
+    viewScroll(by)
+  case mode == MENU
+    menuPick = (menuPick + by + itemCount * 8) % itemCount
+  case mode == NONE and nshown > 0
+    pick = max(0, min(pick + by, nshown - 1))
+    reveal()
+  end
+end
+
+# Esc, B: what's open closes, else back up (or, picking, nothing picked)
+back :: proc()
+  if mode != NONE
+    mode = NONE
+  case filter.len() > 0
+    filter.clear()
+    narrow()
+  case picking
+    finish("")
+  else
+    goUp()
+  end
+end
+
+promptKey :: proc(c: Int)
+  k := c & 255
+  switch
+  case k == 27
+    mode = NONE
+  case k == 13
+    promptDone()
+  case k == 8
+    if inputFresh
+      input.clear()
+    case input.len() > 0
+      input.pop()
+    end
+    inputFresh = false
+  case c >= 32 and c < 127
+    if inputFresh
+      input.clear()
+      inputFresh = false
+    end
+    if input.len() < 60
+      ok := input.push(c)
+    end
+  end
+end
+
+menuKey :: proc(c: Int)
+  k := c & 255
+  switch
+  case k == 27
+    mode = NONE
+  case k == 13
+    act(menuPick)
+  case k == 9
+    move(1)
+  else
+    for i in 0..<itemCount
+      if c < 256 and lower(k) == KEYS[items[i]] and mode == MENU
+        act(i)
+      end
+    end
+  end
+end
+
+viewKey :: proc(c: Int)
+  k := c & 255
+  switch
+  case k == 27 or k == 8
+    mode = NONE
+  case k == 135
+    viewScroll(-(VIEW_ROWS - 1))
+  case k == 136 or c == 32
+    viewScroll(VIEW_ROWS - 1)
+  case k == 132
+    viewTop = 0
+  case k == 133
+    viewScroll(lineCount)
+  end
+end
+
+# saving: what's typed is the name, Enter with one gives the path back
+saveKey :: proc(c: Int) -> Bool
+  k := c & 255
+  if k == 8 and saveName.len() > 0
+    saveName.pop()
+  case c == 13 and saveName.len() > 0
+    if not validName(saveName[0:saveName.len()].asString(), true)
+      say("A name is letters, digits, _, - and .", 8)
+    case here().len() <= 6 or here()[0:6] != "/rinc/"
+      say("Can't save here: only in /rinc's folders", 8)
+    else
+      finish(pathTo(saveName[0:saveName.len()].asString()))
+    end
+  case c > 32 and c < 127 and saveName.len() < 60
+    ok := saveName.push(c)
+  else
+    return false
+  end
+  return true
+end
+
+listKey :: proc(c: Int)
+  k := c & 255
+  if saving and saveKey(c)
+    return
+  end
+  switch # (the arrows are buttons too: they're handled as buttons, below)
+  case k == 27
+    back()
+  case c == 13
+    enter(picked())
+  case c == 32 and not picking
+    openMenu()
+  case c == 14 | 256 # Ctrl+Shift+N: a new folder, here
+    startPrompt(NEW_FOLDER)
+  case c == 14 # Ctrl+N
+    startPrompt(NEW)
+  case k == 8
+    if filter.len() > 0
+      filter.pop()
+      narrow()
+    else
+      goUp()
+    end
+  case c == 130 | 1024 # Alt+Up
+    goUp()
+  case k == 135
+    move(-(ROWS - 1))
+  case k == 136
+    move(ROWS - 1)
+  case k == 132
+    move(-nshown)
+  case k == 133
+    move(nshown)
+  case c > 32 and c < 127 and filter.len() < 24
+    ok := filter.push(c)
+    narrow()
+    reveal()
+  end
+end
+
+# an arrow typed but not held as a button (a terminal's, say): the buttons, below, take the rest
+typedArrow :: proc(c: Int) -> Int
+  if c & 255 == 130 and c < 1024 and pc.btn(2) == 0
+    return -1
+  end
+  if c & 255 == 131 and c < 1024 and pc.btn(3) == 0
+    return 1
+  end
+  return 0
+end
+
+key :: proc(c: Int)
+  if typedArrow(c) != 0 and not prompting()
+    move(typedArrow(c))
+    return
+  end
+  if prompting()
+    promptKey(c)
+  case mode == MENU
+    menuKey(c)
+  case mode == VIEW
+    viewKey(c)
+  else
+    listKey(c)
+  end
+end
+
+# the row at a point on the screen (-1: none), and the menu's item (-1: none)
+rowAt :: proc(px: Int, py: Int) -> Int
+  row := (py - TOP + 2) / 11
+  if py < TOP - 2 or px < 2 or px >= 318 or row >= min(nshown - top, ROWS)
+    return -1
+  end
+  return top + row
+end
+MENU_X :: 150
+MENU_Y :: 50
+menuAt :: proc(px: Int, py: Int) -> Int
+  i := (py - MENU_Y - 14) / 11
+  if px < MENU_X or px >= MENU_X + 160 or py < MENU_Y + 14 or i >= itemCount
+    return -1
+  end
+  return i
+end
+
+held := 0
+repeat := 0
+clicked := 0
+wasShown := 0
+pc.pointer(pc.Pointer.ui)
+update* :: proc()
+  c := pc.key()
+  for c >= 0
+    message.clear()
+    key(c)
+    c = -1
+    if not leaving # (gone back to its caller: the rest typed is its)
+      c = pc.key()
+    end
+  end
+  # up and down: the arrows and the d-pad, as buttons (a step a press, then more while it's held); Y the
+  # menu, B back
+  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(7) * 4 + pc.btn(5) * 8
+  pressed := bits & ~held
+  step := 0
+  if bits & 3 != held & 3
+    repeat = 15
+    step = (bits & 2) / 2 - (bits & 1)
+  case bits & 3 != 0
+    repeat -= 1
+    if repeat == 0
+      repeat = 4
+      step = (bits & 2) / 2 - (bits & 1)
+    end
+  end
+  held = bits
+  if step != 0 and not prompting()
+    move(step)
+  end
+  if pressed & 4 != 0 and mode == NONE and not picking
+    openMenu()
+  end
+  if pressed & 8 != 0 and wasShown == 0
+    back()
+  end
+  # the pointer: a click picks, and a click on the one picked opens it (as A does, with the pointer
+  # hidden); the secondary button shows the menu; in the menu, a click does that, outside it closes it
+  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
+  if click & ~clicked != 0
+    px := pc.pointerX()
+    py := pc.pointerY()
+    if mode == MENU
+      i := menuAt(px, py)
+      if i >= 0 and click & 1 != 0
+        act(i)
+      case i < 0
+        mode = NONE
+      end
+    case mode == NONE
+      r := rowAt(px, py)
+      if r >= 0
+        if click & 2 != 0 and not picking
+          pick = r
+          openMenu()
+        case r == pick
+          enter(picked())
+        else
+          pick = r
+        end
+      case click & 1 != 0 and wasShown == 0
+        enter(picked())
+      end
+    case mode == VIEW and click & 2 != 0
+      mode = NONE
+    end
+  end
+  clicked = click
+  wasShown = pc.pointerShown()
+  s := pc.scroll(1)
+  if s != 0 and (mode == NONE or mode == VIEW)
+    move(-s * 2)
+  end
+end

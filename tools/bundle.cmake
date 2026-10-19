@@ -1,7 +1,7 @@
 # cmake -DAPPS="a.rio|b.rio" [-DHELP="rinc=docs|rio=lib/rio/docs"] -DHOME=home -DOUT=bundle.c -P tools/bundle.cmake
 # A bundle of app sources (docs/spec/apps.md#bundles), as a C array: the Fruit Jam firmware's built-in
-# apps (RINC_BUNDLE), each as apps/<name>/<name>.rio, named for its file (and its help folder beside
-# it, if it has one, as apps/<name>/help/...); HOME names the one home means (by default the only app,
+# apps (RINC_BUNDLE), each as apps/<name>/<name>.rio, named for its file (in a folder of its own name,
+# its other .rio files too, as apps/<name>/..., and its help folder, as apps/<name>/help/...); HOME names the one home means (by default the only app,
 # else one named home). And help texts (RINC_HELP): each name=folder's Markdown files, as
 # help/<name>/<path in the folder>.md.
 
@@ -44,6 +44,16 @@ foreach(app ${APPS})
   get_filename_component(name "${app}" NAME_WE)
   get_filename_component(dir "${app}" DIRECTORY)
   list(APPEND files "apps/${name}/${name}.rio" "${app}")
+  get_filename_component(folder "${dir}" NAME)
+  if(folder STREQUAL name) # (an app in a folder of its own: its other files, apps/<name>/parts/a.rio say)
+    file(GLOB_RECURSE parts RELATIVE "${dir}" "${dir}/*.rio")
+    list(SORT parts)
+    foreach(part ${parts})
+      if(NOT part STREQUAL "${name}.rio")
+        list(APPEND files "apps/${name}/${part}" "${dir}/${part}")
+      endif()
+    endforeach()
+  endif()
   if(IS_DIRECTORY "${dir}/help") # (an app in a folder of its own, with help texts: apps/<name>/help/...)
     file(GLOB_RECURSE docs RELATIVE "${dir}/help" "${dir}/help/*.md")
     list(SORT docs)

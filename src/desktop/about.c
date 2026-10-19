@@ -5,6 +5,7 @@ const char rinc_help[] =
   "\n"
   "  rinc                       home, if it's installed; else a Rio REPL in the terminal\n"
   "  rinc app.rio               play an app, in a window (closing it quits)\n"
+  "  rinc game/  (or rinc .)    an app of a folder: game/game.rio, its other files beside it\n"
   "  rinc -app name             an app from storage, by name\n"
   "  rinc -install home console standard apps into storage, fetched from GitHub with curl (which has\n"
   "                             to be installed), or app.rio files, copied\n"

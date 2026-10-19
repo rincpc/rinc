@@ -31,7 +31,7 @@ static int rinc_local(const char *path, char *out, size_t cap) {
 }
 /* every folder along the way to a file on this computer (those there already: no harm) */
 void rinc_mkdirsFor(const char *file) {
-  char local[1024], *p;
+  char local[1200], *p;
   snprintf(local, sizeof local, "%s", file);
   for (p = strchr(local + 1, '/'); p; p = strchr(p + 1, '/')) { *p = 0; rinc_mkdir(local); *p = '/'; }
 }
@@ -117,7 +117,16 @@ static int rinc_rename(const char *from, const char *to) {
   rinc_storageChanged(from); rinc_storageChanged(to);
   return rename(a, b) ? -1 : 0;
 }
-static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename};
+static void rinc_noEntry(const char *name, int dir, void *ud) { (void)name; (void)dir; (void)ud; }
+static int rinc_makeDir(const char *path) {
+  char local[1024], inside[1100];
+  if (rinc_local(path, local, sizeof local)) return -1;
+  snprintf(inside, sizeof inside, "%s/x", local);
+  rinc_mkdirsFor(inside); /* (it, and those along the way) */
+  rinc_storageChanged(path);
+  return rinc_listLocal(local, rinc_noEntry, 0) < 0 ? -1 : 0; /* (there now) */
+}
+static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename, rinc_makeDir};
 
 /* storage in folder dir itself (rinc -data dir: tests, or a Rinc on a USB stick) */
 const char *rinc_storageAt(const char *dir) {

@@ -1,0 +1,372 @@
+# Editor: moving, editing, the clipboard (part of edit.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- moving
+
+isWord :: proc(c: Int) -> Bool
+  return (c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95
+end
+isSpace :: proc(c: Int) -> Bool
+  return c == 32 or c == 9 or c == 10
+end
+
+wordLeft :: proc(p: Int) -> Int
+  q := p
+  for q > 0 and isSpace(text[q - 1])
+    q -= 1
+  end
+  if q > 0 and isWord(text[q - 1])
+    for q > 0 and isWord(text[q - 1])
+      q -= 1
+    end
+  else
+    for q > 0 and not isWord(text[q - 1]) and not isSpace(text[q - 1])
+      q -= 1
+    end
+  end
+  return q
+end
+
+wordRight :: proc(p: Int) -> Int
+  q := p
+  for q < textLen and isSpace(text[q])
+    q += 1
+  end
+  if q < textLen and isWord(text[q])
+    for q < textLen and isWord(text[q])
+      q += 1
+    end
+  else
+    for q < textLen and not isWord(text[q]) and not isSpace(text[q])
+      q += 1
+    end
+  end
+  return q
+end
+
+# the first character on line l that isn't a space
+indentEnd :: proc(l: Int) -> Int
+  p := lineAt[l]
+  e := lineEnd(l)
+  for p < e and text[p] == 32
+    p += 1
+  end
+  return p
+end
+
+moveTo :: proc(p: Int, extend: Bool)
+  cursor = max(0, min(p, textLen))
+  if not extend
+    anchor = cursor
+  end
+  merging = 0
+end
+
+# to line l, at the column up and down keep to
+moveToLine :: proc(l: Int, extend: Bool)
+  cl := lineOf(cursor)
+  if wantCol < 0
+    wantCol = cursor - lineAt[cl]
+  end
+  target := max(0, min(l, lineCount - 1))
+  col := wantCol
+  moveTo(lineAt[target] + min(col, lineEnd(target) - lineAt[target]), extend)
+  wantCol = col
+end
+
+# ---------------------------------------------------------------- editing
+
+typeChar :: proc(c: Int)
+  if c == 32 and cursor > 0 and text[cursor - 1] != 32
+    merging = 0 # (a word and the space after it undo together)
+  end
+  one[0] = c
+  kind := 1
+  if cursor != anchor
+    kind = 0
+  end
+  ok := edit(selStart(), selEnd(), one[0:1].asString(), kind)
+end
+
+# does line l's text, after its indent, start with word w (then a space or its end)?
+startsWord :: proc(l: Int, w: String) -> Bool
+  p := indentEnd(l)
+  e := lineEnd(l)
+  if e - p < w.len()
+    return false
+  end
+  for i in 0..<w.len()
+    if text[p + i] != w[i]
+      return false
+    end
+  end
+  return p + w.len() == e or not isWord(text[p + w.len()])
+end
+
+# does line l have s in it?
+lineHas :: proc(l: Int, s: String) -> Bool
+  a := lineAt[l]
+  e := lineEnd(l)
+  for p in a..<e - s.len() + 1
+    k := 0
+    for k < s.len() and text[p + k] == s[k]
+      k += 1
+    end
+    if k == s.len()
+      return true
+    end
+  end
+  return false
+end
+
+# a line that opens a block: the next is indented one more step (not a switch: its cases line up with it)
+opensBlock :: proc(l: Int) -> Bool
+  return startsWord(l, "if") or startsWord(l, "else") or startsWord(l, "for") or
+         startsWord(l, "case") or lineHas(l, ":: proc") or lineHas(l, ":: struct") or lineHas(l, ":: enum") or
+         lineHas(l, ":: union")
+end
+
+enter :: proc()
+  l := lineOf(selStart())
+  indent := min(indentEnd(l), selStart()) - lineAt[l]
+  if opensBlock(l) and selStart() > indentEnd(l)
+    indent += 2
+  end
+  built.clear()
+  built.push(10)
+  for i in 0..<indent
+    built.push(32)
+  end
+  merging = 0
+  ok := edit(selStart(), selEnd(), built[0:built.len()].asString(), 0)
+end
+
+# having typed the end of `end`, `else` or `case` alone on its line, a step back out of the block
+dedent :: proc()
+  l := lineOf(cursor)
+  p := indentEnd(l)
+  if cursor != lineEnd(l) or p - lineAt[l] < 2 or not (startsWord(l, "end") or startsWord(l, "else") or startsWord(l, "case"))
+    return
+  end
+  if cursor - p != 3 and cursor - p != 4
+    return
+  end
+  if l > 0
+    k := l - 1
+    for k > 0 and indentEnd(k) == lineEnd(k) # (blank lines)
+      k -= 1
+    end
+    if indentEnd(k) - lineAt[k] < p - lineAt[l]
+      return # (already dedented)
+    end
+  end
+  c := cursor
+  ok := edit(lineAt[l], lineAt[l] + 2, "", 0)
+  cursor = c - 2
+  anchor = cursor
+end
+
+backspace :: proc(ctrl: Bool)
+  if cursor != anchor
+    ok := edit(selStart(), selEnd(), "", 0)
+    return
+  end
+  if cursor == 0
+    return
+  end
+  if ctrl
+    ok := edit(wordLeft(cursor), cursor, "", 0)
+    return
+  end
+  l := lineOf(cursor)
+  col := cursor - lineAt[l]
+  if col > 0 and indentEnd(l) >= cursor # (in the indent: back to the step before)
+    n := 2 - col % 2
+    ok := edit(cursor - n, cursor, "", 2)
+    return
+  end
+  ok := edit(cursor - 1, cursor, "", 2)
+end
+
+deleteForward :: proc(ctrl: Bool)
+  if cursor != anchor
+    ok := edit(selStart(), selEnd(), "", 0)
+  case cursor < textLen
+    if ctrl
+      ok := edit(cursor, wordRight(cursor), "", 0)
+    else
+      ok := edit(cursor, cursor + 1, "", 3)
+    end
+  end
+end
+
+# the lines the selection is on (or the cursor's): into first and last
+first := 0
+last := 0
+selectedLines :: proc()
+  first = lineOf(selStart())
+  last = lineOf(selEnd())
+  if last > first and lineAt[last] == selEnd()
+    last -= 1
+  end
+end
+
+# the selected lines (or the cursor's), each a step in (dir 1) or out (-1)
+indentLines :: proc(dir: Int)
+  selectedLines()
+  a := lineAt[first]
+  b := lineEnd(last)
+  had := cursor != anchor
+  c := cursor
+  built.clear()
+  for l in first..=last
+    p := lineAt[l]
+    e := lineEnd(l)
+    if dir > 0 and e > p
+      built.push(32)
+      built.push(32)
+    case dir < 0
+      k := 0
+      for k < 2 and p < e and text[p] == 32
+        p += 1
+        k += 1
+      end
+    end
+    if built.len() + (e - p) + 1 > BUILT
+      say("Too much to indent at once", RED)
+      return
+    end
+    built.pushAll(text[p:e])
+    if l < last
+      built.push(10)
+    end
+  end
+  delta := built.len() - (b - a)
+  merging = 0
+  ok := edit(a, b, built[0:built.len()].asString(), 0)
+  if had or first != last
+    anchor = a
+    cursor = a + built.len()
+  else
+    cursor = max(a, c + delta)
+    anchor = cursor
+  end
+end
+
+tab :: proc(shift: Bool)
+  if shift or lineOf(selStart()) != lineOf(selEnd())
+    if shift
+      indentLines(-1)
+    else
+      indentLines(1)
+    end
+    return
+  end
+  col := selStart() - lineAt[lineOf(selStart())]
+  if col % 2 == 1
+    ok := edit(selStart(), selEnd(), " ", 0)
+  else
+    ok := edit(selStart(), selEnd(), "  ", 0)
+  end
+end
+
+# the selected lines (or the cursor's) moved up (dir -1) or down past their neighbor
+moveLines :: proc(dir: Int)
+  selectedLines()
+  if (dir < 0 and first == 0) or (dir > 0 and last == lineCount - 1)
+    return
+  end
+  a := lineAt[first]
+  b := lineEnd(last)
+  o := last + 1 # the neighbor
+  if dir < 0
+    o = first - 1
+  end
+  oa := lineAt[o]
+  oe := lineEnd(o)
+  if (b - a) + (oe - oa) + 1 > BUILT
+    say("Too much to move at once", RED)
+    return
+  end
+  c := cursor
+  n := anchor
+  built.clear()
+  if dir < 0
+    built.pushAll(text[a:b])
+    built.push(10)
+    built.pushAll(text[oa:oe])
+    merging = 0
+    ok := edit(oa, b, built[0:built.len()].asString(), 0)
+    cursor = c - (oe - oa) - 1
+    anchor = n - (oe - oa) - 1
+  else
+    built.pushAll(text[oa:oe])
+    built.push(10)
+    built.pushAll(text[a:b])
+    merging = 0
+    ok := edit(a, oe, built[0:built.len()].asString(), 0)
+    cursor = c + (oe - oa) + 1
+    anchor = n + (oe - oa) + 1
+  end
+end
+
+deleteLines :: proc()
+  selectedLines()
+  a := lineAt[first]
+  b := lineEnd(last)
+  if b < textLen
+    b += 1 # (the newline after)
+  case a > 0
+    a -= 1 # (the last line: the newline before)
+  end
+  merging = 0
+  ok := edit(a, b, "", 0)
+  moveTo(lineAt[lineOf(min(a + 1, textLen))], false)
+  if a == 0
+    moveTo(0, false)
+  end
+end
+
+# ---------------------------------------------------------------- the clipboard
+
+clip: Blob[..16384]
+clipIsLine := false # copied with nothing selected: a whole line, pasted as one
+
+copy :: proc(cut: Bool)
+  a := selStart()
+  b := selEnd()
+  clipIsLine = a == b
+  if clipIsLine
+    l := lineOf(cursor)
+    a = lineAt[l]
+    b = lineEnd(l)
+    if b < textLen
+      b += 1
+    end
+  end
+  if b - a > CLIP
+    say("Too much to copy: 16 KB at most", RED)
+    return
+  end
+  clip.clear()
+  clip.pushAll(text[a:b])
+  if clipIsLine and (b == a or text[b - 1] != 10)
+    clip.push(10)
+  end
+  if cut
+    merging = 0
+    ok := edit(a, b, "", 0)
+  end
+end
+
+paste :: proc()
+  merging = 0
+  if clipIsLine and cursor == anchor # (a whole line: above this one)
+    c := cursor
+    l := lineOf(cursor)
+    ok := edit(lineAt[l], lineAt[l], clip[0:clip.len()].asString(), 0)
+    cursor = c + clip.len()
+    anchor = cursor
+    return
+  end
+  ok := edit(selStart(), selEnd(), clip[0:clip.len()].asString(), 0)
+end

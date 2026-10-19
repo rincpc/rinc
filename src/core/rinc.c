@@ -646,7 +646,7 @@ static char *rinc_dirOut; static int rinc_dirCap, rinc_dirUsed, rinc_dirCount;
 static void rinc_dirFound(const char *name, int dir, void *ud) { /* (into its place: folders, then names, ignoring case) */
   char *p = rinc_dirOut, *e = rinc_dirOut + rinc_dirUsed; int n = (int)strlen(name);
   (void)ud;
-  if (!p || n > 60 || name[0] == 0) return;
+  if (!p || n > 60 || name[0] == 0 || name[0] == '.') return; /* (a name starting with a dot: hidden, a web folder's .folder say) */
   while (p < e) {
     char *end = memchr(p, 10, (size_t)(e - p)), was[64]; int k = (int)(end - p) - 2;
     memcpy(was, p + 2, (size_t)k); was[k] = 0;
@@ -682,8 +682,13 @@ static void rinc_hostFileCopy(rio_Vm *v, rio_Val *a) {
   char from[96], to[96]; int named = rinc_argPath(v, a, from, 0) && rinc_argPath(v, a + 2, to, 1);
   a[0].i = -1;
   if (!named || !rinc_fs || rinc_exists(to) || (!strncmp(to, from, strlen(from)) && (to[strlen(from)] == '/' || !to[strlen(from)]))) return; /* (not into itself) */
-  if (!rinc_fs->copy(from, to)) { a[0].i = 0; return; }
-  a[0].i = rinc_copyTree(from, to, 0, 0);
+  if (!rinc_fs->list(from, rinc_treeFound, 0)) { rinc_treeUsed = 0; a[0].i = rinc_copyTree(from, to, 0, 0); return; } /* (a folder: everything in it; a file can't tell, everywhere) */
+  rinc_treeUsed = 0;
+  a[0].i = rinc_fs->copy(from, to) ? -1 : 0;
+}
+static void rinc_hostDirMake(rio_Vm *v, rio_Val *a) { /* dirMake(path) -> Int: a folder, at a path not taken: 0, or -1 */
+  char path[96]; int named = rinc_argPath(v, a, path, 1);
+  a[0].i = named && rinc_fs && !rinc_exists(path) && !rinc_fs->mkdir(path) ? 0 : -1;
 }
 static void rinc_hostFileRename(rio_Vm *v, rio_Val *a) {
   char from[96], to[96]; int named = rinc_argPath(v, a, from, 1) && rinc_argPath(v, a + 2, to, 1);
@@ -937,13 +942,17 @@ static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) { 
 #else
 extern const char rinc_pcSource[];
 extern const int rinc_pcSource_len;
-/* a file in storage, into the room above the main source: 0, or 1 if it isn't there, or 2 if there's no room */
-static int rinc_loadFile(const char *path, rio_Source *out) {
+int (*rinc_hostRead)(const char *path, char *buf, uint32_t cap, uint32_t *total);
+char rinc_hostFolder[512];
+/* a file in storage (or, host, the host's), into the room above the main source: 0, or 1 if it isn't
+   there, or 2 if there's no room */
+static int rinc_loadFile(const char *path, rio_Source *out, int host) {
   uint32_t total; char *at = rinc_srcNext;
-  if (!rinc_fs || !at || rinc_readFile(path, at, (uint32_t)(rinc_srcEnd - at), &total)) return 1;
+  if (!at || (host ? !rinc_hostRead || rinc_hostRead(path, at, (uint32_t)(rinc_srcEnd - at), &total) : !rinc_fs || rinc_readFile(path, at, (uint32_t)(rinc_srcEnd - at), &total))) return 1;
   if (total > (uint32_t)(rinc_srcEnd - at)) return 2;
   out->src = at; out->len = total;
   rinc_srcNext = at + total;
+  if (host) return 0; /* (no image of it is cached: nothing to note) */
   if (rinc_srcCount < rinc_SRC_FILES && strlen(path) - 6 < sizeof rinc_srcFiles[0].path) {
     memcpy(rinc_srcFiles[rinc_srcCount].path, path + 6, strlen(path) - 5); /* (it fits: just checked) */
     rinc_srcFiles[rinc_srcCount].len = total;
@@ -960,7 +969,8 @@ static const char *rinc_srcName(const char *s) {
   return at;
 }
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
-  char base[64], bundleBase[64], tryPath[104], name[176]; const char *last; const rinc_File *f; int n = (int)strlen(rinc_loadApp), project, k, res;
+  char base[64], bundleBase[64], tryPath[104], name[640]; const char *last; const rinc_File *f; int n = (int)strlen(rinc_loadApp), project, k, res;
+  int host = !(kind & rio_LoadKind_package) && rinc_hostFolder[0]; /* (an app run from the host's files: its own, from there) */
   (void)ud;
   if ((kind & rio_LoadKind_package) && !strcmp(path, "pc")) {
     out->src = rinc_pcSource; out->len = (uint32_t)rinc_pcSource_len; out->isDir = 0; out->name = "pc.rio";
@@ -969,6 +979,7 @@ static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
   if (strstr(path, "..") || strlen(path) > 48) return 1;
   project = n > 1 && rinc_loadApp[n - 1] == '*';
   if (kind & rio_LoadKind_package) { snprintf(base, sizeof base, "/rinc/lib/"); snprintf(bundleBase, sizeof bundleBase, "lib/"); }
+  else if (host) base[0] = bundleBase[0] = 0;
   else if (n) {
     snprintf(base, sizeof base, "/rinc/%s/%.*s/", project ? "projects" : "apps", project ? n - 1 : n, rinc_loadApp);
     snprintf(bundleBase, sizeof bundleBase, project ? "" : "apps/%s/", rinc_loadApp);
@@ -978,8 +989,14 @@ static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
     if (kind & rio_LoadKind_file) { if (k) break; snprintf(tryPath, sizeof tryPath, "%s", path); }
     else if (!k) snprintf(tryPath, sizeof tryPath, "%s.rio", path);
     else snprintf(tryPath, sizeof tryPath, "%s/%s.rio", path, last);
+    if (host) {
+      snprintf(name, sizeof name, "%s/%s", rinc_hostFolder, tryPath);
+      if (!(res = rinc_loadFile(name, out, 1))) { out->isDir = k; out->name = rinc_srcName(tryPath); return 0; }
+      if (res == 2) return 1;
+      continue;
+    }
     snprintf(name, sizeof name, "%s%s", base, tryPath);
-    if (!(res = rinc_loadFile(name, out))) { out->isDir = k; out->name = rinc_srcName(name + 6); return 0; }
+    if (!(res = rinc_loadFile(name, out, 0))) { out->isDir = k; out->name = rinc_srcName(name + 6); return 0; }
     if (res == 2) return 1; /* (no room: as if it isn't there) */
     snprintf(name, sizeof name, "%s%s", bundleBase, tryPath);
     if (*bundleBase && (f = rinc_bundleFile(name))) { out->src = f->data; out->len = f->len; out->isDir = k; out->name = rinc_srcName(name); return 0; }
@@ -1314,7 +1331,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.done", "s", rinc_hostDone) || rio_addFfi(vm, "pc.result", "b>i", rinc_hostResult) ||
          rio_addFfi(vm, "pc.dir", "sb>i", rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", "sb>i", rinc_hostFileRead) ||
          rio_addFfi(vm, "pc.fileWrite", "ss>i", rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", "s>i", rinc_hostFileDelete) ||
-         rio_addFfi(vm, "pc.fileCopy", "ss>i", rinc_hostFileCopy) || rio_addFfi(vm, "pc.fileRename", "ss>i", rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", "ss>i", rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
+         rio_addFfi(vm, "pc.fileCopy", "ss>i", rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", "s>i", rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", "ss>i", rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", "ss>i", rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
          rio_addFfi(vm, "pc.pointerY", ">i", rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", "i>i", rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", ">i", rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", "i>i", rinc_hostScroll) ||
          rio_addFfi(vm, "pc.saveRead", "sb>i", rinc_hostSaveRead) || rio_addFfi(vm, "pc.saveWrite", "ss>i", rinc_hostSaveWrite) ||
@@ -1420,7 +1437,7 @@ static int rinc_cachePath(const char *name, char *path, size_t cap) { /* (a proj
 }
 void rinc_cacheDrop(const char *name) {
   char path[96]; int i;
-  for (i = 0; i < rinc_checkedCount; i++) if (!strcmp(rinc_checked[i].name, name)) rinc_checked[i].name[0] = 0;
+  for (i = 0; i < rinc_checkedCount && i < (int)(sizeof rinc_checked / sizeof *rinc_checked); i++) if (!strcmp(rinc_checked[i].name, name)) rinc_checked[i].name[0] = 0;
   if (rinc_fs && rinc_cachePath(name, path, sizeof path)) rinc_fs->remove(path);
 }
 static int rinc_readAll(void *ud, void *bytes, uint32_t n) {

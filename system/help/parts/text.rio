@@ -1,0 +1,429 @@
+# Help: the text and what it renders to (part of help.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the text and what it renders to
+
+src: Blob[24576]
+srcLen := 0
+out: Blob[24576]       # rendered characters
+sty: Blob[24576]       # and their styles
+outLen := 0
+logAt: [2048]Int       # each rendered line: where it starts in out
+logIndent: [2048]Int   # its wrapped rows' indent
+logBack: [2048]Int     # its background (0: none)
+logCount := 0
+rowAt: [3072]Int       # each row on screen: where it starts in out, how long, its indent and background
+rowLen: [3072]Int
+rowIndent: [3072]Int
+rowBack: [3072]Int
+rowOfLog: [2048]Int    # each rendered line's first row
+rowCount := 0
+linkFrom: [256]Int     # each link: its characters in out
+linkTo: [256]Int
+targetAt: [256]Int     # and where it goes, in targets
+targetLen: [256]Int
+targets: Blob[8192]
+targetsLen := 0
+linkCount := 0
+headLog: [160]Int      # each heading: its rendered line, and its anchor (as GitHub and mdbook make them)
+slugAt: [160]Int
+slugLen: [160]Int
+slugs: Blob[4096]
+slugsLen := 0
+headCount := 0
+
+emit :: proc(c: Int, s: Int)
+  if outLen < OUT
+    out[outLen] = c
+    sty[outLen] = s
+    outLen += 1
+  end
+end
+
+# a new rendered line, its wrapped rows indented by indent
+newLine :: proc(indent: Int, back: Int)
+  if logCount < LINES
+    logAt[logCount] = outLen
+    logIndent[logCount] = indent
+    logBack[logCount] = back
+    logCount += 1
+  end
+end
+
+# a blank line between blocks, unless there's one already (or nothing yet)
+blank :: proc()
+  if logCount == 0
+    return
+  end
+  if logAt[logCount - 1] == outLen # (a blank line there already)
+    return
+  end
+  newLine(0, 0)
+end
+
+# the position of byte c in src[a:b], or -1
+find :: proc(c: Int, a: Int, b: Int) -> Int
+  for i in a..<b
+    if src[i] == c
+      return i
+    end
+  end
+  return -1
+end
+
+# src[a:b] starts with s?
+startsWith :: proc(a: Int, b: Int, s: String) -> Bool
+  if b - a < s.len()
+    return false
+  end
+  for i in 0..<s.len()
+    if src[a + i] != s[i]
+      return false
+    end
+  end
+  return true
+end
+
+# src[a:b] rendered inline, in base style: `code`, **bold**, *emphasis*, [links](to), \escapes
+inline :: proc(a: Int, b: Int, base: Int)
+  i := a
+  for i < b
+    c := src[i]
+    switch
+    case c == 96 # `code`
+      e := find(96, i + 1, b)
+      if e < 0
+        emit(c, base)
+        i += 1
+      else
+        for k in i + 1..<e
+          emit(src[k], CODE)
+        end
+        i = e + 1
+      end
+    case c == 42 and i + 1 < b and src[i + 1] == 42 # **bold**
+      e := i + 2
+      for e + 1 < b and not (src[e] == 42 and src[e + 1] == 42)
+        e += 1
+      end
+      if e + 1 >= b
+        emit(c, base)
+        i += 1
+      else
+        for k in i + 2..<e
+          emit(src[k], BOLD)
+        end
+        i = e + 2
+      end
+    case c == 42 and i + 1 < b and src[i + 1] != 32 # *emphasis*
+      e := find(42, i + 1, b)
+      if e < 0
+        emit(c, base)
+        i += 1
+      else
+        for k in i + 1..<e
+          emit(src[k], EM)
+        end
+        i = e + 1
+      end
+    case c == 91 # [text](to)
+      e := find(93, i + 1, b)
+      if e < 0 or e + 1 >= b or src[e + 1] != 40
+        emit(c, base)
+        i += 1
+      else
+        t := find(41, e + 2, b)
+        if t < 0
+          emit(c, base)
+          i += 1
+        else
+          if linkCount < LINKS and targetsLen + (t - e - 2) <= 8192
+            linkFrom[linkCount] = outLen
+            targetAt[linkCount] = targetsLen
+            for k in e + 2..<t
+              targets[targetsLen] = src[k]
+              targetsLen += 1
+            end
+            targetLen[linkCount] = t - e - 2
+          end
+          k := i + 1
+          for k < e
+            if src[k] != 96
+              emit(src[k], LINK)
+            end
+            k += 1
+          end
+          if linkCount < LINKS
+            linkTo[linkCount] = outLen
+            linkCount += 1
+          end
+          i = t + 1
+        end
+      end
+    case c == 60 and startsWith(i, b, "<!--") # (a comment)
+      e := i + 4
+      for e + 2 < b and not (src[e] == 45 and src[e + 1] == 45 and src[e + 2] == 62)
+        e += 1
+      end
+      i = min(b, e + 3)
+    case c == 92 and i + 1 < b # \escaped
+      emit(src[i + 1], base)
+      i += 2
+    else
+      emit(c, base)
+      i += 1
+    end
+  end
+end
+
+# the end of the line starting at a (its newline, or the text's end)
+lineEnd :: proc(a: Int) -> Int
+  e := a
+  for e < srcLen and src[e] != 10
+    e += 1
+  end
+  return e
+end
+
+# the line's end, without a \r or spaces at the end
+trimEnd :: proc(a: Int, e: Int) -> Int
+  k := e
+  for k > a and (src[k - 1] == 13 or src[k - 1] == 32)
+    k -= 1
+  end
+  return k
+end
+
+spaces :: proc(a: Int, e: Int) -> Int
+  k := a
+  for k < e and src[k] == 32
+    k += 1
+  end
+  return k - a
+end
+
+# a heading's anchor: its rendered text, lowercase, spaces as -, other punctuation left out
+addHead :: proc(from: Int)
+  if headCount >= HEADS
+    return
+  end
+  headLog[headCount] = logCount - 1
+  slugAt[headCount] = slugsLen
+  for k in from..<outLen
+    c := out[k]
+    if c >= 65 and c <= 90
+      c += 32
+    end
+    if c == 32
+      c = 45
+    end
+    if ((c >= 97 and c <= 122) or (c >= 48 and c <= 57) or c == 45 or c == 95) and slugsLen < 4096
+      slugs[slugsLen] = c
+      slugsLen += 1
+    end
+  end
+  slugLen[headCount] = slugsLen - slugAt[headCount]
+  headCount += 1
+end
+
+# is the line at a..e a table's |---|---| row?
+ruleRow :: proc(a: Int, e: Int) -> Bool
+  for k in a..<e
+    c := src[k]
+    if c != 124 and c != 45 and c != 58 and c != 32
+      return false
+    end
+  end
+  return true
+end
+
+# the rendered lines as rows on the screen, each wrapped at a space to fit
+wrap :: proc()
+  rowCount = 0
+  for l in 0..<logCount
+    a := logAt[l]
+    e := outLen
+    if l + 1 < logCount
+      e = logAt[l + 1]
+    end
+    rowOfLog[l] = rowCount
+    indent := 0
+    first := true
+    for first or a < e
+      width := COLS - indent
+      n := min(width, e - a)
+      if a + n < e and logBack[l] == 0 # (break at the last space that fits)
+        k := n
+        for k > 0 and out[a + k] != 32
+          k -= 1
+        end
+        if k > 0
+          n = k
+        end
+      end
+      if rowCount < SHOWN
+        rowAt[rowCount] = a
+        rowLen[rowCount] = n
+        rowIndent[rowCount] = indent
+        rowBack[rowCount] = logBack[l]
+        rowCount += 1
+      end
+      a += n
+      if a < e and out[a] == 32 and logBack[l] == 0
+        a += 1
+      end
+      indent = logIndent[l]
+      first = false
+    end
+  end
+end
+
+# src[0:srcLen] as Markdown, into out
+render :: proc()
+  outLen = 0
+  logCount = 0
+  linkCount = 0
+  targetsLen = 0
+  headCount = 0
+  slugsLen = 0
+  a := 0
+  inCode := false
+  inPara := false   # a paragraph (or list item) is open: the next line joins it
+  tableRow := 0     # rows of the table so far
+  for a < srcLen
+    e0 := lineEnd(a)
+    e := trimEnd(a, e0)
+    lead := spaces(a, e)
+    s := a + lead
+    next := e0 + 1
+    switch
+    case startsWith(s, e, "```")
+      if inCode
+        inCode = false
+        blank()
+      else
+        blank()
+        inCode = true
+      end
+      inPara = false
+    case inCode
+      newLine(0, CODE_BACK)
+      for k in a..<e
+        emit(src[k], BLOCK)
+      end
+    case startsWith(s, e, "<!--") # (a comment, to its end)
+      k := s
+      for k + 2 < srcLen and not (src[k] == 45 and src[k + 1] == 45 and src[k + 2] == 62)
+        k += 1
+      end
+      next = lineEnd(k) + 1
+    case s == e # (a blank line: the block ends)
+      inPara = false
+      tableRow = 0
+    case src[s] == 35 # a heading
+      level := 0
+      for s + level < e and src[s + level] == 35
+        level += 1
+      end
+      blank()
+      newLine(0, 0)
+      from := outLen
+      style := H3
+      if level == 1
+        style = H1
+      case level == 2
+        style = H2
+      end
+      inline(min(e, s + level + 1), e, style)
+      addHead(from)
+      blank()
+      inPara = false
+    case src[s] == 124 # a table's row: its cells, a | between
+      if tableRow == 0
+        blank()
+      end
+      if not ruleRow(s, e)
+        newLine(2, 0)
+        k := s + 1
+        first := true
+        for k < e
+          c := find(124, k, e)
+          if c < 0
+            c = e
+          end
+          from := k + spaces(k, c)
+          to := trimEnd(from, c)
+          if from < to
+            if not first
+              emit(32, DIM)
+              emit(124, DIM)
+              emit(32, DIM)
+            end
+            style := PLAIN
+            if tableRow == 0
+              style = BOLD
+            end
+            inline(from, to, style)
+            first = false
+          end
+          k = c + 1
+        end
+        tableRow += 1
+      end
+      inPara = false
+    case (src[s] == 45 or src[s] == 42) and s + 1 < e and src[s + 1] == 32 # a list item
+      if not inPara
+        blank()
+      end
+      newLine(lead + 2, 0)
+      for k in 0..<lead
+        emit(32, PLAIN)
+      end
+      emit(45, DIM)
+      emit(32, PLAIN)
+      inline(s + 2, e, PLAIN)
+      inPara = true
+    case src[s] >= 48 and src[s] <= 57 and find(46, s, min(e, s + 4)) > s and find(46, s, min(e, s + 4)) + 1 < e and src[find(46, s, min(e, s + 4)) + 1] == 32 # 1. a numbered item
+      d := find(46, s, e)
+      if not inPara
+        blank()
+      end
+      newLine(lead + d - s + 2, 0)
+      for k in a..<d + 1
+        emit(src[k], DIM)
+      end
+      emit(32, PLAIN)
+      inline(d + 2, e, PLAIN)
+      inPara = true
+    case src[s] == 62 # > a quote
+      if not inPara
+        blank()
+        newLine(2, 0)
+        emit(124, DIM)
+        emit(32, PLAIN)
+      else
+        emit(32, PLAIN)
+      end
+      inline(min(e, s + 2), e, PLAIN)
+      inPara = true
+    case startsWith(s, e, "---") and ruleRow(s, e)
+      blank()
+      newLine(0, 0)
+      for k in 0..<COLS
+        emit(45, DIM)
+      end
+      blank()
+      inPara = false
+    else # a paragraph's line (or a list item's, going on)
+      if inPara
+        emit(32, PLAIN)
+      else
+        blank()
+        newLine(0, 0)
+      end
+      inline(s, e, PLAIN)
+      inPara = true
+    end
+    a = next
+  end
+  wrap()
+end

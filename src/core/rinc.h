@@ -121,6 +121,10 @@ extern int (*rinc_native)(rio_Vm *vm);
    rinc_storageChanged(path) for each file it writes or removes; rinc_cacheDrop drops an app's image.
    rinc_buildId: this build's (build_id.c): another build's images are compiled again */
 extern int rinc_cacheTrust;
+/* an app run from the host's own files (the desktop's rinc game/): its other files come from this folder,
+   through rinc_hostRead (0, or -1; *total its whole length), not storage */
+extern int (*rinc_hostRead)(const char *path, char *buf, uint32_t cap, uint32_t *total);
+extern char rinc_hostFolder[512];
 void rinc_storageChanged(const char *path);
 void rinc_cacheDrop(const char *name);
 extern const char rinc_buildId[];
@@ -173,6 +177,7 @@ typedef struct {
   int (*remove)(const char *path); /* a file, or an empty directory: 0 or -1 */
   int (*copy)(const char *from, const char *to); /* a file, whole (to's directories made, it replaced): 0 or -1 */
   int (*rename)(const char *from, const char *to); /* a file or a directory, to a name not taken (in a directory there): 0 or -1 */
+  int (*mkdir)(const char *path); /* a directory, the ones along the way too: 0 or -1 */
 } rinc_Fs;
 extern const rinc_Fs *rinc_fs;
 /* an app asked to switch (pc.launch): to the app named rinc_launchName, which may be a built-in one,

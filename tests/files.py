@@ -42,7 +42,7 @@ check(not there('projects/copy1'), 'deleting, its name typed')
 typing(DOWN + DOWN + '\\n' + DOWN + '\\n' + DOWN + ' c' + 'best2\\n' + DOWN + ' n' + 'best\\n' + ' n' + 'best3\\n')
 check(get('save/chord/best') == '42' and get('save/chord/best3') == '42' and not there('save/chord/best2'), 'copying and renaming save files')
 # a picker, for its caller: the path picked comes back
-put('apps/files/files.rio', open(files).read()) # (installed, to be called)
+shutil.copytree(os.path.dirname(files), os.path.join(data, 'apps', 'files')) # (installed, to be called: its folder, parts and all)
 put('apps/caller/caller.rio', '''out: Blob[96]
 n := pc.result(out[:])
 if n < 0
@@ -53,4 +53,10 @@ end
 ''')
 out = typing(DOWN + '\\n', app='caller', frames=60)
 check('picked /rinc/save/chord/best' in out, 'picking: got %r' % out)
+# a new folder (Ctrl+Shift+N): in a folder of /rinc's, not in /rinc itself
+NEW_FOLDER = '\\x1b[27;6;110~'
+typing('save\\nchord\\n' + NEW_FOLDER + 'level2\\n') # (typing narrows to it: the root has more by now)
+check(os.path.isdir(os.path.join(data, 'save', 'chord', 'level2')), 'making a folder')
+typing(NEW_FOLDER + 'top\\n')
+check(not there('top'), 'making a folder in /rinc itself')
 print('files came through')

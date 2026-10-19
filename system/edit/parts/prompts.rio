@@ -1,0 +1,187 @@
+# Editor: prompts (part of edit.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- prompts
+
+NONE :: 0
+PALETTE :: 1
+NAMING :: 2
+FIND :: 3
+GO_TO :: 4
+mode := NONE
+input: Blob[..33]
+query: Blob[..48]
+confirm := 0     # an action asked for again after a warning: it goes ahead
+
+lower :: proc(c: Int) -> Int
+  if c >= 65 and c <= 90
+    return c + 32
+  end
+  return c
+end
+
+has :: proc(s: String, f: Blob) -> Bool
+  for p in 0..<s.len() - f.len() + 1
+    k := 0
+    for k < f.len() and lower(s[p + k]) == lower(f[k])
+      k += 1
+    end
+    if k == f.len()
+      return true
+    end
+  end
+  return false
+end
+
+# every command, for the list Ctrl+Shift+P shows: what it does, its keys, and the key it is
+COMMANDS :: 21
+labels := [COMMANDS]String{"Open a file", "Save", "Save as", "Run its app", "New file", "Find", "Go to line", "Undo", "Redo", "Select all", "Select the line", "Cut", "Copy", "Paste", "Delete the lines", "Move the lines up", "Move the lines down", "Indent", "Outdent", "Help", "Home"}
+keyNames := [COMMANDS]String{"^O", "^S", "^Shift+S", "^R", "^N", "^F", "^G", "^Z", "^Y", "^A", "^L", "^X", "^C", "^V", "^Shift+K", "Alt+Up", "Alt+Down", "Tab", "Shift+Tab", "", "Sys+Esc"}
+keys := [COMMANDS]Int{15, 19, 19 | 256, 18, 14, 6, 7, 26, 25, 1, 12, 24, 3, 22, 11 | 256, 130 | 1024, 131 | 1024, 9, 9 | 256, -1, -2}
+listed: [COMMANDS]Int
+nlisted := 0
+pick := 0
+
+narrow :: proc()
+  nlisted = 0
+  for i in 0..<COMMANDS
+    if has(labels[i], input[0:input.len()])
+      listed[nlisted] = i
+      nlisted += 1
+    end
+  end
+  pick = max(0, min(pick, nlisted - 1))
+end
+
+startPrompt :: proc(m: Int)
+  mode = m
+  input.clear()
+  if m == PALETTE
+    pick = 0
+    narrow()
+  end
+end
+
+# a command from the list
+queued := 0
+command :: proc(i: Int)
+  mode = NONE
+  if keys[i] == -1
+    pc.help("edit/README")
+  case keys[i] == -2
+    pc.launch("home")
+  else
+    queued = keys[i] # (as typed: update does it)
+  end
+end
+
+# Ctrl+F's text, found after the selection (or from the start, after the end), and selected
+findNext :: proc()
+  f := query.len()
+  if f == 0
+    return
+  end
+  for pass in 0..<2
+    from := selEnd()
+    if pass == 1
+      from = 0
+    end
+    for p in from..<textLen - f + 1
+      k := 0
+      for k < f and lower(text[p + k]) == lower(query[k])
+        k += 1
+      end
+      if k == f
+        anchor = p
+        cursor = p + f
+        wantCol = -1
+        merging = 0
+        return
+      end
+    end
+  end
+  say("Not found", GRAY)
+end
+
+# what the prompt does with Enter
+promptDone :: proc()
+  m := mode
+  s := input[0:input.len()].asString()
+  if m == PALETTE
+    if nlisted > 0
+      command(listed[pick])
+    end
+  case m == NAMING # (a new file, as a new project's main file)
+    ok := true
+    for c in s
+      ok = ok and ((c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45)
+    end
+    if s.len() == 0 or s.len() > 32 or not ok
+      say("A name is letters, digits, _ and -", RED)
+      return
+    end
+    refBuf.clear()
+    pushed := refBuf.pushAll(s)
+    pushed = refBuf.push(42)
+    if pc.appSource(refBuf[0:refBuf.len()].asString(), one[0:0]) >= 0
+      say("There's a project of that name already", RED)
+      return
+    end
+    mode = NONE
+    setPath(mainPath(refBuf[0:refBuf.len()].asString()))
+    if save() and runAfter
+      run()
+    end
+    runAfter = false
+  case m == GO_TO
+    n := 0
+    for c in s
+      if c >= 48 and c <= 57
+        n = n * 10 + c - 48
+      end
+    end
+    mode = NONE
+    if n > 0
+      moveTo(lineAt[min(n, lineCount) - 1], false)
+      wantCol = -1
+    end
+  case m == FIND
+    findNext()
+  end
+end
+
+promptKey :: proc(k: Int)
+  if k == 27
+    mode = NONE
+    confirm = 0
+    runAfter = false
+    return
+  end
+  if k == 13
+    promptDone()
+    return
+  end
+  if mode == FIND
+    if k == 8
+      if query.len() > 0
+        query.pop()
+      end
+    case k >= 32 and k < 127 and query.len() < 48
+      query.push(k)
+    end
+    return
+  end
+  if k == 8
+    if input.len() > 0
+      input.pop()
+    end
+  case k >= 32 and k < 127 and input.len() < 32
+    input.push(k)
+  case mode == PALETTE and (k & 255) == UP
+    pick = max(0, pick - 1)
+  case mode == PALETTE and (k & 255) == DOWN
+    pick = min(nlisted - 1, pick + 1)
+  end
+  if mode == PALETTE
+    narrow()
+  end
+end

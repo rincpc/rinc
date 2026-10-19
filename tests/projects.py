@@ -48,8 +48,8 @@ run('chord*', 'project live', "the project's first run: the app's saves, copied 
 if get('save/chord/note') != 'live': sys.exit("FAIL: the project changed the app's saves")
 run('chord*', 'project by the project', "the project's own saves")
 run('chord', 'app live', "the app's saves, untouched")
-for img in ('cache/rinc/apps/chord.rioi', 'cache/rinc/projects/chord.rioi'):
-  if get(img) is None: sys.exit('FAIL: no ' + img)
+for img in ('cache/rinc/apps/chord.rioi', 'cache/rinc/projects/chord.rioi'): # (binary: there, not read as text)
+  if not os.path.exists(os.path.join(data, *img.split('/'))): sys.exit('FAIL: no ' + img)
 run('helpls', 'chord*/README # Chord, in work', "the project's help, listed and read")
 put('apps/setact/setact.rio', '''v: Blob[34]
 log(pc.settingRead("active", v[:]), pc.settingWrite("active", "chord*"))

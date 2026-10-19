@@ -69,7 +69,14 @@ static int rinc_rename(const char *from, const char *to) {
   rinc_storageChanged(from); rinc_storageChanged(to);
   return n < 0 || m < 0 ? -1 : js_fsRename(a, n, b, m);
 }
-static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename};
+static int rinc_makeDir(const char *path) { /* (storage here is files: a folder, a file in it, .folder, which lists don't show) */
+  char inside[160], k[160]; int n;
+  if (snprintf(inside, sizeof inside, "%s/.folder", path) >= (int)sizeof inside || (n = rinc_key(inside, k, sizeof k)) < 0) return -1;
+  rinc_storageChanged(path);
+  if (js_fsOpen(k, n, 1)) return -1;
+  return js_fsClose();
+}
+static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename, rinc_makeDir};
 
 /* ------------------------------------------------------------------ apps */
 

@@ -1,0 +1,239 @@
+# Files: the folder, apps and projects among them, viewing a file's text (part of files.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the folder
+
+nameOf :: proc(k: Int) -> String
+  return listing[nameAt[k]:nameAt[k] + nameLen[k]].asString()
+end
+
+# a path in this folder
+pathTo :: proc(name: String) -> String
+  full.clear()
+  ok := full.pushAll(path[0:path.len()])
+  if path.len() > 1
+    ok = full.push(47)
+  end
+  ok = full.pushAll(name)
+  return full[0:full.len()].asString()
+end
+
+here :: proc() -> String
+  return path[0:path.len()].asString()
+end
+
+say :: proc(s: String, color: Int)
+  message.clear()
+  ok := message.pushAll(s)
+  messageColor = color
+end
+
+lower :: proc(c: Int) -> Int
+  if c >= 65 and c <= 90
+    return c + 32
+  end
+  return c
+end
+
+# whether a name has what's typed in it, ignoring case
+has :: proc(k: Int) -> Bool
+  f := filter.len()
+  n := nameOf(k)
+  for s in 0..<n.len() - f + 1
+    i := 0
+    for i < f and lower(n[s + i]) == lower(filter[i])
+      i += 1
+    end
+    if i == f
+      return true
+    end
+  end
+  return false
+end
+
+narrow :: proc()
+  nshown = 0
+  for k in 0..<count
+    if has(k) # (.. too, unless something's typed: then just the names with it)
+      shown[nshown] = k
+      nshown += 1
+    end
+  end
+  pick = max(0, min(pick, nshown - 1))
+end
+
+picked :: proc() -> Int
+  if nshown == 0
+    return -1
+  end
+  return shown[pick]
+end
+
+reveal :: proc()
+  if pick < top
+    top = pick
+  end
+  if pick >= top + ROWS
+    top = pick - ROWS + 1
+  end
+end
+
+# the folder at p, listed: false if it can't be
+open :: proc(p: String) -> Bool
+  n := pc.dir(p, listing[:])
+  if n < 0
+    say("Can't look in ", 8)
+    ok := message.pushAll(p)
+    return false
+  end
+  path.clear()
+  ok := path.pushAll(p)
+  count = 0
+  if p.len() > 5 # (.. goes up: not from /rinc, the root)
+    kind[0] = UP
+    nameAt[0] = 0
+    nameLen[0] = 0
+    count = 1
+  end
+  at := 0
+  for i in 0..<listing.len()
+    if listing[i] == 10 and count < MOST and n > 0
+      kind[count] = FILE
+      if listing[at] == 100
+        kind[count] = FOLDER
+      end
+      nameAt[count] = at + 2
+      nameLen[count] = i - at - 2
+      count += 1
+      n -= 1
+      at = i + 1
+    end
+  end
+  filter.clear()
+  pick = 0
+  top = 0
+  narrow()
+  saved := pc.stashWrite("place", p)
+  return true
+end
+
+# up a folder, the one it came from picked
+came: Blob[..64]
+goUp :: proc()
+  if path.len() <= 5 # (/rinc: the root)
+    return
+  end
+  slash := path.len() - 1
+  for slash > 0 and path[slash] != 47
+    slash -= 1
+  end
+  came.clear()
+  ok := came.pushAll(path[slash + 1:path.len()])
+  upTo: Blob[..96]
+  ok = upTo.pushAll(path[0:max(slash, 1)])
+  if open(upTo[0:upTo.len()].asString())
+    for i in 0..<nshown
+      if nameOf(shown[i]) == came[0:came.len()].asString()
+        pick = i
+      end
+    end
+    reveal()
+  end
+end
+
+# ---------------------------------------------------------------- apps and projects among them
+
+inApps :: proc() -> Bool
+  return here() == "/rinc/apps"
+end
+inProjects :: proc() -> Bool
+  return here() == "/rinc/projects"
+end
+
+# an app's name for an entry: an app's folder (chord) or a project's (chord*), or its main file; "" if it's
+# neither
+refBuf: Blob[..34]
+appRef :: proc(k: Int) -> String
+  refBuf.clear()
+  if kind[k] == FOLDER and (inApps() or inProjects())
+    ok := refBuf.pushAll(nameOf(k))
+    if inProjects()
+      ok = refBuf.push(42)
+    end
+  case kind[k] == FILE
+    p := here()
+    for prefix in 0..<2
+      start := "/rinc/apps/"
+      if prefix == 1
+        start = "/rinc/projects/"
+      end
+      if p.len() > start.len() and p[0:start.len()] == start
+        app := p[start.len():p.len()]
+        n := nameOf(k)
+        if n.len() == app.len() + 4 and n[0:app.len()] == app and n[app.len():n.len()] == ".rio"
+          ok := refBuf.pushAll(app)
+          if prefix == 1
+            ok = refBuf.push(42)
+          end
+        end
+      end
+    end
+  end
+  return refBuf[0:refBuf.len()].asString()
+end
+
+isActive :: proc(k: Int) -> Bool
+  if activeLen == 0 or kind[k] != FOLDER
+    return false
+  end
+  r := appRef(k)
+  return r.len() > 0 and r == active[0:activeLen].asString()
+end
+
+# whether an entry can be changed: inside /rinc, but not /rinc's own folders
+canChange :: proc(k: Int) -> Bool
+  p := here()
+  return kind[k] != UP and p.len() > 6 and p[0:6] == "/rinc/"
+end
+
+edit :: proc(ref: String)
+  if pc.settingWrite("active", ref) == 0
+    pc.launch("edit")
+  else
+    say("No storage: nothing can be edited", 8)
+  end
+end
+
+# ---------------------------------------------------------------- viewing a file's text
+
+view: Blob[16384]
+viewLen := 0
+viewAll := 0          # (its whole length: more than shows, if it's bigger)
+lineAt: [2048]Int
+lineCount := 0
+viewTop := 0
+VIEW_ROWS :: 22
+
+showFile :: proc(k: Int)
+  n := pc.fileRead(pathTo(nameOf(k)), view[:])
+  if n < 0
+    say("Can't read it", 8)
+    return
+  end
+  viewAll = n
+  viewLen = min(n, 16384)
+  lineCount = 1
+  lineAt[0] = 0
+  for i in 0..<viewLen
+    if view[i] == 10 and lineCount < 2048
+      lineAt[lineCount] = i + 1
+      lineCount += 1
+    end
+  end
+  viewTop = 0
+  mode = VIEW
+  target = k
+end
+
+viewScroll :: proc(by: Int)
+  viewTop = max(0, min(viewTop + by, lineCount - VIEW_ROWS))
+end

@@ -45,8 +45,9 @@ jobs:
             echo '<p>Rinc apps, playing in the browser: the same Rio VM as on the board and the desktop. Arrows and V C X Z, or a controller. <a href="docs/">Docs</a>: making apps, and what a Rinc provides.</p>'
             echo '<p><a href="rinc.html">The whole Rinc</a>: home, the console, the editor, help (with these docs) and every app below, as on the Fruit Jam. What you save stays in this browser. Ctrl and Shift tapped together, and then Esc, goes home.</p><ul>'
             demos=""
-            for app in apps/*.rio; do
+            for app in apps/*.rio apps/*/; do # (an app of one file, or of a folder)
               name=$(basename "$app" .rio)
+              [ -d "$app" ] && app="${app%/}/$name.rio"
               case $name in bench|micro) continue;; esac # (timings, not demos)
               build/rinc "$app" -web "site/$name.html"
               demos="$demos $app"

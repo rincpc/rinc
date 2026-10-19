@@ -32,7 +32,7 @@ The voice reads the bytes as it plays, so they have to stay put: keep sound in g
 
 IMA ADPCM keeps sound in a quarter of the space of 16-bit, and sounds close to it: a second of 22 kHz
 mono is 11 KB. `tools/adpcm.py` turns a 16-bit WAV file into Rio source for an app, which `pc.fromHex`
-reads into a `Blob` (see `apps/chord.rio`). `pc.soundWav(voice, data)` plays a whole WAV file's bytes,
+reads into a `Blob` (see `apps/chord`, its sound in `parts/sound.rio`). `pc.soundWav(voice, data)` plays a whole WAV file's bytes,
 16-bit or ADPCM, at its own rate.
 
 Next: [apps and home](apps.md).

@@ -21,8 +21,8 @@ def check(ok, why):
   if not ok: sys.exit('FAIL: ' + why)
 
 shutil.rmtree(data, ignore_errors=True)
-for app in ('edit', 'files'):
-  put('apps/%s/%s.rio' % (app, app), open(os.path.join(system, app, app + '.rio')).read())
+for app in ('edit', 'files'): # (installed: their folders, parts and all)
+  shutil.copytree(os.path.join(system, app), os.path.join(data, 'apps', app))
 put('projects/demo/demo.rio', 'log(1)\n')
 put('projects/demo/parts/a.rio', 'a :: 1\n')
 put('apps/live/live.rio', 'log(2)\n')

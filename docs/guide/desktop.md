@@ -12,12 +12,13 @@ carry what would otherwise be files beside it.
 
 ```
 rinc app.rio                      play, in a window (closing it quits)
+rinc game/   (or rinc ., in it)   an app of a folder: game/game.rio, with its other files (include, import)
 rinc                              home, if it's installed; else a REPL in the terminal
 rinc -app chord                   an app from storage, by name
 rinc -install home console        standard apps into storage, fetched with curl (or app.rio files, copied)
   -data folder                    with any of these: storage in this folder instead
 rinc app.rio -m                   how near the app comes to its limits (see memory)
-rinc app.rio -frames 120          no window: run 120 frames (A held for the first 3)
+rinc app.rio -frames 120          no window: run 120 frames (A held for the first 3, unless -type)
   -o screen.ppm                   then save the screen
   -wav sound.wav                  and the sound those frames made
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,

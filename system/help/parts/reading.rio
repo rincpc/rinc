@@ -1,0 +1,491 @@
+# Help: reading, and where it's been (part of help.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- reading, and where it's been
+
+doc: Blob[..64]        # the help text shown ("": the contents)
+top := 0               # the first row shown
+pick := -1             # the link picked
+message: Blob[..53]
+histName: [32]Blob[..64] # where it's been, as a browser keeps it: back and forward move along it
+histTop: [32]Int
+histLen := 0
+histAt := 0
+place: Blob[..6144]    # (where it's been, and the contents kept, as text: its stash)
+placeDirty := false    # (to be saved: right away, or a second after scrolling stops)
+placeWait := 0        # (frames till it's saved: 60, a second, after scrolling)
+placeTop := 0
+
+names: Blob[8192]      # the help texts there are
+nameAt: [128]Int
+nameLen: [128]Int
+nameCount := 0
+
+say :: proc(s: String)
+  message.clear()
+  for c in s
+    if message.len() < 53
+      ok := message.push(c)
+    end
+  end
+end
+
+addSrc :: proc(s: String)
+  for c in s
+    if srcLen < SRC
+      src[srcLen] = c
+      srcLen += 1
+    end
+  end
+end
+addSrcBlob :: proc(s: Blob)
+  for c in s
+    if srcLen < SRC
+      src[srcLen] = c
+      srcLen += 1
+    end
+  end
+end
+
+# after a set's title, a project's star
+addSetStar :: proc(set: Blob)
+  if set.len() > 0 and set[set.len() - 1] == 42
+    addSrc(" *") # (a link's text is as it is: no emphasis)
+  end
+end
+
+# is help text i in set (its first part)?
+inSet :: proc(i: Int, set: Blob) -> Bool
+  n := nameLen[i]
+  if n <= set.len() or names[nameAt[i] + set.len()] != 47
+    return false
+  end
+  for k in 0..<set.len()
+    if names[nameAt[i] + k] != set[k]
+      return false
+    end
+  end
+  return true
+end
+
+hasName :: proc(s: String) -> Bool
+  for i in 0..<nameCount
+    if nameLen[i] == s.len()
+      k := 0
+      for k < s.len() and names[nameAt[i] + k] == s[k]
+        k += 1
+      end
+      if k == s.len()
+        return true
+      end
+    end
+  end
+  return false
+end
+
+setName: Blob[..64]
+summary: Blob[..80]
+readme: Blob[..80]
+head: Blob[80]
+
+# the set's title: its README's first line, if that's a heading, else the set's name
+addTitle :: proc()
+  n := min(pc.helpRead(readme[0:readme.len()].asString(), head[:]), 80)
+  if n > 2 and head[0] == 35 and head[1] == 32
+    e := 2
+    for e < n and head[e] != 10 and head[e] != 13
+      e += 1
+    end
+    addSrcBlob(head[2:e])
+  else
+    addSrcBlob(setName[0:setName.len()])
+  end
+end
+
+# the contents page, kept in the stash as "contents" with the start of the Rinc (pc.boot) and the apps it
+# was made for: made again when either changes, or after the system key with R drops the stash. Kept as
+# the boot's number, a line, the apps, a line, then the page
+kept: Blob[..3072]
+keptApps: Blob[..1024]
+keptBoot := -1
+keptText: Blob[..4352]
+appsNow: Blob[..1024]
+appName: Blob[32]
+listApps :: proc()
+  appsNow.clear()
+  for i in 0..<pc.apps()
+    n := min(pc.appName(i, appName[:]), 32)
+    ok := appsNow.pushAll(appName[0:n])
+    ok = appsNow.push(44)
+  end
+end
+
+makeContents :: proc()
+  srcLen = 0
+  found := pc.helps(names[:]) # (each name, then 10)
+  nameCount = 0
+  at := 0
+  for k in 0..<names.len()
+    if nameCount < min(found, 128) and names[k] == 10
+      nameAt[nameCount] = at
+      nameLen[nameCount] = k - at
+      nameCount += 1
+      at = k + 1
+    end
+  end
+  addSrc("# Help\n\nThe help texts here: Tab picks a link, Enter follows it, and Backspace comes back.\n\n")
+  i := 0
+  for i < nameCount
+    n := names[nameAt[i]:nameAt[i] + nameLen[i]]
+    slash := -1
+    for k in 0..<n.len()
+      if slash < 0 and n[k] == 47
+        slash = k
+      end
+    end
+    if slash < 0
+      addSrc("- [")
+      addSrcBlob(n)
+      addSrc("](")
+      addSrcBlob(n)
+      addSrc(")\n")
+      i += 1
+    else
+      setName.clear()
+      ok := setName.pushAll(n[0:slash])
+      summary.clear()
+      ok = summary.pushAll(setName[0:setName.len()])
+      ok = summary.pushAll("/SUMMARY")
+      readme.clear()
+      ok = readme.pushAll(setName[0:setName.len()])
+      ok = readme.pushAll("/README")
+      if hasName(summary[0:summary.len()].asString()) # (a set with a SUMMARY, or a README: by its title)
+        addSrc("- [")
+        addTitle()
+        addSetStar(setName[0:setName.len()])
+        addSrc("](")
+        addSrcBlob(summary[0:summary.len()])
+        addSrc(")\n")
+      case hasName(readme[0:readme.len()].asString())
+        addSrc("- [")
+        addTitle()
+        addSetStar(setName[0:setName.len()])
+        addSrc("](")
+        addSrcBlob(readme[0:readme.len()])
+        addSrc(")\n")
+        for j in i..<nameCount
+          jn := names[nameAt[j]:nameAt[j] + nameLen[j]]
+          if inSet(j, setName[0:setName.len()]) and jn.asString() != readme[0:readme.len()].asString()
+            addSrc("  - [")
+            addSrcBlob(jn)
+            addSrc("](")
+            addSrcBlob(jn)
+            addSrc(")\n")
+          end
+        end
+      else
+        for j in i..<nameCount
+          if inSet(j, setName[0:setName.len()])
+            addSrc("- [")
+            addSrcBlob(names[nameAt[j]:nameAt[j] + nameLen[j]])
+            addSrc("](")
+            addSrcBlob(names[nameAt[j]:nameAt[j] + nameLen[j]])
+            addSrc(")\n")
+          end
+        end
+      end
+      for i < nameCount and inSet(i, setName[0:setName.len()])
+        i += 1
+      end
+    end
+  end
+  if nameCount == 0
+    addSrc("No help texts here yet. They go in storage as /rinc/help/name.md.\n")
+  end
+end
+
+# the contents, as Markdown: each set of texts (the first part of their names), by its title (its
+# README's heading), to its SUMMARY or README if it has one, else each of its texts; then the texts in
+# no set
+contents :: proc()
+  listApps()
+  if kept.len() == 0 and keptBoot < 0 # (the first time: what was kept, if anything)
+    keptBoot = 0
+    n := min(pc.stashRead("contents", keptText[0:0]), 4352)
+    if n > 0
+      for i in 0..<n
+        ok := keptText.push(0)
+      end
+      n = min(pc.stashRead("contents", keptText[0:n]), n)
+      k := 0
+      b := 0
+      for k < n and keptText[k] != 10
+        b = b * 10 + keptText[k] - 48
+        k += 1
+      end
+      k += 1
+      for k < n and keptText[k] != 10
+        ok := keptApps.push(keptText[k])
+        k += 1
+      end
+      k += 1
+      if k < n
+        ok := kept.pushAll(keptText[k:n])
+        keptBoot = b
+      end
+    end
+  end
+  if kept.len() > 0 and keptBoot == pc.boot() and keptApps[0:keptApps.len()].asString() == appsNow[0:appsNow.len()].asString()
+    srcLen = 0
+    addSrcBlob(kept[0:kept.len()])
+    return
+  end
+  makeContents()
+  kept.clear()
+  if srcLen <= 3072
+    ok := kept.pushAll(src[0:srcLen])
+  end
+  keptApps.clear()
+  ok := keptApps.pushAll(appsNow[0:appsNow.len()])
+  keptBoot = pc.boot()
+  keptText.clear()
+  ok = keptText.format(keptBoot)
+  ok = keptText.push(10)
+  ok = keptText.pushAll(keptApps[0:keptApps.len()])
+  ok = keptText.push(10)
+  ok = keptText.pushAll(kept[0:kept.len()])
+  ok = pc.stashWrite("contents", keptText[0:keptText.len()].asString()) == 0
+end
+
+# help text name, shown from row 0 (or its heading anchor): false if there's none
+open :: proc(name: Blob, anchor: Blob) -> Bool
+  if name.len() == 0
+    contents()
+  else
+    n := pc.helpRead(name.asString(), src[0:SRC])
+    if n < 0
+      say("No help text there")
+      return false
+    end
+    srcLen = min(n, SRC)
+    if n > SRC
+      say("(too long: just the start)")
+    end
+  end
+  doc.clear()
+  ok := doc.pushAll(name)
+  render()
+  top = 0
+  pick = -1
+  if anchor.len() > 0
+    for h in 0..<headCount
+      if slugLen[h] == anchor.len()
+        k := 0
+        for k < anchor.len() and slugs[slugAt[h] + k] == anchor[k]
+          k += 1
+        end
+        if k == anchor.len()
+          top = rowOfLog[headLog[h]]
+        end
+      end
+    end
+  end
+  return true
+end
+
+# where a link goes: a help text's name (from the folder of the one shown), and an anchor
+goName: Blob[..64]
+goAnchor: Blob[..64]
+resolve :: proc(l: Int) -> Bool
+  t := targets[targetAt[l]:targetAt[l] + targetLen[l]]
+  goName.clear()
+  goAnchor.clear()
+  if t.len() >= 4 and t[0] == 104 and t[1] == 116 and t[2] == 116 and t[3] == 112 # (http: a web page)
+    say("A web page: not here")
+    return false
+  end
+  hash := t.len()
+  for k in 0..<t.len()
+    if t[k] == 35 and hash == t.len()
+      hash = k
+    end
+  end
+  if hash + 1 < t.len()
+    ok := goAnchor.pushAll(t[hash + 1:])
+  end
+  path := t[0:hash]
+  if path.len() == 0 # (an anchor here)
+    ok := goName.pushAll(doc[0:doc.len()])
+    return true
+  end
+  if doc.len() > 0 # (from the shown text's folder)
+    d := doc.len()
+    for d > 0 and doc[d - 1] != 47
+      d -= 1
+    end
+    ok := goName.pushAll(doc[0:d])
+  end
+  k := 0
+  for k < path.len()
+    e := k
+    for e < path.len() and path[e] != 47
+      e += 1
+    end
+    part := path[k:e]
+    if part.len() == 2 and part[0] == 46 and part[1] == 46 # (..: the folder up)
+      if goName.len() > 0
+        goName.pop()
+      end
+      for goName.len() > 0 and goName[goName.len() - 1] != 47
+        goName.pop()
+      end
+    case not (part.len() == 1 and part[0] == 46) and part.len() > 0
+      ok := goName.pushAll(part)
+      if e < path.len()
+        ok = goName.push(47)
+      end
+    end
+    k = e + 1
+  end
+  if goName.len() > 3 and goName[goName.len() - 3] == 46 and goName[goName.len() - 2] == 109 and goName[goName.len() - 1] == 100
+    goName.pop() # (.md left off)
+    goName.pop()
+    goName.pop()
+  end
+  return true
+end
+
+# to help text name (and its heading anchor), from here: what was forward of here is dropped
+visit :: proc(name: Blob, anchor: Blob)
+  if histLen > 0
+    histTop[histAt] = top
+  end
+  if not open(name, anchor)
+    return
+  end
+  if histLen > 0
+    histLen = histAt + 1
+  end
+  if histLen == 32 # (full: the oldest goes)
+    for i in 0..<31
+      histName[i].clear()
+      ok := histName[i].pushAll(histName[i + 1][0:histName[i + 1].len()])
+      histTop[i] = histTop[i + 1]
+    end
+    histLen = 31
+  end
+  histName[histLen].clear()
+  ok := histName[histLen].pushAll(doc[0:doc.len()])
+  histTop[histLen] = top
+  histAt = histLen
+  histLen += 1
+  placeDirty = true
+  placeWait = 0 # (saved right away)
+end
+
+follow :: proc()
+  if pick >= 0 and pick < linkCount and resolve(pick)
+    visit(goName[0:goName.len()], goAnchor[0:goAnchor.len()])
+  end
+end
+
+# back (by -1) or forward (1) along where it's been
+move :: proc(by: Int)
+  if histAt + by < 0 or histAt + by >= histLen
+    return
+  end
+  histTop[histAt] = top
+  histAt += by
+  ok := open(histName[histAt][0:histName[histAt].len()], doc[0:0])
+  top = histTop[histAt]
+  placeDirty = true
+  placeWait = 0
+end
+
+# where it's been, kept in its stash as "place" for next time (Sys+R starts over): the place it's at,
+# then each place's scroll and name, a line each. Saved on going somewhere, and a second after scrolling
+# stops
+savePlace :: proc()
+  histTop[histAt] = top
+  place.clear()
+  ok := place.format(histAt)
+  ok = place.push(10)
+  for i in 0..<histLen
+    ok = place.format(histTop[i], " ")
+    ok = place.pushAll(histName[i][0:histName[i].len()])
+    ok = place.push(10)
+  end
+  ok = pc.stashWrite("place", place[0:place.len()].asString()) == 0
+  placeDirty = false
+end
+
+# where it was last, from its save file: false if there's none to go back to
+restorePlace :: proc() -> Bool
+  n := min(pc.stashRead("place", place[0:0]), 6144)
+  if n <= 0
+    return false
+  end
+  place.clear()
+  for i in 0..<n
+    ok := place.push(0)
+  end
+  n = min(pc.stashRead("place", place[0:n]), n)
+  at := 0
+  k := 0
+  for k < n and place[k] != 10
+    at = at * 10 + place[k] - 48
+    k += 1
+  end
+  k += 1
+  histLen = 0
+  for k < n and histLen < 32 and place[k] != 10
+    t := 0
+    for k < n and place[k] >= 48 and place[k] <= 57
+      t = t * 10 + place[k] - 48
+      k += 1
+    end
+    k += 1 # (the space)
+    histName[histLen].clear()
+    for k < n and place[k] != 10
+      ok := histName[histLen].push(place[k])
+      k += 1
+    end
+    k += 1
+    histTop[histLen] = t
+    histLen += 1
+  end
+  if histLen == 0 or at >= histLen
+    histLen = 0
+    return false
+  end
+  histAt = at
+  if not open(histName[histAt][0:histName[histAt].len()], doc[0:0])
+    histLen = 0
+    return false
+  end
+  top = min(histTop[histAt], max(0, rowCount - ROWS))
+  return true
+end
+
+# up a level: a text's contents (its set's SUMMARY), and from there (or a text in no set), all of them
+upName: Blob[..80]
+one: Blob[1]
+up :: proc()
+  if doc.len() == 0
+    return
+  end
+  slash := -1
+  for k in 0..<doc.len()
+    if slash < 0 and doc[k] == 47
+      slash = k
+    end
+  end
+  upName.clear()
+  if slash > 0
+    ok := upName.pushAll(doc[0:slash])
+    ok = upName.pushAll("/SUMMARY")
+    if (upName.len() == doc.len() and upName[0:upName.len()].asString() == doc[0:doc.len()].asString()) or pc.helpRead(upName[0:upName.len()].asString(), one[:]) < 0
+      upName.clear()
+    end
+  end
+  visit(upName[0:upName.len()], doc[0:0])
+end

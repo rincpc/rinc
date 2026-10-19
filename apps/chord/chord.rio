@@ -1,0 +1,88 @@
+# Chord: a plucked chord in 4-bit ADPCM (5.6 KB), typed in as hex, and the same chord as 16-bit
+# (22 KB) and 8-bit (11 KB), made here, to hear the difference. V plays the ADPCM one, C the 16-bit
+# one, X the 8-bit one (each on the next of the 8 voices, so they overlap); left and right change
+# the pitch, up and down the pan. Measured on this chord: ADPCM and 8-bit both 36 dB signal to noise, but in the quiet
+# tail ADPCM 40 dB and 8-bit 28 (8-bit's noise stays put as the sound fades; ADPCM's shrinks with it).
+# ADPCM at 22 kHz is its grainy end: it gets better with the rate, about 9 dB each time it doubles.
+include "parts/sound.rio" # (chord: the sound, 5590 bytes of ADPCM)
+# play it: pc.sound(0, chord, 4, 1, 22050.0)
+fine: [11025]Float
+pluck :: proc(f: Float, start: Int)
+  for i in start..<11025
+    t := (i - start).toFloat() / 22050.0
+    fine[i] += 0.22 * exp(-6.0 * t) * (sin(6.2831853 * f * t) + 0.3 * sin(12.566371 * f * t))
+  end
+end
+pluck(220.0, 0)
+pluck(261.63, 1102)
+pluck(329.63, 2204)
+pluck(440.0, 3306)
+chord16: Blob[22050]
+chord8: Blob[11025]
+for x, i in fine
+  v := max(min((x * 32767.0).toInt(), 32767), -32768)
+  chord16[i * 2] = v & 255
+  chord16[i * 2 + 1] = (v >> 8) & 255
+  chord8[i] = max(min(round(x * 127.0).toInt(), 127), -128) & 255
+end
+
+pitch := 1.0
+pan := 0.0
+next := 0
+held := 0
+last := "ADPCM"
+
+update* :: proc()
+  pressed := pc.btn(4) + pc.btn(5) * 2 + pc.btn(6) * 4
+  if pc.btn(0) == 1
+    pitch = max(pitch * 0.99, 0.25)
+  end
+  if pc.btn(1) == 1
+    pitch = min(pitch * 1.01, 4.0)
+  end
+  if pc.btn(2) == 1
+    pan = max(pan - 0.02, -1.0)
+  end
+  if pc.btn(3) == 1
+    pan = min(pan + 0.02, 1.0)
+  end
+  if pressed & 1 == 1 and held & 1 == 0
+    pc.sound(next, chord, 4, 1, 22050.0 * pitch)
+    next = (next + 1) % 8
+    last = "ADPCM"
+  end
+  if pressed & 2 == 2 and held & 2 == 0
+    pc.sound(next, chord16, 16, 1, 22050.0 * pitch)
+    next = (next + 1) % 8
+    last = "16-BIT"
+  end
+  if pressed & 4 == 4 and held & 4 == 0
+    pc.sound(next, chord8, 8, 1, 22050.0 * pitch)
+    next = (next + 1) % 8
+    last = "8-BIT"
+  end
+  held = pressed
+  for k in 0..<8
+    pc.soundRate(k, 22050.0 * pitch)
+    pc.soundPan(k, pan)
+  end
+end
+
+draw* :: proc()
+  pc.cls(1)
+  pc.print("CHORD: ADPCM 5590 B, 16-BIT 22050, 8-BIT 11025", 8, 8, 7)
+  pc.print("V: ADPCM   C: 16-BIT   X: 8-BIT", 8, 24, 6)
+  pc.print("LEFT/RIGHT: PITCH   UP/DOWN: PAN", 8, 34, 6)
+  pc.print(last, 8, 110, 10)
+  for k in 0..<8
+    if pc.soundPlaying(k) == 1
+      pc.rect(8 + k * 14, 60, 10, 10, 8 + k)
+    else
+      pc.rect(8 + k * 14, 60, 10, 10, 5)
+    end
+  end
+  pc.rect(8, 80, 120, 4, 5)
+  pc.rect(8 + ((pitch - 0.25) / 3.75 * 116.0).toInt(), 78, 4, 8, 10)
+  pc.rect(8, 96, 120, 4, 5)
+  pc.rect(66 + (pan * 58.0).toInt(), 94, 4, 8, 12)
+end

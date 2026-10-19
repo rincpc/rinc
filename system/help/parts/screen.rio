@@ -1,0 +1,64 @@
+# Help: the screen (part of help.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the screen
+
+title: Blob[..53]
+draw* :: proc()
+  pc.cls(BACK)
+  for row in 0..<ROWS
+    r := top + row
+    if r >= rowCount
+      break
+    end
+    y := TOP_Y + row * 9
+    if rowBack[r] != 0
+      pc.rect(0, y - 1, 320, 9, rowBack[r])
+    end
+    x := TEXT_X + rowIndent[r] * 6
+    a := rowAt[r]
+    e := a + rowLen[r]
+    if pick >= 0 and linkFrom[pick] < e and linkTo[pick] > a # (the picked link)
+      from := max(linkFrom[pick], a)
+      to := min(linkTo[pick], e)
+      pc.rect(x + (from - a) * 6 - 1, y - 1, (to - from) * 6 + 1, 9, 28)
+    end
+    k := a
+    for k < e # (each run of one style)
+      s := sty[k]
+      j := k
+      for j < e and sty[j] == s
+        j += 1
+      end
+      color := styleColor(s)
+      if s == LINK and pick >= 0 and k >= linkFrom[pick] and k < linkTo[pick]
+        color = WHITE
+      end
+      pc.print(out[k:j].asString(), x + (k - a) * 6, y, color)
+      if s == LINK or s == H1 or s == H2 # (underlined)
+        pc.rect(x + (k - a) * 6, y + 8, (j - k) * 6 - 1, 1, color)
+      end
+      k = j
+    end
+  end
+  # the title bar: what's shown, and how far down
+  pc.rect(0, 0, 320, 10, BAR)
+  title.clear()
+  if doc.len() == 0
+    ok := title.pushAll("Help")
+  else
+    ok := title.pushAll(doc[0:min(doc.len(), 40)])
+  end
+  pc.print(title[0:title.len()].asString(), 2, 1, WHITE)
+  if rowCount > ROWS
+    title.clear()
+    ok := title.format(min(100, (top + ROWS) * 100 / rowCount), "%")
+    pc.print(title[0:title.len()].asString(), 318 - title.len() * 6, 1, 5)
+  end
+  # the bottom bar: a message, else the keys
+  pc.rect(0, 229, 320, 11, BAR)
+  if message.len() > 0
+    pc.print(message[0:message.len()].asString(), 2, 231, 9)
+  else
+    pc.print("Tab link  Enter open  Alt+arrows back fwd up", 2, 231, 5)
+  end
+end

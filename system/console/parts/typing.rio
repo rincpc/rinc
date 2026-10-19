@@ -1,0 +1,112 @@
+# Console: the session, typing (part of console.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the session
+
+showLog :: proc()
+  for
+    n := pc.rioLog(logBuf[:])
+    if n <= 0
+      break
+    end
+    say(logBuf[:n].asString(), GRAY)
+  end
+end
+
+showError :: proc()
+  n := pc.rioError(logBuf[:])
+  say(logBuf[:n].asString(), RED)
+end
+
+fresh :: proc() -> Bool
+  if pc.rioStart(sessionMem[:], sessionTables[:]) != 0
+    showError()
+    return false
+  end
+  return true
+end
+
+# ---------------------------------------------------------------- typing
+
+Mode :: enum
+  typing, running, saving
+end
+mode: Mode
+acc: Blob[..4096]  # an unfinished input's lines so far
+line: Blob[..200]  # the line being typed
+cur := 0           # where in it
+Hist :: struct
+  text: Blob[..200]
+end
+hist: [16]Hist
+histCount := 0
+back := 0          # how far back up and down have gone (0: the line being typed)
+saveName: Blob[..33]
+
+blank :: proc(t: String) -> Bool
+  for c in t
+    if c != 32
+      return false
+    end
+  end
+  return true
+end
+
+trim :: proc(t: String) -> String
+  a := 0
+  b := t.len()
+  for a < b and t[a] == 32
+    a += 1
+  end
+  for b > a and t[b - 1] == 32
+    b -= 1
+  end
+  return t[a:b]
+end
+
+setLine :: proc(t: String)
+  line.clear()
+  for c in t
+    line.push(c)
+  end
+  cur = line.len()
+end
+
+remember :: proc(t: String)
+  if blank(t)
+    return
+  end
+  if histCount == 16
+    for i in 0..<15
+      hist[i] = hist[i + 1]
+    end
+    histCount -= 1
+  end
+  hist[histCount].text.clear()
+  hist[histCount].text.pushAll(t)
+  histCount += 1
+end
+
+recall :: proc(step: Int)
+  b := back + step
+  if b < 0 or b > histCount
+    return
+  end
+  back = b
+  if b == 0
+    setLine("")
+  else
+    setLine(hist[histCount - b].text[:].asString())
+  end
+end
+
+insert :: proc(c: Int)
+  if line.push(c)
+    i := line.len() - 1
+    for i > cur
+      line[i] = line[i - 1]
+      i -= 1
+    end
+    line[cur] = c
+    cur += 1
+  end
+end

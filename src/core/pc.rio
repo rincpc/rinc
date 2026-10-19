@@ -90,6 +90,7 @@ fileWrite* :: @host proc(path: String, data: String) -> Int # 0, or -1
 fileDelete* :: @host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1
 fileCopy* :: @host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1
 fileRename* :: @host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1
+dirMake* :: @host proc(path: String) -> Int                 # a folder, at a path not taken: 0, or -1
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 

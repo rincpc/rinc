@@ -1,0 +1,257 @@
+# Files: what's done (part of files.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- what's done
+
+# the menu: what can be done with what's picked, a letter each
+OPEN_IT :: 0
+EDIT_IT :: 1
+RUN_IT :: 2
+COPY_IT :: 3
+RENAME_IT :: 4
+DELETE_IT :: 5
+INSTALL_IT :: 6
+VIEW_IT :: 7
+LABELS := [8]String{"Open", "Edit", "Run", "Copy", "Rename", "Delete", "Install as its app", "View"}
+KEYS := [8]Int{111, 101, 114, 99, 110, 100, 105, 118} # o e r c n d i v
+items: [8]Int
+itemOk: [8]Bool
+itemCount := 0
+menuPick := 0
+
+addItem :: proc(id: Int, ok: Bool)
+  items[itemCount] = id
+  itemOk[itemCount] = ok
+  itemCount += 1
+end
+
+openMenu :: proc()
+  k := picked()
+  if k < 0 or kind[k] == UP
+    return
+  end
+  target = k
+  itemCount = 0
+  ref := appRef(k)
+  isApp := ref.len() > 0
+  change := canChange(k)
+  if kind[k] == FOLDER
+    addItem(OPEN_IT, true)
+    if isApp
+      addItem(EDIT_IT, true)
+      addItem(RUN_IT, true)
+      addItem(COPY_IT, true)
+      addItem(RENAME_IT, inProjects())
+      addItem(DELETE_IT, change)
+      addItem(INSTALL_IT, inProjects())
+    else
+      addItem(COPY_IT, change)
+      addItem(RENAME_IT, change)
+      addItem(DELETE_IT, change)
+    end
+  else
+    addItem(VIEW_IT, true)
+    if isApp
+      addItem(EDIT_IT, true)
+      addItem(RUN_IT, true)
+    end
+    addItem(COPY_IT, change)
+    addItem(RENAME_IT, change)
+    addItem(DELETE_IT, change)
+  end
+  menuPick = 0
+  mode = MENU
+end
+
+startPrompt :: proc(m: Int)
+  mode = m
+  input.clear()
+  inputFresh = false
+  if m == RENAME or m == COPY # (from its name)
+    ok := input.pushAll(nameOf(target))
+    inputFresh = true
+  end
+end
+
+act :: proc(i: Int)
+  id := items[i]
+  k := target
+  mode = NONE
+  if not itemOk[i]
+    say("That can't be done here", 8)
+    return
+  end
+  switch
+  case id == OPEN_IT
+    ok := open(pathTo(nameOf(k)))
+  case id == VIEW_IT
+    showFile(k)
+  case id == EDIT_IT
+    edit(appRef(k))
+  case id == RUN_IT
+    pc.launch(appRef(k))
+  case id == COPY_IT
+    startPrompt(COPY)
+  case id == RENAME_IT
+    startPrompt(RENAME)
+  case id == DELETE_IT
+    startPrompt(DELETE)
+  case id == INSTALL_IT
+    if pc.appInstall(nameOf(k)) == 0
+      say("Installed as its app: ", 6)
+      ok := message.pushAll(nameOf(k))
+    else
+      say("Couldn't install it", 8)
+    end
+  end
+end
+
+# a name: letters, digits, _, - and (for a file) dots, not starting with one
+validName :: proc(s: String, dots: Bool) -> Bool
+  if s.len() == 0 or s.len() > 60 or s[0] == 46
+    return false
+  end
+  for c in s
+    if not ((c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45 or (dots and c == 46))
+      return false
+    end
+  end
+  return true
+end
+
+refTo: Blob[..34]
+projectRef :: proc(s: String) -> String
+  refTo.clear()
+  ok := refTo.pushAll(s)
+  ok = refTo.push(42)
+  return refTo[0:refTo.len()].asString()
+end
+
+# this folder again, with name picked
+reopen :: proc(name: String)
+  ok := open(here())
+  for i in 0..<nshown
+    if nameOf(shown[i]) == name
+      pick = i
+    end
+  end
+  reveal()
+end
+
+from: Blob[..160]
+promptDone :: proc()
+  m := mode
+  s := input[0:input.len()].asString()
+  k := target
+  if m == NEW_FOLDER # (here)
+    if not validName(s, true)
+      say("A name is letters, digits, _, - and .", 8)
+      return
+    end
+    mode = NONE
+    if here().len() <= 6 or here()[0:6] != "/rinc/" or pc.dirMake(pathTo(s)) != 0
+      say("Couldn't make it here: is something called that already?", 8)
+      return
+    end
+    reopen(s)
+    return
+  end
+  if m == DELETE
+    if s != nameOf(k)
+      say("Type its whole name to delete it", 8)
+      return
+    end
+    mode = NONE
+    res := 0
+    ref := appRef(k)
+    if kind[k] == FOLDER and ref.len() > 0
+      res = pc.appDelete(ref)
+    else
+      res = pc.fileDelete(pathTo(nameOf(k)))
+    end
+    if res == 0
+      say("Deleted ", 6)
+      ok := message.pushAll(s)
+      reopen("")
+    else
+      say("Couldn't delete it", 8)
+    end
+    return
+  end
+  app := m == NEW or (kind[k] == FOLDER and appRef(k).len() > 0)
+  if not validName(s, not app) or (app and s.len() > 32)
+    if app
+      say("A name is letters, digits, _ and -", 8)
+    else
+      say("A name is letters, digits, _, - and .", 8)
+    end
+    return
+  end
+  mode = NONE
+  res := 0
+  if m == NEW
+    to := projectRef(s)
+    if pc.appSource(to, input[0:0]) >= 0
+      say("There's a project of that name already", 8)
+      return
+    end
+    header: Blob[..80]
+    ok := header.pushAll("# ")
+    ok = header.pushAll(s)
+    ok = header.pushAll(": what it does\n")
+    if pc.appSave(to, header[0:header.len()].asString()) == 0
+      edit(to)
+    else
+      say("Couldn't make it", 8)
+    end
+    return
+  end
+  if app
+    if m == COPY
+      res = pc.appCopy(appRef(k), projectRef(s))
+    else
+      res = pc.appRename(appRef(k), projectRef(s))
+    end
+  else
+    from.clear()
+    ok := from.pushAll(pathTo(nameOf(k)))
+    if m == COPY
+      res = pc.fileCopy(from[0:from.len()].asString(), pathTo(s))
+    else
+      res = pc.fileRename(from[0:from.len()].asString(), pathTo(s))
+    end
+  end
+  if res != 0
+    say("Couldn't: is something called that already?", 8)
+    return
+  end
+  if app and m == COPY and inApps()
+    say("Copied as project ", 6)
+    ok := message.pushAll(s)
+    ok = message.push(42)
+  else
+    say("Done: ", 6)
+    ok := message.pushAll(s)
+    reopen(s)
+  end
+end
+
+# Enter, on an entry
+enter :: proc(k: Int)
+  if k < 0
+    return
+  end
+  if kind[k] == UP
+    goUp()
+  case kind[k] == FOLDER
+    ok := open(pathTo(nameOf(k)))
+  case saving
+    saveName.clear()
+    ok := saveName.pushAll(nameOf(k))
+  case picking
+    finish(pathTo(nameOf(k)))
+  case appRef(k).len() > 0
+    edit(appRef(k))
+  else
+    showFile(k)
+  end
+end

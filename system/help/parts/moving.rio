@@ -1,0 +1,161 @@
+# Help: moving about (part of help.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- moving about
+
+rowOf :: proc(at: Int) -> Int
+  for r in 0..<rowCount
+    if at < rowAt[r] + rowLen[r] or (r + 1 < rowCount and at < rowAt[r + 1])
+      return r
+    end
+  end
+  return max(0, rowCount - 1)
+end
+
+scroll :: proc(by: Int)
+  top = max(0, min(top + by, rowCount - ROWS))
+end
+
+# the next link (dir 1) or the one before, from the picked one, or from what's shown
+pickNext :: proc(dir: Int)
+  if linkCount == 0
+    return
+  end
+  if pick < 0
+    pick = -1
+    if dir < 0
+      pick = linkCount
+    end
+    first := rowAt[min(top, max(0, rowCount - 1))]
+    for l in 0..<linkCount
+      if dir > 0 and pick < 0 and linkFrom[l] >= first
+        pick = l
+      end
+    end
+    if pick < 0 or pick == linkCount
+      pick = (linkCount + dir) % linkCount
+      if dir > 0
+        pick = 0
+      end
+    end
+  else
+    pick = (pick + dir + linkCount) % linkCount
+  end
+  r := rowOf(linkFrom[pick])
+  if r < top or r >= top + ROWS
+    top = max(0, min(r - 3, rowCount - ROWS))
+  end
+end
+
+# the link at a point on the screen, or -1
+linkAt :: proc(px: Int, py: Int) -> Int
+  row := (py - TOP_Y + 1) / 9
+  if py < TOP_Y - 1 or row >= ROWS or top + row >= rowCount
+    return -1
+  end
+  r := top + row
+  x := TEXT_X + rowIndent[r] * 6
+  if px < x
+    return -1
+  end
+  at := rowAt[r] + (px - x) / 6
+  if at >= rowAt[r] + rowLen[r]
+    return -1
+  end
+  for l in 0..<linkCount
+    if linkFrom[l] <= at and at < linkTo[l]
+      return l
+    end
+  end
+  return -1
+end
+
+held := 0
+clicked := 0 # (the pointer's buttons, last frame)
+wasShown := 0
+pc.pointer(pc.Pointer.ui)
+update* :: proc()
+  c := pc.key()
+  for c >= 0
+    k := c & 255
+    message.clear()
+    switch
+    case c == 128 | 1024 # Alt+Left, Alt+Right: back, forward; Alt+Up: up a level
+      move(-1)
+    case c == 129 | 1024
+      move(1)
+    case c == 130 | 1024
+      up()
+    case c == 132 | 1024 # Alt+Home: all the contents
+      visit(doc[0:0], doc[0:0])
+    case k == 130
+      scroll(-1)
+    case k == 131
+      scroll(1)
+    case k == 135
+      scroll(-(ROWS - 1))
+    case k == 136 or (k == 32 and c < 256)
+      scroll(ROWS - 1)
+    case k == 132
+      top = 0
+    case k == 133
+      scroll(rowCount)
+    case k == 9
+      dir := 1
+      if c & 256 != 0
+        dir = -1
+      end
+      pickNext(dir)
+    case k == 13
+      follow()
+    case k == 8 or k == 27
+      move(-1)
+    case k == 15 # Ctrl+O
+      visit(doc[0:0], doc[0:0])
+    end
+    c = pc.key()
+  end
+  # the pointer: a click on a link follows it (A's too; A with the pointer hidden, and not on a link,
+  # follows the picked one); the secondary button (or B) goes back; scrolling, two rows a step
+  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
+  if click & ~clicked & 1 != 0
+    l := linkAt(pc.pointerX(), pc.pointerY())
+    if l >= 0
+      pick = l
+      follow()
+    case wasShown == 0
+      follow()
+    end
+  end
+  if click & ~clicked & 2 != 0
+    move(-1)
+  end
+  clicked = click
+  wasShown = pc.pointerShown()
+  scroll(-2 * pc.scroll(1))
+  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8
+  pressed := bits & ~held
+  if pressed & 4 != 0
+    scroll(-1)
+  end
+  if pressed & 8 != 0
+    scroll(1)
+  end
+  if pressed & 1 != 0
+    pickNext(-1)
+  end
+  if pressed & 2 != 0
+    pickNext(1)
+  end
+  held = bits
+  if top != placeTop # (scrolled: saved once it stops)
+    placeTop = top
+    placeDirty = true
+    placeWait = 60
+  end
+  if placeDirty
+    if placeWait <= 0
+      savePlace()
+    end
+    placeWait -= 1
+  end
+end

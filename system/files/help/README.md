@@ -13,6 +13,7 @@ or where it was last. A yellow mark at the left is the active app or project, wh
 | typing | narrow the list to the names with what's typed |
 | Space (or Y, or the secondary button) | what else can be done with it, each by its letter |
 | Ctrl+N | a new project: its name, then the editor |
+| Ctrl+Shift+N | a new folder, here (inside `/rinc`'s folders) |
 | Esc | close what's open, else clear what's typed, else up a folder |
 
 With a mouse, a click picks one, a click on the one picked opens it, and the wheel scrolls. A file's

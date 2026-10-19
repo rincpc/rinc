@@ -45,21 +45,22 @@ toobig: [70000]Int  # error: out of memory
 each of the compiler's tables got, and where the memory goes when it runs:
 
 ```
-apps/chord.rio: fits in the 256 KB app space
-  compiler room   234496 bytes
-  source in mem   14336 bytes
-  symbols         78 of 1664: 4%
+apps/chord/chord.rio: fits in the 256 KB app space
+  compiler room   186192 bytes
+  source in mem   65536 bytes
+  symbols         112 of 1301: 8%
   ...
-  string pool     11131 of 22964: 48%
-  constants       336 bytes
-  data            82872 bytes
+  string pool     11741 of 18528: 63%
+  constants       356 bytes
+  data            82876 bytes
   code            2112 bytes
-  strings, tables 11620 bytes
-  free            165204 bytes
+  strings, tables 11656 bytes
+  free            165144 bytes
 ```
 
-Whatever comes nearest 100% is what would run out first: here the string pool, as `chord.rio` carries
-its sound as hex text. When an app runs out of something, the Fruit Jam and the desktop show the same
+Whatever comes nearest 100% is what would run out first: here the string pool, as chord carries its
+sound as hex text (in `parts/sound.rio`). An app of more files than one keeps 64 KB for its sources
+while it compiles, all of them together, so its compiler has less room than an app of one file's. When an app runs out of something, the Fruit Jam and the desktop show the same
 report with the error.
 
 ## Outside the app space

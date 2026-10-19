@@ -1,0 +1,262 @@
+# Editor: keys (part of edit.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- keys
+
+key :: proc(k: Int)
+  base := k & 255
+  shift := k & SHIFT != 0
+  ctrl := k & CTRL != 0
+  alt := k & ALT != 0
+  if mode != NONE
+    promptKey(k)
+    return
+  end
+  if base != 14 and base != 15
+    confirm = 0 # (a warning stands only until the next key)
+  end
+  if base >= 32 and base < 127 and k < 256
+    typeChar(base)
+    if base == 100 or base == 101
+      dedent()
+    end
+  case base == 13
+    enter()
+  case base == 8
+    backspace(ctrl or alt)
+  case base == DELETE
+    deleteForward(ctrl or alt)
+  case base == 9
+    tab(shift)
+  case base == 27
+    anchor = cursor
+  case base == LEFT
+    if cursor != anchor and not shift and not ctrl
+      moveTo(selStart(), false)
+    case ctrl
+      moveTo(wordLeft(cursor), shift)
+    else
+      moveTo(cursor - 1, shift)
+    end
+    wantCol = -1
+  case base == RIGHT
+    if cursor != anchor and not shift and not ctrl
+      moveTo(selEnd(), false)
+    case ctrl
+      moveTo(wordRight(cursor), shift)
+    else
+      moveTo(cursor + 1, shift)
+    end
+    wantCol = -1
+  case base == UP or base == DOWN
+    step := 1
+    if base == UP
+      step = -1
+    end
+    if alt
+      moveLines(step)
+    case ctrl
+      top = max(0, min(top + step, lineCount - 1))
+    else
+      moveToLine(lineOf(cursor) + step, shift)
+    end
+  case base == PAGE_UP or base == PAGE_DOWN
+    step := ROWS - 1
+    if base == PAGE_UP
+      step = -step
+    end
+    top = max(0, min(top + step, lineCount - 1))
+    moveToLine(lineOf(cursor) + step, shift)
+  case base == HOME
+    if ctrl
+      moveTo(0, shift)
+    else
+      l := lineOf(cursor)
+      p := indentEnd(l)
+      if cursor == p
+        p = lineAt[l]
+      end
+      moveTo(p, shift)
+    end
+    wantCol = -1
+  case base == KEY_END
+    if ctrl
+      moveTo(textLen, shift)
+    else
+      moveTo(lineEnd(lineOf(cursor)), shift)
+    end
+    wantCol = -1
+  case base == 1 # Ctrl+A
+    anchor = 0
+    cursor = textLen
+  case base == 3
+    copy(false)
+  case base == 24
+    copy(true)
+  case base == 22
+    paste()
+  case base == 26 and shift
+    redo()
+  case base == 26
+    undo()
+  case base == 25
+    redo()
+  case base == 11 and shift
+    deleteLines()
+  case base == 12 # Ctrl+L: the line, and the next with each again
+    l := lineOf(cursor)
+    if cursor != anchor and lineAt[lineOf(selEnd())] == selEnd() # (whole lines already: one more)
+      l = lineOf(selEnd())
+      anchor = selStart()
+    else
+      anchor = lineAt[l]
+    end
+    if l + 1 < lineCount
+      cursor = lineAt[l + 1]
+    else
+      cursor = textLen
+    end
+  case base == 19 and shift # Ctrl+Shift+S
+    saveAs()
+  case base == 19
+    ok := save()
+  case base == 18 # Ctrl+R: save, then run its app
+    run()
+  case base == 15 # Ctrl+O
+    if modified() and confirm != 15
+      say("Unsaved changes: Ctrl+O again drops them", ORANGE)
+      confirm = 15
+    else
+      confirm = 0
+      callFiles("pick")
+    end
+  case base == 16 and shift # Ctrl+Shift+P: every command
+    startPrompt(PALETTE)
+  case base == 14 # Ctrl+N
+    if modified() and confirm != 14
+      say("Unsaved changes: Ctrl+N again drops them", ORANGE)
+      confirm = 14
+    else
+      confirm = 0
+      fresh()
+      path.clear()
+      say("New: Ctrl+S saves it, where Files says", GRAY)
+    end
+  case base == 6
+    if cursor != anchor and selEnd() - selStart() <= 48 # (what's selected, to find)
+      query.clear()
+      query.pushAll(text[selStart():selEnd()])
+    end
+    startPrompt(FIND)
+  case base == 7
+    startPrompt(GO_TO)
+  end
+end
+
+# the cursor in view
+reveal :: proc()
+  l := lineOf(cursor)
+  col := cursor - lineAt[l]
+  if l < top
+    top = l
+  end
+  if l >= top + ROWS
+    top = l - ROWS + 1
+  end
+  if col < left
+    left = max(0, col - 8)
+  end
+  if col >= left + COLS
+    left = col - COLS + 8
+  end
+end
+
+movedAt := 0.0 # (the cursor stays lit while it moves)
+
+# where in the text a point on the screen is: the nearest place between characters, on the line it's on
+# (the first or last line shown, above or below them)
+textAt :: proc(px: Int, py: Int) -> Int
+  row := 0
+  if py >= TOP_Y - 1
+    row = min((py - TOP_Y + 1) / 9, ROWS - 1)
+  end
+  l := min(top + row, lineCount - 1)
+  col := left
+  if px >= TEXT_X
+    col = left + (px - TEXT_X + 3) / 6
+  end
+  return lineAt[l] + min(col, lineEnd(l) - lineAt[l])
+end
+
+# the pointer: a click puts the cursor there (dragging, selecting to there); in the
+# list of commands, a click does one, and one outside it closes it; scrolling, three lines a step
+dragging := false
+clicked := 0
+pc.pointer(pc.Pointer.ui)
+pointer :: proc()
+  down := pc.pointerDown(0)
+  px := pc.pointerX()
+  py := pc.pointerY()
+  if down == 1 and clicked == 0
+    if mode == PALETTE
+      from := max(0, pick - LIST_ROWS + 1)
+      row := (py - 52) / 10
+      if px >= 44 and px < 276 and py >= 52 and row < min(nlisted - from, LIST_ROWS)
+        pick = from + row
+        promptKey(13)
+      case px < 40 or px >= 280 or py < 24 or py >= 64 + LIST_ROWS * 10
+        promptKey(27)
+      end
+    case mode == NONE and py < 229
+      moveTo(textAt(px, py), false)
+      wantCol = -1
+      dragging = true
+      movedAt = pc.time()
+    end
+  case down == 1 and dragging and mode == NONE
+    was := cursor
+    moveTo(textAt(px, py), true)
+    if py < TOP_Y and top > 0 # (dragged above or below: scrolls)
+      top -= 1
+    case py >= TOP_Y + ROWS * 9 and top + ROWS < lineCount
+      top += 1
+    end
+    if cursor != was
+      movedAt = pc.time()
+    end
+  end
+  if down == 0
+    dragging = false
+  end
+  clicked = down
+  s := pc.scroll(1)
+  if mode == NONE and s != 0
+    top = max(0, min(top - 3 * s, lineCount - 1))
+  end
+end
+
+update* :: proc()
+  c := pc.key()
+  for c >= 0
+    was := cursor
+    key(c)
+    if cursor != was
+      movedAt = pc.time()
+    end
+    if naming # (save or run, on a new file: its project's name, asked for)
+      naming = false
+      startPrompt(NAMING)
+    end
+    if mode == NONE
+      reveal()
+    end
+    c = -1
+    if not leaving # (gone to Files: the rest typed is its)
+      c = pc.key()
+    end
+    if c < 0 and queued != 0 and not leaving # (a command picked from the list: its key)
+      c = queued
+      queued = 0
+    end
+  end
+  pointer()
+end

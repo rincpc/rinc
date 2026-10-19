@@ -1,0 +1,157 @@
+# Files: the screen (part of files.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the screen
+
+drawList :: proc()
+  for row in 0..<min(nshown - top, ROWS)
+    i := top + row
+    k := shown[i]
+    y := TOP + row * 11
+    if i == pick
+      pc.rect(2, y - 2, 316, 11, 12)
+    end
+    if isActive(k) # (the active app: a mark at its left)
+      pc.rect(0, y - 1, 2, 9, 10)
+    end
+    if kind[k] == UP
+      pc.print("..", 6, y, 6)
+    case kind[k] == FOLDER
+      color := 7
+      if inProjects()
+        color = 15
+      end
+      pc.print(nameOf(k), 6, y, color)
+      pc.print("/", 6 + nameLen[k] * 6, y, 13)
+    else
+      pc.print(nameOf(k), 6, y, 6)
+    end
+  end
+  if nshown <= 1 and filter.len() == 0 and (count == 0 or kind[0] == UP)
+    pc.print("(empty)", 6, TOP + 11 * nshown, 13)
+  end
+  if filter.len() > 0
+    pc.print(filter[0:filter.len()].asString(), 316 - filter.len() * 6, 2, 10)
+  end
+end
+
+line: Blob[53]
+drawView :: proc()
+  for row in 0..<VIEW_ROWS
+    l := viewTop + row
+    if l >= lineCount
+      break
+    end
+    a := lineAt[l]
+    e := viewLen
+    if l + 1 < lineCount
+      e = lineAt[l + 1] - 1
+    end
+    n := max(0, min(e - a, 53))
+    for i in 0..<n # (bytes that aren't text as dots)
+      b := view[a + i]
+      if b < 32 or b > 126
+        b = 46
+      end
+      line[i] = b
+    end
+    pc.print(line[0:n].asString(), 1, 14 + row * 9, 7)
+  end
+end
+
+drawBottom :: proc()
+  pc.rect(0, 216, 320, 24, 0)
+  if prompting()
+    label := "Copy as: "
+    if mode == RENAME
+      label = "Rename to: "
+    case mode == NEW
+      label = "New project: "
+    case mode == DELETE
+      label = "Type its name to delete it: "
+    case mode == NEW_FOLDER
+      label = "New folder: "
+    end
+    pc.print(label, 3, 219, 10)
+    x := 3 + label.len() * 6
+    if inputFresh # (selected)
+      pc.rect(x - 1, 218, input.len() * 6 + 1, 9, 12)
+    end
+    pc.print(input[0:input.len()].asString(), x, 219, 7)
+    pc.rect(x + input.len() * 6, 218, 1, 9, 10)
+    if mode == DELETE
+      pc.print("All of it, for good. Enter: delete  Esc: no", 3, 230, 8)
+    else
+      pc.print("Enter: done  Esc: no", 3, 230, 5)
+    end
+    return
+  end
+  if message.len() > 0
+    pc.print(message[0:message.len()].asString(), 3, 219, messageColor)
+  end
+  if mode == VIEW
+    pc.print("Esc back  Page Up/Down", 3, 230, 5)
+    if viewAll > viewLen
+      pc.print("(its start)", 3 + 23 * 6, 230, 13)
+    end
+  case saving
+    pc.print("Save as: ", 3, 219, 10)
+    pc.print(saveName[0:saveName.len()].asString(), 3 + 9 * 6, 219, 7)
+    pc.rect(3 + (9 + saveName.len()) * 6, 218, 1, 9, 10)
+    pc.print("Type a name, Enter save  Esc no", 3, 230, 5)
+  case picking
+    pc.print("Enter pick  Backspace up  Esc none", 3, 230, 5)
+  else
+    pc.print("Enter open  Space more  ^N project  ^Shift+N folder", 3, 230, 5)
+  end
+end
+
+letter: Blob[1]
+drawMenu :: proc()
+  h := 14 + itemCount * 11
+  pc.rect(MENU_X - 2, MENU_Y - 2, 164, h + 4, 0)
+  pc.rect(MENU_X, MENU_Y, 160, h, 2)
+  pc.print(nameOf(target)[0:min(nameLen[target], 25)], MENU_X + 4, MENU_Y + 3, 10)
+  for i in 0..<itemCount
+    y := MENU_Y + 14 + i * 11
+    color := 7
+    if not itemOk[i]
+      color = 13
+    end
+    if i == menuPick
+      pc.rect(MENU_X + 2, y - 1, 156, 10, 12)
+    end
+    letter[0] = KEYS[items[i]]
+    pc.print(letter[:].asString(), MENU_X + 5, y + 1, 10)
+    pc.print(LABELS[items[i]], MENU_X + 16, y + 1, color)
+  end
+end
+
+draw* :: proc()
+  pc.cls(1)
+  pc.rect(0, 0, 320, 11, 0)
+  title := "Files"
+  if saving
+    title = "Save where"
+  case picking
+    title = "Pick a file"
+  end
+  pc.print(title, 3, 2, 10)
+  p := here()
+  if mode == VIEW
+    p = pathTo(nameOf(target))
+  end
+  room := 52 - title.len() - 1 - filter.len()
+  if p.len() > room # (its end, if it's long)
+    p = p[p.len() - room:p.len()]
+  end
+  pc.print(p, 3 + (title.len() + 1) * 6, 2, 6)
+  if mode == VIEW
+    drawView()
+  else
+    drawList()
+  end
+  drawBottom()
+  if mode == MENU
+    drawMenu()
+  end
+end

@@ -1,0 +1,256 @@
+# Console: commands (part of console.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- commands
+
+ls :: proc()
+  n := pc.apps()
+  if n == 0
+    say("no apps (or no card): /rinc/apps", GRAY)
+    return
+  end
+  names: Blob[..2048]
+  name: Blob[32]
+  for i in 0..<n
+    k := min(pc.appName(i, name[:]), 32)
+    names.pushAll(name[:k].asString())
+    names.pushAll("  ")
+  end
+  say(names[:].asString(), WHITE)
+end
+
+load :: proc(name: String)
+  msg: Blob[..80]
+  n := pc.appSource(name, file[:])
+  if n < 0
+    msg.format("can't open ", name)
+    say(msg[:].asString(), RED)
+    return
+  end
+  if n > file.len()
+    msg.format(name, " is too big to load here (", n, " bytes)")
+    say(msg[:].asString(), RED)
+    return
+  end
+  if not fresh()
+    return
+  end
+  r := pc.rioEval(file[:n].asString())
+  showLog()
+  if r < 0
+    showError()
+  case r == 1
+    say("(it ends unfinished)", RED)
+  else
+    msg.format("loaded ", name)
+    say(msg[:].asString(), GRAY)
+  end
+end
+
+startSave :: proc(name: String)
+  saveName.clear()
+  if not saveName.pushAll(name)
+    say("names are up to 32 letters, digits, _ and -", RED)
+    return
+  end
+  fileLen = 0
+  mode = .saving
+  say("type or paste it, then Ctrl-D (Ctrl-C gives up)", GRAY)
+end
+
+finishSave :: proc()
+  msg: Blob[..80]
+  mode = .typing
+  if pc.appSave(saveName[:].asString(), file[:fileLen].asString()) != 0
+    msg.format("couldn't save ", saveName[:])
+    say(msg[:].asString(), RED)
+  else
+    msg.format("saved ", fileLen, " bytes")
+    say(msg[:].asString(), GRAY)
+  end
+end
+
+# a line on its own that's a command: true if it was one
+command :: proc(t: String) -> Bool
+  msg: Blob[..80]
+  switch t # (a word alone)
+  case "run"
+    mode = .running
+    return true
+  case "ls"
+    ls()
+    return true
+  case "home"
+    pc.launch("home")
+    return true
+  case "active"                          # the active app or project, the whole Rinc's setting
+    v: Blob[34]
+    n := pc.settingRead("active", v[:])
+    if n > 0
+      msg.format("active: ", v[0:min(n, 34)])
+      say(msg[:].asString(), GRAY)
+    else
+      say("nothing active: active name makes one active (name* for a project)", GRAY)
+    end
+    return true
+  end
+  w := 0
+  for w < t.len() and t[w] != 32
+    w += 1
+  end
+  if w == t.len()
+    return false
+  end
+  word := t[:w]
+  name := trim(t[w:])
+  switch word # (a word, then a name)
+  case "load"
+    load(name)
+  case "run"
+    pc.launch(name)                      # an app runs as itself, in all of its memory
+  case "save"
+    startSave(name)
+  case "active"                          # app or project (name*) name, active: the editor opens it next
+    if pc.appSource(name, msg[0:0]) >= 0 and pc.settingWrite("active", name) == 0
+      msg.format("active: ", name)
+      say(msg[:].asString(), GRAY)
+    else
+      msg.format("no app or project ", name)
+      say(msg[:].asString(), RED)
+    end
+  case "install"                         # project name* as the app name
+    if pc.appInstall(name) == 0
+      msg.format("installed ", name)
+      say(msg[:].asString(), GRAY)
+    else
+      msg.format("can't install ", name, " (from its project, ", name, "*)")
+      say(msg[:].asString(), RED)
+    end
+  case "delete"
+    if pc.appDelete(name) == 0
+      msg.format("deleted ", name)
+      say(msg[:].asString(), GRAY)
+    else
+      msg.format("can't delete ", name)
+      say(msg[:].asString(), RED)
+    end
+  else
+    return false
+  end
+  return true
+end
+
+startsWith :: proc(t: String, word: String) -> Bool
+  return t.len() >= word.len() and t[:word.len()] == word
+end
+
+enter :: proc()
+  shown: Blob[..256]
+  t := trim(line[:].asString())
+  if acc.len() > 0 and line.len() >= 2 and (startsWith(t, "end") or startsWith(t, "else") or startsWith(t, "case"))
+    line.remove(0)                       # (a step back out)
+    line.remove(0)
+  end
+  if acc.len() == 0
+    shown.pushAll("> ")
+  else
+    shown.pushAll(". ")
+  end
+  shown.pushAll(line[:].asString())
+  say(shown[:].asString(), WHITE)
+  text := line[:].asString()
+  remember(text)
+  back = 0
+  if blank(text)
+    if acc.len() > 0
+      say("(unfinished input dropped)", GRAY)
+      acc.clear()
+    end
+  case acc.len() == 0 and command(trim(text))
+    acc.clear()
+  case not (acc.pushAll(text) and acc.push(10))
+    say("(input too long)", RED)
+    acc.clear()
+  else
+    r := pc.rioEval(acc[:].asString())
+    showLog()
+    if r == 1
+      setLine("")
+      for i in 0..<pc.rioIndent(acc[:].asString()) * 2
+        line.push(32)
+      end
+      cur = line.len()
+      return
+    end
+    if r < 0
+      showError()
+    end
+    acc.clear()
+  end
+  setLine("")
+end
+
+typing :: proc(c: Int)
+  if c == 13
+    enter()
+  case c == 8
+    if cur > 0
+      line.remove(cur - 1)
+      cur -= 1
+    end
+  case c == 134                       # Delete
+    if cur < line.len()
+      line.remove(cur)
+    end
+  case c == 128
+    cur = max(cur - 1, 0)
+  case c == 129
+    cur = min(cur + 1, line.len())
+  case c == 132 or c == 1             # Home, Ctrl-A
+    cur = 0
+  case c == 133 or c == 5             # End, Ctrl-E
+    cur = line.len()
+  case c == 130
+    recall(1)
+  case c == 131
+    recall(-1)
+  case c == 3                         # Ctrl-C: drop what's typed
+    say("^C", GRAY)
+    acc.clear()
+    setLine("")
+  case c == 9
+    insert(32)
+    insert(32)
+  case c >= 32 and c < 127
+    insert(c)
+  end
+end
+
+saving :: proc(c: Int)
+  if c == 4                              # Ctrl-D: done
+    if line.len() > 0
+      say(line[:].asString(), GRAY)
+    end
+    setLine("")
+    finishSave()
+  case c == 3
+    setLine("")
+    mode = .typing
+    say("gave up", GRAY)
+  case c == 13 or c == 9 or (c >= 32 and c < 127)
+    if fileLen == file.len()
+      setLine("")
+      mode = .typing
+      say("too big to save here", RED)
+      return
+    end
+    if c == 13
+      file[fileLen] = 10
+      say(line[:].asString(), GRAY)
+      setLine("")
+    else
+      file[fileLen] = c
+      line.push(c)
+    end
+    fileLen += 1
+  end
+end

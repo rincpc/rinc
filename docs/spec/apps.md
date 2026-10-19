@@ -146,6 +146,7 @@ own folder, still `/rinc` to its apps.) Each gives 0, or -1, unless it says othe
 | `pc.fileDelete(path) -> Int` | a file, or a folder and everything in it |
 | `pc.fileCopy(from, to) -> Int` | a file, or a folder and everything in it, to a path not taken |
 | `pc.fileRename(from, to) -> Int` | to a path not taken |
+| `pc.dirMake(path) -> Int` | a folder, at a path not taken (the folders along the way too) |
 
 ```rio
 log(pc.fileWrite("/rinc/save/demo/notes/a.txt", "hi"), pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"))
@@ -341,7 +342,9 @@ this one, and `import .shapes` makes a module of `shapes.rio` (or `shapes/shapes
 app's own folder; `import tween` is from the library, `/rinc/lib` (`tween.rio`, or `tween/tween.rio`),
 shared by every app. Storage's files come first, then the bundle's (`apps/<app>/...`, `lib/...`). All of
 an app's sources together are 64 KB at most. Its compiled image notes every file it read (see compiled
-apps), so a change to any of them compiles it again.
+apps), so a change to any of them compiles it again. On the desktop, `rinc game/` (or `rinc .`, in
+the folder) runs the app of a folder, `game/game.rio`, its own files from beside it; exporting it
+carries all of its folder. The system apps are made this way, each a main file and its `parts`.
 
 ```
 /rinc/projects/game/game.rio          include "parts/levels.rio", import .shapes, import tween

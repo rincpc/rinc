@@ -1,0 +1,280 @@
+# Editor: the text, messages, undo (part of edit.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the text
+
+text: Blob[32768]
+textLen := 0
+scratch: Blob[..32768] # the text after an edit, moving over
+lineAt: [4096]Int      # where each line starts
+lineCount := 1
+cursor := 0
+anchor := 0            # the selection's other end (anchor == cursor: nothing selected)
+wantCol := -1          # the column up and down keep to
+top := 0               # the first line on the screen, and column
+left := 0
+path: Blob[..96]       # the file's path ("": new, not saved yet)
+one: Blob[1]
+built: Blob[..8192]
+
+lineEnd :: proc(l: Int) -> Int
+  if l + 1 < lineCount
+    return lineAt[l + 1] - 1
+  end
+  return textLen
+end
+
+lineOf :: proc(p: Int) -> Int
+  lo := 0
+  hi := lineCount - 1
+  for lo < hi
+    mid := (lo + hi + 1) / 2
+    if lineAt[mid] <= p
+      lo = mid
+    else
+      hi = mid - 1
+    end
+  end
+  return lo
+end
+
+rebuildLines :: proc()
+  lineCount = 1
+  lineAt[0] = 0
+  for i in 0..<textLen
+    if text[i] == 10 and lineCount < MAX_LINES
+      lineAt[lineCount] = i + 1
+      lineCount += 1
+    end
+  end
+end
+
+newlines :: proc(s: String) -> Int
+  n := 0
+  for c in s
+    if c == 10
+      n += 1
+    end
+  end
+  return n
+end
+
+# text[a:b] becomes s (which isn't part of text): false if there's no room
+replaceRaw :: proc(a, b: Int, s: String) -> Bool
+  if textLen - (b - a) + s.len() > CAP
+    return false
+  end
+  scratch.clear()
+  scratch.pushAll(text[b:textLen])
+  w: Blob[..] = text[a:]
+  w.pushAll(s)
+  w.pushAll(scratch[0:scratch.len()])
+  textLen += s.len() - (b - a)
+  rebuildLines()
+  return true
+end
+
+selStart :: proc() -> Int
+  return min(cursor, anchor)
+end
+selEnd :: proc() -> Int
+  return max(cursor, anchor)
+end
+
+# ---------------------------------------------------------------- messages
+
+message: Blob[..53]
+messageColor := GRAY
+messageAt := 0.0
+
+say :: proc(s: String, color: Int)
+  message.clear()
+  for c in s
+    if message.len() < 53
+      message.push(c)
+    end
+  end
+  messageColor = color
+  messageAt = pc.time()
+end
+
+# s, then the file's name (its path's end), then t
+sayName :: proc(s: String, t: String, color: Int)
+  say(s, color)
+  k := path.len()
+  for k > 0 and path[k - 1] != 47
+    k -= 1
+  end
+  for c in path[k:path.len()]
+    if message.len() < 53
+      message.push(c)
+    end
+  end
+  for c in t
+    if message.len() < 53
+      message.push(c)
+    end
+  end
+end
+
+# ---------------------------------------------------------------- undo
+
+# each edit: text[pos:pos + del] became ins bytes; its deleted bytes then its inserted ones are in
+# undoText from at; the cursor and anchor before, and the cursor after
+recPos: [256]Int
+recDel: [256]Int
+recIns: [256]Int
+recAt: [256]Int
+recBefore: [256]Int
+recAnchor: [256]Int
+recAfter: [256]Int
+recCount := 0          # edits remembered
+recTop := 0            # of those, done (the rest can be redone)
+undoText: Blob[16384]
+undoLen := 0
+savedTop := 0          # recTop when it was saved (-1: that's been forgotten)
+merging := 0           # what the last edit was, to group with: 1 typing, 2 Backspace, 3 Delete
+
+undoPush :: proc(s: String)
+  w: Blob[..] = undoText[undoLen:]
+  w.pushAll(s)
+  undoLen += s.len()
+end
+
+forgetOldest :: proc()
+  n := recDel[0] + recIns[0]
+  scratch.clear()
+  scratch.pushAll(undoText[n:undoLen])
+  w: Blob[..] = undoText[0:]
+  w.pushAll(scratch[0:scratch.len()])
+  undoLen -= n
+  for i in 0..<recCount - 1
+    recPos[i] = recPos[i + 1]
+    recDel[i] = recDel[i + 1]
+    recIns[i] = recIns[i + 1]
+    recAt[i] = recAt[i + 1] - n
+    recBefore[i] = recBefore[i + 1]
+    recAnchor[i] = recAnchor[i + 1]
+    recAfter[i] = recAfter[i + 1]
+  end
+  recCount -= 1
+  recTop -= 1
+  if savedTop >= 0
+    savedTop -= 1
+  end
+end
+
+forgetAll :: proc()
+  recCount = 0
+  recTop = 0
+  undoLen = 0
+  merging = 0
+end
+
+modified :: proc() -> Bool
+  return recTop != savedTop
+end
+
+# text[a:b] becomes s, remembered for undo (kind: what it is, to group with the edit before)
+edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
+  merged := false
+  r := recTop - 1
+  if textLen - (b - a) + s.len() > CAP
+    say("No room: 32 KB at most", RED)
+    return false
+  end
+  if lineCount - newlines(text[a:b].asString()) + newlines(s) > MAX_LINES
+    say("Too many lines: 4096 at most", RED)
+    return false
+  end
+  if kind > 0 and kind == merging and recTop == recCount and recTop > 0 and undoLen + (b - a) + s.len() <= UNDO_BYTES
+    if kind == 1 and a == b and recPos[r] + recIns[r] == a
+      undoPush(s)
+      recIns[r] += s.len()
+      merged = true
+    case kind == 2 and s.len() == 0 and recIns[r] == 0 and b == recPos[r] and recDel[r] < 64
+      # (deleted bytes come before the ones already deleted: they go in front)
+      scratch.clear()
+      scratch.pushAll(undoText[recAt[r]:undoLen])
+      undoLen = recAt[r]
+      undoPush(text[a:b].asString())
+      undoPush(scratch[0:scratch.len()].asString())
+      recPos[r] = a
+      recDel[r] += b - a
+      merged = true
+    case kind == 3 and s.len() == 0 and recIns[r] == 0 and a == recPos[r]
+      undoPush(text[a:b].asString())
+      recDel[r] += b - a
+      merged = true
+    end
+  end
+  if not merged
+    if recTop < recCount # (a new edit: what could be redone can't now)
+      recCount = recTop
+      undoLen = recAt[recTop]
+      if savedTop > recTop
+        savedTop = -1
+      end
+    end
+    if (b - a) + s.len() > UNDO_BYTES
+      if modified()
+        savedTop = -1
+      end
+      forgetAll()
+      savedTop = -1
+      say("(too big to undo)", GRAY)
+    else
+      for recCount == UNDOS or undoLen + (b - a) + s.len() > UNDO_BYTES
+        forgetOldest()
+      end
+      r = recCount
+      recPos[r] = a
+      recDel[r] = b - a
+      recIns[r] = s.len()
+      recAt[r] = undoLen
+      recBefore[r] = cursor
+      recAnchor[r] = anchor
+      undoPush(text[a:b].asString())
+      undoPush(s)
+      recCount += 1
+      recTop = recCount
+    end
+  end
+  ok := replaceRaw(a, b, s)
+  cursor = a + s.len()
+  anchor = cursor
+  wantCol = -1
+  if recTop > 0
+    recAfter[recTop - 1] = cursor
+  end
+  merging = kind
+  return ok
+end
+
+undo :: proc()
+  if recTop == 0
+    say("Nothing to undo", GRAY)
+    return
+  end
+  r := recTop - 1
+  ok := replaceRaw(recPos[r], recPos[r] + recIns[r], undoText[recAt[r]:recAt[r] + recDel[r]].asString())
+  cursor = recBefore[r]
+  anchor = recAnchor[r]
+  recTop -= 1
+  merging = 0
+  wantCol = -1
+end
+
+redo :: proc()
+  if recTop == recCount
+    say("Nothing to redo", GRAY)
+    return
+  end
+  r := recTop
+  at := recAt[r] + recDel[r]
+  ok := replaceRaw(recPos[r], recPos[r] + recDel[r], undoText[at:at + recIns[r]].asString())
+  cursor = recAfter[r]
+  anchor = cursor
+  recTop += 1
+  merging = 0
+  wantCol = -1
+end
