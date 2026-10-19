@@ -173,7 +173,8 @@ on, what's typed isn't the app's. It's:
 - the Windows key, held, on a keyboard that has one and a Rinc that gets it (the Fruit Jam);
 - a controller's guide button (the Xbox button), held;
 - or, anywhere, Ctrl and Shift tapped together: the system key for the next key, as a lock (SYS). The
-  next key uses it up, whether it makes a combination or not; tapping Ctrl and Shift again turns it off.
+  next key uses it up, whether it makes a combination or not (but not the pointer's keys, below: with
+  them, steer and click, then tap Ctrl and Shift again); tapping Ctrl and Shift again turns it off.
   (Ctrl+Shift+Esc belongs to Windows, so the system key here is a lock, never held.)
 
 | combination | |
@@ -183,6 +184,9 @@ on, what's typed isn't the app's. It's:
 | system + Shift+Tab (or LB) | the switcher, from the other end |
 | system + Q | back to the app before, this one left out of the recent apps (its stash dropped) |
 | system + R | this app again, fresh: its stash and its compiled image dropped |
+| system + H | this app's help (its `help/README`), in the help app; or a notice, at the bottom, that it has none |
+| system + arrows (or the d-pad) | move the pointer, faster the longer they're held |
+| system + V, C (or A, B) | the pointer's primary and secondary buttons |
 | system + P | the performance strip, on or off |
 | system + Enter | the whole display, or a window again, where the Rinc can (the desktop's F11 too) |
 

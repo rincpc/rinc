@@ -184,6 +184,31 @@ int main(void) {
     for (p = out; *p; p++) if (*p == '\r') memmove((char *)p, p + 1, strlen(p));
     if (strcmp(out, want)) { printf("FAIL: the pointer gave\n%swanted\n%s", out, want); return 1; }
   }
+  { /* the system key's arrows move the pointer, and V is its primary button; with the system key
+       locked (Ctrl and Shift tapped), they don't use the lock up. Sys+H with no help: a notice */
+    static const char game[] = "update* :: proc()\n  log(pc.pointerX())\n  log(pc.pointerDown(0))\nend\n";
+    static const char want[] = "101\n0\n102\n1\n102\n0\n103\n0\n103\n0\n";
+    outLen = 0; out[0] = 0;
+    if (rinc_appBegin(&vm, space, sizeof space, "keyptr", put) || rinc_appRun(&vm, space, sizeof space, "keyptr", game, sizeof game - 1, 0) || !rinc_game) {
+      printf("FAIL: %s\n", rio_error(&vm));
+      return 1;
+    }
+    outLen = 0; out[0] = 0;
+    rinc_mouseMove(100, 100);
+    rinc_systemKey(1, 0, 1, rinc_SysKey_right); rinc_gameFrame(&vm);
+    rinc_systemKey(1, 0, 1, rinc_SysKey_right | rinc_SysKey_a); rinc_gameFrame(&vm);
+    rinc_systemKey(0, 0, 0, 0); rinc_gameFrame(&vm);
+    rinc_systemKey(0, 3, 0, 0); rinc_systemKey(0, 0, 0, 0); /* (the lock) */
+    rinc_systemKey(0, 0, 1, rinc_SysKey_right); rinc_gameFrame(&vm);
+    rinc_systemKey(0, 0, 0, 0); rinc_gameFrame(&vm);
+    for (p = out; *p; p++) if (*p == '\r') memmove((char *)p, p + 1, strlen(p));
+    if (strcmp(out, want)) { printf("FAIL: the system key's pointer gave\n%swanted\n%s", out, want); return 1; }
+    if (!rinc_systemHeld()) { printf("FAIL: the pointer's keys used up the locked system key\n"); return 1; }
+    if (rinc_systemKey(0, 0, 1, rinc_SysKey_h) || rinc_systemKey(0, 0, 0, 0) || !rinc_overlayOn || rinc_systemHeld()) {
+      printf("FAIL: Sys+H with no help: no notice, or the lock stayed\n");
+      return 1;
+    }
+  }
   printf("all keys came through\n");
   return 0;
 }

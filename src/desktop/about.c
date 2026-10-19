@@ -31,8 +31,9 @@ const char rinc_help[] =
   "\n"
   "Playing: the arrows and V, C, X and Z, or a controller. Ctrl and Shift tapped together are the system\n"
   "key (a controller's guide button, held): then Esc (or Back) goes home, Tab switches among recent apps,\n"
-  "Q goes back to the app before, R starts this one afresh, P shows how long frames take, and Enter (or\n"
-  "F11) fills the display. Apps' compiled images are kept in storage, in cache/rinc/apps.\n"
+  "Q goes back to the app before, R starts this one afresh, H shows its help, P shows how long frames\n"
+  "take, and Enter (or F11) fills the display; the arrows move the pointer, and V and C click. Apps'\n"
+  "compiled images are kept in storage, in cache/rinc/apps.\n"
   "Shift, Ctrl or Alt tapped twice locks it, until it's tapped again. Docs: https://rincpc.com/docs/\n";
 
 const char rinc_license[] =

@@ -79,14 +79,15 @@ rinc_EXPORT(start) int rinc_webStart(int len) {
   return 0;
 }
 /* a frame with these buttons held (keys, for the system key: 1 Shift, 2 another key, 4 Esc or a
-   controller's Back, 8 its guide button, 16 Tab, 32 Q, 64 P, 128 Enter, 256 Ctrl, 512 Alt, 1024 R; 2 is any
+   controller's Back, 8 its guide button, 16 Tab, 32 Q, 64 P, 128 Enter, 256 Ctrl, 512 Alt, 1024 R, 2048 H; 2 is any
    key but those modifiers): 0 a game's frame ran, 1 nothing's running (the page keeps
    calling, for the system key). An app's error goes on the screen; then any switch, to an app or
    (Sys+Esc) home */
 rinc_EXPORT(frame) int rinc_webFrame(int buttons, int keys) {
   int sys = (keys & 4 ? rinc_SysKey_esc : 0) | (keys & 16 ? rinc_SysKey_tab : 0) | (keys & 32 ? rinc_SysKey_q : 0) |
-            (keys & 64 ? rinc_SysKey_p : 0) | (keys & 128 ? rinc_SysKey_enter : 0) | (keys & 1024 ? rinc_SysKey_r : 0) |
-            (buttons & rinc_Button_rb ? rinc_SysKey_next : 0) | (buttons & rinc_Button_lb ? rinc_SysKey_prev : 0); /* (a controller's RB, LB) */
+            (keys & 64 ? rinc_SysKey_p : 0) | (keys & 128 ? rinc_SysKey_enter : 0) | (keys & 1024 ? rinc_SysKey_r : 0) | (keys & 2048 ? rinc_SysKey_h : 0) |
+            (buttons & rinc_Button_rb ? rinc_SysKey_next : 0) | (buttons & rinc_Button_lb ? rinc_SysKey_prev : 0) | /* (a controller's RB, LB) */
+            rinc_pointerKeys(buttons); /* (the pointer's: the arrows, V and C, the d-pad, A and B) */
   if (rinc_systemKey(keys & 8, (keys & 1) | (keys & 256 ? 2 : 0) | (keys & 512 ? 4 : 0), keys & 2, sys)) rinc_launch = 1; /* (to rinc_launchName) */
   else {
     rinc_buttons = rinc_systemHeld() ? 0 : (uint16_t)buttons; /* (a system combination: not the app's) */

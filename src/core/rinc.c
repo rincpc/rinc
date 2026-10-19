@@ -716,6 +716,14 @@ static int rinc_sysLock; /* Ctrl+Shift tapped: the system key, for the next comb
 int rinc_fullscreen;      /* Sys+Enter asked for the screen to fill the display, or not (rinc.h) */
 
 /* the locks on, as badges at the bottom right */
+/* a notice at the bottom left, over the screen, for a few seconds (no help for this app, say) */
+static char rinc_notice[48];
+static float rinc_noticeUntil;
+static void rinc_noticeSay(const char *what, const char *name) {
+  snprintf(rinc_notice, sizeof rinc_notice, "%s%.32s", what, name);
+  rinc_noticeUntil = (rinc_time ? rinc_time() : 0) + 3;
+}
+static int rinc_noticeOn(void) { return rinc_notice[0] && (!rinc_time || rinc_time() < rinc_noticeUntil); }
 static void rinc_badges(void) {
   static const char *const names[4] = {"SYS", "ALT", "CTRL", "SHIFT"};
   int on[4], i, x = rinc_W - 2, y;
@@ -736,6 +744,11 @@ static void rinc_overlayDraw(int strip) {
   int x, i;
   memset(rinc_overlay, strip ? 0 : rinc_SEE_THROUGH, sizeof rinc_overlay);
   if (!strip) {
+    if (rinc_noticeOn()) { /* (on a box of its own) */
+      int w = (int)strlen(rinc_notice) * 6 + 3, y;
+      for (y = 1; y < rinc_OVERLAY_H; y++) memset(rinc_overlay[y], 2, (size_t)(w < rinc_W ? w : rinc_W));
+      rinc_overlayText(rinc_notice, 2, 7);
+    }
   } else if (rinc_switching) {
     memset(rinc_overlay[0], 12, rinc_W); /* (a blue edge) */
     x = rinc_overlayText("SWITCH", 4, 12) + 12;
@@ -747,7 +760,7 @@ static void rinc_overlayDraw(int strip) {
     }
   } else if (rinc_systemDown) {
     memset(rinc_overlay[0], 10, rinc_W); /* (a yellow edge) */
-    rinc_overlayText("Esc home Tab switch Q back R restart P perf", 2, 7);
+    rinc_overlayText("Esc home Tab switch Q back R redo H help P perf", 2, 7);
   } else { /* the performance strip: the latest frame's time, then a bar a frame, the newest at the right: 8 high is 1/60 s */
     char text[24]; float ms = rinc_frameMs[(rinc_frameAt - 1) & 255];
     int pct = (int)(ms * 6.0f + 0.5f); /* (of 16.67 ms) */
@@ -772,6 +785,16 @@ static void rinc_overlayDraw(int strip) {
 /* the system key's combinations and the locks, each frame (rinc.h). A press of modifiers alone (nothing
    else down in it), let go within 0.4 s, is a tap: Shift, Ctrl or Alt tapped twice in a row locks it,
    and a tap unlocks it; Ctrl and Shift tapped together lock the system key, for the next combination */
+static int rinc_sysPointer; /* the pointer's system keys held (rinc_SysKey_pointer), for its next frame */
+/* an app's own help: its help/README, in storage or the bundle (a help app to show it, too) */
+static int rinc_hasHelp(const char *app) {
+  char path[96]; uint32_t total;
+  if (!rinc_bundled("help") && rinc_readApp("help", 0, 0) < 0) return 0;
+  snprintf(path, sizeof path, "/rinc/apps/%.32s/help/README.md", app);
+  if (!rinc_readFile(path, 0, 0, &total)) return 1;
+  snprintf(path, sizeof path, "apps/%.32s/help/README.md", app);
+  return rinc_bundleFile(path) != 0;
+}
 int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
   static int now, down, seen, spoiled, startAt, lastTap, lastTapAt, again, wasKeys, wasOther, held;
   int pressed = keys & ~wasKeys, otherPressed = otherDown && !wasOther, go = 0, strip;
@@ -804,6 +827,8 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
       rinc_switching = 0;
       if (rinc_pick > 0 && rinc_pick < n) { snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recent[rinc_pick]); go = 1; }
     }
+  } else if ((sysDown || rinc_sysLock) && pressed && !(pressed & ~rinc_SysKey_pointer)) {
+    /* the pointer's keys only: they move and click it (rinc_pointerFrame), and don't use up a locked system key */
   } else if ((sysDown || rinc_sysLock) && pressed) { /* (alone, the system key does nothing, so it isn't pressed by accident) */
     if (pressed & rinc_SysKey_esc) { snprintf(rinc_launchName, sizeof rinc_launchName, "home"); go = 1; }
     else if ((pressed & (rinc_SysKey_tab | rinc_SysKey_next | rinc_SysKey_prev)) && rinc_recentCount > 1) {
@@ -820,14 +845,21 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
       rinc_cacheDrop(rinc_appNow);
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_appNow);
       go = 1;
+    } else if (pressed & rinc_SysKey_h) { /* this app's help, if it has any */
+      if (rinc_hasHelp(rinc_appNow)) {
+        snprintf(rinc_helpTopicNow, sizeof rinc_helpTopicNow, "%.32s/README", rinc_appNow);
+        snprintf(rinc_launchName, sizeof rinc_launchName, "help");
+        go = 1;
+      } else rinc_noticeSay("No help for ", rinc_appNow);
     } else if (pressed & rinc_SysKey_p) rinc_perfOn = !rinc_perfOn;
     else if (pressed & rinc_SysKey_enter) rinc_fullscreen = !rinc_fullscreen;
     rinc_sysLock = 0; /* (used up) */
   } else if (rinc_sysLock && otherPressed && !down) rinc_sysLock = 0; /* (another key: no combination) */
   rinc_systemDown = sysDown || rinc_sysLock || rinc_switching;
+  rinc_sysPointer = rinc_systemDown && !rinc_switching ? keys & rinc_SysKey_pointer : 0;
   strip = !go && (rinc_systemDown || rinc_perfOn);
   rinc_overlayOn = 0; /* (while it's redrawn) */
-  if (strip || rinc_locks || rinc_sysLock) { rinc_overlayDraw(strip); rinc_overlayOn = 1; }
+  if (strip || rinc_locks || rinc_sysLock || rinc_noticeOn()) { rinc_overlayDraw(strip); rinc_overlayOn = 1; }
   return go;
 }
 
@@ -859,12 +891,19 @@ void rinc_mouseGone(void) { if (!rinc_mouseHeld) rinc_pointerOn = rinc_pointerOn
 void rinc_mouseWheel(float dx, float dy) { rinc_scrolled[0] += dx; rinc_scrolled[1] += dy; }
 /* each frame: in pointer mode, the controller moves it, scrolls, and clicks */
 static void rinc_pointerFrame(void) {
-  static int arrows;
-  int held = rinc_mouseHeld, now = rinc_buttons & (rinc_Button_left | rinc_Button_right | rinc_Button_up | rinc_Button_down |
+  static int arrows, keyFrames;
+  int keyed = rinc_pointerMode == 2 ? 0 : rinc_sysPointer, held = rinc_mouseHeld | (keyed & rinc_SysKey_a ? 1 : 0) | (keyed & rinc_SysKey_b ? 2 : 0), now = rinc_buttons & (rinc_Button_left | rinc_Button_right | rinc_Button_up | rinc_Button_down |
                                                   rinc_Button_start | rinc_Button_back);
   now |= rinc_systemHeld() ? 0x10000 : 0; /* (and the system key: a controller's guide button, Ctrl and Shift) */
   if (now & ~arrows) rinc_pointerOn = rinc_pointerOnScreen = 0; /* (an arrow pressed, the d-pad's too, or a center button: as typing, it hides the pointer) */
   arrows = now;
+  if (keyed & (rinc_SysKey_left | rinc_SysKey_right | rinc_SysKey_up | rinc_SysKey_down)) { /* (1 pixel a frame, up to 6 after a second) */
+    float step = (float)(1 + (keyFrames < 60 ? keyFrames / 12 : 5));
+    keyFrames++;
+    rinc_mouseMove(rinc_pointerX + (keyed & rinc_SysKey_right ? step : 0) - (keyed & rinc_SysKey_left ? step : 0),
+                   rinc_pointerY + (keyed & rinc_SysKey_down ? step : 0) - (keyed & rinc_SysKey_up ? step : 0));
+  } else keyFrames = 0;
+  if (held & ~rinc_pointerHeld) rinc_pointerShow(1);
   if (rinc_pointerMode == 1) {
     float lx = rinc_stickAt(0), ly = rinc_stickAt(1), rx = rinc_stickAt(2), ry = rinc_stickAt(3);
     if (lx || ly) { /* (faster the further: up to 5 pixels a frame) */

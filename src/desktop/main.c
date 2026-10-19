@@ -506,10 +506,11 @@ static int rinc_window(const char *title) {
       for (s = 0; s < SDL_SCANCODE_COUNT; s++)
         other |= k[s] && (s < SDL_SCANCODE_LCTRL || s > SDL_SCANCODE_RGUI); /* (all but the modifiers) */
       int keys = (k[SDL_SCANCODE_ESCAPE] || (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_BACK)) ? rinc_SysKey_esc : 0) |
-                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) |
+                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) | (k[SDL_SCANCODE_H] ? rinc_SysKey_h : 0) |
                  (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER] ? rinc_SysKey_enter : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? rinc_SysKey_next : 0) |
-                 (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? rinc_SysKey_prev : 0);
+                 (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? rinc_SysKey_prev : 0) |
+                 rinc_pointerKeys(rinc_buttons); /* (the pointer's: the arrows, V and C, the d-pad, A and B) */
       if (rinc_systemKey(rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_GUIDE), mods, other, keys))
         rinc_launch = 1; /* (to rinc_launchName) */
       if (rinc_fullscreen != fullscreen) SDL_SetWindowFullscreen(w, (fullscreen = rinc_fullscreen) != 0); /* (Sys+Enter, F11) */

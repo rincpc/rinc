@@ -61,7 +61,15 @@ int rinc_atLimit(const char *error); /* is this compile error about running out 
    rinc_SysKey_* bits): 1 to start rinc_launchName now. While the system key is on (rinc_systemHeld),
    what's typed isn't the app's */
 enum { rinc_SysKey_esc = 1, rinc_SysKey_tab = 2, rinc_SysKey_q = 4, rinc_SysKey_p = 8, rinc_SysKey_enter = 16,
-       rinc_SysKey_next = 32, rinc_SysKey_prev = 64, rinc_SysKey_r = 128 }; /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
+       rinc_SysKey_next = 32, rinc_SysKey_prev = 64, rinc_SysKey_r = 128, /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
+       rinc_SysKey_left = 256, rinc_SysKey_right = 512, rinc_SysKey_up = 1024, rinc_SysKey_down = 2048, /* the pointer's: the arrows (the d-pad) move it, */
+       rinc_SysKey_a = 4096, rinc_SysKey_b = 8192, /* V and C (A and B) its buttons */
+       rinc_SysKey_pointer = 0x3f00, rinc_SysKey_h = 0x4000 /* H: the app's help */ };
+/* the pointer's system keys from buttons held (rinc_Button_*: the arrows, V and C, a controller's d-pad, A and B) */
+static inline int rinc_pointerKeys(int buttons) {
+  return (buttons & 1 ? rinc_SysKey_left : 0) | (buttons & 2 ? rinc_SysKey_right : 0) | (buttons & 4 ? rinc_SysKey_up : 0) |
+         (buttons & 8 ? rinc_SysKey_down : 0) | (buttons & 16 ? rinc_SysKey_a : 0) | (buttons & 32 ? rinc_SysKey_b : 0);
+}
 int rinc_systemKey(int sysDown, int mods, int otherDown, int keys);
 /* a mouse's, from the platform: where it is in screen pixels (fractions as they come), the buttons held
    (1 primary, 2 secondary, 4 middle), and its wheel (steps, + right and up) */

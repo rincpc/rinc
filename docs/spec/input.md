@@ -64,7 +64,11 @@ A mouse moves a pointer, and Rinc draws it: a small arrow over the screen, which
 `pc.pointerY()` give the point of, in screen pixels. Moving the mouse or pressing one of its buttons shows
 it; typing hides it, as do the arrows (the d-pad's too), a controller's center buttons (Start, Back and
 guide) and the system key, and so does the mouse leaving the window, unless a button's held. So it's
-there only while it's in use, and a drag goes on outside the window till the button's let go. `pc.pointerShown()` is 1 while it's shown.
+there only while it's in use, and a drag goes on outside the window till the button's let go.
+
+Without a mouse, the system key moves it too: with the arrows (or a controller's guide button and
+d-pad), a pixel a frame, faster the longer they're held, and V and C (A and B) are its primary and
+secondary buttons. That's every Rinc's pointer, in any mode but `none`; the app sees just the pointer. `pc.pointerShown()` is 1 while it's shown.
 `pc.pointerDown(i)` is 1 while button `i` is held: 0 the primary (left) one, 1 the secondary (right), 2
 the middle. `pc.scroll(i)` is the whole steps scrolled since it was last asked, the rest kept for later:
 `i` 0 across (+ right), 1 up and down (+ up, away from you, as on a wheel).
