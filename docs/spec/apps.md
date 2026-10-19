@@ -340,9 +340,10 @@ The help app shows them, and follows their links; its own help text, `help/READM
 An app can be more files than one, in its folder: `include "parts/a.rio"` makes another file part of
 this one, and `import .shapes` makes a module of `shapes.rio` (or `shapes/shapes.rio`), both from the
 app's own folder; `import tween` is from the library, `/rinc/lib` (`tween.rio`, or `tween/tween.rio`),
-shared by every app. Storage's files come first, then the bundle's (`apps/<app>/...`, `lib/...`). All of
-an app's sources together are 64 KB at most. Its compiled image notes every file it read (see compiled
-apps), so a change to any of them compiles it again. On the desktop, `rinc game/` (or `rinc .`, in
+shared by every app. Storage's files come first, then the bundle's (`apps/<app>/...`, `lib/...`). An app
+is at most 16 files besides its main one, of any length (they're read a part at a time as it compiles:
+see [memory](memory.md)). Its compiled image notes every file it read (see compiled apps), so a change
+to any of them compiles it again. On the desktop, `rinc game/` (or `rinc .`, in
 the folder) runs the app of a folder, `game/game.rio`, its own files from beside it; exporting it
 carries all of its folder. The system apps are made this way, each a main file and its `parts`.
 

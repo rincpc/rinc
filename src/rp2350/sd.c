@@ -132,6 +132,7 @@ static int rinc_fsOpen(const char *path, int write) {
   return 0;
 }
 static int rinc_fsRead(char *buf, int n) { UINT got = 0; if (!rinc_isOpen || f_read(&rinc_file, buf, (UINT)n, &got) != FR_OK) return -1; return (int)got; }
+static int rinc_fsSeek(uint32_t at) { return rinc_isOpen && f_lseek(&rinc_file, (FSIZE_t)at) == FR_OK ? 0 : -1; } /* (reading: its end at most) */
 static int rinc_fsWrite(const char *buf, int n) { UINT put = 0; if (!rinc_isOpen || f_write(&rinc_file, buf, (UINT)n, &put) != FR_OK || (int)put != n) return -1; return n; }
 static int rinc_fsClose(void) { int ok = rinc_isOpen && f_close(&rinc_file) == FR_OK; rinc_isOpen = 0; return ok ? 0 : -1; }
 static int rinc_fsList(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
@@ -174,5 +175,5 @@ static int rinc_fsMkdir(const char *path) {
   rinc_storageChanged(path);
   return rinc_mkdirs(inside) ? 0 : -1; /* (it, and those along the way) */
 }
-static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove, rinc_fsCopy, rinc_fsRename, rinc_fsMkdir};
+static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove, rinc_fsCopy, rinc_fsRename, rinc_fsMkdir, rinc_fsSeek};
 void rinc_sdSetup(void) { gpio_init(rinc_PIN_DETECT); gpio_pull_up(rinc_PIN_DETECT); rinc_fs = &rinc_sdFs; }

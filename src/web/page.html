@@ -62,6 +62,11 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     new Uint8Array(ex.memory.buffer, p, m).set(file.bytes.subarray(file.at, file.at + m)); file.at += m;
     return m;
   };
+  env.fs_seek = at => { // reading on from byte at (its end, at most)
+    if (!file || !file.bytes) return -1;
+    file.at = Math.min(at >>> 0, file.bytes.length);
+    return 0;
+  };
   env.fs_write = (p, n) => {
     if (!file || !file.parts) return -1;
     const b = new Uint8Array(ex.memory.buffer, p, n);

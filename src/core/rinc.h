@@ -44,10 +44,11 @@ enum { rinc_Button_left = 1, rinc_Button_right = 2, rinc_Button_up = 4, rinc_But
 int rinc_start(rio_Vm *vm, void *mem, uint32_t memsize, void (*put)(const char *s, int n));
 /* just the host procs, registered as pc.cls and so on (rinc_start does this, and auto-imports pc) */
 int rinc_hostProcs(rio_Vm *vm);
-/* an app compiled as every Rinc compiles one (docs/spec/memory.md), after rinc_start: its source, at
-   most rinc_MAX_SOURCE bytes, moved to the top of the app space (where the program's memory is still
-   zero), and compiled there, the compiler below it. 0, or -1 (rio_error says why; a source too big: 1) */
-#define rinc_MAX_SOURCE (64 << 10)
+/* an app compiled as every Rinc compiles one (docs/spec/memory.md), after rinc_start, the compiler in
+   the app space (where the program's memory is still zero): its source read a part at a time, from
+   path in storage (or, host, path in rinc_hostFolder), as its other files are; or (rinc_compile) a
+   source in memory, outside the app space, as a bundle's is. 0, or -1 (rio_error says why) */
+int rinc_compileFile(rio_Vm *vm, void *space, uint32_t size, const char *path, int host);
 int rinc_compile(rio_Vm *vm, void *space, uint32_t size, const char *src, uint32_t len);
 int rinc_atLimit(const char *error); /* is this compile error about running out of something? */
 /* the system key (docs/spec/apps.md): the Windows key or a controller's guide button, held (sysDown), or
@@ -101,15 +102,15 @@ static inline uint8_t rinc_shownAt(int x, int y) {
 /* one frame of a game: the app's update* and then draw* (each optional). 0: ran, 1: the app has
    neither (it isn't a game), -1: a runtime error (rio_error says) */
 int rinc_frame(rio_Vm *vm);
-/* starting an app, the same on every Rinc: rinc_appBegin (0, or -1), then the platform reads its source
-   (into the top of the app space, where it compiles) or finds its image, then rinc_appRun (0: running, or
-   done; -1). rinc_appFail is a reason it can't start (name, then why). What goes wrong goes on the screen
+/* starting an app, the same on every Rinc: rinc_appBegin (0, or -1), then rinc_appRun with its source
+   in memory or its image (or rinc_appRunHost, its main file in rinc_hostFolder; 0: running, or done; -1). rinc_appFail is a reason it can't start (name, then why). What goes wrong goes on the screen
    (rinc_say: and to put), with the way home. Each frame after, rinc_gameFrame: a game's frame, and its
    error on the screen if it fails (0: ran, 1 nothing running, -1 it failed) */
 extern int rinc_game;    /* the app has frames to run (update*, draw*) */
 extern int rinc_showLog; /* what's logged goes on the screen too: while an app starts, and once it's stopped */
 int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void (*put)(const char *s, int n));
 int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image);
+int rinc_appRunHost(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *path);
 /* or, for an app by name (after rinc_appBegin): from storage, else the bundle, through its cached
    compiled image while that's still its source's (rinc_appRun's the rest). 0, or -1 */
 int rinc_appStart(rio_Vm *vm, void *space, uint32_t size, const char *name);
@@ -121,9 +122,10 @@ extern int (*rinc_native)(rio_Vm *vm);
    rinc_storageChanged(path) for each file it writes or removes; rinc_cacheDrop drops an app's image.
    rinc_buildId: this build's (build_id.c): another build's images are compiled again */
 extern int rinc_cacheTrust;
-/* an app run from the host's own files (the desktop's rinc game/): its other files come from this folder,
-   through rinc_hostRead (0, or -1; *total its whole length), not storage */
-extern int (*rinc_hostRead)(const char *path, char *buf, uint32_t cap, uint32_t *total);
+/* an app run from the host's own files (the desktop's rinc game/): its files come from this folder,
+   through rinc_hostRead (path in it: up to n bytes from byte at, how many, 0 at its end, or -1 if it
+   isn't there), not storage */
+extern int (*rinc_hostRead)(const char *path, char *buf, uint32_t at, uint32_t n);
 extern char rinc_hostFolder[512];
 void rinc_storageChanged(const char *path);
 void rinc_cacheDrop(const char *name);
@@ -163,7 +165,8 @@ void rinc_consoleClear(int bg);
 
 /* files, where the platform has storage (else rinc_fs is NULL): one open at a time. open: 0 or -1
    (writing makes the directories along the path, and replaces the file); read: bytes read, 0 at its
-   end, -1 failed; write: n, or -1; list: each entry of a directory, with whether it's one too.
+   end, -1 failed; write: n, or -1; seek: reading on from byte at (its end, at most): 0 or -1; list: each
+   entry of a directory, with whether it's one too.
    Apps live in /rinc/apps/<name>/<name>.rio */
 /* an app's name, 1 to 32 letters, digits, _ and -: the installed app, /rinc/apps/<name>; with a star
    after it (chord*), its project, /rinc/projects/<name>, the app in work. rinc_REF holds either */
@@ -178,6 +181,7 @@ typedef struct {
   int (*copy)(const char *from, const char *to); /* a file, whole (to's directories made, it replaced): 0 or -1 */
   int (*rename)(const char *from, const char *to); /* a file or a directory, to a name not taken (in a directory there): 0 or -1 */
   int (*mkdir)(const char *path); /* a directory, the ones along the way too: 0 or -1 */
+  int (*seek)(uint32_t at);
 } rinc_Fs;
 extern const rinc_Fs *rinc_fs;
 /* an app asked to switch (pc.launch): to the app named rinc_launchName, which may be a built-in one,

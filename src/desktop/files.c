@@ -44,6 +44,7 @@ static int rinc_open(const char *path, int write) {
 }
 static int rinc_read(char *buf, int n) { return rinc_file ? (int)fread(buf, 1, (size_t)n, rinc_file) : -1; }
 static int rinc_write(const char *buf, int n) { return rinc_file && fwrite(buf, 1, (size_t)n, rinc_file) == (size_t)n ? n : -1; }
+static int rinc_seek(uint32_t at) { return rinc_file && !fseek(rinc_file, (long)at, SEEK_SET) ? 0 : -1; }
 static int rinc_close(void) { int bad = !rinc_file || fclose(rinc_file); rinc_file = 0; return bad ? -1 : 0; }
 /* each name in a folder on this computer, with whether it's a folder: 0, or -1 */
 static int rinc_listLocal(const char *folder, void (*each)(const char *name, int dir, void *ud), void *ud) {
@@ -126,7 +127,7 @@ static int rinc_makeDir(const char *path) {
   rinc_storageChanged(path);
   return rinc_listLocal(local, rinc_noEntry, 0) < 0 ? -1 : 0; /* (there now) */
 }
-static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename, rinc_makeDir};
+static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename, rinc_makeDir, rinc_seek};
 
 /* storage in folder dir itself (rinc -data dir: tests, or a Rinc on a USB stick) */
 const char *rinc_storageAt(const char *dir) {

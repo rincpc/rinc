@@ -51,22 +51,24 @@ static int rinc_savePpm(const char *path) { /* the screen through the palette, a
   return fclose(f);
 }
 
-/* an app run from files here: its other files (include, import .module) from its file's folder */
-static int rinc_hostReadFile(const char *path, char *buf, uint32_t cap, uint32_t *total) {
-  FILE *f = fopen(path, "rb"); size_t got, more; char chunk[256];
-  if (!f) return -1;
-  got = fread(buf, 1, cap, f);
-  for (*total = (uint32_t)got; (more = fread(chunk, 1, sizeof chunk, f)) > 0; ) *total += (uint32_t)more; /* (its whole length) */
+/* an app run from files here: its files (and include, import .module) from its file's folder, read a
+   part at a time (as from storage) */
+static int rinc_hostReadFile(const char *path, char *buf, uint32_t at, uint32_t n) {
+  struct stat st; FILE *f; size_t got = 0;
+  if (stat(path, &st) || (st.st_mode & S_IFDIR) || !(f = fopen(path, "rb"))) return -1;
+  if (n && !fseek(f, (long)at, SEEK_SET)) got = fread(buf, 1, n, f);
   fclose(f);
-  return 0;
+  return (int)got;
 }
-static void rinc_useFolder(const char *app) {
+/* an app's file's folder, for its other files: the file's name in it */
+static const char *rinc_useFolder(const char *app) {
   size_t k = strlen(app);
   while (k > 0 && app[k - 1] != '/' && app[k - 1] != '\\') k--;
   if (k > sizeof rinc_hostFolder - 1) k = 0;
   if (k) { memcpy(rinc_hostFolder, app, k - 1); rinc_hostFolder[k - 1] = 0; if (!rinc_hostFolder[0]) strcpy(rinc_hostFolder, "/"); }
   else strcpy(rinc_hostFolder, ".");
   rinc_hostRead = rinc_hostReadFile;
+  return app + k;
 }
 /* an app's argument as its main file: a folder (game/, or ., this one) is the app of that folder's name,
    game/game.rio; else the file it names. (Kept: one each, for the bundle's apps) */
@@ -85,21 +87,17 @@ static const char *rinc_appArg(const char *arg) {
   return kept[nkept++];
 }
 
-/* the app in rinc_src compiled as every Rinc compiles one (rinc_compile): 0, or -1 after saying why
-   (and, if it ran out of something, how near each of its limits it came) */
+/* the app in the file app compiled as every Rinc compiles one (rinc_compileFile): 0, or -1 after saying
+   why (and, if it ran out of something, how near each of its limits it came) */
 static rio_Usage rinc_usage;
-static int rinc_compileApp(const char *app, size_t n) {
+static int rinc_compileApp(const char *app) {
   static char text[1024];
-  int res;
-  rinc_useFolder(app);
+  const char *file = rinc_useFolder(app);
   rio_trackUsage(&rinc_vm, &rinc_usage);
-  if (!(res = rinc_compile(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, rinc_src, (uint32_t)n))) return 0;
+  if (!rinc_compileFile(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, file, 1)) return 0;
   fflush(stdout);
-  if (res > 0) fprintf(stderr, "%s: too big (64 KB is the most)\n", app);
-  else {
-    fprintf(stderr, "%s:%s\n", app, rio_error(&rinc_vm));
-    if (rinc_atLimit(rio_error(&rinc_vm))) { rio_usageText(&rinc_usage, text, sizeof text); fputs(text, stderr); }
-  }
+  fprintf(stderr, "%s:%s\n", app, rio_error(&rinc_vm));
+  if (rinc_atLimit(rio_error(&rinc_vm))) { rio_usageText(&rinc_usage, text, sizeof text); fputs(text, stderr); }
   return -1;
 }
 
@@ -108,9 +106,9 @@ static int rinc_compileApp(const char *app, size_t n) {
 /* whether an app made runs Rio itself (pc.rio*) or writes apps (pc.appSave): its page needs the
    compiler, and the bundle carries sources, so its apps can be read and changed too */
 static int rinc_nested;
-static uint32_t rinc_makeImage(const char *app, size_t n, int list) {
+static uint32_t rinc_makeImage(const char *app, int list) {
   uint32_t size, pc; uint8_t used[rio_MAX_FFI] = {0}; int k;
-  if (rinc_compileApp(app, n)) return 0;
+  if (rinc_compileApp(app)) return 0;
   for (pc = 0; pc < rinc_vm.codeLen; pc++) if (rinc_vm.code[pc].op == rio_Op_ffi && rinc_vm.code[pc].c < rio_MAX_FFI) used[rinc_vm.code[pc].c] = 1;
   for (k = 0; k < rinc_vm.ffiCount; k++) {
     if (!used[k]) continue;
@@ -210,7 +208,7 @@ static uint32_t rinc_makeBundle(const char *const *apps, int n, const char *home
       a->info[k] = 0;
     }
     rinc_setAppName(a->name);
-    if (rinc_start(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, rinc_put) || !(size = rinc_makeImage(apps[i], len, 0))) return 0;
+    if (rinc_start(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, rinc_put) || !(size = rinc_makeImage(apps[i], 0))) return 0;
     if (size + len > sizeof rinc_images - used) { fprintf(stderr, "rinc: too much to bundle\n"); return 0; }
     memcpy(rinc_images + used, rinc_image, size);
     a->data = (const char *)rinc_images + used; a->len = size; a->image = 1;
@@ -674,25 +672,24 @@ int main(int argc, char **argv) {
   }
   if (app) {
     if (!opened) {
-      FILE *f = fopen(app, "rb"); size_t n;
+      FILE *f = fopen(app, "rb");
       if (!f) { fprintf(stderr, "rinc: can't open %s\n", app); return 2; }
-      n = fread(rinc_src, 1, sizeof rinc_src, f); fclose(f);
+      fclose(f); /* (read a part at a time, as it compiles) */
       rinc_stem(app, stem, sizeof stem);
       rinc_setAppName(stem);
       if (img) {
-        if (!(size = rinc_makeImage(app, n, 1))) return 1;
+        if (!(size = rinc_makeImage(app, 1))) return 1;
         return rinc_writeFile(img, rinc_image, size, 0, 0, 0, 0);
       }
       if (memReport) { /* -m: how near its limits it came, compiling and running, as on every Rinc */
         static char text[1024];
-        if (rinc_compileApp(app, n)) return 1;
+        if (rinc_compileApp(app)) return 1;
         rio_usageText(&rinc_usage, text, sizeof text);
         printf("%s: fits in the 256 KB app space\n%s", app, text);
         return 0;
       }
-      rinc_useFolder(app);
       if ((rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, stem, rinc_put) ||
-           rinc_appRun(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, stem, rinc_src, (uint32_t)n, 0)) && !windowed) return 1;
+           rinc_appRunHost(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, stem, rinc_useFolder(app))) && !windowed) return 1;
     }
 #if rinc_SDL
     if (!out && !frames) return rinc_window(app);

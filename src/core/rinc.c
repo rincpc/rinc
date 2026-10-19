@@ -929,44 +929,71 @@ static void rinc_back(void) { static const char s[] = "\r\n(Sys+Esc: back home)\
 /* the modules and files Rinc has for apps (docs/spec/apps.md#more-files): pc, from pc.rio, built in (its
    host procs, as declared, and its types); an app's own files, in its folder, for include "parts/a.rio"
    and import .shapes; and the library's, /rinc/lib, for import tween. Storage's first, else the bundle's
-   (apps/<app>/..., lib/...). Those read from storage go into the room above the main source
-   (rinc_srcNext to rinc_srcEnd: see rinc_compile), and each is noted, for the app's cached image */
+   (apps/<app>/..., lib/...). Those from storage (and the host's) are read a part at a time, as the
+   compiler wants them, and each from storage is noted, for the app's cached image */
 static char rinc_loadApp[rinc_REF]; /* (the app compiling: its folder) */
-static char *rinc_srcNext, *rinc_srcEnd;
-#define rinc_SRC_FILES 12
-static struct { char path[52]; uint32_t len, hash[2]; } rinc_srcFiles[rinc_SRC_FILES]; /* (each read from storage: /rinc/... with /rinc/ left off) */
+static int rinc_srcOn; /* (compiling an app: its other files can be read) */
+#define rinc_SRC_FILES 16
+/* a file read a part at a time: from storage (one file open at a time: this one, opened again whenever
+   another was), or the host's (host: path in rinc_hostFolder); hashed as it's read, in order, for the
+   cached image (to its end: ended) */
+typedef struct { char path[100]; uint8_t host, ended; uint32_t hashed; uint64_t x; } rinc_Reader;
+static rinc_Reader rinc_srcFiles[rinc_SRC_FILES + 1], *rinc_readerOpen; /* (the last: the main file) */
 static int rinc_srcCount, rinc_srcLost; /* (lost: more than were noted) */
-static void rinc_hash(const char *s, uint32_t n, uint32_t *h);
 #ifdef rio_NO_COMPILER
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) { (void)ud; (void)path; (void)kind; (void)out; return 1; } /* (images only) */
 #else
 extern const char rinc_pcSource[];
 extern const int rinc_pcSource_len;
-int (*rinc_hostRead)(const char *path, char *buf, uint32_t cap, uint32_t *total);
+int (*rinc_hostRead)(const char *path, char *buf, uint32_t at, uint32_t n);
 char rinc_hostFolder[512];
-/* a file in storage (or, host, the host's), into the room above the main source: 0, or 1 if it isn't
-   there, or 2 if there's no room */
-static int rinc_loadFile(const char *path, rio_Source *out, int host) {
-  uint32_t total; char *at = rinc_srcNext;
-  if (!at || (host ? !rinc_hostRead || rinc_hostRead(path, at, (uint32_t)(rinc_srcEnd - at), &total) : !rinc_fs || rinc_readFile(path, at, (uint32_t)(rinc_srcEnd - at), &total))) return 1;
-  if (total > (uint32_t)(rinc_srcEnd - at)) return 2;
-  out->src = at; out->len = total;
-  rinc_srcNext = at + total;
-  if (host) return 0; /* (no image of it is cached: nothing to note) */
-  if (rinc_srcCount < rinc_SRC_FILES && strlen(path) - 6 < sizeof rinc_srcFiles[0].path) {
-    memcpy(rinc_srcFiles[rinc_srcCount].path, path + 6, strlen(path) - 5); /* (it fits: just checked) */
-    rinc_srcFiles[rinc_srcCount].len = total;
-    rinc_hash(at, total, rinc_srcFiles[rinc_srcCount].hash);
-    rinc_srcCount++;
-  } else rinc_srcLost = 1;
-  return 0;
+static int rinc_readAt(void *ud, char *buf, uint32_t at, uint32_t n) {
+  rinc_Reader *r = (rinc_Reader *)ud; int got = 0, k;
+  if (r->host) {
+    char full[640];
+    snprintf(full, sizeof full, "%s/%s", rinc_hostFolder, r->path);
+    if (!rinc_hostRead || (got = rinc_hostRead(full, buf, at, n)) < 0) return -1;
+  } else {
+    if (rinc_readerOpen != r) {
+      rinc_readerOpen = 0;
+      if (!rinc_fs || rinc_fs->open(r->path, 0)) return -1;
+      rinc_readerOpen = r;
+    }
+    if (rinc_fs->seek(at)) return -1;
+    for (; (uint32_t)got < n; got += k) {
+      if ((k = rinc_fs->read(buf + got, (int)(n - (uint32_t)got))) < 0) return -1;
+      if (!k) break;
+    }
+  }
+  if (at <= r->hashed && at + (uint32_t)got > r->hashed) { /* (what's new: hashed, FNV-1a, as rinc_hash) */
+    uint32_t i;
+    for (i = r->hashed - at; i < (uint32_t)got; i++) r->x = (r->x ^ (uint8_t)buf[i]) * 0x100000001b3ull;
+    r->hashed = at + (uint32_t)got;
+  }
+  if (!got && at == r->hashed) r->ended = 1;
+  return got;
 }
-/* a file's name, for error messages, kept while it compiles: in the room above the main source too */
-static const char *rinc_srcName(const char *s) {
-  size_t n = strlen(s) + 1; char *at = rinc_srcNext;
-  if (!at || n > (size_t)(rinc_srcEnd - at)) return "(a file)";
-  memcpy(at, s, n); rinc_srcNext = at + n;
-  return at;
+/* a reader, set going on path (from storage, else host's): whether the file's there */
+static int rinc_readerStart(rinc_Reader *r, const char *path, int host) {
+  char probe;
+  if (strlen(path) >= sizeof r->path) return 0;
+  memset(r, 0, sizeof *r);
+  memcpy(r->path, path, strlen(path) + 1); /* (it fits: just checked) */
+  r->host = (uint8_t)host;
+  r->x = 0xcbf29ce484222325ull;
+  if (rinc_readAt(r, &probe, 0, 0) < 0) return 0; /* (there: open, to be read) */
+  return 1;
+}
+/* a file from storage (or, host, the host's), read a part at a time: 0, or 1 if it isn't there, or 2 if
+   there are too many */
+static int rinc_loadFile(const char *path, rio_Source *out, int host) {
+  rinc_Reader *r = &rinc_srcFiles[rinc_srcCount];
+  if (rinc_srcCount == rinc_SRC_FILES) return 2;
+  if (!rinc_readerStart(r, path, host)) return 1;
+  rinc_srcCount++;
+  out->src = 0; out->len = 0; out->read = rinc_readAt; out->readData = r;
+  out->name = host ? r->path : r->path + 6;
+  return 0;
 }
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
   char base[64], bundleBase[64], tryPath[104], name[640]; const char *last; const rinc_File *f; int n = (int)strlen(rinc_loadApp), project, k, res;
@@ -976,30 +1003,26 @@ static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
     out->src = rinc_pcSource; out->len = (uint32_t)rinc_pcSource_len; out->isDir = 0; out->name = "pc.rio";
     return 0;
   }
-  if (strstr(path, "..") || strlen(path) > 48) return 1;
+  if (!rinc_srcOn || strstr(path, "..") || strlen(path) > 48) return 1;
   project = n > 1 && rinc_loadApp[n - 1] == '*';
   if (kind & rio_LoadKind_package) { snprintf(base, sizeof base, "/rinc/lib/"); snprintf(bundleBase, sizeof bundleBase, "lib/"); }
   else if (host) base[0] = bundleBase[0] = 0;
   else if (n) {
     snprintf(base, sizeof base, "/rinc/%s/%.*s/", project ? "projects" : "apps", project ? n - 1 : n, rinc_loadApp);
-    snprintf(bundleBase, sizeof bundleBase, project ? "" : "apps/%s/", rinc_loadApp);
+    if (project) bundleBase[0] = 0; /* (a project's own files: storage's only) */
+    else snprintf(bundleBase, sizeof bundleBase, "apps/%s/", rinc_loadApp);
   } else return 1;
   last = strrchr(path, '/') ? strrchr(path, '/') + 1 : path;
   for (k = 0; k < 2; k++) { /* (a file: that path; a module: path.rio, else its folder's own, path/<last>.rio) */
     if (kind & rio_LoadKind_file) { if (k) break; snprintf(tryPath, sizeof tryPath, "%s", path); }
     else if (!k) snprintf(tryPath, sizeof tryPath, "%s.rio", path);
     else snprintf(tryPath, sizeof tryPath, "%s/%s.rio", path, last);
-    if (host) {
-      snprintf(name, sizeof name, "%s/%s", rinc_hostFolder, tryPath);
-      if (!(res = rinc_loadFile(name, out, 1))) { out->isDir = k; out->name = rinc_srcName(tryPath); return 0; }
-      if (res == 2) return 1;
-      continue;
-    }
     snprintf(name, sizeof name, "%s%s", base, tryPath);
-    if (!(res = rinc_loadFile(name, out, 0))) { out->isDir = k; out->name = rinc_srcName(name + 6); return 0; }
-    if (res == 2) return 1; /* (no room: as if it isn't there) */
+    if (!(res = rinc_loadFile(name, out, host))) { out->isDir = k; return 0; }
+    if (res == 2) return 1; /* (too many files: as if it isn't there) */
+    if (host) continue;
     snprintf(name, sizeof name, "%s%s", bundleBase, tryPath);
-    if (*bundleBase && (f = rinc_bundleFile(name))) { out->src = f->data; out->len = f->len; out->isDir = k; out->name = rinc_srcName(name); return 0; }
+    if (*bundleBase && (f = rinc_bundleFile(name))) { out->src = f->data; out->len = f->len; out->isDir = k; out->name = f->path; return 0; }
   }
   return 1;
 }
@@ -1018,25 +1041,34 @@ int rinc_start(rio_Vm *vm, void *mem, uint32_t memsize, void (*put)(const char *
   return 0;
 }
 
-/* whether a source has more files to read: an include, or an import (of anything but pc) */
-static int rinc_hasMore(const char *s, uint32_t n) {
-  uint32_t i;
-  for (i = 0; i + 7 < n; i++)
-    if ((i == 0 || s[i - 1] == '\n') && (!strncmp(s + i, "include ", 8) || (!strncmp(s + i, "import ", 7) && strncmp(s + i + 7, "pc", 2)))) return 1;
-  return 0;
+/* an app's source compiled (as rinc.h says): in memory (src), or read a part at a time from path (as are
+   its other files) */
+static int rinc_compileSource(rio_Vm *vm, const char *src, uint32_t len, const char *path, int host) {
+  int res = -1;
+#ifdef rio_NO_COMPILER
+  (void)vm; (void)src; (void)len; (void)path; (void)host;
+#else
+  rinc_Reader *top = &rinc_srcFiles[rinc_SRC_FILES]; /* (the main file) */
+  rinc_srcCount = rinc_srcLost = 0;
+  rinc_srcOn = 1;
+  rio_setSourceWindow(vm, 2048); /* (every app's compile alike: the window, whether its main file's read so or not) */
+  if (!path) res = rio_compile(vm, src, len) ? -1 : 0;
+  else {
+    if (!rinc_readerStart(top, path, host)) top->path[0] = 0, top->host = 0; /* (not there: Rio says it can't read it) */
+    res = rio_compileStream(vm, rinc_readAt, top) ? -1 : 0;
+  }
+  rinc_srcOn = 0;
+  if (rinc_readerOpen) { rinc_fs->close(); rinc_readerOpen = 0; }
+#endif
+  return res;
 }
-/* The main source at the top of the app space, where it compiles (the compiler's room ends below it);
-   one with more files to read goes lower, the top 64 KB its and theirs (rinc_srcNext on), together */
 int rinc_compile(rio_Vm *vm, void *space, uint32_t size, const char *src, uint32_t len) {
-  int more = rinc_hasMore(src, len);
-  char *at = (char *)space + size - (more ? rinc_MAX_SOURCE : len);
-  (void)vm; /* (unused without a compiler) */
-  if (len > rinc_MAX_SOURCE || len > size || rinc_MAX_SOURCE > size) return 1;
-  if (src != at) memmove(at, src, len);
-  rinc_srcNext = more ? at + len : 0; rinc_srcEnd = (char *)space + size; rinc_srcCount = rinc_srcLost = 0;
-  len = rio_compile(vm, at, len) ? 1 : 0; /* (and the room above, zero again by now) */
-  rinc_srcNext = 0;
-  return len ? -1 : 0;
+  (void)space; (void)size; /* (the app space: rinc_start's already) */
+  return rinc_compileSource(vm, src, len, 0, 0);
+}
+int rinc_compileFile(rio_Vm *vm, void *space, uint32_t size, const char *path, int host) {
+  (void)space; (void)size;
+  return rinc_compileSource(vm, 0, 0, path, host);
 }
 
 int rinc_atLimit(const char *e) { return strstr(e, "out of") || strstr(e, "too many") || strstr(e, "too complex") || strstr(e, "too deep"); }
@@ -1342,8 +1374,8 @@ int rinc_hostProcs(rio_Vm *vm) {
 }
 
 /* a game's frame: update then draw */
-/* starting an app, the same on every Rinc: rinc_appBegin, then its source read (into the top of the app
-   space, where it compiles), then rinc_appRun. Whatever goes wrong goes on the screen, with the way home
+/* starting an app, the same on every Rinc: rinc_appBegin, then rinc_appRun (its source compiled, read a
+   part at a time from its file, or its image loaded). Whatever goes wrong goes on the screen, with the way home
    (and, when it ran out of something, how near each limit it came) */
 static rio_Usage rinc_usage;
 int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void (*put)(const char *s, int n)) {
@@ -1364,18 +1396,19 @@ void rinc_appFail(const char *name, const char *why) {
   rinc_say(name); rinc_say(why); rinc_back();
 }
 int (*rinc_native)(rio_Vm *vm);
-/* an app compiled, or its image loaded: 0, or -1 (said why) */
-static int rinc_appLoad(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image) {
+/* an app compiled (its source in memory, else read from path: host, the host's), or its image loaded:
+   0, or -1 (said why) */
+static int rinc_appLoad(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image, const char *path, int host) {
   int res;
   if (image) res = rio_loadImage(vm, image, len);
   else {
 #ifdef rio_NO_COMPILER
-    (void)space; (void)size; (void)src;
+    (void)space; (void)size; (void)src; (void)path; (void)host;
     rinc_appFail(name, ": this Rinc runs compiled apps only");
     return -1;
 #else
     rio_trackUsage(vm, &rinc_usage);
-    if ((res = rinc_compile(vm, space, size, src, len)) > 0) { rinc_appFail(name, ".rio: too big (64 KB is the most)"); return -1; }
+    res = path ? rinc_compileFile(vm, space, size, path, host) : rinc_compile(vm, space, size, src, len);
 #endif
   }
   if (res) {
@@ -1406,7 +1439,10 @@ static int rinc_appGo(rio_Vm *vm, const char *name) {
   return 0;
 }
 int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image) {
-  return rinc_appLoad(vm, space, size, name, src, len, image) || rinc_appGo(vm, name);
+  return rinc_appLoad(vm, space, size, name, src, len, image, 0, 0) || rinc_appGo(vm, name);
+}
+int rinc_appRunHost(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *path) {
+  return rinc_appLoad(vm, space, size, name, 0, 0, 0, path, 1) || rinc_appGo(vm, name);
 }
 
 /* compiled apps, cached (docs/spec/apps.md#compiled-apps): /rinc/cache/rinc/apps/<app>.rioi, Rinc's
@@ -1507,13 +1543,15 @@ static void rinc_cacheSave(rio_Vm *vm, const char *name, uint32_t len, const uin
   (void)vm; (void)name; (void)len; (void)hash;
 #else
   char path[96]; uint8_t head[rinc_CACHE_HEAD], entry[64]; uint32_t imageLen = rio_saveImage(vm, 0, 0); int bad, i;
+  for (i = 0; i < rinc_srcCount; i++) /* (each other file: read to its end, hashed, and its path fits) */
+    if (rinc_srcFiles[i].host || !rinc_srcFiles[i].ended || strlen(rinc_srcFiles[i].path + 6) > 51) rinc_srcLost = 1;
   if (!rinc_fs || !imageLen || rinc_srcLost || !rinc_cachePath(name, path, sizeof path) || rinc_fs->open(path, 1)) return; /* (lost: not all its files noted, so none) */
   rinc_cacheHead(head, len, hash, imageLen);
   bad = rinc_writeAll(0, head, sizeof head);
-  for (i = 0; i < rinc_srcCount && !bad; i++) { /* (the other files read) */
-    uint32_t w[3]; uint8_t n = (uint8_t)strlen(rinc_srcFiles[i].path);
-    w[0] = rinc_srcFiles[i].len; w[1] = rinc_srcFiles[i].hash[0]; w[2] = rinc_srcFiles[i].hash[1];
-    memset(entry, 0, sizeof entry); entry[0] = n; memcpy(entry + 1, rinc_srcFiles[i].path, n);
+  for (i = 0; i < rinc_srcCount && !bad; i++) { /* (the other files read: /rinc/ left off) */
+    const rinc_Reader *r = &rinc_srcFiles[i]; uint32_t w[3]; uint8_t n = (uint8_t)strlen(r->path + 6);
+    w[0] = r->hashed; w[1] = (uint32_t)r->x; w[2] = (uint32_t)(r->x >> 32);
+    memset(entry, 0, sizeof entry); entry[0] = n; memcpy(entry + 1, r->path + 6, n);
     bad = rinc_writeAll(0, w, sizeof w) || rinc_writeAll(0, entry, (uint32_t)((n + 4) & ~3));
   }
   bad = bad || rio_writeImage(vm, rinc_writeAll, 0) != imageLen;
@@ -1532,38 +1570,34 @@ static void rinc_checkedAdd(const char *name, uint32_t len, const uint32_t *hash
 }
 
 int rinc_appStart(rio_Vm *vm, void *space, uint32_t size, const char *name) {
-  char *top = (char *)space + size - rinc_MAX_SOURCE; const char *src; const rinc_App *b = 0;
-  uint32_t hash[2]; int n, i, res;
+  char path[96]; const char *src = 0; const rinc_App *b = 0;
+  uint32_t hash[2], len = 0; int i, res, stored = 0;
   snprintf(rinc_loadApp, sizeof rinc_loadApp, "%s", name); /* (its own files: in its folder) */
   if (rinc_cacheTrust)
     for (i = 0; i < rinc_checkedCount; i++)
       if (!strcmp(rinc_checked[i].name, name)) {
-        if (!(res = rinc_cacheLoad(vm, name, rinc_checked[i].len, rinc_checked[i].hash, (uint8_t *)space, size - rinc_MAX_SOURCE, 1))) return rinc_appGo(vm, name);
+        if (!(res = rinc_cacheLoad(vm, name, rinc_checked[i].len, rinc_checked[i].hash, (uint8_t *)space, size, 1))) return rinc_appGo(vm, name);
         if (res == -1 && rinc_start(vm, space, size, rinc_put)) { rinc_appFail(name, ": can't start rio"); return -1; }
         break;
       }
-#ifdef rio_NO_COMPILER
-  n = -1; /* (no compiler: bundled images only) */
-#else
-  n = rinc_readApp(name, top, rinc_MAX_SOURCE); /* (at the top, where it compiles) */
+#ifndef rio_NO_COMPILER /* (no compiler: bundled images only) */
+  stored = rinc_appPath(name, path, sizeof path) && !rinc_hashFile(path, &len, hash); /* (its source: read through once, to tell its image) */
 #endif
-  if (n == -2) { rinc_appFail(name, ".rio: too big (64 KB is the most)"); return -1; }
-  if (n < 0 && !(b = rinc_bundled(name))) { rinc_appFail(name, ": no app of this name"); return -1; }
+  if (!stored && !(b = rinc_bundled(name))) { rinc_appFail(name, ": no app of this name"); return -1; }
   if (b && b->image) return rinc_appRun(vm, space, size, name, b->data, b->len, b->data);
-  src = b ? b->data : top;
-  if (b) n = (int)rinc_appLen(b);
-  rinc_hash(src, (uint32_t)n, hash);
-  if (!(res = rinc_cacheLoad(vm, name, (uint32_t)n, hash, (uint8_t *)space, size - rinc_MAX_SOURCE, 0))) {
-    rinc_checkedAdd(name, (uint32_t)n, hash);
+  if (b) { src = b->data; len = rinc_appLen(b); rinc_hash(src, len, hash); }
+  if (!(res = rinc_cacheLoad(vm, name, len, hash, (uint8_t *)space, size, 0))) {
+    rinc_checkedAdd(name, len, hash);
     return rinc_appGo(vm, name);
   }
-  if (res == -1) { /* (a load that failed part way: the source again, from the start) */
-    if (rinc_start(vm, space, size, rinc_put)) { rinc_appFail(name, ": can't start rio"); return -1; }
-    if (!b && rinc_readApp(name, top, rinc_MAX_SOURCE) != n) { rinc_appFail(name, ": can't read it"); return -1; }
+  if (res == -1 && rinc_start(vm, space, size, rinc_put)) { rinc_appFail(name, ": can't start rio"); return -1; } /* (a load that failed part way) */
+  if (rinc_appLoad(vm, space, size, name, src, len, 0, b ? 0 : path, 0)) return -1;
+  if (!b) { /* (its source changed while it compiled: no image of it) */
+    const rinc_Reader *m = &rinc_srcFiles[rinc_SRC_FILES];
+    if (!m->ended || m->hashed != len || (uint32_t)m->x != hash[0] || (uint32_t)(m->x >> 32) != hash[1]) return rinc_appGo(vm, name);
   }
-  if (rinc_appLoad(vm, space, size, name, src, (uint32_t)n, 0)) return -1;
-  rinc_cacheSave(vm, name, (uint32_t)n, hash);
-  rinc_checkedAdd(name, (uint32_t)n, hash);
+  rinc_cacheSave(vm, name, len, hash);
+  rinc_checkedAdd(name, len, hash);
   return rinc_appGo(vm, name);
 }
 int rinc_gameFrame(rio_Vm *vm) {
