@@ -1,7 +1,8 @@
 # Editor: a text editor, for apps' Rio
 #
 # Ctrl+O opens an app (from a list, or a new name), Ctrl+S saves it, Ctrl+R saves and runs it, Ctrl+N
-# starts a new one. It starts with the app it had last. The keys are most editors': arrows, Home, End,
+# starts a new one. It saves to projects (chord*, in /rinc/projects): an installed app (chord) opens
+# read only, and saving it makes its project, which the console's install command installs. It starts with the app it had last. The keys are most editors': arrows, Home, End,
 # Page Up and Down move, with Ctrl by words and to either end, and with Shift they select. Ctrl+A
 # selects all; Ctrl+X, C and V cut, copy and paste (the line, with nothing selected); Ctrl+Z undoes,
 # Ctrl+Y (or Ctrl+Shift+Z) redoes. Tab and Shift+Tab indent and outdent, Alt+Up and Down move lines,
@@ -60,7 +61,7 @@ anchor := 0            # the selection's other end (anchor == cursor: nothing se
 wantCol := -1          # the column up and down keep to
 top := 0               # the first line on the screen, and column
 left := 0
-name: Blob[..32]       # the app's name ("": new)
+name: Blob[..33]       # the app's name ("": new), with a star for a project's (chord*)
 one: Blob[1]
 built: Blob[..8192]
 
@@ -706,16 +707,32 @@ remember :: proc()
   ok := pc.saveWrite("last", last[0:last.len()].asString())
 end
 
+# an app's name, or its project's: a star after it
 validName :: proc(s: String) -> Bool
-  if s.len() == 0 or s.len() > 32
+  n := s.len()
+  if n > 1 and s[n - 1] == 42
+    n -= 1
+  end
+  if n == 0 or n > 32
     return false
   end
-  for c in s
+  for c in s[0:n]
     if not (isWord(c) or c == 45)
       return false
     end
   end
   return true
+end
+
+isProject :: proc() -> Bool
+  return name.len() > 0 and name[name.len() - 1] == 42
+end
+
+# an installed app's text, saved: as its project (a star on its name)
+toProject :: proc()
+  if not isProject()
+    name.push(42)
+  end
 end
 
 # a fresh, empty text
@@ -744,7 +761,8 @@ load :: proc(nm: String) -> Bool
     name.push(c)
   end
   if n < 0
-    sayName("New app ", "", GRAY)
+    toProject() # (new: a project)
+    sayName("New project ", "", GRAY)
   else
     n = pc.appSource(nm, text[0:CAP])
     k := 0
@@ -756,13 +774,18 @@ load :: proc(nm: String) -> Bool
     end
     textLen = k
     rebuildLines()
-    sayName("", ": Ctrl+S saves, Ctrl+R runs", GRAY)
+    if isProject()
+      sayName("", ": Ctrl+S saves, Ctrl+R runs", GRAY)
+    else
+      sayName("", ": the app, read only (saving makes its project)", GRAY)
+    end
   end
   remember()
   return true
 end
 
 save :: proc() -> Bool
+  toProject() # (an installed app's text: saved as its project)
   if pc.appSave(name[0:name.len()].asString(), text[0:textLen].asString()) < 0
     sayName("Couldn't save ", "", RED)
     return false
@@ -782,13 +805,13 @@ SAVE_AS :: 2
 FIND :: 3
 GO_TO :: 4
 mode := NONE
-input: Blob[..32]
+input: Blob[..33]
 query: Blob[..48]
 confirm := 0     # an action asked for again after a warning: it goes ahead
 runAfter := false # saving as, then running
 
 # apps, for opening
-names: Blob[2048]
+names: Blob[2176]
 nameAt: [64]Int
 nameLen: [64]Int
 appCount := 0
@@ -835,7 +858,7 @@ startOpen :: proc()
   at := 0
   for i in 0..<appCount
     nameAt[i] = at
-    nameLen[i] = min(pc.appName(i, names[at:at + 32]), 32)
+    nameLen[i] = min(pc.appName(i, names[at:at + 33]), 33)
     at += nameLen[i]
   end
   narrow()
@@ -1086,10 +1109,12 @@ key :: proc(k: Int)
     else
       ok := save()
     end
-  case base == 18 # Ctrl+R: save, then run it
+  case base == 18 # Ctrl+R: save, then run it (an installed app as it is, unchanged)
     if name.len() == 0
       runAfter = true
       startPrompt(SAVE_AS)
+    case not isProject() and not modified()
+      pc.launch(name[0:name.len()].asString())
     case save()
       pc.launch(name[0:name.len()].asString())
     end

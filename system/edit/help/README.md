@@ -4,6 +4,11 @@ The editor (`system/edit/edit.rio`, built into the Fruit Jam's firmware) edits a
 time, up to 32 KB, with the keys of most editors. It starts with the app it had last, where it was.
 Ctrl+R saves and runs the app, and the system key with Tab comes back to the editor.
 
+It saves to projects: `chord*` is app `chord` in work, in `/rinc/projects`, with saves of its own (a
+copy of the app's), so trying things can't spoil the app's. A new app is a project. An installed app
+opens read only, for reading its source; saving it makes its project, and Ctrl+R on it, unchanged,
+runs the app. The console's `install chord` makes project `chord*` the app.
+
 ## Keys
 
 | keys | |

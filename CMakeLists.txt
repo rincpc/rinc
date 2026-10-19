@@ -211,6 +211,8 @@ else()
   if(Python3_FOUND) # apps' compiled images, cached
     add_test(NAME app_cache COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/cache.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/cache-data)
     set_tests_properties(app_cache PROPERTIES PASS_REGULAR_EXPRESSION "the cache came through")
+    add_test(NAME projects COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/projects.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/projects-data)
+    set_tests_properties(projects PROPERTIES PASS_REGULAR_EXPRESSION "projects came through")
   endif()
   # pc.rio, the host procs written out, matches what rinc registers
   add_executable(rinc_pc_test tests/pc.c)

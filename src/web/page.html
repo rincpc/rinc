@@ -82,6 +82,12 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     new Uint8Array(ex.memory.buffer, o, m).set(t.subarray(0, m));
     return m;
   };
+  env.fs_copy = (p, n, q, m) => { // a file, whole
+    const v = getItem(text(p, n));
+    if (v === null) return -1;
+    try { localStorage.setItem(text(q, m), v); } catch (e) { return -1; }
+    return 0;
+  };
   env.fs_remove = (p, n) => {
     const k = text(p, n);
     if (getItem(k) === null) return -1;

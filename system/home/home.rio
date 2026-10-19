@@ -5,7 +5,7 @@
 # Xbox+Back) comes back. An app's title and description come from its first line, as
 # "# Title: what it does".
 
-names: Blob[2048] # every app's folder name, one after another
+names: Blob[2176] # every app's folder name, one after another
 infos: Blob[6144] # and its first line
 nameAt: [64]Int
 nameLen: [64]Int
@@ -26,7 +26,7 @@ refresh :: proc()
   bt := 0
   for i in 0..<count
     nameAt[i] = at
-    nameLen[i] = min(pc.appName(i, names[at:at + 32]), 32)
+    nameLen[i] = min(pc.appName(i, names[at:at + 33]), 33)
     at += nameLen[i]
     infoAt[i] = bt
     infoLen[i] = min(pc.appInfo(i, infos[bt:bt + 96]), 96)
@@ -229,6 +229,9 @@ draw* :: proc()
     end
     t := title(k)
     pc.print(t.asString(), 16, y, 7)
+    if names[nameAt[k] + nameLen[k] - 1] == 42 # (a project: its star)
+      pc.print("*", 16 + min(t.len(), 12) * 6, y, 10)
+    end
     if titleLen[k] > 0
       at := titleLen[k] + 1
       for at < infoLen[k] and infos[infoAt[k] + at] == 32 # (the spaces after the colon)

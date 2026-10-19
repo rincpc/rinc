@@ -20,6 +20,7 @@ rinc_IMPORT(fs_write) extern int js_fsWrite(const char *buf, int n);
 rinc_IMPORT(fs_close) extern int js_fsClose(void);
 rinc_IMPORT(fs_list) extern int js_fsList(const char *key, int n, char *out, int cap); /* "d name\n" or "f name\n" each: how long, or -1 */
 rinc_IMPORT(fs_remove) extern int js_fsRemove(const char *key, int n);
+rinc_IMPORT(fs_copy) extern int js_fsCopy(const char *from, int n, const char *to, int m);
 
 static _Alignas(16) uint8_t rinc_appSpace[256 << 10]; /* the same app space as on the board */
 static char rinc_src[512 << 10]; /* the bundle */
@@ -56,7 +57,12 @@ static int rinc_list(const char *dir, void (*each)(const char *name, int dir, vo
   return 0;
 }
 static int rinc_remove(const char *path) { char k[160]; int n = rinc_key(path, k, sizeof k); rinc_storageChanged(path); return n < 0 ? -1 : js_fsRemove(k, n); }
-static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove};
+static int rinc_copy(const char *from, const char *to) {
+  char a[160], b[160]; int n = rinc_key(from, a, sizeof a), m = rinc_key(to, b, sizeof b);
+  rinc_storageChanged(to);
+  return n < 0 || m < 0 ? -1 : js_fsCopy(a, n, b, m);
+}
+static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy};
 
 /* ------------------------------------------------------------------ apps */
 

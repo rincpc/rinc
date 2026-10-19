@@ -161,6 +161,9 @@ void rinc_consoleClear(int bg);
    (writing makes the directories along the path, and replaces the file); read: bytes read, 0 at its
    end, -1 failed; write: n, or -1; list: each entry of a directory, with whether it's one too.
    Apps live in /rinc/apps/<name>/<name>.rio */
+/* an app's name, 1 to 32 letters, digits, _ and -: the installed app, /rinc/apps/<name>; with a star
+   after it (chord*), its project, /rinc/projects/<name>, the app in work. rinc_REF holds either */
+#define rinc_REF 34
 typedef struct {
   int (*open)(const char *path, int write);
   int (*read)(char *buf, int n);
@@ -168,12 +171,13 @@ typedef struct {
   int (*close)(void);
   int (*list)(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud);
   int (*remove)(const char *path); /* a file, or an empty directory: 0 or -1 */
+  int (*copy)(const char *from, const char *to); /* a file, whole (to's directories made, it replaced): 0 or -1 */
 } rinc_Fs;
 extern const rinc_Fs *rinc_fs;
 /* an app asked to switch (pc.launch): to the app named rinc_launchName, which may be a built-in one,
    "home" or "console". The platform does it, after the frame, and sets rinc_launch back to 0 */
 extern int rinc_launch;
-extern char rinc_launchName[33];
+extern char rinc_launchName[rinc_REF];
 /* the apps a Rinc carries with it, its bundle (docs/spec/apps.md#bundles), in one format everywhere:
    the Fruit Jam's firmware has one built in (RINC_BUNDLE: home and the console, by default), an exported
    desktop program has one at its end, and a web page has one in it. Storage, where there is some, comes

@@ -148,5 +148,18 @@ static int rinc_fsRemove(const char *path) {
   rinc_storageChanged(path);
   return rinc_mount() && f_unlink(path) == FR_OK ? 0 : -1;
 }
-static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove};
+static FIL rinc_copyTo; /* (the one file open beside rinc_file: a copy's) */
+static int rinc_fsCopy(const char *from, const char *to) {
+  uint8_t buf[512]; UINT got = 0, put = 0; FRESULT r; int bad = 0;
+  if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
+  if (!rinc_mount()) return -1;
+  if ((r = f_open(&rinc_file, from, FA_READ)) != FR_OK) return rinc_failed(r);
+  if (!rinc_mkdirs(to)) { f_close(&rinc_file); return -1; }
+  rinc_storageChanged(to);
+  if ((r = f_open(&rinc_copyTo, to, FA_WRITE | FA_CREATE_ALWAYS)) != FR_OK) { f_close(&rinc_file); return rinc_failed(r); }
+  while (!bad && f_read(&rinc_file, buf, sizeof buf, &got) == FR_OK && got) bad = f_write(&rinc_copyTo, buf, got, &put) != FR_OK || put != got;
+  f_close(&rinc_file);
+  return f_close(&rinc_copyTo) != FR_OK || bad ? -1 : 0;
+}
+static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove, rinc_fsCopy};
 void rinc_sdSetup(void) { gpio_init(rinc_PIN_DETECT); gpio_pull_up(rinc_PIN_DETECT); rinc_fs = &rinc_sdFs; }

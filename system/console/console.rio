@@ -1,8 +1,9 @@
 # Console: Rio, typed and run
 #
 # And the apps in storage. A line on its own can be a command: run (what's been typed, as a game: Esc
-# stops it), ls, load name, run name, save name, delete name, home. An ordinary app (the Fruit Jam's
-# firmware has it built in): the Rio it runs is a session (pc.rioStart) in memory of its own.
+# stops it), ls, load name, run name, save name, delete name, install name, home. A name with a star
+# after it is a project's (chord*), and install name copies project name* over app name. An ordinary app
+# (the Fruit Jam's firmware has it built in): the Rio it runs is a session (pc.rioStart) in memory of its own.
 
 COLS :: 53        # 6x9 characters, on the 320x240 screen
 ROWS :: 26
@@ -103,7 +104,7 @@ end
 hist: [16]Hist
 histCount := 0
 back := 0          # how far back up and down have gone (0: the line being typed)
-saveName: Blob[..32]
+saveName: Blob[..33]
 
 blank :: proc(t: String) -> Bool
   for c in t
@@ -273,6 +274,14 @@ command :: proc(t: String) -> Bool
     pc.launch(name)                      # an app runs as itself, in all of its memory
   case word == "save"
     startSave(name)
+  case word == "install"                 # project name* as the app name
+    if pc.appInstall(name) == 0
+      msg.format("installed ", name)
+      say(msg[:].asString(), GRAY)
+    else
+      msg.format("can't install ", name, " (from its project, ", name, "*)")
+      say(msg[:].asString(), RED)
+    end
   case word == "delete"
     if pc.appDelete(name) == 0
       msg.format("deleted ", name)
@@ -406,7 +415,7 @@ end
 # ---------------------------------------------------------------- frames
 
 say("Rinc console: Rio, typed and run", WHITE)
-say("run, ls, load name, run name, save name, delete name, home", GRAY)
+say("run, ls, load, run, save, delete, install name, home", GRAY)
 ok := fresh()
 
 update* :: proc()

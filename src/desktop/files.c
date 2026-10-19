@@ -99,7 +99,17 @@ static int rinc_remove(const char *path) {
   rinc_storageChanged(path);
   return remove(local) && rinc_rmdir(local) ? -1 : 0;
 }
-static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove};
+static int rinc_copy(const char *from, const char *to) {
+  char a[1024], b[1024], buf[4096]; FILE *f, *t; size_t n; int bad = 0;
+  if (rinc_file) { fclose(rinc_file); rinc_file = 0; }
+  if (rinc_local(from, a, sizeof a) || rinc_local(to, b, sizeof b) || !(f = fopen(a, "rb"))) return -1;
+  rinc_mkdirsFor(b); rinc_storageChanged(to);
+  if (!(t = fopen(b, "wb"))) { fclose(f); return -1; }
+  while (!bad && (n = fread(buf, 1, sizeof buf, f)) > 0) bad = fwrite(buf, 1, n, t) != n;
+  fclose(f);
+  return fclose(t) || bad ? -1 : 0;
+}
+static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy};
 
 /* storage in folder dir itself (rinc -data dir: tests, or a Rinc on a USB stick) */
 const char *rinc_storageAt(const char *dir) {

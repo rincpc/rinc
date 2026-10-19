@@ -12,10 +12,12 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 ```
 /rinc/apps/chord/chord.rio    an app: a folder of its name, holding its Rio file of the same name
 /rinc/apps/chord/help/...     its help texts, Markdown (see help texts)
+/rinc/projects/chord/...      its project, chord*: the app in work (see projects), its own saves in save/
 /rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
 /rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
 /rinc/cache/chord/...         what it can make again: anything may clear it
 /rinc/cache/rinc/apps/chord.img   Rinc's own cache: the app, compiled (see compiled apps)
+/rinc/cache/rinc/projects/chord.img   and its project
 /rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
 ```
 
@@ -97,7 +99,33 @@ log(pc.saveDelete("best.txt"), pc.saveRead("best.txt", out[:]))
 0 -1
 ```
 
-Where a Rinc has no storage, an app can't save: these give -1.
+Where a Rinc has no storage, an app can't save: these give -1. A project's save space is its own (see
+projects), so work on it can't spoil the app's.
+
+## Projects
+
+An app in work is a project: `/rinc/projects/chord`, which is `chord*` wherever an app's name goes (a
+star after it), and installing it makes it the app, `chord`. It's the same app at another stage, so
+it shares the app's name, and what goes with the name: its stash, and its own cache. A star marks it
+where it's listed: home, the switcher, the editor's list.
+
+```
+/rinc/projects/chord/chord.rio      its source
+/rinc/projects/chord/help/...       its help texts
+/rinc/projects/chord/save/...       its own save space: the app's saves, copied in on its first run
+```
+
+Only its saves are its own. A project being worked on can do anything to them, and the app's own,
+`/rinc/save/chord`, the live ones, are left alone: on its first run (when it has no save space yet), the
+app's saves are copied in, so it starts from real data. Deleting its `save` folder starts it over from
+the app's again. Nothing goes back the other way.
+
+`pc.launch("chord*")` runs the project, and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
+project's name too. `pc.appInstall("chord") -> Int` installs project `chord*` as app `chord`: its files
+are copied over the app's (its save space aside), 0 or -1. The console's `install chord` does the same.
+
+The editor saves to projects: a new app is a project, and an installed app opens read only, like a
+page's source in a browser, until saving it makes its project.
 
 ## Where an app was: its stash
 
@@ -234,4 +262,4 @@ The help app shows them, and follows their links; its own help text, `help/READM
 ## The editor
 
 The editor (`system/edit/edit.rio`) is an ordinary app too: one app's source at a time, up to 32 KB, with
-the keys of most editors. Its help text, `edit/README`, lists them.
+the keys of most editors. It saves to projects (see projects). Its help text, `edit/README`, lists them.
