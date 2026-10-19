@@ -247,19 +247,17 @@ end
 # a line on its own that's a command: true if it was one
 command :: proc(t: String) -> Bool
   msg: Blob[..80]
-  if t == "run"
+  switch t # (a word alone)
+  case "run"
     mode = .running
     return true
-  end
-  if t == "ls"
+  case "ls"
     ls()
     return true
-  end
-  if t == "home"
+  case "home"
     pc.launch("home")
     return true
-  end
-  if t == "active"                       # the active app or project, the whole Rinc's setting
+  case "active"                          # the active app or project, the whole Rinc's setting
     v: Blob[34]
     n := pc.settingRead("active", v[:])
     if n > 0
@@ -279,13 +277,14 @@ command :: proc(t: String) -> Bool
   end
   word := t[:w]
   name := trim(t[w:])
-  if word == "load"
+  switch word # (a word, then a name)
+  case "load"
     load(name)
-  case word == "run"
+  case "run"
     pc.launch(name)                      # an app runs as itself, in all of its memory
-  case word == "save"
+  case "save"
     startSave(name)
-  case word == "active"                  # app or project (name*) name, active: the editor opens it next
+  case "active"                          # app or project (name*) name, active: the editor opens it next
     if pc.appSource(name, msg[0:0]) >= 0 and pc.settingWrite("active", name) == 0
       msg.format("active: ", name)
       say(msg[:].asString(), GRAY)
@@ -293,7 +292,7 @@ command :: proc(t: String) -> Bool
       msg.format("no app or project ", name)
       say(msg[:].asString(), RED)
     end
-  case word == "install"                 # project name* as the app name
+  case "install"                         # project name* as the app name
     if pc.appInstall(name) == 0
       msg.format("installed ", name)
       say(msg[:].asString(), GRAY)
@@ -301,7 +300,7 @@ command :: proc(t: String) -> Bool
       msg.format("can't install ", name, " (from its project, ", name, "*)")
       say(msg[:].asString(), RED)
     end
-  case word == "delete"
+  case "delete"
     if pc.appDelete(name) == 0
       msg.format("deleted ", name)
       say(msg[:].asString(), GRAY)

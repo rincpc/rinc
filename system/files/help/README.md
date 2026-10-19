@@ -2,9 +2,8 @@
 
 Files (`system/files/files.rio`, built into the Fruit Jam's firmware) looks through storage, folder by
 folder: the apps (`/rinc/apps`), their projects (`/rinc/projects`, the apps in work, `chord*`), the
-apps' saves (`/rinc/save`), their stashes and caches, and on the Fruit Jam the rest of the card too.
-It starts in `/rinc`, or where it was last. A yellow mark at the left is the active app or project,
-which the editor opens.
+apps' saves (`/rinc/save`), their stashes and caches: everything in `/rinc`, the root. It starts there,
+or where it was last. A yellow mark at the left is the active app or project, which the editor opens.
 
 | keys | |
 |---|---|
@@ -30,11 +29,13 @@ text shows its first 16 KB, bytes that aren't text as dots; Esc goes back.
 | D | delete it, after typing its whole name: all of it, for good (a project's own saves too; an app's saves, in `/rinc/save`, stay) |
 | I | install a project as its app |
 
-Changes happen only inside `/rinc`, and not to its own folders (`apps`, `save` and the like): looking
-goes everywhere. Copying and renaming refuse a name that's taken.
+Changes happen only inside `/rinc`'s folders, not to them (`apps`, `save` and the like). Copying and
+renaming refuse a name that's taken.
 
 ## As a picker
 
 An app can call Files to pick a file: `pc.call("files", "pick")`, or `pc.call("files", "pick
 /rinc/save/chord")` to start in a folder. Then Enter on a file gives its path back to that app
-(`pc.result`), and Esc at the top gives nothing back.
+(`pc.result`), and Esc gives nothing back. Called with `save` (`pc.call("files", "save
+/rinc/projects/chord")`), it picks where to save: what's typed is a name, Enter on a file takes its
+name, and Enter gives back that name's path in the folder shown.

@@ -82,8 +82,8 @@ appRename* :: @host proc(from: String, to: String) -> Int   # project from (from
 
 # ---------------------------------------------------------------- files, by path, for a file browser
 
-# A path is absolute (/rinc/save/chord/best). Looking goes wherever storage does (on the Fruit Jam, the
-# whole card); changing, only in /rinc
+# A path is absolute (/rinc/save/chord/best), in /rinc, the root: looking goes anywhere in it, changing
+# only inside it
 dir* :: @host proc(path: String, out: Blob) -> Int          # its entries, folders first, a line each ("d name", "f name"): how many, or -1
 fileRead* :: @host proc(path: String, out: Blob) -> Int     # as much as fits: its whole length, or -1
 fileWrite* :: @host proc(path: String, data: String) -> Int # 0, or -1

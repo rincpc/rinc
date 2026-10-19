@@ -1,13 +1,17 @@
 # Editor: a text editor, for apps' Rio
 #
-# Ctrl+O opens an app (from a list, or a new name), Ctrl+S saves it, Ctrl+R saves and runs it, Ctrl+N
-# starts a new one. It saves to projects (chord*, in /rinc/projects): an installed app (chord) opens
-# read only, and saving it makes its project, which the console's install command installs. It starts with the app it had last. The keys are most editors': arrows, Home, End,
-# Page Up and Down move, with Ctrl by words and to either end, and with Shift they select. Ctrl+A
-# selects all; Ctrl+X, C and V cut, copy and paste (the line, with nothing selected); Ctrl+Z undoes,
-# Ctrl+Y (or Ctrl+Shift+Z) redoes. Tab and Shift+Tab indent and outdent, Alt+Up and Down move lines,
-# Ctrl+Shift+K deletes them, Ctrl+L selects one, Ctrl+F finds, Ctrl+G goes to a line. Up to 32 KB of
-# text. With a mouse: a click puts the cursor there, dragging selects, and the wheel scrolls. An ordinary app (the Fruit Jam's firmware has it built in).
+# A file at a time, by path: Ctrl+O opens one (Files, called to pick it), Ctrl+S saves it, Ctrl+Shift+S
+# saves it as another (Files, to pick where), Ctrl+R saves it and runs the app or project it's in,
+# Ctrl+N starts a new one, and Ctrl+Shift+P lists every command. An installed app's files (chord, in
+# /rinc/apps) and anything outside /rinc are read only: saving an app's file saves it in its project
+# (chord*, in /rinc/projects), made from the app first if there's none. It starts with the active app
+# or project (the whole Rinc's setting), else the file it had last. The keys are most editors': arrows,
+# Home, End, Page Up and Down move, with Ctrl by words and to either end, and with Shift they select.
+# Ctrl+A selects all; Ctrl+X, C and V cut, copy and paste (the line, with nothing selected); Ctrl+Z
+# undoes, Ctrl+Y (or Ctrl+Shift+Z) redoes. Tab and Shift+Tab indent and outdent, Alt+Up and Down move
+# lines, Ctrl+Shift+K deletes them, Ctrl+L selects one, Ctrl+F finds, Ctrl+G goes to a line. Up to 32
+# KB of text. With a mouse: a click puts the cursor there, dragging selects, and the wheel scrolls. An
+# ordinary app (the Fruit Jam's firmware has it built in).
 
 CAP :: 32768          # the most text
 MAX_LINES :: 4096
@@ -19,7 +23,7 @@ ROWS :: 24            # text rows, 9 pixels each
 COLS :: 48            # characters in a row, after the line numbers
 TOP_Y :: 12
 TEXT_X :: 30
-LIST_ROWS :: 16       # apps shown when opening
+LIST_ROWS :: 16       # commands shown in the list
 
 SHIFT :: 256          # pc.key()'s modifier bits
 CTRL :: 512
@@ -61,7 +65,7 @@ anchor := 0            # the selection's other end (anchor == cursor: nothing se
 wantCol := -1          # the column up and down keep to
 top := 0               # the first line on the screen, and column
 left := 0
-name: Blob[..33]       # the app's name ("": new), with a star for a project's (chord*)
+path: Blob[..96]       # the file's path ("": new, not saved yet)
 one: Blob[1]
 built: Blob[..8192]
 
@@ -146,10 +150,14 @@ say :: proc(s: String, color: Int)
   messageAt = pc.time()
 end
 
-# s, then name, then t
+# s, then the file's name (its path's end), then t
 sayName :: proc(s: String, t: String, color: Int)
   say(s, color)
-  for c in name
+  k := path.len()
+  for k > 0 and path[k - 1] != 47
+    k -= 1
+  end
+  for c in path[k:path.len()]
     if message.len() < 53
       message.push(c)
     end
@@ -695,47 +703,57 @@ paste :: proc()
   ok := edit(selStart(), selEnd(), clip[0:clip.len()].asString(), 0)
 end
 
-# ---------------------------------------------------------------- apps
+# ---------------------------------------------------------------- files
 
-last: Blob[..64] # the app it had last, and where: "name cursor top" (its save file "last")
+last: Blob[..128] # the file it had last, and where: "path cursor top" (its save file "last")
 
-# where it is, kept for next time: on opening, saving and running; and what it has is the active app
-# or project, the whole Rinc's setting
-remember :: proc()
-  last.clear()
-  last.pushAll(name[0:name.len()])
-  last.format(" ", cursor, " ", top)
-  ok := pc.saveWrite("last", last[0:last.len()].asString())
-  if name.len() > 0
-    ok = pc.settingWrite("active", name[0:name.len()].asString())
-  end
+here :: proc() -> String
+  return path[0:path.len()].asString()
 end
 
-# an app's name, or its project's: a star after it
-validName :: proc(s: String) -> Bool
-  n := s.len()
-  if n > 1 and s[n - 1] == 42
-    n -= 1
-  end
-  if n == 0 or n > 32
-    return false
-  end
-  for c in s[0:n]
-    if not (isWord(c) or c == 45)
-      return false
+startsWith :: proc(s: String, start: String) -> Bool
+  return s.len() >= start.len() and s[0:start.len()] == start
+end
+
+# the app (chord) or project (chord*) a path is in, else ""
+appIn: Blob[..34]
+appOf :: proc(p: String) -> String
+  appIn.clear()
+  for k in 0..<2
+    start := "/rinc/apps/"
+    if k == 1
+      start = "/rinc/projects/"
+    end
+    if p.len() > start.len() and startsWith(p, start)
+      e := start.len()
+      for e < p.len() and p[e] != 47
+        e += 1
+      end
+      ok := appIn.pushAll(p[start.len():e])
+      if k == 1
+        ok = appIn.push(42)
+      end
     end
   end
-  return true
+  return appIn[0:appIn.len()].asString()
 end
 
-isProject :: proc() -> Bool
-  return name.len() > 0 and name[name.len() - 1] == 42
+# read only: an installed app's files (saving makes its project), and anything outside /rinc
+readOnly :: proc() -> Bool
+  p := here()
+  return p.len() > 0 and (not startsWith(p, "/rinc/") or startsWith(p, "/rinc/apps/"))
 end
 
-# an installed app's text, saved: as its project (a star on its name)
-toProject :: proc()
-  if not isProject()
-    name.push(42)
+# where it is, kept for next time: on opening, saving and running; and the app or project it's in is
+# the active one, the whole Rinc's setting
+remember :: proc()
+  last.clear()
+  ok := last.pushAll(path[0:path.len()])
+  last.format(" ", cursor, " ", top)
+  saved := pc.saveWrite("last", last[0:last.len()].asString())
+  a := appOf(here())
+  if a.len() > 0
+    saved = pc.settingWrite("active", a)
   end
 end
 
@@ -752,45 +770,162 @@ fresh :: proc()
   savedTop = 0
 end
 
-# app nm's source, or a new app of that name: false if it can't be had
-load :: proc(nm: String) -> Bool
-  n := pc.appSource(nm, one[0:1])
+setPath :: proc(p: String)
+  path.clear()
+  ok := path.pushAll(p[0:min(p.len(), 96)])
+end
+
+# an app's or project's main file: /rinc/apps/chord/chord.rio, /rinc/projects/chord/chord.rio
+mainBuf: Blob[..96]
+mainPath :: proc(ref: String) -> String
+  mainBuf.clear()
+  n := ref
+  ok := mainBuf.pushAll("/rinc/apps/")
+  if ref.len() > 1 and ref[ref.len() - 1] == 42
+    n = ref[0:ref.len() - 1]
+    mainBuf.clear()
+    ok = mainBuf.pushAll("/rinc/projects/")
+  end
+  ok = mainBuf.pushAll(n)
+  ok = mainBuf.push(47)
+  ok = mainBuf.pushAll(n)
+  ok = mainBuf.pushAll(".rio")
+  return mainBuf[0:mainBuf.len()].asString()
+end
+
+# what's in text, its lines ending with 10 alone (13s taken out)
+settle :: proc(n: Int)
+  k := 0
+  for i in 0..<n
+    if text[i] != 13
+      text[k] = text[i]
+      k += 1
+    end
+  end
+  textLen = k
+  rebuildLines()
+end
+
+# the file at p: false if it can't be had (a new one, if it isn't there yet and it could be saved)
+load :: proc(p: String) -> Bool
+  n := pc.fileRead(p, one[0:0])
+  a := appOf(p)
+  bundled := false
+  if n < 0 and a.len() > 0 and a[a.len() - 1] != 42 and p == mainPath(a) # (an app the Rinc has built in)
+    n = pc.appSource(a, one[0:0])
+    bundled = n >= 0
+  end
   if n > CAP
     say("Too big for the editor: 32 KB at most", RED)
     return false
   end
   fresh()
-  name.clear()
-  for c in nm
-    name.push(c)
-  end
+  setPath(p)
   if n < 0
-    toProject() # (new: a project)
-    sayName("New project ", "", GRAY)
-  else
-    n = pc.appSource(nm, text[0:CAP])
-    k := 0
-    for i in 0..<n # (lines end with 10 alone)
-      if text[i] != 13
-        text[k] = text[i]
-        k += 1
-      end
+    if readOnly()
+      say("Can't read it", RED)
+      path.clear()
+      return false
     end
-    textLen = k
-    rebuildLines()
-    if isProject()
-      sayName("", ": Ctrl+S saves, Ctrl+R runs", GRAY)
+    sayName("New: ", "", GRAY)
+  else
+    if bundled
+      n = pc.appSource(a, text[0:CAP])
     else
-      sayName("", ": the app, read only (saving makes its project)", GRAY)
+      n = pc.fileRead(p, text[0:CAP])
+    end
+    settle(min(n, CAP))
+    if not readOnly()
+      sayName("", ": ^S saves, ^R runs", GRAY)
+    case appOf(here()).len() > 0
+      sayName("", ": read only (saving makes its project)", GRAY)
+    else
+      sayName("", ": read only (^Shift+S saves a copy)", GRAY)
     end
   end
   remember()
   return true
 end
 
+# /rinc/apps/chord/a.rio, in its project: /rinc/projects/chord/a.rio
+inProject: Blob[..96]
+projectPath :: proc(p: String) -> String
+  inProject.clear()
+  ok := inProject.pushAll("/rinc/projects/")
+  ok = inProject.pushAll(p[11:p.len()])
+  return inProject[0:inProject.len()].asString()
+end
+
+# Files, called to pick a file to open, or a place to save as: what it has kept in its stash meanwhile
+# (unsaved too), to have again when it comes back (with what was picked, or nothing)
+argsBuf: Blob[..128]
+leaving := false
+callFiles :: proc(how: String)
+  if pc.appSource("files", one[0:0]) < 0
+    say("There's no Files app here", RED)
+    return
+  end
+  ok := pc.stashWrite("draft", text[0:textLen].asString())
+  ok = pc.stashWrite("draftPath", here())
+  ok = pc.stashWrite("calling", how)
+  remember()
+  leaving = true # (what's typed next is Files')
+  argsBuf.clear()
+  pushed := argsBuf.pushAll(how)
+  pushed = argsBuf.push(32)
+  p := here()
+  if p.len() == 0
+    a: Blob[34]
+    n := min(pc.settingRead("active", a[:]), 34)
+    p = "/rinc/projects"
+    if n > 0
+      p = mainPath(a[0:n].asString())
+    end
+  end
+  slash := p.len() - 1
+  for slash > 0 and p[slash] != 47
+    slash -= 1
+  end
+  if startsWith(p, "/rinc/projects") and slash < 14
+    slash = p.len()
+  end
+  pushed = argsBuf.pushAll(p[0:max(slash, 1)])
+  pc.call("files", argsBuf[0:argsBuf.len()].asString())
+end
+
+saveAs :: proc()
+  callFiles("save")
+end
+
+refBuf: Blob[..34]
+naming := false   # (a new file: a project's name asked for, to save it as that project's main file)
+runAfter := false # (and then run it)
 save :: proc() -> Bool
-  toProject() # (an installed app's text: saved as its project)
-  if pc.appSave(name[0:name.len()].asString(), text[0:textLen].asString()) < 0
+  if path.len() == 0
+    if pc.appSource("files", one[0:0]) >= 0
+      saveAs()
+    else
+      naming = true
+    end
+    return false
+  end
+  if readOnly()
+    a := appOf(here())
+    if a.len() == 0
+      say("Read only here: ^Shift+S saves a copy", ORANGE)
+      return false
+    end
+    # an installed app's file: saved in its project, the app copied as one first if it hasn't one
+    refBuf.clear()
+    ok := refBuf.pushAll(a)
+    ok = refBuf.push(42)
+    if pc.appSource(refBuf[0:refBuf.len()].asString(), one[0:0]) < 0 and pc.appCopy(a, refBuf[0:refBuf.len()].asString()) != 0
+      say("Couldn't make its project", RED)
+      return false
+    end
+    setPath(projectPath(here()))
+  end
+  if pc.fileWrite(here(), text[0:textLen].asString()) < 0
     sayName("Couldn't save ", "", RED)
     return false
   end
@@ -801,27 +936,38 @@ save :: proc() -> Bool
   return true
 end
 
+# Ctrl+R: saved, then its app or project run (an installed app, unchanged, as it is; a new file, as a
+# new project's main file, its name asked for)
+run :: proc()
+  if path.len() == 0
+    naming = true
+    runAfter = true
+    return
+  end
+  a := appOf(here())
+  if a.len() == 0
+    say("Not in an app: nothing to run", ORANGE)
+    return
+  end
+  if modified() and not save()
+    return
+  end
+  refBuf.clear()
+  ok := refBuf.pushAll(appOf(here()))
+  pc.launch(refBuf[0:refBuf.len()].asString())
+end
+
 # ---------------------------------------------------------------- prompts
 
 NONE :: 0
-OPEN :: 1
-SAVE_AS :: 2
+PALETTE :: 1
+NAMING :: 2
 FIND :: 3
 GO_TO :: 4
 mode := NONE
 input: Blob[..33]
 query: Blob[..48]
 confirm := 0     # an action asked for again after a warning: it goes ahead
-runAfter := false # saving as, then running
-
-# apps, for opening
-names: Blob[2176]
-nameAt: [64]Int
-nameLen: [64]Int
-appCount := 0
-shown: [64]Int
-nshown := 0
-pick := 0
 
 lower :: proc(c: Int) -> Int
   if c >= 65 and c <= 90
@@ -830,7 +976,7 @@ lower :: proc(c: Int) -> Int
   return c
 end
 
-has :: proc(s: Blob, f: Blob) -> Bool
+has :: proc(s: String, f: Blob) -> Bool
   for p in 0..<s.len() - f.len() + 1
     k := 0
     for k < f.len() and lower(s[p + k]) == lower(f[k])
@@ -843,34 +989,46 @@ has :: proc(s: Blob, f: Blob) -> Bool
   return false
 end
 
+# every command, for the list Ctrl+Shift+P shows: what it does, its keys, and the key it is
+COMMANDS :: 21
+labels := [COMMANDS]String{"Open a file", "Save", "Save as", "Run its app", "New file", "Find", "Go to line", "Undo", "Redo", "Select all", "Select the line", "Cut", "Copy", "Paste", "Delete the lines", "Move the lines up", "Move the lines down", "Indent", "Outdent", "Help", "Home"}
+keyNames := [COMMANDS]String{"^O", "^S", "^Shift+S", "^R", "^N", "^F", "^G", "^Z", "^Y", "^A", "^L", "^X", "^C", "^V", "^Shift+K", "Alt+Up", "Alt+Down", "Tab", "Shift+Tab", "", "Sys+Esc"}
+keys := [COMMANDS]Int{15, 19, 19 | 256, 18, 14, 6, 7, 26, 25, 1, 12, 24, 3, 22, 11 | 256, 130 | 1024, 131 | 1024, 9, 9 | 256, -1, -2}
+listed: [COMMANDS]Int
+nlisted := 0
+pick := 0
+
 narrow :: proc()
-  nshown = 0
-  for i in 0..<appCount
-    if has(names[nameAt[i]:nameAt[i] + nameLen[i]], input[0:input.len()])
-      shown[nshown] = i
-      nshown += 1
+  nlisted = 0
+  for i in 0..<COMMANDS
+    if has(labels[i], input[0:input.len()])
+      listed[nlisted] = i
+      nlisted += 1
     end
   end
-  pick = max(0, min(pick, nshown - 1))
-end
-
-startOpen :: proc()
-  mode = OPEN
-  input.clear()
-  pick = 0
-  appCount = min(pc.apps(), 64)
-  at := 0
-  for i in 0..<appCount
-    nameAt[i] = at
-    nameLen[i] = min(pc.appName(i, names[at:at + 33]), 33)
-    at += nameLen[i]
-  end
-  narrow()
+  pick = max(0, min(pick, nlisted - 1))
 end
 
 startPrompt :: proc(m: Int)
   mode = m
   input.clear()
+  if m == PALETTE
+    pick = 0
+    narrow()
+  end
+end
+
+# a command from the list
+queued := 0
+command :: proc(i: Int)
+  mode = NONE
+  if keys[i] == -1
+    pc.help("edit/README")
+  case keys[i] == -2
+    pc.launch("home")
+  else
+    queued = keys[i] # (as typed: update does it)
+  end
 end
 
 # Ctrl+F's text, found after the selection (or from the start, after the end), and selected
@@ -905,37 +1063,30 @@ end
 promptDone :: proc()
   m := mode
   s := input[0:input.len()].asString()
-  if m == OPEN
-    nm := s
-    if nshown > 0
-      k := shown[pick]
-      nm = names[nameAt[k]:nameAt[k] + nameLen[k]].asString()
+  if m == PALETTE
+    if nlisted > 0
+      command(listed[pick])
     end
-    if not validName(nm)
-      say("A name is letters, digits, _ and -", RED)
-      return
-    end
-    if modified() and confirm != OPEN
-      sayName("Unsaved changes to ", ": Enter again drops them", ORANGE)
-      confirm = OPEN
-      return
-    end
-    confirm = 0
-    if load(nm)
-      mode = NONE
-    end
-  case m == SAVE_AS
-    if not validName(s)
-      say("A name is letters, digits, _ and -", RED)
-      return
-    end
-    name.clear()
+  case m == NAMING # (a new file, as a new project's main file)
+    ok := true
     for c in s
-      name.push(c)
+      ok = ok and ((c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45)
+    end
+    if s.len() == 0 or s.len() > 32 or not ok
+      say("A name is letters, digits, _ and -", RED)
+      return
+    end
+    refBuf.clear()
+    pushed := refBuf.pushAll(s)
+    pushed = refBuf.push(42)
+    if pc.appSource(refBuf[0:refBuf.len()].asString(), one[0:0]) >= 0
+      say("There's a project of that name already", RED)
+      return
     end
     mode = NONE
+    setPath(mainPath(refBuf[0:refBuf.len()].asString()))
     if save() and runAfter
-      pc.launch(name[0:name.len()].asString())
+      run()
     end
     runAfter = false
   case m == GO_TO
@@ -982,12 +1133,12 @@ promptKey :: proc(k: Int)
     end
   case k >= 32 and k < 127 and input.len() < 32
     input.push(k)
-  case mode == OPEN and (k & 255) == UP
+  case mode == PALETTE and (k & 255) == UP
     pick = max(0, pick - 1)
-  case mode == OPEN and (k & 255) == DOWN
-    pick = min(nshown - 1, pick + 1)
+  case mode == PALETTE and (k & 255) == DOWN
+    pick = min(nlisted - 1, pick + 1)
   end
-  if mode == OPEN
+  if mode == PALETTE
     narrow()
   end
 end
@@ -1107,23 +1258,22 @@ key :: proc(k: Int)
     else
       cursor = textLen
     end
+  case base == 19 and shift # Ctrl+Shift+S
+    saveAs()
   case base == 19
-    if name.len() == 0
-      startPrompt(SAVE_AS)
+    ok := save()
+  case base == 18 # Ctrl+R: save, then run its app
+    run()
+  case base == 15 # Ctrl+O
+    if modified() and confirm != 15
+      say("Unsaved changes: Ctrl+O again drops them", ORANGE)
+      confirm = 15
     else
-      ok := save()
+      confirm = 0
+      callFiles("pick")
     end
-  case base == 18 # Ctrl+R: save, then run it (an installed app as it is, unchanged)
-    if name.len() == 0
-      runAfter = true
-      startPrompt(SAVE_AS)
-    case not isProject() and not modified()
-      pc.launch(name[0:name.len()].asString())
-    case save()
-      pc.launch(name[0:name.len()].asString())
-    end
-  case base == 15
-    startOpen()
+  case base == 16 and shift # Ctrl+Shift+P: every command
+    startPrompt(PALETTE)
   case base == 14 # Ctrl+N
     if modified() and confirm != 14
       say("Unsaved changes: Ctrl+N again drops them", ORANGE)
@@ -1131,8 +1281,8 @@ key :: proc(k: Int)
     else
       confirm = 0
       fresh()
-      name.clear()
-      say("New: Ctrl+S names and saves it", GRAY)
+      path.clear()
+      say("New: Ctrl+S saves it, where Files says", GRAY)
     end
   case base == 6
     if cursor != anchor and selEnd() - selStart() <= 48 # (what's selected, to find)
@@ -1181,7 +1331,7 @@ textAt :: proc(px: Int, py: Int) -> Int
 end
 
 # the pointer: a click puts the cursor there (dragging, selecting to there); in the
-# list of apps, a click opens one, and one outside it closes it; scrolling, three lines a step
+# list of commands, a click does one, and one outside it closes it; scrolling, three lines a step
 dragging := false
 clicked := 0
 pc.pointer(pc.Pointer.ui)
@@ -1190,10 +1340,10 @@ pointer :: proc()
   px := pc.pointerX()
   py := pc.pointerY()
   if down == 1 and clicked == 0
-    if mode == OPEN
+    if mode == PALETTE
       from := max(0, pick - LIST_ROWS + 1)
       row := (py - 52) / 10
-      if px >= 44 and px < 276 and py >= 52 and row < min(nshown - from, LIST_ROWS)
+      if px >= 44 and px < 276 and py >= 52 and row < min(nlisted - from, LIST_ROWS)
         pick = from + row
         promptKey(13)
       case px < 40 or px >= 280 or py < 24 or py >= 64 + LIST_ROWS * 10
@@ -1235,10 +1385,21 @@ update* :: proc()
     if cursor != was
       movedAt = pc.time()
     end
+    if naming # (save or run, on a new file: its project's name, asked for)
+      naming = false
+      startPrompt(NAMING)
+    end
     if mode == NONE
       reveal()
     end
-    c = pc.key()
+    c = -1
+    if not leaving # (gone to Files: the rest typed is its)
+      c = pc.key()
+    end
+    if c < 0 and queued != 0 and not leaving # (a command picked from the list: its key)
+      c = queued
+      queued = 0
+    end
   end
   pointer()
 end
@@ -1341,27 +1502,28 @@ drawLine :: proc(l: Int, y: Int)
   end
 end
 
-# Ctrl+O's list of apps, narrowed by what's typed
-drawOpen :: proc()
+# Ctrl+Shift+P's list of commands, narrowed by what's typed
+drawPalette :: proc()
   pc.rect(40, 24, 240, 40 + LIST_ROWS * 10, DARK)
-  pc.print("Open an app (or type a new name):", 46, 28, YELLOW)
+  pc.print("Every command (type to narrow):", 46, 28, YELLOW)
   pc.rect(44, 38, 232, 11, BACK)
   pc.print(input[0:input.len()].asString(), 46, 40, WHITE)
   pc.rect(46 + input.len() * 6, 39, 1, 9, YELLOW)
   from := max(0, pick - LIST_ROWS + 1)
-  for row in 0..<min(nshown - from, LIST_ROWS)
+  for row in 0..<min(nlisted - from, LIST_ROWS)
     i := from + row
-    k := shown[i]
+    k := listed[i]
     y := 54 + row * 10
     color := GRAY
     if i == pick
       pc.rect(44, y - 2, 232, 10, SELECTED)
       color = WHITE
     end
-    pc.print(names[nameAt[k]:nameAt[k] + nameLen[k]].asString(), 48, y, color)
+    pc.print(labels[k], 48, y, color)
+    pc.print(keyNames[k], 272 - keyNames[k].len() * 6, y, DIM)
   end
-  if nshown == 0
-    pc.print("Enter: a new app of this name", 48, 54, DIM)
+  if nlisted == 0
+    pc.print("No such command", 48, 54, DIM)
   end
 end
 
@@ -1370,13 +1532,27 @@ draw* :: proc()
   cl := lineOf(cursor)
   # the title bar: the app, whether it's changed, and where the cursor is
   pc.rect(0, 0, 320, 10, DARK)
-  if name.len() > 0
-    pc.print(name[0:name.len()].asString(), 2, 1, WHITE)
+  shown := 0
+  if path.len() > 0 # (its path, /rinc/ left off; its end, if it's long)
+    t := path[0:path.len()].asString()
+    if startsWith(t, "/rinc/")
+      t = t[6:t.len()]
+    end
+    if t.len() > 36
+      t = t[t.len() - 36:t.len()]
+    end
+    color := WHITE
+    if readOnly()
+      color = GRAY
+    end
+    pc.print(t, 2, 1, color)
+    shown = t.len()
   else
     pc.print("(new)", 2, 1, GRAY)
+    shown = 5
   end
   if modified()
-    pc.print("*", 4 + max(5, name.len()) * 6, 1, ORANGE)
+    pc.print("*", 4 + shown * 6, 1, ORANGE)
   end
   num.clear()
   num.format("Ln ", cl + 1, ", Col ", cursor - lineAt[cl] + 1)
@@ -1406,12 +1582,12 @@ draw* :: proc()
   end
   # the bottom bar: a prompt, a message, or the keys
   pc.rect(0, 229, 320, 11, DARK)
-  if mode == SAVE_AS or mode == GO_TO or mode == FIND
-    label := "Save as: "
-    if mode == GO_TO
-      label = "Go to line: "
-    case mode == FIND
+  if mode == GO_TO or mode == FIND or mode == NAMING
+    label := "Go to line: "
+    if mode == FIND
       label = "Find (Enter: next): "
+    case mode == NAMING
+      label = "A new project, called: "
     end
     pc.print(label, 2, 231, YELLOW)
     t := input[0:input.len()]
@@ -1423,20 +1599,21 @@ draw* :: proc()
   case message.len() > 0 and pc.time() - messageAt < 4.0
     pc.print(message[0:message.len()].asString(), 2, 231, messageColor)
   else
-    pc.print("^O open  ^S save  ^R run  ^F find  Sys+Esc home", 2, 231, DIM)
+    pc.print("^O open  ^S save  ^R run  ^Shift+P all", 2, 231, DIM)
   end
-  if mode == OPEN
-    drawOpen()
+  if mode == PALETTE
+    drawPalette()
   end
 end
 
 # ---------------------------------------------------------------- starting
 
-# with the active app or project, the whole Rinc's setting (another app may have made another one
-# active); else, or if that's the one it had last, that one, where it was; else the list to open one from
-place: [3]Int # (the name's length, the cursor, the line at the top)
-lastBuf: Blob[64]
-lastLen := min(pc.saveRead("last", lastBuf[0:64]), 64)
+# back from Files (called to open a file, or to save as): what it had, again, then what was picked;
+# else the active app or project's main file (another app may have made another one active), or, if
+# that's where it was, where it was, else a new file
+place: [3]Int # (the path's length, the cursor, the line at the top)
+lastBuf: Blob[128]
+lastLen := min(pc.saveRead("last", lastBuf[0:128]), 128)
 part := 0
 for i in 0..<max(lastLen, 0)
   c := lastBuf[i]
@@ -1448,18 +1625,47 @@ for i in 0..<max(lastLen, 0)
     place[part] = place[part] * 10 + c - 48
   end
 end
+lastPath := lastBuf[0:place[0]].asString()
+calling: Blob[8]
+callingLen := pc.stashRead("calling", calling[:])
+picked: Blob[128]
+pickedLen := pc.result(picked[:])
 activeBuf: Blob[34]
 activeLen := min(pc.settingRead("active", activeBuf[0:34]), 34)
-lastName := lastBuf[0:place[0]].asString()
-if activeLen > 0 and validName(activeBuf[0:activeLen].asString()) and activeBuf[0:activeLen].asString() != lastName
-  if not load(activeBuf[0:activeLen].asString())
-    startOpen()
+if callingLen > 0
+  ok := pc.stashDelete("calling")
+  draftPath: Blob[96]
+  n := min(pc.stashRead("draftPath", draftPath[:]), 96)
+  if n > 0
+    setPath(draftPath[0:n].asString())
   end
-case place[0] > 0 and validName(lastName) and load(lastName)
+  m := min(pc.stashRead("draft", text[0:CAP]), CAP)
+  settle(max(m, 0))
+  disk := pc.fileRead(here(), one[0:0])
+  savedTop = recTop
+  if path.len() == 0 or disk != textLen # (changed from what's saved: shown as changed)
+    savedTop = -1
+  end
+  cursor = min(place[1], textLen)
+  anchor = cursor
+  top = max(0, min(place[2], lineCount - 1))
+  if pickedLen > 0 and calling[0:callingLen].asString() == "save"
+    setPath(picked[0:min(pickedLen, 96)].asString())
+    saved := save()
+  case pickedLen > 0
+    loaded := load(picked[0:min(pickedLen, 128)].asString())
+  end
+  reveal()
+case activeLen > 0 and appOf(lastPath) != activeBuf[0:activeLen].asString() # (another app, made active)
+  if not load(mainPath(activeBuf[0:activeLen].asString()))
+    fresh()
+  end
+case place[0] > 0 and load(lastPath)
   cursor = min(place[1], textLen)
   anchor = cursor
   top = max(0, min(place[2], lineCount - 1))
   reveal()
 else
-  startOpen()
+  fresh()
+  say("New: ^S saves it, ^O opens one, ^Shift+P every command", GRAY)
 end

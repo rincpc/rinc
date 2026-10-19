@@ -5,8 +5,10 @@
 # goes up), edits an app's main file (it becomes the active app, and the editor opens it) or shows a
 # file's text; Backspace goes up too. Typing narrows the list. Space (or the secondary button, or Y)
 # shows what else can be done, each with a letter. Ctrl+N starts a new project. Esc closes what's open,
-# else clears what's typed. Looking goes wherever storage does; changing only inside /rinc. Called with
+# else clears what's typed. /rinc is the root; changing is only inside it. Called with
 # pc.call("files", "pick"), it's a picker: Enter on a file gives its path back (pc.done), Esc nothing.
+# Called with "save", it picks where to save: a name typed, in the folder shown (Enter on a file takes
+# its name), and Enter gives that path back.
 
 ROWS :: 17
 TOP :: 22             # the list's first row, 11 pixels each
@@ -28,6 +30,8 @@ activeLen := 0
 message: Blob[..53]
 messageColor := 6
 picking := false      # (called to pick a file)
+saving := false       # (called to pick where to save: a folder, and a name typed)
+saveName: Blob[..60]
 full: Blob[..160]     # a path, made up
 
 FILE :: 0
@@ -45,6 +49,13 @@ mode := NONE
 target := -1          # what it's about
 input: Blob[..60]
 inputFresh := false   # (its text as it started, selected: what's typed takes its place)
+
+# back to its caller, with what was picked (what's typed after is the caller's)
+leaving := false
+finish :: proc(result: String)
+  leaving = true
+  pc.done(result)
+end
 
 # ---------------------------------------------------------------- the folder
 
@@ -134,7 +145,7 @@ open :: proc(p: String) -> Bool
   path.clear()
   ok := path.pushAll(p)
   count = 0
-  if p.len() > 1 # (.. goes up)
+  if p.len() > 5 # (.. goes up: not from /rinc, the root)
     kind[0] = UP
     nameAt[0] = 0
     nameLen[0] = 0
@@ -165,7 +176,7 @@ end
 # up a folder, the one it came from picked
 came: Blob[..64]
 goUp :: proc()
-  if path.len() <= 1
+  if path.len() <= 5 # (/rinc: the root)
     return
   end
   slash := path.len() - 1
@@ -515,8 +526,11 @@ enter :: proc(k: Int)
     goUp()
   case kind[k] == FOLDER
     ok := open(pathTo(nameOf(k)))
+  case saving
+    saveName.clear()
+    ok := saveName.pushAll(nameOf(k))
   case picking
-    pc.done(pathTo(nameOf(k)))
+    finish(pathTo(nameOf(k)))
   case appRef(k).len() > 0
     edit(appRef(k))
   else
@@ -541,15 +555,15 @@ move :: proc(by: Int)
   end
 end
 
-# Esc, B: what's open closes, else back up (or, picking at the top, nothing picked)
+# Esc, B: what's open closes, else back up (or, picking, nothing picked)
 back :: proc()
   if mode != NONE
     mode = NONE
   case filter.len() > 0
     filter.clear()
     narrow()
-  case picking and path.len() <= 1
-    pc.done("")
+  case picking
+    finish("")
   else
     goUp()
   end
@@ -614,14 +628,38 @@ viewKey :: proc(c: Int)
   end
 end
 
+# saving: what's typed is the name, Enter with one gives the path back
+saveKey :: proc(c: Int) -> Bool
+  k := c & 255
+  if k == 8 and saveName.len() > 0
+    saveName.pop()
+  case c == 13 and saveName.len() > 0
+    if not validName(saveName[0:saveName.len()].asString(), true)
+      say("A name is letters, digits, _, - and .", 8)
+    case here().len() <= 6 or here()[0:6] != "/rinc/"
+      say("Can't save here: only in /rinc's folders", 8)
+    else
+      finish(pathTo(saveName[0:saveName.len()].asString()))
+    end
+  case c > 32 and c < 127 and saveName.len() < 60
+    ok := saveName.push(c)
+  else
+    return false
+  end
+  return true
+end
+
 listKey :: proc(c: Int)
   k := c & 255
+  if saving and saveKey(c)
+    return
+  end
   switch # (the arrows are buttons too: they're handled as buttons, below)
   case k == 27
     back()
   case c == 13
     enter(picked())
-  case c == 32
+  case c == 32 and not picking
     openMenu()
   case c == 14 # Ctrl+N
     startPrompt(NEW)
@@ -704,7 +742,10 @@ update* :: proc()
   for c >= 0
     message.clear()
     key(c)
-    c = pc.key()
+    c = -1
+    if not leaving # (gone back to its caller: the rest typed is its)
+      c = pc.key()
+    end
   end
   # up and down: the arrows and the d-pad, as buttons (a step a press, then more while it's held); Y the
   # menu, B back
@@ -725,7 +766,7 @@ update* :: proc()
   if step != 0 and not prompting()
     move(step)
   end
-  if pressed & 4 != 0 and mode == NONE
+  if pressed & 4 != 0 and mode == NONE and not picking
     openMenu()
   end
   if pressed & 8 != 0 and wasShown == 0
@@ -747,7 +788,7 @@ update* :: proc()
     case mode == NONE
       r := rowAt(px, py)
       if r >= 0
-        if click & 2 != 0
+        if click & 2 != 0 and not picking
           pick = r
           openMenu()
         case r == pick
@@ -861,6 +902,11 @@ drawBottom :: proc()
     if viewAll > viewLen
       pc.print("(its start)", 3 + 23 * 6, 230, 13)
     end
+  case saving
+    pc.print("Save as: ", 3, 219, 10)
+    pc.print(saveName[0:saveName.len()].asString(), 3 + 9 * 6, 219, 7)
+    pc.rect(3 + (9 + saveName.len()) * 6, 218, 1, 9, 10)
+    pc.print("Type a name, Enter save  Esc no", 3, 230, 5)
   case picking
     pc.print("Enter pick  Backspace up  Esc none", 3, 230, 5)
   else
@@ -893,7 +939,9 @@ draw* :: proc()
   pc.cls(1)
   pc.rect(0, 0, 320, 11, 0)
   title := "Files"
-  if picking
+  if saving
+    title = "Save where"
+  case picking
     title = "Pick a file"
   end
   pc.print(title, 3, 2, 10)
@@ -923,8 +971,9 @@ activeLen = max(0, min(pc.settingRead("active", active[:]), 34))
 args: Blob[96]
 argsLen := min(pc.args(args[:]), 96)
 start: Blob[..96]
-if argsLen >= 4 and args[0:4].asString() == "pick" # (pick, or pick /a/folder)
+if argsLen >= 4 and (args[0:4].asString() == "pick" or args[0:4].asString() == "save") # (pick, or pick /a/folder; save, likewise)
   picking = true
+  saving = args[0:4].asString() == "save"
   if argsLen > 5
     ok := start.pushAll(args[5:argsLen])
   end
@@ -936,7 +985,5 @@ if start.len() == 0
   end
 end
 if start.len() == 0 or not open(start[0:start.len()].asString())
-  if not open("/rinc")
-    ok := open("/")
-  end
+  ok := open("/rinc")
 end

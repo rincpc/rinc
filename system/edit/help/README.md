@@ -1,23 +1,28 @@
 # Editor
 
-The editor (`system/edit/edit.rio`, built into the Fruit Jam's firmware) edits an app's source: one at a
-time, up to 32 KB, with the keys of most editors. It starts with the app it had last, where it was.
-Ctrl+R saves and runs the app, and the system key with Tab comes back to the editor.
+The editor (`system/edit/edit.rio`, built into the Fruit Jam's firmware) edits a file at a time, by
+path (an app's source, its other files, its help, its saves), up to 32 KB, with the keys of most
+editors. Ctrl+O opens one through Files, and Ctrl+Shift+S saves as another, through Files too, which
+asks where. Ctrl+R saves it and runs the app or project it's in, and the system key with Tab comes back
+to the editor. Ctrl+Shift+P lists every command, with its keys.
 
-It saves to projects: `chord*` is app `chord` in work, in `/rinc/projects`, with saves of its own (a
-copy of the app's), so trying things can't spoil the app's. A new app is a project. An installed app
-opens read only, for reading its source; saving it makes its project, and Ctrl+R on it, unchanged,
-runs the app. The console's `install chord` makes project `chord*` the app.
+Projects are where apps are worked on: `chord*` is app `chord` in work, in `/rinc/projects`, with saves
+of its own (a copy of the app's), so trying things can't spoil the app's. An installed app's files are
+read only, for reading; saving one saves it in the app's project, made from the app first, and Ctrl+R
+on it, unchanged, runs the app. Files (or the console's `install chord`) installs project `chord*` as
+the app. Anything outside `/rinc` is read only too.
 
-What it has open is the active app or project, the whole Rinc's setting, and it starts with what's
-active: another app can pick one for it.
+The app or project of the file it has open is the active one, the whole Rinc's setting, and it starts
+with what's active (another app can pick one for it), else the file it had last, where it was.
 
 ## Keys
 
 | keys | |
 |---|---|
 | arrows, Home, End, Page Up, Page Down | move: with Ctrl, by words and to either end; with Shift, select |
-| Ctrl+O, Ctrl+S, Ctrl+R, Ctrl+N | open an app (from a list, or a new name), save it, save and run it, start a new one |
+| Ctrl+O, Ctrl+S, Ctrl+Shift+S | open a file (Files picks it), save it, save it as another (Files picks where) |
+| Ctrl+R, Ctrl+N | save and run its app or project, start a new file |
+| Ctrl+Shift+P | every command, to type to narrow and pick one |
 | Ctrl+Z, Ctrl+Y (or Ctrl+Shift+Z) | undo, redo |
 | Ctrl+X, Ctrl+C, Ctrl+V | cut, copy, paste (the whole line, with nothing selected) |
 | Ctrl+A, Ctrl+L | select all, select the line (and the next, again) |

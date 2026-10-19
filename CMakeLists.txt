@@ -165,8 +165,10 @@ else()
   # the built-in apps: home runs, and the console, typed at, runs Rio and its commands
   # storage in a folder of the tests' own (never the user's): apps installed there, then run by name
   set(data ${CMAKE_CURRENT_BINARY_DIR}/test-data)
+  add_test(NAME install_clear COMMAND ${CMAKE_COMMAND} -E rm -rf ${data}) # (each run from nothing)
   add_test(NAME install COMMAND rinc -data ${data} -install ${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio
     ${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio ${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio ${CMAKE_CURRENT_LIST_DIR}/apps/hello.rio)
+  set_tests_properties(install PROPERTIES DEPENDS install_clear)
   add_test(NAME app_by_name COMMAND rinc -data ${data} -app hello -frames 2)
   set_tests_properties(app_by_name PROPERTIES DEPENDS install PASS_REGULAR_EXPRESSION "drawn at")
   add_test(NAME app_home COMMAND rinc -data ${data} -frames 30)
@@ -220,6 +222,10 @@ else()
     set_tests_properties(projects PROPERTIES PASS_REGULAR_EXPRESSION "projects came through")
     add_test(NAME files COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/files.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system/files/files.rio ${CMAKE_CURRENT_BINARY_DIR}/files-data)
     set_tests_properties(files PROPERTIES PASS_REGULAR_EXPRESSION "files came through")
+    add_test(NAME multifile COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/multifile.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/multifile-data)
+    set_tests_properties(multifile PROPERTIES PASS_REGULAR_EXPRESSION "more files came through")
+    add_test(NAME editor COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/editor.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system ${CMAKE_CURRENT_BINARY_DIR}/editor-data)
+    set_tests_properties(editor PROPERTIES PASS_REGULAR_EXPRESSION "the editor came through")
   endif()
   # pc.rio, the host procs written out, matches what rinc registers
   add_executable(rinc_pc_test tests/pc.c)

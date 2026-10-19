@@ -134,9 +134,9 @@ app's, in `/rinc/save`). The rest, each 0 or -1:
 ## Files
 
 Any app can look through storage by path, as Files (`system/files/files.rio`) does: absolute paths,
-`/rinc/save/chord/best`, with no `.` or `..` parts. Looking goes wherever the Rinc's storage does (on
-the Fruit Jam, the whole card, `/`; elsewhere, `/rinc`); changing goes only inside `/rinc`, and never
-`/rinc` itself. Each gives 0, or -1, unless it says otherwise:
+`/rinc/save/chord/best`, with no `.` or `..` parts. `/rinc` is the root, for now: looking goes
+anywhere in it, changing only inside it, never `/rinc` itself. (An exported program's storage is its
+own folder, still `/rinc` to its apps.) Each gives 0, or -1, unless it says otherwise:
 
 | proc | |
 |---|---|
@@ -334,7 +334,28 @@ while the project runs.
 
 The help app shows them, and follows their links; its own help text, `help/README`, says how.
 
+## More files
+
+An app can be more files than one, in its folder: `include "parts/a.rio"` makes another file part of
+this one, and `import .shapes` makes a module of `shapes.rio` (or `shapes/shapes.rio`), both from the
+app's own folder; `import tween` is from the library, `/rinc/lib` (`tween.rio`, or `tween/tween.rio`),
+shared by every app. Storage's files come first, then the bundle's (`apps/<app>/...`, `lib/...`). All of
+an app's sources together are 64 KB at most. Its compiled image notes every file it read (see compiled
+apps), so a change to any of them compiles it again.
+
+```
+/rinc/projects/game/game.rio          include "parts/levels.rio", import .shapes, import tween
+/rinc/projects/game/parts/levels.rio
+/rinc/projects/game/shapes/shapes.rio
+/rinc/lib/tween.rio
+```
+
 ## The editor
 
-The editor (`system/edit/edit.rio`) is an ordinary app too: one app's source at a time, up to 32 KB, with
-the keys of most editors. It saves to projects (see projects). Its help text, `edit/README`, lists them.
+The editor (`system/edit/edit.rio`) is an ordinary app too: a file at a time, by path, up to 32 KB,
+with the keys of most editors. Ctrl+O opens a file, through Files (called to pick one), and
+Ctrl+Shift+S saves as another (Files, called to pick where: what's unsaved waits in the editor's
+stash meanwhile). An installed app's files, and anything outside `/rinc`, are read only: saving one of
+an app's saves it in its project, made from the app first (see projects). Ctrl+R saves and runs the
+app or project the file is in, and Ctrl+Shift+P lists every command. Its help text, `edit/README`,
+lists the keys.
