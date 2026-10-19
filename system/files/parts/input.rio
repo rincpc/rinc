@@ -233,7 +233,8 @@ update* :: proc()
   if pressed & 4 != 0 and mode == NONE and not picking
     openMenu()
   end
-  if pressed & 8 != 0 and wasShown == 0
+  # (not while typing a name: C on a keyboard is B too, and Esc closes the prompt)
+  if pressed & 8 != 0 and wasShown == 0 and not prompting()
     back()
   end
   # the pointer: a click picks, and a click on the one picked opens it (as A does, with the pointer

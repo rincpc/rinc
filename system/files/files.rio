@@ -85,6 +85,7 @@ if start.len() == 0
     ok := start.pushAll(args[0:placeLen])
   end
 end
+made := pc.dirMake("/rinc/projects") # (where projects go: there to be found, even before the first)
 if start.len() == 0 or not open(start[0:start.len()].asString())
   ok := open("/rinc")
 end

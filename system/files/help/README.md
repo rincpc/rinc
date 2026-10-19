@@ -29,6 +29,7 @@ text shows its first 16 KB, bytes that aren't text as dots; Esc goes back.
 | N | rename it: a project, or anything inside an app's or project's folder, or the saves |
 | D | delete it, after typing its whole name: all of it, for good (a project's own saves too; an app's saves, in `/rinc/save`, stay) |
 | I | install a project as its app |
+| F | a new folder, here, as Ctrl+Shift+N (which a browser may keep for itself) |
 
 Changes happen only inside `/rinc`'s folders, not to them (`apps`, `save` and the like). Copying and
 renaming refuse a name that's taken.

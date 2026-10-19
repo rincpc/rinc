@@ -11,10 +11,11 @@ RENAME_IT :: 4
 DELETE_IT :: 5
 INSTALL_IT :: 6
 VIEW_IT :: 7
-LABELS := [8]String{"Open", "Edit", "Run", "Copy", "Rename", "Delete", "Install as its app", "View"}
-KEYS := [8]Int{111, 101, 114, 99, 110, 100, 105, 118} # o e r c n d i v
-items: [8]Int
-itemOk: [8]Bool
+FOLDER_IT :: 8
+LABELS := [9]String{"Open", "Edit", "Run", "Copy", "Rename", "Delete", "Install as its app", "View", "New folder here"}
+KEYS := [9]Int{111, 101, 114, 99, 110, 100, 105, 118, 102} # o e r c n d i v f
+items: [9]Int
+itemOk: [9]Bool
 itemCount := 0
 menuPick := 0
 
@@ -58,6 +59,7 @@ openMenu :: proc()
     addItem(RENAME_IT, change)
     addItem(DELETE_IT, change)
   end
+  addItem(FOLDER_IT, true) # (as Ctrl+Shift+N, which a browser may keep for itself)
   menuPick = 0
   mode = MENU
 end
@@ -95,6 +97,8 @@ act :: proc(i: Int)
     startPrompt(RENAME)
   case id == DELETE_IT
     startPrompt(DELETE)
+  case id == FOLDER_IT
+    startPrompt(NEW_FOLDER)
   case id == INSTALL_IT
     if pc.appInstall(nameOf(k)) == 0
       say("Installed as its app: ", 6)
