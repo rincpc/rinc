@@ -537,6 +537,13 @@ addSrcBlob :: proc(s: Blob)
   end
 end
 
+# after a set's title, a project's star
+addSetStar :: proc(set: Blob)
+  if set.len() > 0 and set[set.len() - 1] == 42
+    addSrc(" *") # (a link's text is as it is: no emphasis)
+  end
+end
+
 # is help text i in set (its first part)?
 inSet :: proc(i: Int, set: Blob) -> Bool
   n := nameLen[i]
@@ -605,12 +612,16 @@ end
 
 makeContents :: proc()
   srcLen = 0
-  nameCount = min(pc.helps(), 128)
+  found := pc.helps(names[:]) # (each name, then 10)
+  nameCount = 0
   at := 0
-  for i in 0..<nameCount
-    nameAt[i] = at
-    nameLen[i] = min(pc.helpName(i, names[at:at + 64]), 64)
-    at += nameLen[i]
+  for k in 0..<names.len()
+    if nameCount < min(found, 128) and names[k] == 10
+      nameAt[nameCount] = at
+      nameLen[nameCount] = k - at
+      nameCount += 1
+      at = k + 1
+    end
   end
   addSrc("# Help\n\nThe help texts here: Tab picks a link, Enter follows it, and Backspace comes back.\n\n")
   i := 0
@@ -641,12 +652,14 @@ makeContents :: proc()
       if hasName(summary[0:summary.len()].asString()) # (a set with a SUMMARY, or a README: by its title)
         addSrc("- [")
         addTitle()
+        addSetStar(setName[0:setName.len()])
         addSrc("](")
         addSrcBlob(summary[0:summary.len()])
         addSrc(")\n")
       case hasName(readme[0:readme.len()].asString())
         addSrc("- [")
         addTitle()
+        addSetStar(setName[0:setName.len()])
         addSrc("](")
         addSrcBlob(readme[0:readme.len()])
         addSrc(")\n")

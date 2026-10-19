@@ -317,14 +317,15 @@ static void rinc_hostAppInfo(rio_Vm *v, rio_Val *a) {
 }
 /* help texts, for a help app: each app's own, in its help folder (/rinc/apps/<app>/help/..., named
    <app>/...), and those that are no app's (Rinc's and Rio's docs), in /rinc/help (named by their path
-   there); in storage, and in the bundle the same way (apps/<app>/help/..., help/...). helps() -> Int
-   looks for them, and says how many (the first 128, in order of name); helpName(i, out) -> Int copies
-   help text i's name (.md left off: rinc/spec/apps); helpRead(name, out) -> Int copies its text (from
-   storage, else the bundle) into out, as much as fits: its whole length, or -1 */
-#define rinc_HELP_MOST 128
-static char rinc_helpNames[rinc_HELP_MOST][48]; static int rinc_helpCount; /* (names up to 47 long) */
+   there), and each project's (/rinc/projects/<app>/help/..., named with the star, chord* then /...); in storage, and in the
+   bundle the same way (apps/<app>/help/..., help/...). helps(out) -> Int looks for them, and puts their
+   names in out (.md left off: rinc/spec/apps), in order, each with a 10 after it, as many as fit: how
+   many; helpRead(name, out) -> Int copies a text (from storage, else the bundle) into out, as much as
+   fits: its whole length, or -1 */
+static char *rinc_helpOut; static int rinc_helpCap, rinc_helpUsed, rinc_helpCount; /* (the names, in the app's own memory) */
 static char rinc_helpDirs[16][96]; static int rinc_helpDirCount, rinc_helpDirNow; /* (folders to look through, in storage) */
-/* a help text's name: letters, digits, _, - and dots, in parts split by /, none starting with a dot */
+/* a help text's name: letters, digits, _, - and dots, in parts split by /, none starting with a dot (and
+   a project's star, chord*, ending the first) */
 static int rinc_helpNameOk(const char *s, int n) {
   int i;
   if (!s || n < 1 || n > 47 || s[0] == '/' || s[n - 1] == '/') return 0;
@@ -332,15 +333,27 @@ static int rinc_helpNameOk(const char *s, int n) {
     char c = s[i];
     if (c == '.' && (i == 0 || s[i - 1] == '/')) return 0;
     if (c == '/' && s[i - 1] == '/') return 0;
-    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == '/')) return 0;
+    if (c == '*' && (i == 0 || i + 1 >= n || s[i + 1] != '/' || memchr(s, '/', (size_t)i))) return 0;
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' || c == '/' || c == '*')) return 0;
   }
   return 1;
 }
+/* a name, into its place in order among those in rinc_helpOut (once) */
 static void rinc_helpAdd(const char *name, int n) {
-  int i;
-  if (!rinc_helpNameOk(name, n) || rinc_helpCount >= rinc_HELP_MOST) return;
-  for (i = 0; i < rinc_helpCount; i++) if ((int)strlen(rinc_helpNames[i]) == n && !strncmp(rinc_helpNames[i], name, (size_t)n)) return;
-  memcpy(rinc_helpNames[rinc_helpCount], name, (size_t)n); rinc_helpNames[rinc_helpCount++][n] = 0;
+  char *p = rinc_helpOut, *e = rinc_helpOut + rinc_helpUsed, held[48];
+  if (!rinc_helpNameOk(name, n) || !p) return;
+  memcpy(held, name, (size_t)n); held[n] = 0;
+  while (p < e) { /* (each name ends with 10) */
+    char *end = memchr(p, 10, (size_t)(e - p)), was[48]; int k = (int)(end - p), c;
+    memcpy(was, p, (size_t)(k < 47 ? k : 47)); was[k < 47 ? k : 47] = 0;
+    if (!(c = strcmp(was, held))) return;
+    if (rinc_lowerCmp(was, held) > 0 || (!rinc_lowerCmp(was, held) && c > 0)) break;
+    p = end + 1;
+  }
+  if (rinc_helpUsed + n + 1 > rinc_helpCap) return;
+  memmove(p + n + 1, p, (size_t)(e - p));
+  memcpy(p, name, (size_t)n); p[n] = 10;
+  rinc_helpUsed += n + 1; rinc_helpCount++;
 }
 /* a folder of help texts to look through, in storage */
 static void rinc_helpDir(const char *path) {
@@ -352,6 +365,8 @@ static void rinc_helpPrefix(const char *dir, char *out, size_t cap) {
   if (!strncmp(dir, "/rinc/help", 10)) snprintf(out, cap, "%s", dir[10] == '/' ? dir + 11 : "");
   else if (!strncmp(dir, "/rinc/apps/", 11) && (h = strstr(dir + 11, "/help")))
     snprintf(out, cap, "%.*s%s", (int)(h - dir - 11), dir + 11, h + 5);
+  else if (!strncmp(dir, "/rinc/projects/", 15) && (h = strstr(dir + 15, "/help"))) /* (a project's: its star, then /a) */
+    snprintf(out, cap, "%.*s*%s", (int)(h - dir - 15), dir + 15, h + 5);
   else out[0] = 0;
 }
 static void rinc_helpFound(const char *found, int dir, void *ud) {
@@ -366,12 +381,13 @@ static void rinc_helpFound(const char *found, int dir, void *ud) {
     rinc_helpDir(path);
   } else if (n > 3 && !strcmp(name + n - 3, ".md")) rinc_helpAdd(name, n - 3);
 }
-static int rinc_findHelps(void) {
-  int i, j, apps = rinc_findApps(); char path[96];
-  rinc_helpCount = rinc_helpDirCount = 0;
+static int rinc_findHelps(char *out, int cap) {
+  int i, apps = rinc_findApps(); char path[96];
+  rinc_helpOut = out; rinc_helpCap = cap; rinc_helpUsed = rinc_helpCount = rinc_helpDirCount = 0;
   rinc_helpDir("/rinc/help");
-  for (i = 0; i < apps; i++) { /* (each app's help folder) */
-    snprintf(path, sizeof path, "/rinc/apps/%.32s/help", rinc_appNames[i]);
+  for (i = 0; i < apps; i++) { /* (each app's help folder, and each project's) */
+    int n = (int)strlen(rinc_appNames[i]), project = rinc_appNames[i][n - 1] == '*';
+    snprintf(path, sizeof path, "/rinc/%s/%.*s/help", project ? "projects" : "apps", project ? n - 1 : n, rinc_appNames[i]);
     rinc_helpDir(path);
   }
   for (rinc_helpDirNow = 0; rinc_fs && rinc_helpDirNow < rinc_helpDirCount; rinc_helpDirNow++) /* (storage: a folder at a time) */
@@ -384,16 +400,10 @@ static int rinc_findHelps(void) {
              snprintf(name, sizeof name, "%.*s/%.*s", (int)(h - q - 5), q + 5, (int)(q + n - 3 - (h + 6)), h + 6) < (int)sizeof name)
       rinc_helpAdd(name, (int)strlen(name));
   }
-  for (i = 1; i < rinc_helpCount; i++)
-    for (j = i; j > 0 && rinc_lowerCmp(rinc_helpNames[j - 1], rinc_helpNames[j]) > 0; j--) {
-      char t[sizeof rinc_helpNames[0]]; memcpy(t, rinc_helpNames[j], sizeof t); memcpy(rinc_helpNames[j], rinc_helpNames[j - 1], sizeof t); memcpy(rinc_helpNames[j - 1], t, sizeof t);
-    }
+  rinc_helpOut = 0;
   return rinc_helpCount;
 }
-static void rinc_hostHelps(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_findHelps(); }
-static void rinc_hostHelpName(rio_Vm *v, rio_Val *a) {
-  a[0].i = a[0].u < (uint32_t)rinc_helpCount ? rinc_copyOut(v, a + 1, rinc_helpNames[a[0].i], (int)strlen(rinc_helpNames[a[0].i])) : 0;
-}
+static void rinc_hostHelps(rio_Vm *v, rio_Val *a) { char *out = (char *)rio_sliceBytes(v, a); a[0].i = rinc_findHelps(out, out ? (int)a[1].u : 0); }
 static void rinc_hostHelpRead(rio_Vm *v, rio_Val *a) {
   const char *s = (const char *)rio_sliceBytes(v, a), *slash; int n = (int)a[1].u, app = 0, k; char name[64], path[128];
   uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; const rinc_File *f = 0;
@@ -401,6 +411,11 @@ static void rinc_hostHelpRead(rio_Vm *v, rio_Val *a) {
   if (!rinc_helpNameOk(s, n)) return;
   memcpy(name, s, (size_t)n); name[n] = 0;
   if ((slash = strchr(name, '/'))) app = (int)(slash - name); /* (app/rest: maybe an app's own) */
+  if (app > 1 && name[app - 1] == '*') { /* (a project's: in storage only) */
+    snprintf(path, sizeof path, "/rinc/projects/%.*s/help/%s.md", app - 1, name, slash + 1);
+    if (rinc_nameOk(name, app - 1, 0) && !rinc_readFile(path, (char *)out, out ? cap : 0, &total)) a[0].i = (int32_t)total;
+    return;
+  }
   for (k = 0; k < 4 && !f; k++) { /* storage: the app's, then help's; the bundle: the same */
     if ((k == 0 || k == 2) && !(app && rinc_nameOk(name, app, 0))) continue;
     if (k == 0) snprintf(path, sizeof path, "/rinc/apps/%.*s/help/%s.md", app, name, slash + 1);
@@ -594,6 +609,22 @@ static void rinc_hostStashRead(rio_Vm *v, rio_Val *a) {
 static void rinc_hostStashDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
   a[0].i = named && rinc_fs && !rinc_fs->remove(path) ? 0 : -1;
+}
+/* the settings, /rinc/settings/<key>: the whole Rinc's, not an app's, shared by every app (such as
+   "active": the app or project being worked on, chord or chord*). settingRead(key, out) -> Int: as much
+   as fits, and its whole length, or -1 if there's none; settingWrite(key, data) -> Int: 0, or -1. Keys
+   are named as save files are */
+static int rinc_settingPath(rio_Vm *v, rio_Val *key, char *path, size_t cap) {
+  char own[33];
+  return rinc_argName(v, key, own, 1) && snprintf(path, cap, "/rinc/settings/%s", own) < (int)cap;
+}
+static void rinc_hostSettingRead(rio_Vm *v, rio_Val *a) {
+  char path[64]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_settingPath(v, a, path, sizeof path);
+  a[0].i = named && !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
+}
+static void rinc_hostSettingWrite(rio_Vm *v, rio_Val *a) {
+  char path[64]; int named = rinc_settingPath(v, a, path, sizeof path);
+  if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
 }
 /* boot() -> Int: how many times this Rinc has started (kept in /rinc/boot), counted the first time an
    app asks after each start: so an app can tell a restart from just being opened again (0: no storage) */
@@ -863,10 +894,11 @@ static void rinc_overlayDraw(int strip) {
 static int rinc_sysPointer; /* the pointer's system keys held (rinc_SysKey_pointer), for its next frame */
 /* an app's own help: its help/README, in storage or the bundle (a help app to show it, too) */
 static int rinc_hasHelp(const char *app) {
-  char path[96]; uint32_t total;
+  char path[96]; uint32_t total; int n = (int)strlen(app), project = n > 1 && app[n - 1] == '*';
   if (!rinc_bundled("help") && rinc_readApp("help", 0, 0) < 0) return 0;
-  snprintf(path, sizeof path, "/rinc/apps/%.32s/help/README.md", app);
+  snprintf(path, sizeof path, "/rinc/%s/%.*s/help/README.md", project ? "projects" : "apps", project ? n - 1 : n, app);
   if (!rinc_readFile(path, 0, 0, &total)) return 1;
+  if (project) return 0;
   snprintf(path, sizeof path, "apps/%.32s/help/README.md", app);
   return rinc_bundleFile(path) != 0;
 }
@@ -921,11 +953,11 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_appRef);
       go = 1;
     } else if (pressed & rinc_SysKey_h) { /* this app's help, if it has any */
-      if (rinc_hasHelp(rinc_appNow)) {
-        snprintf(rinc_helpTopicNow, sizeof rinc_helpTopicNow, "%.32s/README", rinc_appNow);
+      if (rinc_hasHelp(rinc_appRef)) { /* (a project's own: its name with the star, then /README) */
+        snprintf(rinc_helpTopicNow, sizeof rinc_helpTopicNow, "%.33s/README", rinc_appRef);
         snprintf(rinc_launchName, sizeof rinc_launchName, "help");
         go = 1;
-      } else rinc_noticeSay("No help for ", rinc_appNow);
+      } else rinc_noticeSay("No help for ", rinc_appRef);
     } else if (pressed & rinc_SysKey_p) rinc_perfOn = !rinc_perfOn;
     else if (pressed & rinc_SysKey_enter) rinc_fullscreen = !rinc_fullscreen;
     rinc_sysLock = 0; /* (used up) */
@@ -1017,11 +1049,12 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.appInfo", "ib>i", rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", "s", rinc_hostLaunch) ||
          rio_addFfi(vm, "pc.appSource", "sb>i", rinc_hostAppSource) || rio_addFfi(vm, "pc.appSave", "ss>i", rinc_hostAppSave) ||
          rio_addFfi(vm, "pc.appDelete", "s>i", rinc_hostAppDelete) ||
-         rio_addFfi(vm, "pc.helps", ">i", rinc_hostHelps) || rio_addFfi(vm, "pc.helpName", "ib>i", rinc_hostHelpName) ||
+         rio_addFfi(vm, "pc.helps", "b>i", rinc_hostHelps) ||
          rio_addFfi(vm, "pc.helpRead", "sb>i", rinc_hostHelpRead) || rio_addFfi(vm, "pc.help", "s", rinc_hostHelp) ||
          rio_addFfi(vm, "pc.helpTopic", "b>i", rinc_hostHelpTopic) ||
          rio_addFfi(vm, "pc.stashWrite", "ss>i", rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", "sb>i", rinc_hostStashRead) ||
          rio_addFfi(vm, "pc.stashDelete", "s>i", rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", ">i", rinc_hostBoot) ||
+         rio_addFfi(vm, "pc.settingRead", "sb>i", rinc_hostSettingRead) || rio_addFfi(vm, "pc.settingWrite", "ss>i", rinc_hostSettingWrite) ||
          rio_addFfi(vm, "pc.pointer", "i", rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", "s>i", rinc_hostAppInstall) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
          rio_addFfi(vm, "pc.pointerY", ">i", rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", "i>i", rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", ">i", rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", "i>i", rinc_hostScroll) ||

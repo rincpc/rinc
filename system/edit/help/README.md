@@ -9,6 +9,9 @@ copy of the app's), so trying things can't spoil the app's. A new app is a proje
 opens read only, for reading its source; saving it makes its project, and Ctrl+R on it, unchanged,
 runs the app. The console's `install chord` makes project `chord*` the app.
 
+What it has open is the active app or project, the whole Rinc's setting, and it starts with what's
+active: another app can pick one for it.
+
 ## Keys
 
 | keys | |

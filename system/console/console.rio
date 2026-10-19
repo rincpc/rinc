@@ -1,7 +1,7 @@
 # Console: Rio, typed and run
 #
 # And the apps in storage. A line on its own can be a command: run (what's been typed, as a game: Esc
-# stops it), ls, load name, run name, save name, delete name, install name, home. A name with a star
+# stops it), ls, load name, run name, save name, delete name, install name, active [name], home. A name with a star
 # after it is a project's (chord*), and install name copies project name* over app name. An ordinary app
 # (the Fruit Jam's firmware has it built in): the Rio it runs is a session (pc.rioStart) in memory of its own.
 
@@ -259,6 +259,17 @@ command :: proc(t: String) -> Bool
     pc.launch("home")
     return true
   end
+  if t == "active"                       # the active app or project, the whole Rinc's setting
+    v: Blob[34]
+    n := pc.settingRead("active", v[:])
+    if n > 0
+      msg.format("active: ", v[0:min(n, 34)])
+      say(msg[:].asString(), GRAY)
+    else
+      say("nothing active: active name makes one active (name* for a project)", GRAY)
+    end
+    return true
+  end
   w := 0
   for w < t.len() and t[w] != 32
     w += 1
@@ -274,6 +285,14 @@ command :: proc(t: String) -> Bool
     pc.launch(name)                      # an app runs as itself, in all of its memory
   case word == "save"
     startSave(name)
+  case word == "active"                  # app or project (name*) name, active: the editor opens it next
+    if pc.appSource(name, msg[0:0]) >= 0 and pc.settingWrite("active", name) == 0
+      msg.format("active: ", name)
+      say(msg[:].asString(), GRAY)
+    else
+      msg.format("no app or project ", name)
+      say(msg[:].asString(), RED)
+    end
   case word == "install"                 # project name* as the app name
     if pc.appInstall(name) == 0
       msg.format("installed ", name)
@@ -415,7 +434,7 @@ end
 # ---------------------------------------------------------------- frames
 
 say("Rinc console: Rio, typed and run", WHITE)
-say("run, ls, load, run, save, delete, install name, home", GRAY)
+say("run, ls, load, run, save, delete, install, active name, home", GRAY)
 ok := fresh()
 
 update* :: proc()

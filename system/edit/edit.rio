@@ -699,12 +699,16 @@ end
 
 last: Blob[..64] # the app it had last, and where: "name cursor top" (its save file "last")
 
-# where it is, kept for next time: on opening, saving and running
+# where it is, kept for next time: on opening, saving and running; and what it has is the active app
+# or project, the whole Rinc's setting
 remember :: proc()
   last.clear()
   last.pushAll(name[0:name.len()])
   last.format(" ", cursor, " ", top)
   ok := pc.saveWrite("last", last[0:last.len()].asString())
+  if name.len() > 0
+    ok = pc.settingWrite("active", name[0:name.len()].asString())
+  end
 end
 
 # an app's name, or its project's: a star after it
@@ -1428,7 +1432,8 @@ end
 
 # ---------------------------------------------------------------- starting
 
-# with the app it had last, where it was, else the list to open one from
+# with the active app or project, the whole Rinc's setting (another app may have made another one
+# active); else, or if that's the one it had last, that one, where it was; else the list to open one from
 place: [3]Int # (the name's length, the cursor, the line at the top)
 lastBuf: Blob[64]
 lastLen := min(pc.saveRead("last", lastBuf[0:64]), 64)
@@ -1443,7 +1448,14 @@ for i in 0..<max(lastLen, 0)
     place[part] = place[part] * 10 + c - 48
   end
 end
-if place[0] > 0 and validName(lastBuf[0:place[0]].asString()) and load(lastBuf[0:place[0]].asString())
+activeBuf: Blob[34]
+activeLen := min(pc.settingRead("active", activeBuf[0:34]), 34)
+lastName := lastBuf[0:place[0]].asString()
+if activeLen > 0 and validName(activeBuf[0:activeLen].asString()) and activeBuf[0:activeLen].asString() != lastName
+  if not load(activeBuf[0:activeLen].asString())
+    startOpen()
+  end
+case place[0] > 0 and validName(lastName) and load(lastName)
   cursor = min(place[1], textLen)
   anchor = cursor
   top = max(0, min(place[2], lineCount - 1))

@@ -19,6 +19,7 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 /rinc/cache/rinc/apps/chord.img   Rinc's own cache: the app, compiled (see compiled apps)
 /rinc/cache/rinc/projects/chord.img   and its project
 /rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
+/rinc/settings/...            the whole Rinc's settings, shared by the apps: active, the app in work
 ```
 
 An app's name is 1 to 32 letters, digits, `_` and `-`. If its first line is a comment, that's its
@@ -126,6 +127,18 @@ are copied over the app's (its save space aside), 0 or -1. The console's `instal
 
 The editor saves to projects: a new app is a project, and an installed app opens read only, like a
 page's source in a browser, until saving it makes its project.
+
+## Settings
+
+The whole Rinc's settings, not any one app's, are in `/rinc/settings`, a file a key, and any app can
+read and change them: `pc.settingRead(key, out) -> Int` (as much as fits: its whole length, or -1 if
+there's none) and `pc.settingWrite(key, data) -> Int` (0, or -1). Keys are named as save files are.
+
+`active` is the app or project being worked on: `chord`, or its project, `chord*` (an installed app
+can be active too, to read its source). The editor makes what it opens active, and starts with what's
+active, so an app that picks one (a file browser, say) has the editor open it next. Home's Ctrl+Enter
+makes the app picked there active and opens the editor, and marks the active one; the console's
+`active name` makes `name` active.
 
 ## Where an app was: its stash
 
@@ -247,13 +260,14 @@ own are in its folder, as `/rinc/apps/<app>/help/<path>.md` (named `<app>/<path>
 no app's in `/rinc/help/<path>.md` (named `<path>`); a bundle carries them the same way
 (`apps/<app>/help/...`, `help/...`), and storage takes the place of the bundle, as for apps. A name
 leaves `.md` off: `rinc/spec/apps`. A set of texts (the first part of their names) with a `SUMMARY`
-text is listed by that, as the docs' tables of contents are.
+text is listed by that, as the docs' tables of contents are. A project's texts are its own, in
+`/rinc/projects/<app>/help`, named with its star: `chord*/README`, which the system key with H shows
+while the project runs.
 
 | proc | |
 |---|---|
-| `pc.helps() -> Int` | looks again, and says how many help texts there are (the first 128, by name) |
-| `pc.helpName(i, out) -> Int` | text `i`'s name |
-| `pc.helpRead(name, out) -> Int` | its text, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.helps(out) -> Int` | looks again, and puts the help texts' names in `out`, in order, each with a 10 after it, as many as fit: how many |
+| `pc.helpRead(name, out) -> Int` | a text, as much as fits in `out`: its whole length, or -1 if there's none |
 | `pc.help(topic)` | after this frame, the help app, at that text and maybe a heading: `pc.help("rio/spec/statements#if")` |
 | `pc.helpTopic(out) -> Int` | for the help app: the topic it was opened at, taken (0: none) |
 

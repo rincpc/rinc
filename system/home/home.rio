@@ -117,6 +117,24 @@ start :: proc()
   end
 end
 
+# the active app or project, the whole Rinc's setting (what the editor opens): Ctrl+Enter makes the
+# picked one active, and opens the editor
+active: Blob[34]
+activeLen := max(0, min(pc.settingRead("active", active[:]), 34))
+edit :: proc()
+  if nshown == 0
+    return
+  end
+  k := shown[pick]
+  n := names[nameAt[k]:nameAt[k] + nameLen[k]].asString()
+  if pc.settingWrite("active", n) == 0
+    pc.launch("edit")
+  end
+end
+isActive :: proc(k: Int) -> Bool
+  return activeLen > 0 and names[nameAt[k]:nameAt[k] + nameLen[k]].asString() == active[0:activeLen].asString()
+end
+
 # the app listed at a point on the screen, or -1
 rowAt :: proc(px: Int, py: Int) -> Int
   top := max(0, pick - 12)
@@ -135,6 +153,8 @@ update* :: proc()
   for c >= 0
     if c == 13
       start()
+    case c == 13 | 512 # Ctrl+Enter
+      edit()
     else
       if c == 8
         if filter.len() > 0
@@ -228,6 +248,9 @@ draw* :: proc()
       dim = 6
     end
     t := title(k)
+    if isActive(k) # (the active one: a mark at its left)
+      pc.rect(3, y - 1, 2, 9, 10)
+    end
     pc.print(t.asString(), 16, y, 7)
     if names[nameAt[k] + nameLen[k] - 1] == 42 # (a project: its star)
       pc.print("*", 16 + min(t.len(), 12) * 6, y, 10)
@@ -247,5 +270,5 @@ draw* :: proc()
   if count == 0
     pc.print("No apps yet", 12, 216, 13)
   end
-  pc.print("Enter opens  Esc clears  Sys+Esc: back home", 12, 228, 5)
+  pc.print("Enter open  Ctrl+Enter edit  Esc clear", 12, 228, 5)
 end

@@ -32,6 +32,7 @@ A line on its own can be a command instead:
 | `save name` | what's typed or pasted next, until Ctrl-D, becomes app `name`'s source (Ctrl-C gives up) |
 | `delete name` | remove app `name` |
 | `install name` | install project `name*` as app `name` (its own saves stay with the project) |
+| `active`, `active name` | say which app or project is active (what the editor opens), or make `name` it |
 | `home` | back home |
 
 Each `name` can be a project's, with its star: `run chord*` runs project `chord*`, with its own saves.

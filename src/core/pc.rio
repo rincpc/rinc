@@ -74,8 +74,9 @@ appInstall* :: @host proc(name: String) -> Int              # project name* inst
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 
-helps* :: @host proc() -> Int                        # the help texts (Markdown): how many, in order of name
-helpName* :: @host proc(i: Int, out: Blob) -> Int    # text i's name (its path, .md left off: rinc/spec/apps), into out: how long
+# the help texts (Markdown): their names (paths, .md left off: rinc/spec/apps; a project's, chord*/...),
+# in order, into out, each with a 10 after it, as many as fit: how many
+helps* :: @host proc(out: Blob) -> Int
 # a help text into out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none
 helpRead* :: @host proc(name: String, out: Blob) -> Int
 # the help app, after this frame, at a help text (and maybe a heading): help("rio/spec/statements#if")
@@ -97,6 +98,10 @@ saveDelete* :: @host proc(file: String) -> Int               # 0, or -1
 stashWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
 stashRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1 for none
 stashDelete* :: @host proc(key: String) -> Int               # 0, or -1
+# the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): "active" is the app or project
+# being worked on (chord, or chord*); keys are named as save files are
+settingRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1
+settingWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
 boot* :: @host proc() -> Int                                 # how many times this Rinc has started (0: no storage)
 
 # ---------------------------------------------------------------- Rio inside an app: a session
