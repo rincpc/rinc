@@ -34,6 +34,9 @@ int main(int argc, char **argv) {
     printf("FAIL: %s:%s\n", e.file ? e.file : "(main)", rio_error(&vm));
     return 1;
   }
+#ifdef rinc_MAX_FFI
+  if (vm.ffiCount > rinc_MAX_FFI) { printf("FAIL: %d host procs, more than a Fruit Jam's or a web player's vm holds (RINC_MAX_FFI: %d)\n", vm.ffiCount, rinc_MAX_FFI); return 1; }
+#endif
   printf("pc.rio declares all %d host procs\n", vm.ffiCount);
   return 0;
 }

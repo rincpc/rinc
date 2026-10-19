@@ -191,7 +191,7 @@ static uint32_t rinc_makeBundle(const char *const *apps, int n, const char *home
   }
   for (i = 0; i < n && strcmp(list[i].name, home); i++) {}
   if (i == n) { fprintf(stderr, "rinc: -home %s isn't one of the apps\n", home); return 0; }
-  { /* the files: apps/name/name.img, and apps/name/name.info for a description (or apps/name/name.rio);
+  { /* the files: apps/name/name.rioi, and apps/name/name.info for a description (or apps/name/name.rio);
        then the help texts */
     static rinc_File files[rinc_BUNDLE_MOST]; static char paths[rinc_BUNDLE_MOST][96]; int nf = 0;
     rinc_DocWalk walk;
@@ -202,7 +202,7 @@ static uint32_t rinc_makeBundle(const char *const *apps, int n, const char *home
         files[nf].path = paths[nf]; files[nf].data = srcs[i]; files[nf++].len = srcLens[i];
         continue;
       }
-      snprintf(paths[nf], sizeof paths[nf], "apps/%.32s/%.32s.img", list[i].name, list[i].name);
+      snprintf(paths[nf], sizeof paths[nf], "apps/%.32s/%.32s.rioi", list[i].name, list[i].name);
       files[nf].path = paths[nf]; files[nf].data = list[i].data; files[nf++].len = list[i].len;
       if (!list[i].info[0]) continue;
       snprintf(paths[nf], sizeof paths[nf], "apps/%.32s/%.32s.info", list[i].name, list[i].name);
@@ -568,7 +568,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-m")) memReport = 1;
     else if (!strcmp(argv[i], "-type") && i + 1 < argc) rinc_typing = argv[++i];
     else if (argv[i][0] == '-' || napps == rinc_BUNDLE_MOST) {
-      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-i app.img]\n"
+      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-i app.rioi]\n"
                       "       rinc app.rio... -export program [-runner rinc] [-home name] [-name folder] [-docs name=folder]...\n"
                       "       rinc app.rio... -web page.html [-home name]\n"
                       "       rinc -install name|app.rio...      (and -data folder with any of these: storage there)\n"
@@ -633,7 +633,7 @@ int main(int argc, char **argv) {
     if (!out && !frames) return rinc_window(app);
 #endif
     for (i = 0; i < frames; i++) { /* a game, without a window: A held for the first frames (to start it) */
-      rinc_buttons = i < 3 ? rinc_Button_a : 0;
+      rinc_buttons = i < 3 && !rinc_typing ? rinc_Button_a : 0; /* (not when typing: the typing is what drives it) */
       rinc_typeMore();
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();

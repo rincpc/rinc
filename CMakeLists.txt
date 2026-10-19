@@ -38,6 +38,12 @@ if(RINC_PLATFORM STREQUAL rp2350)
 endif()
 
 include(${RIO_DIR}/library.cmake)
+# the most host procs a vm holds, on every Rinc (rio_MAX_FFI, below; tools/web.py's too):
+# the pc test fails if rinc registers more
+set(RINC_MAX_FFI 96)
+# rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
+# so an app behaves the same everywhere: its log lines and error texts as long, say
+target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})
 # the build's id (rinc_buildId): made again with every build, so another build's cached app images go
 set(RINC_BUILD_ID ${CMAKE_BINARY_DIR}/build_id.c)
 execute_process(COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake)
@@ -57,7 +63,6 @@ if(NOT MSVC)
 endif()
 
 if(RINC_PLATFORM STREQUAL rp2350)
-  target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=64) # MCU-sized fixed caps, but room for Rinc's host procs
   option(RINC_RIO_IN_RAM "run rio's interpreter loop from SRAM instead of flash" ON)
   if(RINC_RIO_IN_RAM)
     target_compile_definitions(riocore PRIVATE rio_HOT_SECTION=".time_critical.rio")
@@ -69,7 +74,7 @@ if(RINC_PLATFORM STREQUAL rp2350)
   set(TUSB ${PICO_SDK_PATH}/lib/tinyusb/src)
   # the firmware's bundle (docs/spec/apps.md#bundles): the apps it carries, home, the console and the
   # editor by default (the SD card's apps of the same names take their place); RINC_HOME is the one home means
-  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio" CACHE STRING
+  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio|${CMAKE_CURRENT_LIST_DIR}/system/files/files.rio" CACHE STRING
     "the firmware's apps, their .rio files, separated by |")
   set(RINC_HOME "" CACHE STRING "the firmware's home app, by name (by default the only app, else one named home)")
   # and its help texts, for the help app: each name=folder's Markdown, as help/<name>/... (rinc's docs and rio's)
@@ -213,10 +218,13 @@ else()
     set_tests_properties(app_cache PROPERTIES PASS_REGULAR_EXPRESSION "the cache came through")
     add_test(NAME projects COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/projects.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/projects-data)
     set_tests_properties(projects PROPERTIES PASS_REGULAR_EXPRESSION "projects came through")
+    add_test(NAME files COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/files.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system/files/files.rio ${CMAKE_CURRENT_BINARY_DIR}/files-data)
+    set_tests_properties(files PROPERTIES PASS_REGULAR_EXPRESSION "files came through")
   endif()
   # pc.rio, the host procs written out, matches what rinc registers
   add_executable(rinc_pc_test tests/pc.c)
   target_link_libraries(rinc_pc_test PRIVATE rinccore)
+  target_compile_definitions(rinc_pc_test PRIVATE rinc_MAX_FFI=${RINC_MAX_FFI})
   add_test(NAME pc_declared COMMAND rinc_pc_test ${CMAKE_CURRENT_LIST_DIR}/src/core/pc.rio)
   set_tests_properties(pc_declared PROPERTIES PASS_REGULAR_EXPRESSION "pc.rio declares all [0-9]+ host procs")
   # typed keys, as a terminal sends them, with their modifiers

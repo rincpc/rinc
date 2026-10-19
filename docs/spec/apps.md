@@ -16,8 +16,8 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 /rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
 /rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
 /rinc/cache/chord/...         what it can make again: anything may clear it
-/rinc/cache/rinc/apps/chord.img   Rinc's own cache: the app, compiled (see compiled apps)
-/rinc/cache/rinc/projects/chord.img   and its project
+/rinc/cache/rinc/apps/chord.rioi   Rinc's own cache: the app, compiled (see compiled apps)
+/rinc/cache/rinc/projects/chord.rioi   and its project
 /rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
 /rinc/settings/...            the whole Rinc's settings, shared by the apps: active, the app in work
 ```
@@ -32,11 +32,11 @@ description, by convention a title, a colon, and what it does:
 ## Bundles
 
 A bundle is the files a Rinc carries with it, laid out as in storage: an app is `apps/<name>/<name>.rio`,
-or, compiled for a Rinc without a compiler, `apps/<name>/<name>.img` (a Rio image for a 256 KB app
+or, compiled for a Rinc without a compiler, `apps/<name>/<name>.rioi` (a Rio image for a 256 KB app
 space) with its description in `apps/<name>/<name>.info`. A bundle also names its **home app**, the one
 `home` means, and its **storage folder**, where its apps' save spaces go.
 
-- **The Fruit Jam's firmware** bundles home, the console, the editor and help by default, home as home,
+- **The Fruit Jam's firmware** bundles home, the console, the editor, help and files by default, home as home,
   and Rinc's and Rio's docs as help texts.
 - **The desktop and the web** carry none, so their programs stay small.
 - **An exported game** carries its own apps, starting at its home app. One app on its own is home.
@@ -122,8 +122,69 @@ app's saves are copied in, so it starts from real data. Deleting its `save` fold
 the app's again. Nothing goes back the other way.
 
 `pc.launch("chord*")` runs the project, and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
-project's name too. `pc.appInstall("chord") -> Int` installs project `chord*` as app `chord`: its files
-are copied over the app's (its save space aside), 0 or -1. The console's `install chord` does the same.
+project's name too (`pc.appDelete` removes all of its folder: a project's own saves too, but never the
+app's, in `/rinc/save`). The rest, each 0 or -1:
+
+| proc | |
+|---|---|
+| `pc.appInstall("chord")` | project `chord*` installed as app `chord`: its files copied over the app's (its save space aside); the console's `install chord` too |
+| `pc.appCopy(from, "tune*")` | app or project `from` copied as new project `tune*`: its files, its main file renamed `tune.rio` (a project's own saves aside) |
+| `pc.appRename("tune*", "song*")` | project `tune*` renamed `song*`: its folder and its main file (and the active setting, if it was the active one) |
+
+## Files
+
+Any app can look through storage by path, as Files (`system/files/files.rio`) does: absolute paths,
+`/rinc/save/chord/best`, with no `.` or `..` parts. Looking goes wherever the Rinc's storage does (on
+the Fruit Jam, the whole card, `/`; elsewhere, `/rinc`); changing goes only inside `/rinc`, and never
+`/rinc` itself. Each gives 0, or -1, unless it says otherwise:
+
+| proc | |
+|---|---|
+| `pc.dir(path, out) -> Int` | a folder's entries into `out`, folders first, then by name, a line each (`d name`, `f name`): how many, or -1 if it's no folder |
+| `pc.fileRead(path, out) -> Int` | a file, as much as fits: its whole length, or -1 |
+| `pc.fileWrite(path, data) -> Int` | a file's contents, its folders made |
+| `pc.fileDelete(path) -> Int` | a file, or a folder and everything in it |
+| `pc.fileCopy(from, to) -> Int` | a file, or a folder and everything in it, to a path not taken |
+| `pc.fileRename(from, to) -> Int` | to a path not taken |
+
+```rio
+log(pc.fileWrite("/rinc/save/demo/notes/a.txt", "hi"), pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"))
+out: Blob[64]
+n := pc.dir("/rinc/save/demo", out[:])
+log(n, out[0:14].asString())
+log(pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"), pc.fileDelete("/rinc/save/demo"))
+```
+
+```output
+0 0
+2 d copy
+d notes
+-1 0
+```
+
+Files shows them: its help text, `files/README`, says how. Deleting there takes the whole name typed.
+
+## Calling an app
+
+An app can start another for something, such as a file picked, and have the answer back. `pc.call(name,
+args)` starts app `name` after this frame, with `args`, which it reads with `pc.args(out) -> Int` (how
+long: 0 for none). When it's done, `pc.done(result)` goes back to the app that called it (it's left out
+of the recent apps, as the system key's Q leaves an app out), and that app, starting again, reads the
+result with `pc.result(out) -> Int` (how long, or -1 if there's none: it's taken). What's typed ahead,
+after a call, is the called app's.
+
+Files is a picker this way: `pc.call("files", "pick /rinc/save/chord")` starts it in that folder, and
+Enter on a file gives its path back (Esc at the top, nothing: an empty result):
+
+```rio fragment
+out: Blob[96]
+n := pc.result(out[:])
+if n < 0
+  pc.call("files", "pick")      # (the first time)
+else
+  log("picked", out[0:n].asString())
+end
+```
 
 The editor saves to projects: a new app is a project, and an installed app opens read only, like a
 page's source in a browser, until saving it makes its project.
@@ -165,7 +226,7 @@ start can load it instead of compiling again:
 
 ```
 /rinc/apps/help/help.rio              the source (or the firmware's, for an app built in)
-/rinc/cache/rinc/apps/help.img        its image: Rinc's header, then Rio's image
+/rinc/cache/rinc/apps/help.rioi        its image: Rinc's header, then Rio's image
 ```
 
 Help, on the Fruit Jam, starts in about 30 ms this way, instead of about 140; breakout in about 12,

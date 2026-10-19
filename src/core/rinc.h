@@ -172,6 +172,7 @@ typedef struct {
   int (*list)(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud);
   int (*remove)(const char *path); /* a file, or an empty directory: 0 or -1 */
   int (*copy)(const char *from, const char *to); /* a file, whole (to's directories made, it replaced): 0 or -1 */
+  int (*rename)(const char *from, const char *to); /* a file or a directory, to a name not taken (in a directory there): 0 or -1 */
 } rinc_Fs;
 extern const rinc_Fs *rinc_fs;
 /* an app asked to switch (pc.launch): to the app named rinc_launchName, which may be a built-in one,
@@ -186,7 +187,7 @@ extern char rinc_launchName[rinc_REF];
 #define rinc_BUNDLE_MAGIC "RINCBUN1"
 #define rinc_BUNDLE_MOST 256 /* (files) */
 /* a bundle is files, by path as in storage without /rinc/ (apps/chord/chord.rio, apps/chord/assets/...):
-   an app is apps/name/name.rio (a source), or apps/name/name.img (a compiled image, its description in
+   an app is apps/name/name.rio (a source), or apps/name/name.rioi (a compiled image, its description in
    apps/name/name.info) */
 typedef struct { const char *path, *data; uint32_t len; } rinc_File;
 typedef struct { char name[33], info[97]; const char *data; uint32_t len; int image; } rinc_App;

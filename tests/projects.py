@@ -48,7 +48,7 @@ run('chord*', 'project live', "the project's first run: the app's saves, copied 
 if get('save/chord/note') != 'live': sys.exit("FAIL: the project changed the app's saves")
 run('chord*', 'project by the project', "the project's own saves")
 run('chord', 'app live', "the app's saves, untouched")
-for img in ('cache/rinc/apps/chord.img', 'cache/rinc/projects/chord.img'):
+for img in ('cache/rinc/apps/chord.rioi', 'cache/rinc/projects/chord.rioi'):
   if get(img) is None: sys.exit('FAIL: no ' + img)
 run('helpls', 'chord*/README # Chord, in work', "the project's help, listed and read")
 put('apps/setact/setact.rio', '''v: Blob[34]
@@ -63,4 +63,18 @@ if get('apps/chord/chord.rio') != get('projects/chord/chord.rio') or get('apps/c
   sys.exit("FAIL: install didn't copy the project")
 if get('apps/chord/save/note') is not None: sys.exit("FAIL: install copied the project's saves")
 run('chord', 'project by the app', 'the installed project, as the app, with the app\'s saves')
+put('apps/ops/ops.rio', '''log(pc.appCopy("chord", "tune*"), pc.appCopy("chord", "tune*"), pc.appCopy("chord", "nope"))
+log(pc.appRename("tune*", "song*"), pc.appRename("chord", "x*"), pc.settingWrite("active", "song*"))
+log(pc.appDelete("song*"), pc.appDelete("song*"))
+''')
+run('ops', '0 -1 -1\n0 -1 0\n0 -1', 'copy, rename, delete')
+if get('settings/active') is not None: sys.exit("FAIL: the deleted project is still active")
+if os.path.exists(os.path.join(data, 'projects', 'song')) or os.path.exists(os.path.join(data, 'projects', 'tune')):
+  sys.exit("FAIL: a deleted or renamed project's folder is still there")
+put('apps/ops2/ops2.rio', '''log(pc.appCopy("chord", "tune*"))
+log(pc.appRename("tune*", "song*"))
+''')
+run('ops2', '0\n0', 'copy, then rename')
+if get('projects/song/song.rio') != get('apps/chord/chord.rio') or get('projects/song/help/README.md') is None:
+  sys.exit("FAIL: the copy, renamed, isn't the app's files under its new name")
 print('projects came through')

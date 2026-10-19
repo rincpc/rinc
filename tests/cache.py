@@ -4,7 +4,7 @@ the source changes, or when it's another build's."""
 import os, shutil, subprocess, sys
 
 rinc, data = os.path.abspath(sys.argv[1]), sys.argv[2]
-app, img = os.path.join(data, 'apps', 'cached', 'cached.rio'), os.path.join(data, 'cache', 'rinc', 'apps', 'cached.img')
+app, img = os.path.join(data, 'apps', 'cached', 'cached.rio'), os.path.join(data, 'cache', 'rinc', 'apps', 'cached.rioi')
 
 def source(text):
   os.makedirs(os.path.dirname(app), exist_ok=True)

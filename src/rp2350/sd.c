@@ -161,5 +161,12 @@ static int rinc_fsCopy(const char *from, const char *to) {
   f_close(&rinc_file);
   return f_close(&rinc_copyTo) != FR_OK || bad ? -1 : 0;
 }
-static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove, rinc_fsCopy};
+static int rinc_fsRename(const char *from, const char *to) {
+  FRESULT r;
+  if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
+  if (!rinc_mount()) return -1;
+  rinc_storageChanged(from); rinc_storageChanged(to);
+  return (r = f_rename(from, to)) == FR_OK ? 0 : rinc_failed(r);
+}
+static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove, rinc_fsCopy, rinc_fsRename};
 void rinc_sdSetup(void) { gpio_init(rinc_PIN_DETECT); gpio_pull_up(rinc_PIN_DETECT); rinc_fs = &rinc_sdFs; }

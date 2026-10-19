@@ -196,7 +196,7 @@ const rinc_File *rinc_bundleFile(const char *path) {
     }
   return 0;
 }
-/* app name in the bundle: apps/name/name.rio (a source), or apps/name/name.img (an image, its
+/* app name in the bundle: apps/name/name.rio (a source), or apps/name/name.rioi (an image, its
    description in apps/name/name.info) */
 const rinc_App *rinc_bundled(const char *name) {
   static rinc_App a; char path[96]; const rinc_File *f, *info; uint32_t k; const char *data; uint32_t len;
@@ -204,7 +204,7 @@ const rinc_App *rinc_bundled(const char *name) {
   snprintf(path, sizeof path, "apps/%s/%s.rio", name, name);
   a.image = !(f = rinc_bundleFile(path));
   if (a.image) {
-    snprintf(path, sizeof path, "apps/%s/%s.img", name, name);
+    snprintf(path, sizeof path, "apps/%s/%s.rioi", name, name);
     if (!(f = rinc_bundleFile(path))) return 0;
   }
   data = f->data; len = f->len; /* (before the next lookup, which reuses f) */
@@ -254,11 +254,11 @@ static int rinc_findApps(void) {
   int i, j;
   rinc_appCount = 0;
   if (rinc_fs) { rinc_fs->list("/rinc/apps", rinc_appFound, 0); rinc_fs->list("/rinc/projects", rinc_appFound, (void *)1); }
-  for (i = 0; i < rinc_bundleCount; i++) { /* (apps/name/name.rio or .img) */
+  for (i = 0; i < rinc_bundleCount; i++) { /* (apps/name/name.rio or .rioi) */
     const char *q = rinc_entryPath(i), *slash; char name[33]; size_t k;
     if (strncmp(q, "apps/", 5) || !(slash = strchr(q + 5, '/')) || (k = (size_t)(slash - q - 5)) > 32) continue;
     memcpy(name, q + 5, k); name[k] = 0;
-    if (!strncmp(slash + 1, name, k) && (!strcmp(slash + 1 + k, ".rio") || !strcmp(slash + 1 + k, ".img"))) rinc_appAdd(name);
+    if (!strncmp(slash + 1, name, k) && (!strcmp(slash + 1 + k, ".rio") || !strcmp(slash + 1 + k, ".rioi"))) rinc_appAdd(name);
   }
   for (i = 1; i < rinc_appCount; i++) /* (a few dozen at most: insertion) */
     for (j = i; j > 0 && rinc_lowerCmp(rinc_appNames[j - 1], rinc_appNames[j]) > 0; j--) {
@@ -443,6 +443,46 @@ static void rinc_hostHelpTopic(rio_Vm *v, rio_Val *a) {
   a[0].i = rinc_copyOut(v, a, rinc_helpTopicNow, (int)strlen(rinc_helpTopicNow));
   rinc_helpTopicNow[0] = 0;
 }
+/* one app calling another (docs/spec/apps.md#calling-an-app): call(name, args) starts app name (after
+   this frame) with args, which it reads with args(out) -> Int (how long: 0 for none), and remembers who
+   called; done(result) goes back to the caller (or the app before, if there's none), this app left out
+   of the recent apps, and the caller, starting again, reads result(out) -> Int (how long, or -1 for none;
+   taken) */
+static char rinc_callArgs[256], rinc_callResult[256], rinc_caller[rinc_REF], rinc_callee[rinc_REF];
+static int rinc_callArgsLen, rinc_callResultLen = -1, rinc_calling;
+static void rinc_hostCall(rio_Vm *v, rio_Val *a) {
+  const char *s = (const char *)rio_sliceBytes(v, a), *t = (const char *)rio_sliceBytes(v, a + 2); int n = (int)a[1].u, m = (int)a[3].u;
+  if (!s || n < 1 || n >= (int)sizeof rinc_launchName || m < 0 || m > (int)sizeof rinc_callArgs) return;
+  memcpy(rinc_launchName, s, (size_t)n); rinc_launchName[n] = 0;
+  if (m) memcpy(rinc_callArgs, t, (size_t)m);
+  rinc_callArgsLen = m;
+  rinc_calling = 1; rinc_launch = 1;
+}
+static void rinc_hostArgs(rio_Vm *v, rio_Val *a) { a[0].i = rinc_copyOut(v, a, rinc_callArgs, rinc_callArgsLen); }
+static void rinc_hostResult(rio_Vm *v, rio_Val *a) {
+  int n = rinc_callResultLen;
+  a[0].i = n < 0 ? -1 : rinc_copyOut(v, a, rinc_callResult, n);
+  rinc_callResultLen = -1;
+}
+static const char *rinc_recentBefore(void); /* (the recent apps: below) */
+static void rinc_hostDone(rio_Vm *v, rio_Val *a) {
+  const char *s = (const char *)rio_sliceBytes(v, a), *before = rinc_recentBefore(); int n = (int)a[1].u;
+  if (n < 0 || n > (int)sizeof rinc_callResult) n = 0;
+  if (rinc_caller[0]) {
+    if (s && n) memcpy(rinc_callResult, s, (size_t)n);
+    rinc_callResultLen = s ? n : 0;
+    snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_caller);
+  } else snprintf(rinc_launchName, sizeof rinc_launchName, "%s", before);
+  rinc_launch = 1;
+}
+/* each app's start: a call's args and its caller kept for it; anything else starts without */
+static void rinc_callStart(const char *name) {
+  if (rinc_calling && !strcmp(name, rinc_launchName)) {
+    snprintf(rinc_caller, sizeof rinc_caller, "%s", rinc_callee[0] ? rinc_callee : "home");
+  } else if (strcmp(name, rinc_caller)) { rinc_caller[0] = 0; rinc_callArgsLen = 0; rinc_callResultLen = -1; } /* (the caller, starting again, keeps its result) */
+  else { rinc_caller[0] = 0; rinc_callArgsLen = 0; }
+  rinc_calling = 0;
+}
 static void rinc_hostLaunch(rio_Vm *v, rio_Val *a) {
   const char *s = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u;
   if (!s || n < 1 || n >= (int)sizeof rinc_launchName) return;
@@ -504,6 +544,152 @@ static int rinc_copyTree(const char *from, const char *to, const char *skip, int
   rinc_treeUsed = start;
   return bad ? -1 : 0;
 }
+/* every file and folder in folder dir, and it: 0, or -1 if any couldn't be removed */
+static int rinc_removeTree(const char *dir, int depth) {
+  int start = rinc_treeUsed, end, at, bad = 0; char a[128];
+  if (!rinc_fs || depth > 4) return -1;
+  if (!rinc_fs->list(dir, rinc_treeFound, 0)) {
+    end = rinc_treeUsed;
+    for (at = start; at < end; at += (int)strlen(rinc_tree + at + 1) + 2) {
+      if (snprintf(a, sizeof a, "%s/%s", dir, rinc_tree + at + 1) >= (int)sizeof a) { bad = 1; continue; }
+      if (rinc_tree[at] == 'd' ? rinc_removeTree(a, depth + 1) : rinc_fs->remove(a)) bad = 1;
+      rinc_treeUsed = end;
+    }
+  }
+  rinc_treeUsed = start;
+  return rinc_fs->remove(dir) || bad ? -1 : 0;
+}
+/* an app's folder, or its project's (chord*): 0 if the name's no good */
+static int rinc_appFolder(const char *name, char *out, size_t cap) {
+  int n = (int)strlen(name), project = n > 1 && name[n - 1] == '*';
+  if (!rinc_refOk(name, n)) return 0;
+  return snprintf(out, cap, "/rinc/%s/%.*s", project ? "projects" : "apps", project ? n - 1 : n, name) < (int)cap;
+}
+void rinc_cacheDrop(const char *name);
+/* app or project name gone: its folder, all of it (its own saves, for a project), and its compiled
+   image; the active one no more, if it was. 0, or -1 if there's no such app */
+static int rinc_appRemove(const char *name) {
+  char path[96], folder[64], active[rinc_REF]; uint32_t total;
+  if (!rinc_fs || !rinc_appPath(name, path, sizeof path) || !rinc_appFolder(name, folder, sizeof folder) || rinc_readFile(path, 0, 0, &total)) return -1;
+  rinc_removeTree(folder, 0);
+  rinc_cacheDrop(name);
+  if (!rinc_readFile("/rinc/settings/active", active, sizeof active - 1, &total) && total < sizeof active && (active[total] = 0, !strcmp(active, name)))
+    rinc_fs->remove("/rinc/settings/active");
+  return 0;
+}
+/* appCopy(from, to) -> Int: app or project from, copied as new project to (a star after it): its
+   files, its main one renamed (its own saves aside). appRename(from, to) -> Int: project from as new
+   project to. Each 0, or -1 (to there already, say) */
+static void rinc_hostAppCopy(rio_Vm *v, rio_Val *a) {
+  char from[rinc_REF], to[rinc_REF], fromDir[64], toDir[64], path[96], main[96]; uint32_t total; int n, k;
+  int named = rinc_argRef(v, a, from) && rinc_argRef(v, a + 2, to);
+  a[0].i = -1;
+  if (!named || !rinc_fs || (n = (int)strlen(to)) < 2 || to[n - 1] != '*' || !rinc_appFolder(from, fromDir, sizeof fromDir) || !rinc_appFolder(to, toDir, sizeof toDir)) return;
+  if (!rinc_appPath(to, path, sizeof path) || !rinc_readFile(path, 0, 0, &total) || !rinc_fs->list(toDir, rinc_treeFound, 0)) { rinc_treeUsed = 0; return; } /* (there already) */
+  rinc_treeUsed = 0;
+  if (rinc_copyTree(fromDir, toDir, "save", 0) && rinc_readApp(to, 0, 0) < 0) { /* (an app in the bundle: its source, from there) */
+    const rinc_App *b = rinc_bundled(from);
+    if (!b || b->image || rinc_fs->open(path, 1)) return;
+    k = rinc_fs->write(b->data, (int)b->len) != (int)b->len;
+    if (rinc_fs->close() || k) return;
+    a[0].i = 0;
+    return;
+  }
+  k = (int)strlen(from) - (from[strlen(from) - 1] == '*');
+  snprintf(main, sizeof main, "%s/%.*s.rio", toDir, k, from); /* (its main file, by its old name: renamed) */
+  a[0].i = rinc_fs->rename(main, path) && rinc_readApp(to, 0, 0) < 0 ? -1 : 0;
+}
+static void rinc_hostAppRename(rio_Vm *v, rio_Val *a) {
+  char from[rinc_REF], to[rinc_REF], fromDir[64], toDir[64], path[96], main[96], active[rinc_REF]; uint32_t total; int n, m;
+  int named = rinc_argRef(v, a, from) && rinc_argRef(v, a + 2, to);
+  a[0].i = -1;
+  if (!named || !rinc_fs || (n = (int)strlen(from)) < 2 || from[n - 1] != '*' || (m = (int)strlen(to)) < 2 || to[m - 1] != '*' ||
+      !rinc_appFolder(from, fromDir, sizeof fromDir) || !rinc_appFolder(to, toDir, sizeof toDir) || !rinc_appPath(to, path, sizeof path)) return;
+  if (!rinc_fs->list(toDir, rinc_treeFound, 0)) { rinc_treeUsed = 0; return; } /* (there already) */
+  rinc_treeUsed = 0;
+  if (rinc_fs->rename(fromDir, toDir)) return;
+  snprintf(main, sizeof main, "%s/%.*s.rio", toDir, n - 1, from);
+  rinc_fs->rename(main, path);
+  rinc_cacheDrop(from);
+  if (!rinc_readFile("/rinc/settings/active", active, sizeof active - 1, &total) && total < sizeof active && (active[total] = 0, !strcmp(active, from)) &&
+      !rinc_fs->open("/rinc/settings/active", 1)) { rinc_fs->write(to, m); rinc_fs->close(); } /* (the active one: by its new name) */
+  a[0].i = 0;
+}
+/* files by path, for a file browser (docs/spec/apps.md#files): a path is absolute, /rinc/save/chord/best,
+   with no . or .. parts. Looking (dir, fileRead) goes wherever the Rinc's storage does (the Fruit Jam's
+   whole card: /); changing (fileWrite, fileDelete, fileCopy's to, fileRename) only in /rinc, and never
+   /rinc itself. dir(path, out) -> Int: its entries into out, folders first, then by name, each a line,
+   "d name" or "f name", as many as fit: how many, or -1 if it's no folder. fileRead(path, out) -> Int: as
+   much as fits, its whole length, or -1; fileWrite(path, data) -> Int; fileDelete(path) -> Int (a folder:
+   all of it); fileCopy(from, to) -> Int (a folder: all of it) and fileRename(from, to) -> Int, to a
+   name not taken: each 0, or -1 */
+static void rinc_writeFile(rio_Vm *v, rio_Val *a, const char *path); /* (below) */
+static int rinc_argPath(rio_Vm *v, rio_Val *a, char *out, int change) {
+  const char *s = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u, i;
+  if (!s || n < 1 || n > 95 || s[0] != '/' || (n > 1 && s[n - 1] == '/')) return 0;
+  for (i = 0; i < n; i++) {
+    char c = s[i];
+    if (c < 32 || c > 126 || c == '\\' || c == ':') return 0;
+    if (c == '/' && i + 1 < n && (s[i + 1] == '/' || (s[i + 1] == '.' && (i + 2 == n || s[i + 2] == '/' || (s[i + 2] == '.' && (i + 3 == n || s[i + 3] == '/')))))) return 0;
+  }
+  if (change && (n <= 6 || strncmp(s, "/rinc/", 6))) return 0;
+  memcpy(out, s, (size_t)n); out[n] = 0;
+  return 1;
+}
+static int rinc_exists(const char *path) {
+  if (!rinc_fs) return 0;
+  if (!rinc_fs->open(path, 0)) { rinc_fs->close(); return 1; }
+  if (!rinc_fs->list(path, rinc_treeFound, 0)) { rinc_treeUsed = 0; return 1; }
+  rinc_treeUsed = 0;
+  return 0;
+}
+static char *rinc_dirOut; static int rinc_dirCap, rinc_dirUsed, rinc_dirCount;
+static void rinc_dirFound(const char *name, int dir, void *ud) { /* (into its place: folders, then names, ignoring case) */
+  char *p = rinc_dirOut, *e = rinc_dirOut + rinc_dirUsed; int n = (int)strlen(name);
+  (void)ud;
+  if (!p || n > 60 || name[0] == 0) return;
+  while (p < e) {
+    char *end = memchr(p, 10, (size_t)(e - p)), was[64]; int k = (int)(end - p) - 2;
+    memcpy(was, p + 2, (size_t)k); was[k] = 0;
+    if ((p[0] == 'f' && dir) || ((p[0] == 'd') == (dir != 0) && rinc_lowerCmp(was, name) > 0)) break;
+    p = end + 1;
+  }
+  if (rinc_dirUsed + n + 3 > rinc_dirCap) return;
+  memmove(p + n + 3, p, (size_t)(e - p));
+  p[0] = dir ? 'd' : 'f'; p[1] = ' '; memcpy(p + 2, name, (size_t)n); p[n + 2] = 10;
+  rinc_dirUsed += n + 3; rinc_dirCount++;
+}
+static void rinc_hostDir(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_argPath(v, a, path, 0);
+  rinc_dirOut = (char *)rio_sliceBytes(v, a + 2); rinc_dirCap = rinc_dirOut ? (int)a[3].u : 0; rinc_dirUsed = rinc_dirCount = 0;
+  a[0].i = named && rinc_fs && !rinc_fs->list(path, rinc_dirFound, 0) ? rinc_dirCount : -1;
+  rinc_dirOut = 0;
+}
+static void rinc_hostFileRead(rio_Vm *v, rio_Val *a) {
+  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_argPath(v, a, path, 0);
+  a[0].i = named && !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
+}
+static void rinc_hostFileWrite(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_argPath(v, a, path, 1);
+  if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
+}
+static void rinc_hostFileDelete(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_argPath(v, a, path, 1);
+  a[0].i = -1;
+  if (!named || !rinc_fs || !rinc_exists(path)) return;
+  a[0].i = rinc_fs->remove(path) && rinc_removeTree(path, 0) ? -1 : 0;
+}
+static void rinc_hostFileCopy(rio_Vm *v, rio_Val *a) {
+  char from[96], to[96]; int named = rinc_argPath(v, a, from, 0) && rinc_argPath(v, a + 2, to, 1);
+  a[0].i = -1;
+  if (!named || !rinc_fs || rinc_exists(to) || (!strncmp(to, from, strlen(from)) && (to[strlen(from)] == '/' || !to[strlen(from)]))) return; /* (not into itself) */
+  if (!rinc_fs->copy(from, to)) { a[0].i = 0; return; }
+  a[0].i = rinc_copyTree(from, to, 0, 0);
+}
+static void rinc_hostFileRename(rio_Vm *v, rio_Val *a) {
+  char from[96], to[96]; int named = rinc_argPath(v, a, from, 1) && rinc_argPath(v, a + 2, to, 1);
+  a[0].i = named && rinc_fs && !rinc_exists(to) && rinc_exists(from) && !rinc_fs->rename(from, to) ? 0 : -1;
+}
 /* a project's own save space, the first time it runs: the app's saves, copied in */
 static void rinc_projectSaves(void) {
   char space[64], app[64];
@@ -546,13 +732,10 @@ static void rinc_hostAppSave(rio_Vm *v, rio_Val *a) {
   char name[rinc_REF], path[96]; int named = rinc_argRef(v, a, name) && rinc_appPath(name, path, sizeof path);
   if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
 }
-static void rinc_hostAppDelete(rio_Vm *v, rio_Val *a) {
-  char name[rinc_REF], path[96]; int named = rinc_argRef(v, a, name) && rinc_appPath(name, path, sizeof path);
-  a[0].i = -1;
-  if (!named || !rinc_fs || rinc_fs->remove(path)) return;
-  *strrchr(path, '/') = 0; rinc_fs->remove(path); /* (then its folder, if that's empty now) */
-  rinc_cacheDrop(name); /* (and its compiled image) */
-  a[0].i = 0;
+static int rinc_appRemove(const char *name);
+static void rinc_hostAppDelete(rio_Vm *v, rio_Val *a) { /* (all of it: rinc_appRemove) */
+  char name[rinc_REF]; int named = rinc_argRef(v, a, name);
+  a[0].i = named ? rinc_appRemove(name) : -1;
 }
 static void rinc_hostSaveRead(rio_Vm *v, rio_Val *a) {
   char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_savePath(v, a, path, sizeof path);
@@ -762,7 +945,7 @@ int rinc_start(rio_Vm *vm, void *mem, uint32_t memsize, void (*put)(const char *
   rio_setLog(vm, rinc_logLine, 0);
   rio_setLoader(vm, rinc_loader, 0);
   if (rinc_hostProcs(vm) || rio_autoImport(vm, "pc")) return -1; /* (pc.cls and so on, everywhere) */
-  memset(&rinc_typed, 0, sizeof rinc_typed);
+  if (!rinc_calling) memset(&rinc_typed, 0, sizeof rinc_typed); /* (typed ahead for an app called: its) */
   rinc_nestOn = rinc_nestTried = 0; /* (a session lives in an app's memory, which is starting over) */
   return 0;
 }
@@ -797,6 +980,12 @@ static void rinc_overlayDot(int x, int y, int c) { if (x >= 0 && x < rinc_W && y
 #define rinc_RECENT 8
 static char rinc_recent[rinc_RECENT][rinc_REF];
 static int rinc_recentCount;
+static void rinc_recentDrop(int i);
+/* this app left out of the recent apps: the one before it (else home) */
+static const char *rinc_recentBefore(void) {
+  rinc_recentDrop(0);
+  return rinc_recentCount ? rinc_recent[0] : "home";
+}
 static void rinc_recentDrop(int i) {
   for (; i + 1 < rinc_recentCount; i++) memcpy(rinc_recent[i], rinc_recent[i + 1], sizeof rinc_recent[0]);
   if (rinc_recentCount > 0) rinc_recentCount--;
@@ -1055,7 +1244,13 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.stashWrite", "ss>i", rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", "sb>i", rinc_hostStashRead) ||
          rio_addFfi(vm, "pc.stashDelete", "s>i", rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", ">i", rinc_hostBoot) ||
          rio_addFfi(vm, "pc.settingRead", "sb>i", rinc_hostSettingRead) || rio_addFfi(vm, "pc.settingWrite", "ss>i", rinc_hostSettingWrite) ||
-         rio_addFfi(vm, "pc.pointer", "i", rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", "s>i", rinc_hostAppInstall) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
+         rio_addFfi(vm, "pc.pointer", "i", rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", "s>i", rinc_hostAppInstall) ||
+         rio_addFfi(vm, "pc.appCopy", "ss>i", rinc_hostAppCopy) ||
+         rio_addFfi(vm, "pc.call", "ss", rinc_hostCall) || rio_addFfi(vm, "pc.args", "b>i", rinc_hostArgs) ||
+         rio_addFfi(vm, "pc.done", "s", rinc_hostDone) || rio_addFfi(vm, "pc.result", "b>i", rinc_hostResult) ||
+         rio_addFfi(vm, "pc.dir", "sb>i", rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", "sb>i", rinc_hostFileRead) ||
+         rio_addFfi(vm, "pc.fileWrite", "ss>i", rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", "s>i", rinc_hostFileDelete) ||
+         rio_addFfi(vm, "pc.fileCopy", "ss>i", rinc_hostFileCopy) || rio_addFfi(vm, "pc.fileRename", "ss>i", rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", "ss>i", rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
          rio_addFfi(vm, "pc.pointerY", ">i", rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", "i>i", rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", ">i", rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", "i>i", rinc_hostScroll) ||
          rio_addFfi(vm, "pc.saveRead", "sb>i", rinc_hostSaveRead) || rio_addFfi(vm, "pc.saveWrite", "ss>i", rinc_hostSaveWrite) ||
@@ -1076,7 +1271,9 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   rinc_put = put;
   rinc_consoleClear(1);
   if (rinc_start(vm, space, size, put)) { rinc_say("can't start rio"); rinc_back(); return -1; }
+  rinc_callStart(name);
   rinc_setAppName(name);
+  snprintf(rinc_callee, sizeof rinc_callee, "%s", name); /* (who'd be the caller, if this calls) */
   rinc_projectSaves();
   rinc_recentAdd(name);
   rinc_pointerMode = 0; rinc_scrolled[0] = rinc_scrolled[1] = 0; /* (a game's, until it says) */
@@ -1131,7 +1328,7 @@ int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const 
   return rinc_appLoad(vm, space, size, name, src, len, image) || rinc_appGo(vm, name);
 }
 
-/* compiled apps, cached (docs/spec/apps.md#compiled-apps): /rinc/cache/rinc/apps/<app>.img, Rinc's
+/* compiled apps, cached (docs/spec/apps.md#compiled-apps): /rinc/cache/rinc/apps/<app>.rioi, Rinc's
    header (which build made it, and the length and hash of the source it's from), then Rio's image.
    It's used only while it's still its source's: the source is read and hashed to tell (cheaper by far
    than compiling it), except on a Rinc that trusts what it's checked (rinc_cacheTrust: one where
@@ -1150,9 +1347,9 @@ static void rinc_hash(const char *s, uint32_t n, uint32_t *h) { /* (FNV-1a, 64 b
   for (i = 0; i < n; i++) x = (x ^ (uint8_t)s[i]) * 0x100000001b3ull;
   h[0] = (uint32_t)x; h[1] = (uint32_t)(x >> 32);
 }
-static int rinc_cachePath(const char *name, char *path, size_t cap) { /* (a project's: /rinc/cache/rinc/projects/chord.img) */
+static int rinc_cachePath(const char *name, char *path, size_t cap) { /* (a project's: /rinc/cache/rinc/projects/chord.rioi) */
   int n = (int)strlen(name), project = n > 1 && name[n - 1] == '*';
-  return snprintf(path, cap, "/rinc/cache/rinc/%s/%.*s.img", project ? "projects" : "apps", project ? n - 1 : n, name) < (int)cap;
+  return snprintf(path, cap, "/rinc/cache/rinc/%s/%.*s.rioi", project ? "projects" : "apps", project ? n - 1 : n, name) < (int)cap;
 }
 void rinc_cacheDrop(const char *name) {
   char path[96]; int i;
@@ -1545,8 +1742,8 @@ static int rinc_command(rinc_Repl *r) {
   if (n > w + 1 && w == 6 && !memcmp(s, "delete", 6)) {
     char path[96]; const char *name = s + w + 1; int k = n - w - 1;
     if (!rinc_replAppPath(path, sizeof path, name, k)) rinc_replSay(r, "names are letters, digits, _ and -\r\n");
-    else if (!rinc_fs || rinc_fs->remove(path)) { rinc_replSay(r, "can't delete "); rinc_replSay(r, path); rinc_replSay(r, "\r\n"); }
-    else { char ref[rinc_REF]; snprintf(ref, sizeof ref, "%.*s", k, name); rinc_cacheDrop(ref); *strrchr(path, '/') = 0; rinc_fs->remove(path); rinc_replSay(r, "deleted "); r->put(name, k); rinc_replSay(r, "\r\n"); } /* (then its folder, if empty) */
+    else { char ref[rinc_REF]; snprintf(ref, sizeof ref, "%.*s", k, name);
+      if (rinc_appRemove(ref)) { rinc_replSay(r, "can't delete "); rinc_replSay(r, path); rinc_replSay(r, "\r\n"); return 1; } rinc_replSay(r, "deleted "); r->put(name, k); rinc_replSay(r, "\r\n"); } /* (all of it) */
     return 1;
   }
   return 0;

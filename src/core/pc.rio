@@ -66,11 +66,30 @@ apps* :: @host proc() -> Int                         # the apps and projects (so
 appName* :: @host proc(i: Int, out: Blob) -> Int     # app i's name (a project's with its star), into out: how long
 appInfo* :: @host proc(i: Int, out: Blob) -> Int     # its first line: "Title: what it does"
 launch* :: @host proc(name: String)                  # switch to an app or project (or "home", "console") after this frame
+# one app calling another: call starts it with args (after this frame), which it reads with args; done goes
+# back to the caller (this app forgotten, as the system key's Q does), which, starting again, reads result
+call* :: @host proc(name: String, args: String)
+args* :: @host proc(out: Blob) -> Int                # the args this app was called with: how long (0: none)
+done* :: @host proc(result: String)                  # back to the caller, with a result (or to the app before)
+result* :: @host proc(out: Blob) -> Int              # the result of the app this one called: how long, or -1 (taken)
 # an app's source into out, as much as fits: its whole length, or -1 if there's no such app
 appSource* :: @host proc(name: String, out: Blob) -> Int
 appSave* :: @host proc(name: String, text: String) -> Int   # 0, or -1
-appDelete* :: @host proc(name: String) -> Int               # 0, or -1
+appDelete* :: @host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1
 appInstall* :: @host proc(name: String) -> Int              # project name* installed as app name: 0, or -1
+appCopy* :: @host proc(from: String, to: String) -> Int     # app or project from, as new project to (to*): 0, or -1
+appRename* :: @host proc(from: String, to: String) -> Int   # project from (from*) as new project to (to*): 0, or -1
+
+# ---------------------------------------------------------------- files, by path, for a file browser
+
+# A path is absolute (/rinc/save/chord/best). Looking goes wherever storage does (on the Fruit Jam, the
+# whole card); changing, only in /rinc
+dir* :: @host proc(path: String, out: Blob) -> Int          # its entries, folders first, a line each ("d name", "f name"): how many, or -1
+fileRead* :: @host proc(path: String, out: Blob) -> Int     # as much as fits: its whole length, or -1
+fileWrite* :: @host proc(path: String, data: String) -> Int # 0, or -1
+fileDelete* :: @host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1
+fileCopy* :: @host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1
+fileRename* :: @host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 

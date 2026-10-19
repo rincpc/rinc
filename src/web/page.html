@@ -88,6 +88,14 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     try { localStorage.setItem(text(q, m), v); } catch (e) { return -1; }
     return 0;
   };
+  env.fs_rename = (p, n, q, m) => { // a file, or a folder: every key under it (to a name not taken)
+    const from = text(p, n), to = text(q, m), all = keys_();
+    if (all.some(k => k === to || k.startsWith(to + "/"))) return -1;
+    const moving = all.filter(k => k === from || k.startsWith(from + "/"));
+    if (!moving.length) return -1;
+    try { moving.forEach(k => { localStorage.setItem(to + k.slice(from.length), getItem(k)); localStorage.removeItem(k); }); } catch (e) { return -1; }
+    return 0;
+  };
   env.fs_remove = (p, n) => {
     const k = text(p, n);
     if (getItem(k) === null) return -1;

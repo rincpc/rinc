@@ -21,6 +21,7 @@ rinc_IMPORT(fs_close) extern int js_fsClose(void);
 rinc_IMPORT(fs_list) extern int js_fsList(const char *key, int n, char *out, int cap); /* "d name\n" or "f name\n" each: how long, or -1 */
 rinc_IMPORT(fs_remove) extern int js_fsRemove(const char *key, int n);
 rinc_IMPORT(fs_copy) extern int js_fsCopy(const char *from, int n, const char *to, int m);
+rinc_IMPORT(fs_rename) extern int js_fsRename(const char *from, int n, const char *to, int m);
 
 static _Alignas(16) uint8_t rinc_appSpace[256 << 10]; /* the same app space as on the board */
 static char rinc_src[512 << 10]; /* the bundle */
@@ -33,7 +34,8 @@ static void rinc_put(const char *s, int n) { js_put(s, n); }
 /* ------------------------------------------------------------------ storage */
 
 static char rinc_store[33] = "rinc"; /* the storage name: the bundle's, else rinc */
-static int rinc_key(const char *path, char *key, int cap) { /* /rinc/apps/x -> rinc/apps/x */
+static int rinc_key(const char *path, char *key, int cap) { /* /rinc/apps/x -> rinc/apps/x (and /rinc, rinc) */
+  if (!strcmp(path, "/rinc")) return snprintf(key, (size_t)cap, "%s", rinc_store);
   if (strncmp(path, "/rinc/", 6) || strstr(path, "..")) return -1;
   return snprintf(key, (size_t)cap, "%s/%s", rinc_store, path + 6);
 }
@@ -62,7 +64,12 @@ static int rinc_copy(const char *from, const char *to) {
   rinc_storageChanged(to);
   return n < 0 || m < 0 ? -1 : js_fsCopy(a, n, b, m);
 }
-static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy};
+static int rinc_rename(const char *from, const char *to) {
+  char a[160], b[160]; int n = rinc_key(from, a, sizeof a), m = rinc_key(to, b, sizeof b);
+  rinc_storageChanged(from); rinc_storageChanged(to);
+  return n < 0 || m < 0 ? -1 : js_fsRename(a, n, b, m);
+}
+static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename};
 
 /* ------------------------------------------------------------------ apps */
 

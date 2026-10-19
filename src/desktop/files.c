@@ -25,6 +25,7 @@ static FILE *rinc_file;
 
 /* where Rinc's path lives on this computer, into out: 0, or -1 for a path outside Rinc's */
 static int rinc_local(const char *path, char *out, size_t cap) {
+  if (!strcmp(path, "/rinc")) return snprintf(out, cap, "%s", rinc_root) < (int)cap ? 0 : -1; /* (the folder itself) */
   if (strncmp(path, "/rinc/", 6) || strstr(path, "..") || strchr(path, '\\') || strchr(path, ':')) return -1;
   return snprintf(out, cap, "%s/%s", rinc_root, path + 6) < (int)cap ? 0 : -1;
 }
@@ -109,7 +110,14 @@ static int rinc_copy(const char *from, const char *to) {
   fclose(f);
   return fclose(t) || bad ? -1 : 0;
 }
-static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy};
+static int rinc_rename(const char *from, const char *to) {
+  char a[1024], b[1024];
+  if (rinc_file) { fclose(rinc_file); rinc_file = 0; }
+  if (rinc_local(from, a, sizeof a) || rinc_local(to, b, sizeof b)) return -1;
+  rinc_storageChanged(from); rinc_storageChanged(to);
+  return rename(a, b) ? -1 : 0;
+}
+static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename};
 
 /* storage in folder dir itself (rinc -data dir: tests, or a Rinc on a USB stick) */
 const char *rinc_storageAt(const char *dir) {
