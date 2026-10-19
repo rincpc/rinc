@@ -331,14 +331,10 @@ void rinc_mkdirsFor(const char *file);
 /* an app, by name, started as on every Rinc (rinc_appBegin, rinc_appRun): from storage, else the
    bundle. What goes wrong is on the screen (and printed): 0, or -1 */
 static int rinc_openApp(const char *name) {
-  const rinc_App *b = 0; int n;
   name = rinc_appFor(name); /* (home: storage's, else the bundle's) */
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_put)) return -1;
-  n = rinc_readApp(name, rinc_src, sizeof rinc_src);
-  if (n == -2) { rinc_appFail(name, ".rio: too big (64 KB is the most)"); return -1; }
-  if (n < 0 && !(b = rinc_bundled(name))) { rinc_appFail(name, ": no app of this name (rinc -install it, if it's a standard one)"); return -1; }
-  if (!b) return rinc_appRun(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_src, (uint32_t)n, 0);
-  return rinc_appRun(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, b->data, b->len ? b->len : (uint32_t)strlen(b->data), b->image ? b->data : 0);
+  if (rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) { rinc_appFail(name, ": no app of this name (rinc -install it, if it's a standard one)"); return -1; }
+  return rinc_appStart(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name);
 }
 /* pc.launch, or the system key: to rinc_launchName */
 static void rinc_switch(void) { rinc_launch = 0; rinc_openApp(rinc_launchName); }

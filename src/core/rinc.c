@@ -797,8 +797,9 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
       rinc_recentDrop(0);
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recentCount ? rinc_recent[0] : "home");
       go = 1;
-    } else if (pressed & rinc_SysKey_r) { /* this app again, fresh: its stash dropped */
+    } else if (pressed & rinc_SysKey_r) { /* this app again, fresh: its stash dropped, and its compiled image */
       rinc_stashDrop(rinc_appNow);
+      rinc_cacheDrop(rinc_appNow);
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_appNow);
       go = 1;
     } else if (pressed & rinc_SysKey_p) rinc_perfOn = !rinc_perfOn;
@@ -918,8 +919,10 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
 void rinc_appFail(const char *name, const char *why) {
   rinc_say(name); rinc_say(why); rinc_back();
 }
-int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image) {
-  int res, fn;
+int (*rinc_native)(rio_Vm *vm);
+/* an app compiled, or its image loaded: 0, or -1 (said why) */
+static int rinc_appLoad(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image) {
+  int res;
   if (image) res = rio_loadImage(vm, image, len);
   else {
 #ifdef rio_NO_COMPILER
@@ -944,6 +947,12 @@ int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const 
     rinc_back();
     return -1;
   }
+  return 0;
+}
+/* an app loaded: its native code made, then its top-level code run, then main; a game from there on */
+static int rinc_appGo(rio_Vm *vm, const char *name) {
+  int fn;
+  if (rinc_native && rinc_native(vm) < 0) { rinc_appFail(name, ": can't set up native code"); return -1; }
   if (rio_run(vm) || ((fn = rio_findProc(vm, "main")) >= 0 && rio_call(vm, fn))) {
     rinc_say(name); rinc_say(".rio:"); rinc_say(rio_error(vm)); rinc_back();
     return -1;
@@ -951,6 +960,121 @@ int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const 
   if (rio_findProc(vm, "update") >= 0 || rio_findProc(vm, "draw") >= 0) { rinc_game = 1; rinc_showLog = 0; }
   else { rinc_consolePut("\r\n(done)", 8); rinc_back(); }
   return 0;
+}
+int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image) {
+  return rinc_appLoad(vm, space, size, name, src, len, image) || rinc_appGo(vm, name);
+}
+
+/* compiled apps, cached (docs/spec/apps.md#compiled-apps): /rinc/cache/rinc/apps/<app>.img, Rinc's
+   header (which build made it, and the length and hash of the source it's from), then Rio's image.
+   It's used only while it's still its source's: the source is read and hashed to tell (cheaper by far
+   than compiling it), except on a Rinc that trusts what it's checked (rinc_cacheTrust: one where
+   storage changes only through Rinc while it runs), which does that once an app, until something
+   under /rinc/apps or /rinc/lib changes (rinc_storageChanged) or it starts again */
+#define rinc_CACHE_MAGIC "RINCIMG1"
+enum { rinc_CACHE_HEAD = 8 + 32 + 4 * 4 }; /* magic, build, source length, its hash (2 words), the image's length */
+int rinc_cacheTrust;
+static struct { char name[33]; uint32_t len, hash[2]; } rinc_checked[8];
+static int rinc_checkedCount, rinc_checkedNext;
+void rinc_storageChanged(const char *path) {
+  if (!strncmp(path, "/rinc/apps/", 11) || !strncmp(path, "/rinc/lib/", 10)) rinc_checkedCount = 0;
+}
+static void rinc_hash(const char *s, uint32_t n, uint32_t *h) { /* (FNV-1a, 64 bits) */
+  uint64_t x = 0xcbf29ce484222325ull; uint32_t i;
+  for (i = 0; i < n; i++) x = (x ^ (uint8_t)s[i]) * 0x100000001b3ull;
+  h[0] = (uint32_t)x; h[1] = (uint32_t)(x >> 32);
+}
+static int rinc_cachePath(const char *name, char *path, size_t cap) { return snprintf(path, cap, "/rinc/cache/rinc/apps/%s.img", name) < (int)cap; }
+void rinc_cacheDrop(const char *name) {
+  char path[96]; int i;
+  for (i = 0; i < rinc_checkedCount; i++) if (!strcmp(rinc_checked[i].name, name)) rinc_checked[i].name[0] = 0;
+  if (rinc_fs && rinc_cachePath(name, path, sizeof path)) rinc_fs->remove(path);
+}
+static int rinc_readAll(void *ud, void *bytes, uint32_t n) {
+  char *p = (char *)bytes; int got;
+  (void)ud;
+  while (n) {
+    if ((got = rinc_fs->read(p, n > 0x4000 ? 0x4000 : (int)n)) <= 0) return 1;
+    p += got; n -= (uint32_t)got;
+  }
+  return 0;
+}
+static int rinc_writeAll(void *ud, const void *bytes, uint32_t n) { (void)ud; return n && rinc_fs->write((const char *)bytes, (int)n) != (int)n; }
+static void rinc_cacheHead(uint8_t *head, uint32_t len, const uint32_t *hash, uint32_t imageLen) {
+  uint32_t w[4]; w[0] = len; w[1] = hash[0]; w[2] = hash[1]; w[3] = imageLen;
+  memset(head, 0, rinc_CACHE_HEAD);
+  memcpy(head, rinc_CACHE_MAGIC, 8);
+  memcpy(head + 8, rinc_buildId, strlen(rinc_buildId) < 32 ? strlen(rinc_buildId) : 32);
+  memcpy(head + 40, w, sizeof w);
+}
+/* the app's cached image, if it's this source's (len, hash), loaded: 0; else -1 (nothing loaded, or a
+   failed load: the vm needs starting again) or -2 (no image of it: nothing touched) */
+static int rinc_cacheLoad(rio_Vm *vm, const char *name, uint32_t len, const uint32_t *hash) {
+  char path[96]; uint8_t want[rinc_CACHE_HEAD], head[rinc_CACHE_HEAD]; uint32_t imageLen; int res;
+  if (!rinc_fs || !rinc_cachePath(name, path, sizeof path) || rinc_fs->open(path, 0)) return -2;
+  rinc_cacheHead(want, len, hash, 0);
+  if (rinc_readAll(0, head, sizeof head) || memcmp(head, want, rinc_CACHE_HEAD - 4)) { rinc_fs->close(); return -2; }
+  memcpy(&imageLen, head + rinc_CACHE_HEAD - 4, 4);
+  res = rio_readImage(vm, rinc_readAll, 0, imageLen);
+  rinc_fs->close();
+  return res ? -1 : 0;
+}
+/* the app just compiled, its image cached: or none (a half-written one taken away) */
+static void rinc_cacheSave(rio_Vm *vm, const char *name, uint32_t len, const uint32_t *hash) {
+#ifdef rio_NO_COMPILER
+  (void)vm; (void)name; (void)len; (void)hash;
+#else
+  char path[96]; uint8_t head[rinc_CACHE_HEAD]; uint32_t imageLen = rio_saveImage(vm, 0, 0); int bad;
+  if (!rinc_fs || !imageLen || !rinc_cachePath(name, path, sizeof path) || rinc_fs->open(path, 1)) return;
+  rinc_cacheHead(head, len, hash, imageLen);
+  bad = rinc_writeAll(0, head, sizeof head) || rio_writeImage(vm, rinc_writeAll, 0) != imageLen;
+  if (rinc_fs->close() || bad) rinc_fs->remove(path);
+#endif
+}
+static void rinc_checkedAdd(const char *name, uint32_t len, const uint32_t *hash) {
+  int i;
+  for (i = 0; i < rinc_checkedCount && strcmp(rinc_checked[i].name, name); i++) {}
+  if (i == rinc_checkedCount) {
+    if (rinc_checkedCount < (int)(sizeof rinc_checked / sizeof *rinc_checked)) rinc_checkedCount++;
+    else { i = rinc_checkedNext; rinc_checkedNext = (rinc_checkedNext + 1) % rinc_checkedCount; }
+  }
+  snprintf(rinc_checked[i].name, sizeof rinc_checked[i].name, "%s", name);
+  rinc_checked[i].len = len; rinc_checked[i].hash[0] = hash[0]; rinc_checked[i].hash[1] = hash[1];
+}
+
+int rinc_appStart(rio_Vm *vm, void *space, uint32_t size, const char *name) {
+  char *top = (char *)space + size - rinc_MAX_SOURCE; const char *src; const rinc_App *b = 0;
+  uint32_t hash[2]; int n, i, res;
+  if (rinc_cacheTrust)
+    for (i = 0; i < rinc_checkedCount; i++)
+      if (!strcmp(rinc_checked[i].name, name)) {
+        if (!(res = rinc_cacheLoad(vm, name, rinc_checked[i].len, rinc_checked[i].hash))) return rinc_appGo(vm, name);
+        if (res == -1 && rinc_start(vm, space, size, rinc_put)) { rinc_appFail(name, ": can't start rio"); return -1; }
+        break;
+      }
+#ifdef rio_NO_COMPILER
+  n = -1; /* (no compiler: bundled images only) */
+#else
+  n = rinc_readApp(name, top, rinc_MAX_SOURCE); /* (at the top, where it compiles) */
+#endif
+  if (n == -2) { rinc_appFail(name, ".rio: too big (64 KB is the most)"); return -1; }
+  if (n < 0 && !(b = rinc_bundled(name))) { rinc_appFail(name, ": no app of this name"); return -1; }
+  if (b && b->image) return rinc_appRun(vm, space, size, name, b->data, b->len, b->data);
+  src = b ? b->data : top;
+  if (b) n = (int)rinc_appLen(b);
+  rinc_hash(src, (uint32_t)n, hash);
+  if (!(res = rinc_cacheLoad(vm, name, (uint32_t)n, hash))) {
+    rinc_checkedAdd(name, (uint32_t)n, hash);
+    return rinc_appGo(vm, name);
+  }
+  if (res == -1) { /* (a load that failed part way: the source again, from the start) */
+    if (rinc_start(vm, space, size, rinc_put)) { rinc_appFail(name, ": can't start rio"); return -1; }
+    if (!b && rinc_readApp(name, top, rinc_MAX_SOURCE) != n) { rinc_appFail(name, ": can't read it"); return -1; }
+  }
+  if (rinc_appLoad(vm, space, size, name, src, (uint32_t)n, 0)) return -1;
+  rinc_cacheSave(vm, name, (uint32_t)n, hash);
+  rinc_checkedAdd(name, (uint32_t)n, hash);
+  return rinc_appGo(vm, name);
 }
 int rinc_gameFrame(rio_Vm *vm) {
   static uint16_t wasButtons;

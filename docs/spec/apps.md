@@ -15,6 +15,7 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 /rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
 /rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
 /rinc/cache/chord/...         what it can make again: anything may clear it
+/rinc/cache/rinc/apps/chord.img   Rinc's own cache: the app, compiled (see compiled apps)
 /rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
 ```
 
@@ -116,6 +117,48 @@ the Rinc drops all of an app's stash when it's told to start the app afresh: the
 And what an app can always make again, it keeps in `/rinc/cache/<app>`, by convention: anything may
 clear that, at any time, and the app carries on, only slower.
 
+## Compiled apps
+
+An app starts from its source, compiled whole. Rinc keeps what that makes, its Rio image, so the next
+start can load it instead of compiling again:
+
+```
+/rinc/apps/help/help.rio              the source (or the firmware's, for an app built in)
+/rinc/cache/rinc/apps/help.img        its image: Rinc's header, then Rio's image
+```
+
+Help, on the Fruit Jam, starts in about 30 ms this way, instead of about 140; breakout in about 12,
+instead of 23.
+
+**When an image is used.** The header says which source it's from and which Rinc made it:
+
+| header | |
+|---|---|
+| `RINCIMG1` | what it is |
+| the build | which build of Rinc made it (when it was built): a new firmware, or a new `rinc`, compiles again |
+| the source's length, and its hash | 64-bit FNV-1a, of the source's bytes |
+| the image's length | then Rio's image, that long |
+
+An image is used only when all of those match the source as it is now. A Rinc can't go by file dates
+(the Fruit Jam has no clock, and a card can be changed on another computer), so it reads the source
+and hashes it, which is far quicker than compiling it. Anything else (no image, another build's, one
+cut short or damaged, a source that's changed) and the app is compiled again, and its image written
+over the old one. If the image can't be written (a full card, say), the app still runs.
+
+**Checking once.** On a Rinc whose storage changes only through itself while it runs (the Fruit Jam), an
+app checked once loads its image straight away from then on, without reading its source, until:
+
+- the Rinc starts again (a start always checks: the card may have changed while it was off);
+- anything in `/rinc/apps` or `/rinc/lib` is written or removed (the editor's saves among them);
+- the card has to be mounted again, after a failure (it may be another card, or this one changed).
+
+The desktop and the web check every time: there, other programs (another editor, another tab of the
+page) can change storage while Rinc runs.
+
+**The system key.** With R, the app starts again fresh: its stash and its image are both dropped, so
+it's compiled anew. With Q, the app is left out of the recent apps and its stash is dropped, but its
+image stays: it's still the image of its source, and only makes the next start quicker.
+
 ## Home
 
 A Rinc with apps starts at `home` (on the Fruit Jam, `system/home/home.rio`), which lists the apps in order of
@@ -138,7 +181,8 @@ on, what's typed isn't the app's. It's:
 | system + Esc (or a controller's Back) | home, from any app |
 | system + Tab (or a controller's RB) | the switcher: the recent apps, the one before this picked |
 | system + Shift+Tab (or LB) | the switcher, from the other end |
-| system + Q | back to the app before, this one left out of the recent apps |
+| system + Q | back to the app before, this one left out of the recent apps (its stash dropped) |
+| system + R | this app again, fresh: its stash and its compiled image dropped |
 | system + P | the performance strip, on or off |
 | system + Enter | the whole display, or a window again, where the Rinc can (the desktop's F11 too) |
 

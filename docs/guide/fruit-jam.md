@@ -35,6 +35,10 @@ outputs, in 2.5 dB steps, and mute).
 An app that isn't a game, or one that stops with an error, leaves its log and the error on the screen,
 until system+Esc goes home. One that runs out of memory shows how near each limit it came too.
 
+The first start of an app compiles it, and keeps what that makes on the card, in `/rinc/cache/rinc/apps`,
+so later starts are quicker (help: about 30 ms instead of 140). Changing an app's source compiles it
+again, and system+R starts an app afresh, compiled anew: see [compiled apps](../spec/apps.md#compiled-apps).
+
 Keyboards plug into the USB host ports. Controllers there can be wired Xbox 360 and Xbox One/Series
 ones, recognized by the USB interfaces they offer (`src/rp2350/gamepad.c`).
 

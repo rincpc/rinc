@@ -7,7 +7,7 @@ player and a bundle of apps, all inline.
 The VM-only player runs apps compiled, as images: about a quarter the size of the full one, which has
 the compiler too, for apps that run Rio themselves (pc.rio*, as the console does) and apps from storage.
 """
-import os, subprocess, sys
+import os, subprocess, sys, tempfile, time
 
 opts = dict(a[2:].split('=', 1) for a in sys.argv[1:] if a.startswith('--') and '=' in a)
 if not opts.keys() & {'wasm', 'wasm-full'}: sys.exit(__doc__.strip())
@@ -18,7 +18,10 @@ def build_wasm(path, full):
   # rio's core: every source but its CLI (main.c), its C backend (aot.c) and the ARM-only jit.c (with
   # rio_NO_COMPILER, the compiler's files compile to nothing)
   rio_core = sorted(f for f in os.listdir(os.path.join(rio, 'src')) if f.endswith('.c') and f not in ('main.c', 'aot.c', 'jit.c'))
-  sources = [os.path.join(root, 'src', 'web', 'main.c')] + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
+  # the build's id (rinc_buildId, as tools/buildid.cmake makes it): another build's cached app images go
+  build_id = os.path.join(tempfile.mkdtemp(), 'build_id.c')
+  with open(build_id, 'w') as f: f.write('const char rinc_buildId[] = "%s";\n' % time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+  sources = [os.path.join(root, 'src', 'web', 'main.c'), build_id] + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
   subprocess.run(['zig', 'cc', '-target', 'wasm32-wasi', '-mexec-model=reactor', '-Oz', '-Drio_SMALL', '-Drio_MAX_FFI=64'] + ([] if full else ['-Drio_NO_COMPILER']) +
                  ['-I' + os.path.join(rio, 'src'), '-I' + os.path.join(root, 'src', 'core'), '-Wl,--strip-all', '-o', path] + sources, check=True)
   print('%s: %d bytes' % (path, os.path.getsize(path)))

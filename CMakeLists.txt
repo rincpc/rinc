@@ -38,7 +38,13 @@ if(RINC_PLATFORM STREQUAL rp2350)
 endif()
 
 include(${RIO_DIR}/library.cmake)
-add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c)
+# the build's id (rinc_buildId): made again with every build, so another build's cached app images go
+set(RINC_BUILD_ID ${CMAKE_BINARY_DIR}/build_id.c)
+execute_process(COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake)
+add_custom_target(rinc_build_id COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake
+                  BYPRODUCTS ${RINC_BUILD_ID})
+add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c ${RINC_BUILD_ID})
+add_dependencies(rinccore rinc_build_id)
 target_include_directories(rinccore PUBLIC src/core)
 target_link_libraries(rinccore PUBLIC riocore)
 if(NOT MSVC)
@@ -196,6 +202,10 @@ else()
     add_test(NAME docs COMMAND Python3::Interpreter ${RIO_DIR}/tests/docs.py $<TARGET_FILE:rinc>
       ${CMAKE_CURRENT_LIST_DIR}/docs ${CMAKE_CURRENT_LIST_DIR}/README.md -- -frames 2 -data ${CMAKE_CURRENT_BINARY_DIR}/docs-data)
     set_tests_properties(docs PROPERTIES PASS_REGULAR_EXPRESSION "all [0-9]+ doc examples passed")
+  endif()
+  if(Python3_FOUND) # apps' compiled images, cached
+    add_test(NAME app_cache COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/cache.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/cache-data)
+    set_tests_properties(app_cache PROPERTIES PASS_REGULAR_EXPRESSION "the cache came through")
   endif()
   # pc.rio, the host procs written out, matches what rinc registers
   add_executable(rinc_pc_test tests/pc.c)

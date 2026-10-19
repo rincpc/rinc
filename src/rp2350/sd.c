@@ -105,10 +105,13 @@ DRESULT disk_ioctl(BYTE drive, BYTE cmd, void *buf) {
 
 /* Rinc's files, through FatFs: one file open at a time */
 static FATFS rinc_volume; static FIL rinc_file; static int rinc_mounted, rinc_isOpen;
+/* mounted again after a failure, which may be another card, or this one changed elsewhere: what Rinc
+   checked of it goes (rinc_storageChanged). Only a real failure unmounts: a file that isn't there doesn't */
 static int rinc_mount(void) {
-  if (!rinc_mounted) rinc_mounted = f_mount(&rinc_volume, "", 1) == FR_OK;
+  if (!rinc_mounted && (rinc_mounted = f_mount(&rinc_volume, "", 1) == FR_OK)) rinc_storageChanged("/rinc/apps/");
   return rinc_mounted;
 }
+static int rinc_failed(FRESULT r) { if (r != FR_NO_FILE && r != FR_NO_PATH) rinc_mounted = 0; return -1; }
 static int rinc_mkdirs(const char *path) { /* every directory along path (its last part is the file) */
   char d[128]; const char *p;
   for (p = strchr(path + 1, '/'); p; p = strchr(p + 1, '/')) {
@@ -123,7 +126,8 @@ static int rinc_fsOpen(const char *path, int write) {
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
   if (!rinc_mount()) { rinc_mounted = 0; return -1; }
   if (write && !rinc_mkdirs(path)) return -1;
-  if (f_open(&rinc_file, path, write ? FA_WRITE | FA_CREATE_ALWAYS : FA_READ) != FR_OK) { rinc_mounted = 0; return -1; }
+  if (write) rinc_storageChanged(path);
+  { FRESULT r = f_open(&rinc_file, path, write ? FA_WRITE | FA_CREATE_ALWAYS : FA_READ); if (r != FR_OK) return rinc_failed(r); }
   rinc_isOpen = 1;
   return 0;
 }
@@ -132,11 +136,17 @@ static int rinc_fsWrite(const char *buf, int n) { UINT put = 0; if (!rinc_isOpen
 static int rinc_fsClose(void) { int ok = rinc_isOpen && f_close(&rinc_file) == FR_OK; rinc_isOpen = 0; return ok ? 0 : -1; }
 static int rinc_fsList(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
   DIR d; FILINFO info;
-  if (!rinc_mount() || f_opendir(&d, dir) != FR_OK) { rinc_mounted = 0; return -1; }
+  FRESULT r;
+  if (!rinc_mount()) return -1;
+  if ((r = f_opendir(&d, dir)) != FR_OK) return rinc_failed(r);
   while (f_readdir(&d, &info) == FR_OK && info.fname[0]) each(info.fname, (info.fattrib & AM_DIR) != 0, ud);
   f_closedir(&d);
   return 0;
 }
-static int rinc_fsRemove(const char *path) { if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; } return rinc_mount() && f_unlink(path) == FR_OK ? 0 : -1; }
+static int rinc_fsRemove(const char *path) {
+  if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
+  rinc_storageChanged(path);
+  return rinc_mount() && f_unlink(path) == FR_OK ? 0 : -1;
+}
 static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove};
 void rinc_sdSetup(void) { gpio_init(rinc_PIN_DETECT); gpio_pull_up(rinc_PIN_DETECT); rinc_fs = &rinc_sdFs; }

@@ -102,6 +102,20 @@ extern int rinc_game;    /* the app has frames to run (update*, draw*) */
 extern int rinc_showLog; /* what's logged goes on the screen too: while an app starts, and once it's stopped */
 int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void (*put)(const char *s, int n));
 int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image);
+/* or, for an app by name (after rinc_appBegin): from storage, else the bundle, through its cached
+   compiled image while that's still its source's (rinc_appRun's the rest). 0, or -1 */
+int rinc_appStart(rio_Vm *vm, void *space, uint32_t size, const char *name);
+/* the platform's: native code for an app, once it's loaded (the Fruit Jam's: rio_jit), or NULL. 0 or
+   more, or -1 if it can't */
+extern int (*rinc_native)(rio_Vm *vm);
+/* cached images: rinc_cacheTrust 1 on a Rinc whose storage changes only through Rinc while it runs
+   (then an app's checked once a start, not each time it's opened); the platform calls
+   rinc_storageChanged(path) for each file it writes or removes; rinc_cacheDrop drops an app's image.
+   rinc_buildId: this build's (build_id.c): another build's images are compiled again */
+extern int rinc_cacheTrust;
+void rinc_storageChanged(const char *path);
+void rinc_cacheDrop(const char *name);
+extern const char rinc_buildId[];
 void rinc_appFail(const char *name, const char *why);
 void rinc_say(const char *s);
 int rinc_gameFrame(rio_Vm *vm);

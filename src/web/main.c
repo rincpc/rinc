@@ -36,7 +36,11 @@ static int rinc_key(const char *path, char *key, int cap) { /* /rinc/apps/x -> r
   if (strncmp(path, "/rinc/", 6) || strstr(path, "..")) return -1;
   return snprintf(key, (size_t)cap, "%s/%s", rinc_store, path + 6);
 }
-static int rinc_open(const char *path, int write) { char k[160]; int n = rinc_key(path, k, sizeof k); return n < 0 ? -1 : js_fsOpen(k, n, write); }
+static int rinc_open(const char *path, int write) {
+  char k[160]; int n = rinc_key(path, k, sizeof k);
+  if (write) rinc_storageChanged(path);
+  return n < 0 ? -1 : js_fsOpen(k, n, write);
+}
 static int rinc_read(char *buf, int n) { return js_fsRead(buf, n); }
 static int rinc_write(const char *buf, int n) { return js_fsWrite(buf, n); }
 static int rinc_close(void) { return js_fsClose(); }
@@ -51,7 +55,7 @@ static int rinc_list(const char *dir, void (*each)(const char *name, int dir, vo
   }
   return 0;
 }
-static int rinc_remove(const char *path) { char k[160]; int n = rinc_key(path, k, sizeof k); return n < 0 ? -1 : js_fsRemove(k, n); }
+static int rinc_remove(const char *path) { char k[160]; int n = rinc_key(path, k, sizeof k); rinc_storageChanged(path); return n < 0 ? -1 : js_fsRemove(k, n); }
 static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove};
 
 /* ------------------------------------------------------------------ apps */
@@ -61,16 +65,9 @@ rinc_EXPORT(sourceCap) int rinc_webSourceCap(void) { return (int)sizeof rinc_src
 /* an app, by name, started (rinc_appBegin, rinc_appRun): from storage (with the compiler), else the
    bundle: an image (or, with the compiler, a source too). Whatever goes wrong is on the screen */
 static void rinc_webOpen(const char *name) {
-  const rinc_App *b = 0; int n = -1; char *top = (char *)rinc_appSpace + sizeof rinc_appSpace - rinc_MAX_SOURCE;
   name = rinc_appFor(name);
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_put)) return;
-#ifndef rio_NO_COMPILER
-  n = rinc_readApp(name, top, rinc_MAX_SOURCE); /* (at the top, where it compiles) */
-#endif
-  if (n == -2) { rinc_appFail(name, ".rio: too big (64 KB is the most)"); return; }
-  if (n < 0 && !(b = rinc_bundled(name))) { rinc_appFail(name, ": no app of this name"); return; }
-  if (n >= 0) rinc_appRun(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, top, (uint32_t)n, 0);
-  else rinc_appRun(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, b->data, b->len, b->image ? b->data : 0);
+  rinc_appStart(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name);
 }
 /* start the bundle in source() at its home app: 0, or -1 if it's no bundle (error() says why) */
 rinc_EXPORT(start) int rinc_webStart(int len) {

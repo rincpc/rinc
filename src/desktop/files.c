@@ -38,7 +38,7 @@ static int rinc_open(const char *path, int write) {
   char local[1024];
   if (rinc_file) { fclose(rinc_file); rinc_file = 0; }
   if (rinc_local(path, local, sizeof local)) return -1;
-  if (write) rinc_mkdirsFor(local);
+  if (write) { rinc_mkdirsFor(local); rinc_storageChanged(path); }
   return (rinc_file = fopen(local, write ? "wb" : "rb")) ? 0 : -1;
 }
 static int rinc_read(char *buf, int n) { return rinc_file ? (int)fread(buf, 1, (size_t)n, rinc_file) : -1; }
@@ -96,6 +96,7 @@ int rinc_walkFolder(const char *folder, void (*each)(const char *path, void *ud)
 static int rinc_remove(const char *path) {
   char local[1024];
   if (rinc_local(path, local, sizeof local)) return -1;
+  rinc_storageChanged(path);
   return remove(local) && rinc_rmdir(local) ? -1 : 0;
 }
 static const rinc_Fs rinc_desktopFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove};

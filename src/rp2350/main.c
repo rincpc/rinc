@@ -45,30 +45,17 @@ static int rinc_systemKeys(void) {
   return rinc_systemKey(rinc_DOWN(HID_KEY_GUI_LEFT) || rinc_DOWN(HID_KEY_GUI_RIGHT) || rinc_padGuide, mods, other, keys);
 }
 
-/* an app's source: from the SD card (read into the app space's top), or else the firmware's bundle.
-   Its length, or -1 (said why) */
-static int rinc_source(const char *name, const char **src) {
-  char *at = (char *)rinc_appSpace + rinc_APP_SPACE - rinc_MAX_SOURCE; const rinc_App *b; int n = rinc_readApp(name, at, rinc_MAX_SOURCE);
-  if (n == -2) { rinc_appFail(name, ".rio: too big (64 KB is the most)"); return -1; }
-  if (n >= 0) {
-    memmove(rinc_appSpace + rinc_APP_SPACE - n, at, (size_t)n); /* (right at the top: all below is the compiler's) */
-    *src = (const char *)rinc_appSpace + rinc_APP_SPACE - n;
-    return n;
-  }
-  if ((b = rinc_bundled(name))) { *src = b->data; return (int)(b->len ? b->len : strlen(b->data)); }
-  rinc_appFail(name, ": no app of this name");
-  return -1;
-}
+/* an app's native code, once it's loaded: its simple loops compiled to Thumb-2 (after its image is
+   cached, which keeps to bytecode) */
+static int rinc_jitApp(rio_Vm *vm) { return rio_jit(vm, rinc_jitCode, sizeof rinc_jitCode); }
 
-/* an app, by name, compiled whole and started (rinc_appBegin, rinc_appRun): its top-level code, then
-   main; then, if it's a game, its frames. What goes wrong stays on the screen */
+/* an app, by name, started (rinc_appBegin, rinc_appStart): from the SD card, else the firmware's
+   bundle, compiled whole (or its cached image, while it's still its source's); its top-level code,
+   then main; then, if it's a game, its frames. What goes wrong stays on the screen */
 static void rinc_open(const char *name) {
-  const char *src; int n;
   name = rinc_appFor(name); /* (home: the card's, else the bundle's) */
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, rinc_APP_SPACE, name, rinc_put)) return;
-  if (rio_jit(&rinc_vm, rinc_jitCode, sizeof rinc_jitCode) < 0) { rinc_appFail(name, ": can't set up native code"); return; }
-  if ((n = rinc_source(name, &src)) < 0) return;
-  rinc_appRun(&rinc_vm, rinc_appSpace, rinc_APP_SPACE, name, src, (uint32_t)n, 0);
+  rinc_appStart(&rinc_vm, rinc_appSpace, rinc_APP_SPACE, name);
 }
 
 /* typing, from the USB keyboard and the serial port, for pc.key(); Ctrl-C over serial (a developer's
@@ -127,6 +114,8 @@ int main(void) {
   rinc_videoStart(); /* (core 1: video, then sound) */
   rinc_keyboardStart();
   rinc_sdSetup();
+  rinc_native = rinc_jitApp;
+  rinc_cacheTrust = 1; /* (the card changes only through Rinc while it runs: a remount drops what's checked) */
   rinc_bundleRead(rinc_firmwareBundle, rinc_firmwareBundleSize); /* (home and the console, by default; the card's override them) */
   rinc_open("home"); /* (the board starts at home) */
   for (;;) rinc_frameNow();
