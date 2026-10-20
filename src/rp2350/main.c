@@ -97,8 +97,9 @@ static void rinc_frameNow(void) {
   if (rinc_launch) { rinc_launch = 0; rinc_open(rinc_launchName); return; }
   if (!rinc_game) return;
   rinc_buttons = rinc_padButtons | (uint16_t)(rinc_DOWN(HID_KEY_ARROW_LEFT) * rinc_Button_left | rinc_DOWN(HID_KEY_ARROW_RIGHT) * rinc_Button_right |
-    rinc_DOWN(HID_KEY_ARROW_UP) * rinc_Button_up | rinc_DOWN(HID_KEY_ARROW_DOWN) * rinc_Button_down | rinc_DOWN(HID_KEY_V) * rinc_Button_a |
-    rinc_DOWN(HID_KEY_C) * rinc_Button_b | rinc_DOWN(HID_KEY_X) * rinc_Button_x | rinc_DOWN(HID_KEY_Z) * rinc_Button_y);
+    rinc_DOWN(HID_KEY_ARROW_UP) * rinc_Button_up | rinc_DOWN(HID_KEY_ARROW_DOWN) * rinc_Button_down |
+    (rinc_lettersAsButtons() ? rinc_DOWN(HID_KEY_V) * rinc_Button_a | rinc_DOWN(HID_KEY_C) * rinc_Button_b | rinc_DOWN(HID_KEY_X) * rinc_Button_x |
+                               rinc_DOWN(HID_KEY_Z) * rinc_Button_y : 0)); /* (a game's: a pointer app's keyboard types) */
   if (rinc_systemHeld()) rinc_buttons = 0; /* (a system combination: not the app's) */
   rinc_gameFrame(&rinc_vm); /* (an error goes on the screen) */
   if (rinc_launch) { rinc_launch = 0; rinc_open(rinc_launchName); } /* (pc.launch: after the frame) */

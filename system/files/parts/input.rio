@@ -212,8 +212,8 @@ update* :: proc()
     end
   end
   # up and down: the arrows and the d-pad, as buttons (a step a press, then more while it's held); Y the
-  # menu, B back
-  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(7) * 4 + pc.btn(5) * 8
+  # menu (a controller's A and B are Enter and Esc, as keys)
+  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(7) * 4
   pressed := bits & ~held
   step := 0
   if bits & 3 != held & 3
@@ -233,11 +233,7 @@ update* :: proc()
   if pressed & 4 != 0 and mode == NONE and not picking
     openMenu()
   end
-  # (not while typing a name: C on a keyboard is B too, and Esc closes the prompt)
-  if pressed & 8 != 0 and wasShown == 0 and not prompting()
-    back()
-  end
-  # the pointer: a click picks, and a click on the one picked opens it (as A does, with the pointer
+  # the pointer: a click picks, and a click on the one picked opens it (as Enter does, with the pointer
   # hidden); the secondary button shows the menu; in the menu, a click does that, outside it closes it
   click := pc.pointerDown(0) + pc.pointerDown(1) * 2
   if click & ~clicked != 0

@@ -33,7 +33,8 @@ rinc a.rio b.rio -web game.html   a page that plays them (see the web)
 rinc -help                        all this; and rinc -license, the licenses of what's in it
 ```
 
-In a window, the arrows and V, C, X and Z are the buttons, any controller SDL knows is player 1 (Xbox,
+In a window, the arrows and V, C, X and Z are the buttons (in a game: in a pointer app, such as home,
+the letters type, and a controller's A and B are Enter and Esc), any controller SDL knows is player 1 (Xbox,
 PlayStation, Switch and more), and Esc is the app's. The system key is Ctrl and Shift tapped together
 (the operating system keeps the Windows key), or a controller's guide button; with Esc (or Back) it goes
 home. F11, or the system key with Enter, fills the display, and keeps the mouse on it until it's a

@@ -114,8 +114,8 @@ update* :: proc()
     end
     c = pc.key()
   end
-  # the pointer: a click on a link follows it (A's too; A with the pointer hidden, and not on a link,
-  # follows the picked one); the secondary button (or B) goes back; scrolling, two rows a step
+  # the pointer: a click on a link follows it (with the pointer hidden, and not on a link, the picked
+  # one); the secondary button goes back (a controller's A and B: Enter and Esc); scrolling, two rows a step
   click := pc.pointerDown(0) + pc.pointerDown(1) * 2
   if click & ~clicked & 1 != 0
     l := linkAt(pc.pointerX(), pc.pointerY())

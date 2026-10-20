@@ -52,7 +52,10 @@ care about them can use that.
 A controller's RB types Tab as it's pressed, and LB Shift+Tab, so anything moved through with Tab works
 from a controller too. Other keys (function keys, the system key) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
 and one fed text faster than that (a serial port, a paste) waits for room. Keys also hold buttons down
-while they're held (the arrows, V, C, X and Z), so an app reads them either way.
+while they're held (the arrows, V, C, X and Z), so an app reads them either way: in a game. In a pointer
+app (`pc.Pointer.ui`, below) the keyboard types, and only its arrows are buttons too; there a
+controller's A and B, with the pointer hidden, type Enter and Esc, so one works such an app through the
+keys it reads.
 
 A terminal's escape sequences (`ESC [ A` for up, `ESC [ 3 ~` for Delete, and so on) become the key codes
 above, so a Rinc fed by a serial terminal types the same keys. Modifiers come as xterm sends them:
@@ -78,7 +81,7 @@ the middle. `pc.scroll(i)` is the whole steps scrolled since it was last asked, 
 | mode | |
 |---|---|
 | `game` | each app's to start: the mouse's only; the left stick is still the arrows |
-| `ui` | a pointer app's: a controller's too, its left stick moving the pointer (faster the further it's pushed), its right one scrolling, and A and B its primary and secondary buttons (still `pc.btn` 4 and 5 too) |
+| `ui` | a pointer app's: a controller's too, its left stick moving the pointer (faster the further it's pushed), its right one scrolling, and A and B its primary and secondary buttons while it's shown (still `pc.btn` 4 and 5 too; hidden, they type Enter and Esc, and don't show it). The keyboard types: V, C, X and Z aren't buttons here |
 | `none` | it's never shown |
 
 The d-pad is the arrows in every mode, and everything a pointer does should have keys too, since not

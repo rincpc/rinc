@@ -17,6 +17,10 @@ extern float (*rinc_time)(void);          /* seconds since start, from the platf
    controller's others: 8 LB, 9 RB, 10 left stick, 11 right stick (pressed in), 12 Start, 13 Back.
    Each platform sets them from its keys and controllers before a frame */
 extern uint16_t rinc_buttons;
+/* whether a keyboard's V, C, X and Z are A, B, X and Y too (as its arrows are the d-pad): for a game, not
+   for a pointer app (pc.Pointer.ui), whose keyboard types only. There a controller's A and B, with the
+   pointer hidden, are Enter and Esc too */
+int rinc_lettersAsButtons(void);
 /* a controller's sticks and triggers, also set by the platform: 0 left stick x, 1 its y, 2 and 3 the
    right stick's (-32767 to 32767; y is + down, as on the screen), 4 left trigger, 5 right (0 to 32767) */
 extern int16_t rinc_axes[6];

@@ -27,7 +27,8 @@ __declspec(dllimport) unsigned long __stdcall GetModuleFileNameA(void *module, c
 #include <SDL3/SDL_main.h>
 #endif
 
-static uint8_t rinc_appSpace[256 << 10], rinc_replScratch[1 << 18], rinc_image[512 << 10];
+static _Alignas(16) uint8_t rinc_appSpace[256 << 10]; /* (aligned, as rio_init starts it: all 256 KB, as on the board and the web) */
+static uint8_t rinc_replScratch[1 << 18], rinc_image[512 << 10];
 static int16_t rinc_wav[rinc_RATE * 2 * 60]; /* -wav: up to a minute */
 static char rinc_src[1 << 20];
 static rio_Vm rinc_vm;
@@ -560,7 +561,8 @@ static int rinc_window(const char *title) {
     }
     k = SDL_GetKeyboardState(0);
     rinc_buttons = rinc_readPad() | (uint16_t)(k[SDL_SCANCODE_LEFT] * rinc_Button_left | k[SDL_SCANCODE_RIGHT] * rinc_Button_right | k[SDL_SCANCODE_UP] * rinc_Button_up |
-      k[SDL_SCANCODE_DOWN] * rinc_Button_down | k[SDL_SCANCODE_V] * rinc_Button_a | k[SDL_SCANCODE_C] * rinc_Button_b | k[SDL_SCANCODE_X] * rinc_Button_x | k[SDL_SCANCODE_Z] * rinc_Button_y);
+      k[SDL_SCANCODE_DOWN] * rinc_Button_down |
+      (rinc_lettersAsButtons() ? k[SDL_SCANCODE_V] * rinc_Button_a | k[SDL_SCANCODE_C] * rinc_Button_b | k[SDL_SCANCODE_X] * rinc_Button_x | k[SDL_SCANCODE_Z] * rinc_Button_y : 0)); /* (a game's: a pointer app's keyboard types) */
     { /* the system key: Ctrl and Shift tapped together (the Windows key is the desktop's own), or a
          controller's guide button; and the locks */
       int other = 0, s, mods = (k[SDL_SCANCODE_LSHIFT] || k[SDL_SCANCODE_RSHIFT] ? 1 : 0) | (k[SDL_SCANCODE_LCTRL] || k[SDL_SCANCODE_RCTRL] ? 2 : 0) |
@@ -708,7 +710,7 @@ int main(int argc, char **argv) {
     if (!out && !frames) return rinc_window(app);
 #endif
     for (i = 0; i < frames; i++) { /* a game, without a window: A held for the first frames (to start it) */
-      rinc_buttons = i < 3 && !rinc_typing ? rinc_Button_a : 0; /* (not when typing: the typing is what drives it) */
+      rinc_buttons = i < 3 && !rinc_typing && rinc_lettersAsButtons() ? rinc_Button_a : 0; /* (not when typing: the typing is what drives it; nor a pointer app's, where A is Enter) */
       rinc_typeMore();
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();

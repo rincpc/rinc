@@ -1273,7 +1273,7 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
 }
 
 /* the pointer (docs/spec/input.md#the-pointer): a mouse's, and in pointer mode a controller's too (its left
-   stick moves it, its right one scrolls, A and B click), drawn by Rinc over the screen while it's shown:
+   stick moves it, its right one scrolls, A and B click while it's shown), drawn by Rinc over the screen while it's shown:
    moving it shows it, typing hides it. Modes: 0 (the default, for games) a mouse's only, the left stick
    still the arrows; 1 a pointer app's; 2 none */
 int rinc_pointerMode, rinc_pointerAtX = 160, rinc_pointerAtY = 120;
@@ -1298,6 +1298,7 @@ void rinc_mouseMove(float x, float y) {
 void rinc_mouseButtons(int held) { if (held & ~rinc_mouseHeld) rinc_pointerShow(1); rinc_mouseHeld = held; } /* (pressing one shows it) */
 void rinc_mouseGone(void) { if (!rinc_mouseHeld) rinc_pointerOn = rinc_pointerOnScreen = 0; } /* (not while dragging) */
 void rinc_mouseWheel(float dx, float dy) { rinc_scrolled[0] += dx; rinc_scrolled[1] += dy; }
+int rinc_lettersAsButtons(void) { return rinc_pointerMode != 1; }
 /* each frame: in pointer mode, the controller moves it, scrolls, and clicks */
 static void rinc_pointerFrame(void) {
   static int arrows, keyFrames;
@@ -1320,8 +1321,16 @@ static void rinc_pointerFrame(void) {
       rinc_mouseMove(rinc_pointerX, rinc_pointerY);
     }
     rinc_scrolled[0] += rx * 0.3f; rinc_scrolled[1] -= ry * 0.3f; /* (up: scrolled up, as a wheel) */
-    if (rinc_buttons & rinc_Button_a) held |= 1;
-    if (rinc_buttons & rinc_Button_b) held |= 2;
+    /* (A and B click only while the pointer's shown, and a click goes on till it's let go. Hidden, they're
+       the controller's buttons, and Enter and Esc too, pressed: a pointer app's keyboard types only, so
+       here they're a controller's, rinc_lettersAsButtons) */
+    static uint16_t was;
+    uint16_t pressed = (uint16_t)(rinc_buttons & ~was);
+    if ((rinc_buttons & rinc_Button_a) && (rinc_pointerOn || (rinc_pointerHeld & 1))) held |= 1;
+    else if (pressed & rinc_Button_a) rinc_textKey(13);
+    if ((rinc_buttons & rinc_Button_b) && (rinc_pointerOn || (rinc_pointerHeld & 2))) held |= 2;
+    else if (pressed & rinc_Button_b) rinc_textEsc();
+    was = rinc_buttons;
     if (held & ~rinc_pointerHeld) rinc_pointerShow(1);
   }
   rinc_pointerHeld = held;

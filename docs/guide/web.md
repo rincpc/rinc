@@ -7,7 +7,7 @@ rinc apps/breakout.rio -web breakout.html
 makes one self-contained page: a bundle of the app compiled to an image, Rinc's VM as wasm (gzipped,
 and unzipped by the browser), and a small JS host (`src/web/page.html`). Breakout comes to 54 KB: a
 31 KB player and a 3.5 KB bundle, in base64. Open it from disk or any server. The arrows and V, C, X and
-Z are the buttons, and any controller the browser maps to the standard layout is player 1. Sound starts
+Z are the buttons (in a game: in a pointer app the letters type), and any controller the browser maps to the standard layout is player 1. Sound starts
 with the first key or click, as browsers require.
 
 A page can carry several apps, as an exported program does (see [the desktop](desktop.md)):

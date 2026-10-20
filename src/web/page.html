@@ -169,7 +169,7 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
   const held = new Set();
   addEventListener("keydown", e => {
     held.add(e.code);
-    if (keys[e.code]) { buttons |= keys[e.code]; e.preventDefault(); }
+    if (keys[e.code] && (keys[e.code] < 16 || ex.letters())) { buttons |= keys[e.code]; e.preventDefault(); } // (letters: a game's buttons, a pointer app's typing)
     if (e.key === "Alt") { e.preventDefault(); return; } // (Alt is Rinc's: tapped twice, a lock; not the browser's menus)
     const mods = (e.shiftKey ? 256 : 0) | (e.ctrlKey ? 512 : 0) | (e.altKey ? 1024 : 0);
     if (e.key === "Escape") { ex.key(27); return; }

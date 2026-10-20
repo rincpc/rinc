@@ -31,6 +31,8 @@ static uint32_t rinc_rgba[rinc_W * rinc_H];
 static int16_t rinc_sound[2048 * 2];
 
 static void rinc_put(const char *s, int n) { js_put(s, n); }
+/* letters() -> whether the keyboard's V, C, X and Z are buttons too, now (a game's: a pointer app's keyboard types) */
+rinc_EXPORT(letters) int rinc_webLetters(void) { return rinc_lettersAsButtons(); }
 
 /* ------------------------------------------------------------------ storage */
 

@@ -173,7 +173,7 @@ update* :: proc()
     narrow()
     c = pc.key()
   end
-  # a click on an app opens it (A's too: A with the pointer hidden, and not on one, opens the picked
+  # a click on an app opens it (a click with the pointer hidden, and not on one, opens the picked
   # one); scrolling moves the pick
   click := pc.pointerDown(0)
   if click == 1 and clicked == 0
