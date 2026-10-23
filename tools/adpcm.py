@@ -100,8 +100,8 @@ def write_rio(path, data, nch, rate, name):
          '%s: Blob[%d]' % (name, len(data)), '%s_n := 0' % name]
   for k in range(0, len(data), 1536):
     hexed = data[k:k + 1536].hex()
-    lines = '\n'.join(hexed[i:i + 96] for i in range(0, len(hexed), 96))
-    out.append('%s_n += pc.fromHex(%s[%s_n:%s.len()], "\n%s\n")' % (name, name, name, name, lines))
+    lines = '\n'.join('  "' + hexed[i:i + 96] for i in range(0, len(hexed), 96))
+    out.append('%s_n += pc.fromHex(\n  %s[%s_n:%s.len()],\n%s",\n)' % (name, name, name, name, lines))
   out.append('# play it: pc.sound(0, %s, 4, %d, %d.0)' % (name, nch, rate))
   open(path, 'w', encoding='utf-8', newline='\n').write('\n'.join(out) + '\n')
 

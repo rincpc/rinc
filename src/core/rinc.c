@@ -1682,8 +1682,7 @@ static void rinc_moveLeft(rinc_Repl *r, int k) { char b[16]; if (k > 0) r->put(b
 static void rinc_paintLine(rinc_Repl *r) {
   int i = r->line0, j;
   rinc_puts(r, rinc_PAINT_PLAIN); /* (from whatever color the cursor was last in: a comment's, say) */
-  r->mode = rio_replIndent(r->acc, (uint32_t)r->line0) < 0 ? rinc_Mode_string : rinc_Mode_plain; r->word = -1; r->numdot = -1;
-  if (r->mode == rinc_Mode_string) rinc_puts(r, rinc_PAINT_STRING);
+  r->mode = rinc_Mode_plain; r->word = -1; r->numdot = -1; /* (a string ends with its line: none carries over) */
   while (i < r->n) {
     char c = r->acc[i];
     if (r->mode == rinc_Mode_string) {

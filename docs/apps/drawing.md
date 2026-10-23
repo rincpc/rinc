@@ -48,11 +48,12 @@ Rinc has no sprite format of its own: a picture is just bytes, one color number 
 `pset`. `hexBlob` writes them in the app:
 
 ```rio
-heart := hexBlob("
-  00 08 00 08 00
-  08 08 08 08 08
-  00 08 08 08 00
-  00 00 08 00 00")
+heart := hexBlob(
+  "00 08 00 08 00
+  "08 08 08 08 08
+  "00 08 08 08 00
+  "00 00 08 00 00"
+)
 drawPic :: proc(pic: Blob, w, x, y: Int)
   for c, i in pic
     if c != 0                    # 0: see-through
