@@ -170,8 +170,14 @@ end
 enter :: proc()
   shown: Blob[..256]
   t := trim(line[:].asString())
-  if acc.len() > 0 and line.len() >= 2 and (startsWith(t, "end") or startsWith(t, "else") or startsWith(t, "case"))
-    line.remove(0)                       # (a step back out)
+  indent := 0
+  for indent < line.len() and line[indent] == 32
+    indent += 1
+  end
+  # (a step back out, if the indent is still all there: not when Backspace already took it)
+  if acc.len() > 0 and indent >= 2 and indent >= pc.rioIndent(acc[:].asString()) * 2 and
+      (startsWith(t, "end") or startsWith(t, "else") or startsWith(t, "case"))
+    line.remove(0)
     line.remove(0)
   end
   if acc.len() == 0

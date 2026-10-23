@@ -193,7 +193,7 @@ else()
   add_test(NAME app_home COMMAND rinc -data ${data} -frames 30)
   set_tests_properties(app_home PROPERTIES DEPENDS install)
   add_test(NAME app_console COMMAND rinc -data ${data} -app console -frames 60
-    -type "x := 6 * 7\\nsq :: proc(n: Int) -> Int\\nreturn n * n\\nend\\nsq(x)\\nnope\\nls\\n")
+    -type "x := 6 * 7\\nsq :: proc(n: Int) -> Int\\nreturn n * n\\n\\x08\\x08end\\nsq(x)\\nnope\\nls\\n") # (end after its indent's backspaced: still end)
   set_tests_properties(app_console PROPERTIES DEPENDS install PASS_REGULAR_EXPRESSION "1764[\r\n]+> nope[\r\n]+1:1: undefined name")
   # the editor: a new app (Ctrl+N), typed, an undo (Ctrl+Z), then saved as t1 and run (Ctrl+R)
   add_test(NAME app_edit COMMAND rinc -data ${data} -app edit -frames 200

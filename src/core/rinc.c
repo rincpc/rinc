@@ -1756,14 +1756,16 @@ static void rinc_indent(rinc_Repl *r) {
   r->autoind = 0;
   while (k-- > 0 && r->n < (int)sizeof r->acc - 2) { rinc_append(r, ' '); r->autoind++; }
 }
-/* the line so far is its indent and one word: end, else or case go a step out */
+/* the line so far is its indent and one word: end, else or case go a step out (if the indent is still
+   all there: not when Backspace already took the step) */
 static void rinc_outdent(rinc_Repl *r) {
   int s = r->line0, w, i;
   if (r->cur != r->n) return;
   while (s < r->n && r->acc[s] == ' ') s++;
   w = r->n - s;
   for (i = s; i < r->n; i++) if (r->acc[i] == ' ') return;
-  if (s - r->line0 < 2 || !w || !rio_replOutdent(r->acc + s, (uint32_t)w)) return;
+  if (s - r->line0 < 2 || s - r->line0 < rio_replIndent(r->acc, (uint32_t)r->line0) * 2) return;
+  if (!w || !rio_replOutdent(r->acc + s, (uint32_t)w)) return;
   memmove(r->acc + s - 2, r->acc + s, (size_t)w); r->n -= 2; r->cur = r->n;
   rinc_redraw(r);
 }
