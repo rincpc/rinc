@@ -74,7 +74,7 @@ if(RINC_PLATFORM STREQUAL rp2350)
   set(TUSB ${PICO_SDK_PATH}/lib/tinyusb/src)
   # the firmware's bundle (docs/spec/apps.md#bundles): the apps it carries, home, the console and the
   # editor by default (the SD card's apps of the same names take their place); RINC_HOME is the one home means
-  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio|${CMAKE_CURRENT_LIST_DIR}/system/files/files.rio" CACHE STRING
+  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio|${CMAKE_CURRENT_LIST_DIR}/system/files/files.rio|${CMAKE_CURRENT_LIST_DIR}/system/colors/colors.rio" CACHE STRING
     "the firmware's apps, their .rio files, separated by |")
   set(RINC_HOME "" CACHE STRING "the firmware's home app, by name (by default the only app, else one named home)")
   # and its help texts, for the help app: each name=folder's Markdown, as help/<name>/... (rinc's docs and rio's)
@@ -204,6 +204,10 @@ else()
   add_test(NAME export_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/helps.rio -docs rinc=${CMAKE_CURRENT_LIST_DIR}/docs -export ${helps})
   add_test(NAME export_help_runs COMMAND ${helps} -frames 1 -data ${CMAKE_CURRENT_BINARY_DIR}/helps-data)
   set_tests_properties(export_help_runs PROPERTIES DEPENDS export_help PASS_REGULAR_EXPRESSION "rinc/SUMMARY true # Summary[\r\n]+true -1 -1")
+  # colors: moved over every part (down through PICO-8's and the grays into the cube, deeper, turned),
+  # then a color picked with nothing waiting for it
+  add_test(NAME app_colors COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/colors/colors.rio -frames 60
+    -data ${CMAKE_CURRENT_BINARY_DIR}/colors-data -type "\\x1b[A\\x1b[B\\x1b[B\\x1b[B\\x1b[C\\t\\t \\x1b[Z\\n")
   add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio -frames 30 -type "\\t\\n")
   # an app's own help, in its folder (apps/demo/help/intro.md): demo/intro
   set(apphelp ${CMAKE_CURRENT_BINARY_DIR}/apphelp-data)
