@@ -1,0 +1,225 @@
+# Colors: being called, the stash, and keys, buttons and the pointer (part of colors.rio, included there, in order: the names it uses are declared before it)
+
+TAB :: 9              # keys, as pc.key() gives them
+SHIFT_TAB :: 265      # (Tab with the Shift bit, 256)
+ENTER :: 13
+ESC :: 27
+LEFT_KEY :: 128
+RIGHT_KEY :: 129
+UP_KEY :: 130
+DOWN_KEY :: 131
+PAGE_UP :: 135
+PAGE_DOWN :: 136
+
+# ---------------------------------------------------------------- called, and the stash
+
+calledFor := false    # (a caller waits for a color)
+leaving := false
+finish :: proc(result: String)
+  leaving = true
+  pc.done(result)
+end
+# text, made up: numbers onto it in decimal, and in hex
+text: Blob[..32]
+pushNumber :: proc(v: Int)
+  step := 1
+  for step * 10 <= v
+    step *= 10
+  end
+  for step > 0
+    ok := text.push('0' + v / step % 10)
+    step /= 10
+  end
+end
+pushHex :: proc(v: Int, digits: Int)
+  for i in 0..<digits
+    d := v
+    for k in 0..<digits - 1 - i
+      d /= 16
+    end
+    d %= 16
+    if d < 10
+      ok := text.push('0' + d)
+    else
+      ok := text.push('A' + d - 10)
+    end
+  end
+end
+
+choose :: proc()
+  if calledFor
+    text.clear()
+    pushNumber(picked())
+    finish(text[:].asString())
+  end
+end
+
+stashed: Blob[4]      # where it was: the color, the cube's turn, which of them (a gray's in the cube too), and the view
+saved := -1
+last := -1
+still := 0
+remember :: proc()   # (once it's rested a moment: not each step of a drag or a held arrow)
+  now := picked() + axis * 256 + area * 1024 + view * 4096
+  if now != last
+    last = now
+    still = 0
+  end
+  still += 1
+  if still == 30 and now != saved
+    saved = now
+    stashed[0] = picked()
+    stashed[1] = axis
+    stashed[2] = area
+    stashed[3] = view
+    ok := pc.stashWrite("pick", stashed[:].asString())
+  end
+end
+
+# ---------------------------------------------------------------- keys, buttons and the pointer
+
+move :: proc(dx: Int, dy: Int)
+  if view == HUE_VIEW
+    moveInHues(dx, dy)
+  else
+    moveInCube(dx, dy)
+  end
+end
+
+# an arrow typed but not held as a button (a terminal's, say): the buttons, below, take the rest
+key :: proc(c: Int)
+  k := c & 255
+  if c < 1024 and k >= LEFT_KEY and k <= DOWN_KEY and pc.btn(k - LEFT_KEY) == 0
+    switch k
+    case LEFT_KEY
+      move(-1, 0)
+    case RIGHT_KEY
+      move(1, 0)
+    case UP_KEY
+      move(0, -1)
+    else
+      move(0, 1)
+    end
+    return
+  end
+  switch c
+  case TAB, PAGE_DOWN
+    deeper(1)
+  case SHIFT_TAB, PAGE_UP
+    deeper(-1)
+  case ' '
+    turn()
+  case 'v'
+    setView(1 - view)
+  case ENTER
+    choose()
+  case ESC
+    if calledFor
+      finish("")
+    end
+  end
+end
+
+# what's under a point, picked (true: something was)
+pointAt :: proc(x: Int, y: Int) -> Bool
+  if view == HUE_VIEW
+    return pointAtHue(x, y)
+  end
+  if x >= PICO_X and x < PICO_X + SPAN and y >= PICO_Y and y < PICO_Y + 28
+    area = PICO
+    col = picoAt(x)
+    row = (y - PICO_Y) / 14
+  case x >= PICO_X and x < PICO_X + SPAN and y >= GRAY_Y and y < GRAY_Y + 12
+    area = GRAYS
+    gray = grayAt(x)
+  case x >= FACE_X and x < FACE_X + 6 * CELL and y >= FACE_Y and y < FACE_Y + 6 * CELL
+    area = CUBE
+    pos[across()] = (x - FACE_X) / CELL
+    pos[down()] = (y - FACE_Y) / CELL
+  case x >= DEPTH_X and x < DEPTH_X + 18 and y >= FACE_Y and y < FACE_Y + 6 * CELL
+    area = CUBE
+    pos[axis] = (y - FACE_Y) / CELL
+  case x >= PANEL_X and x < PANEL_X + 6 * 19 and y >= SLICES_Y and y < SLICES_Y + 18
+    s := (x - PANEL_X) / 19
+    i := (x - PANEL_X) % 19 / 3
+    if i < 6
+      area = CUBE
+      pos[axis] = s
+      pos[across()] = i
+      pos[down()] = (y - SLICES_Y) / 3
+    end
+  else
+    return false
+  end
+  return true
+end
+# the big color: a click there chooses it
+onBig :: proc(x: Int, y: Int) -> Bool
+  if view == HUE_VIEW
+    return x >= HUE_X and x < HUE_X + 60 and y >= INFO_Y and y < INFO_Y + 44
+  end
+  return x >= PANEL_X and y >= FACE_Y and y < FACE_Y + 64
+end
+
+held := 0
+repeat := 0
+clicked := 0
+pc.pointer(pc.Pointer.ui)
+update* :: proc()
+  c := pc.key()
+  for c >= 0
+    key(c)
+    c = -1
+    if not leaving # (gone back to its caller: the rest typed is its)
+      c = pc.key()
+    end
+  end
+  if leaving
+    return
+  end
+  # the arrows and the d-pad, as buttons: a step a press, then more while it's held; Y turns the cube,
+  # X switches the view
+  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8 + pc.btn(7) * 16 + pc.btn(6) * 32
+  pressed := bits & ~held
+  step := false
+  if bits & 15 != held & 15
+    repeat = 15
+    step = true
+  case bits & 15 != 0
+    repeat -= 1
+    if repeat == 0
+      repeat = 4
+      step = true
+    end
+  end
+  held = bits
+  if step
+    move((bits & 2) / 2 - (bits & 1), (bits & 8) / 8 - (bits & 4) / 4)
+  end
+  if pressed & 16 != 0
+    turn()
+  end
+  if pressed & 32 != 0
+    setView(1 - view)
+  end
+  # the pointer: held down over a color picks it (a drag goes through them); pressed on the one
+  # already picked, or the big one, chooses it; the secondary button turns the cube
+  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
+  x := pc.pointerX()
+  y := pc.pointerY()
+  if click & 1 != 0
+    was := picked()
+    over := pointAt(x, y)
+    if clicked & 1 == 0 and ((over and picked() == was) or onBig(x, y))
+      choose()
+    end
+  end
+  if click & 2 != 0 and clicked & 2 == 0
+    turn()
+  end
+  clicked = click
+  s := pc.scroll(1)
+  if s != 0
+    deeper(-s)
+  end
+  remember()
+end

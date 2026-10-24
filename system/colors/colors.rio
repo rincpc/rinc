@@ -1,13 +1,14 @@
 # Colors: Rinc's 256 colors, to look through and pick from
 #
-# PICO-8's 32 at the top, in pairs (each of 0 to 15 over its partner, 16 to 31), then every gray, dark
-# to light, then the 6x6x6 color cube: a face of it, the column through it at the right (its depth),
-# and all six of its slices, small, under the color picked. The arrows (or the d-pad) move
-# over all of them, Tab and Shift+Tab (RB and LB, Page Up and Page Down, the wheel) go deeper and back
-# out through the cube, and Space (Y, the secondary button) turns it, to face another way. A click or
-# a drag picks. Called with pc.call("colors", "pick"), or "pick 12" to start at a color, it's a
-# picker: Enter (A, or a click on the color picked) gives its number back as text (pc.done), Esc
-# nothing.
+# Two views of them; V (or X) switches. The cube: PICO-8's 32 at the top, in pairs (each of 0 to 15 over
+# its partner, 16 to 31), then every gray, dark to light, then the 6x6x6 color cube: a face of it, the
+# column through it at the right (its depth), and all six of its slices, small, under the color picked.
+# The arrows (or the d-pad) move over all of them, Tab and Shift+Tab (RB and LB, Page Up and Page Down,
+# the wheel) go deeper and back out through the cube, and Space (Y, the secondary button) turns it, to
+# face another way. And by hue: all of them by how they look (OKLCH), hue across and light to dark down,
+# the grays at the left; the arrows move to the nearest color that way. A click or a drag picks. Called
+# with pc.call("colors", "pick"), or "pick 12" to start at a color, it's a picker: Enter (A, or a click
+# on the color picked) gives its number back as text (pc.done), Esc nothing.
 
 BG :: 249             # a dark gray, behind the colors: every color shows against it, the black too
 PICO_X :: 8           # PICO-8's colors: 2 rows of 16, 19x14
@@ -20,16 +21,23 @@ CELL :: 26
 DEPTH_X :: 172        # the column through it, 18 wide
 PANEL_X :: 198        # the color, big, what it is, and the slices
 SLICES_Y :: 198
+HUE_X :: 8            # by hue: the grid, COLS x ROWS of HUE_CELL (tools/huegrid.py)
+HUE_Y :: 6
+HUE_CELL :: 11
+COLS :: 26
+ROWS :: 14
+INFO_Y :: 170         # under it, the color, big, and what it is
+CUBE_VIEW :: 0        # the views
+HUE_VIEW :: 1
+PICO :: 0             # where the pick is, in the cube's view
+GRAYS :: 1
+CUBE :: 2
 
 # colors: the theme's, for the screen and its text (the colors themselves sit on BG's gray)
 backColor := pc.theme(pc.Role.bg)
 textColor := pc.theme(pc.Role.text)
 softColor := pc.theme(pc.Role.soft)
 faintColor := pc.theme(pc.Role.faint)
-
-PICO :: 0             # where the pick is
-GRAYS :: 1
-CUBE :: 2
 
 pico := [32]Int{0x000000, 0x1D2B53, 0x7E2553, 0x008751, 0xAB5236, 0x5F574F, 0xC2C3C7, 0xFFF1E8,
                 0xFF004D, 0xFFA300, 0xFFEC27, 0x00E436, 0x29ADFF, 0x83769C, 0xFF77A8, 0xFFCCAA,
@@ -39,434 +47,40 @@ levels := [6]Int{0, 95, 135, 175, 215, 255} # (each of the cube's steps)
 grays := [14]Int{32, 248, 249, 250, 251, 75, 252, 118, 253, 161, 254, 204, 255, 247} # (the cube's and the 8 grays, dark to light)
 grayLevels := [8]Int{19, 38, 57, 76, 115, 155, 195, 235} # (248 to 255: between the cube's)
 names := [3]String{"red", "green", "blue"}
+# by hue: each color's cell, row * COLS + column (made by tools/huegrid.py, from OKLCH: run it again if
+# the palette or the grid changes)
+hueCells := [256]Int{
+  338, 253, 258, 220, 185, 182, 52, 0, 181, 109, 57, 115, 121, 150, 102, 25,
+  260, 277, 283, 248, 236, 284, 160, 31, 259, 107, 86, 167, 250, 230, 81, 54,
+  339, 304, 278, 252, 251, 225, 218, 221, 223, 224, 198, 199, 217, 194, 222, 197,
+  172, 147, 191, 193, 195, 170, 171, 146, 140, 141, 168, 143, 118, 94, 63, 90,
+  91, 65, 66, 67, 262, 282, 281, 254, 228, 226, 215, 183, 227, 201, 200, 174,
+  216, 219, 196, 173, 148, 122, 165, 192, 169, 144, 120, 95, 139, 114, 142, 117,
+  119, 68, 62, 64, 38, 39, 40, 41, 237, 257, 256, 255, 229, 202, 213, 210,
+  178, 176, 175, 149, 214, 189, 130, 123, 97, 96, 190, 164, 166, 145, 69, 70,
+  138, 113, 88, 116, 92, 43, 61, 36, 37, 12, 14, 42, 211, 232, 231, 204,
+  203, 177, 212, 207, 180, 179, 151, 124, 188, 187, 132, 99, 98, 71, 163, 162,
+  137, 78, 45, 44, 111, 112, 87, 89, 93, 17, 60, 35, 9, 10, 13, 15,
+  184, 233, 206, 205, 152, 125, 186, 158, 129, 153, 126, 72, 161, 134, 80, 75,
+  73, 46, 136, 135, 82, 50, 21, 19, 110, 85, 84, 58, 27, 18, 59, 33,
+  34, 8, 11, 16, 159, 155, 154, 128, 127, 100, 133, 106, 103, 101, 74, 48,
+  108, 55, 77, 76, 49, 47, 56, 29, 28, 51, 23, 22, 83, 30, 3, 2,
+  24, 20, 32, 7, 6, 5, 4, 1, 286, 261, 234, 208, 156, 104, 53, 26,
+}
 
+view := CUBE_VIEW
 area := CUBE
 col := 0              # PICO-8's: which pair, and which row
 row := 0
 gray := 0
 pos := [3]Int{5, 1, 3} # the cube's: red, green and blue steps, 0 to 5
 axis := 0             # which of them is the depth: the face is the other two
+hue := 0              # by hue: the color picked
 
-# the color picked, as a palette number
-cubeColor :: proc(r: Int, g: Int, b: Int) -> Int
-  return 32 + 36 * r + 6 * g + b
-end
-picked :: proc() -> Int
-  if area == PICO
-    return row * 16 + col
-  case area == GRAYS
-    return grays[gray]
-  end
-  return cubeColor(pos[0], pos[1], pos[2])
-end
-
-# a color's RGB, as 0xRRGGBB (docs/spec/screen.md's palette)
-rgb :: proc(c: Int) -> Int
-  if c < 32
-    return pico[c]
-  case c < 248
-    k := c - 32
-    return levels[k / 36] * 65536 + levels[k / 6 % 6] * 256 + levels[k % 6]
-  end
-  return grayLevels[c - 248] * 65793
-end
-
-# the face's channels: across, and down (its slices are the depth's steps)
-across :: proc() -> Int
-  return (axis + 2) % 3
-end
-down :: proc() -> Int
-  return (axis + 1) % 3
-end
-
-# going to a color, wherever it is: PICO-8's, a gray, else the cube (or the cube first, for the grays
-# it has too)
-pickColor :: proc(c: Int, cubeFirst: Bool)
-  if not cubeFirst and c < 32
-    area = PICO
-    row = c / 16
-    col = c % 16
-    return
-  end
-  for i in 0..<14
-    if not cubeFirst and grays[i] == c
-      area = GRAYS
-      gray = i
-      return
-    end
-  end
-  if c >= 32 and c < 248
-    k := c - 32
-    area = CUBE
-    pos[0] = k / 36
-    pos[1] = k / 6 % 6
-    pos[2] = k % 6
-  end
-end
-
-# ---------------------------------------------------------------- where things are
-
-grayX :: proc(i: Int) -> Int
-  return PICO_X + i * SPAN / 14
-end
-# the nearest of each, under a point across: for moving up and down between them
-picoAt :: proc(x: Int) -> Int
-  return max(0, min((x - PICO_X) / 19, 15))
-end
-grayAt :: proc(x: Int) -> Int
-  return max(0, min((x - PICO_X) * 14 / SPAN, 13))
-end
-faceAt :: proc(x: Int) -> Int
-  return max(0, min((x - FACE_X) / CELL, 5))
-end
-# the middle, across, of what's picked
-pickedX :: proc() -> Int
-  if area == PICO
-    return PICO_X + col * 19 + 9
-  case area == GRAYS
-    return (grayX(gray) + grayX(gray + 1)) / 2
-  end
-  return FACE_X + pos[across()] * CELL + CELL / 2
-end
-
-# ---------------------------------------------------------------- moving
-
-clampStep :: proc(v: Int) -> Int
-  return max(0, min(v, 5))
-end
-
-move :: proc(dx: Int, dy: Int)
-  if dx != 0
-    if area == PICO
-      col = max(0, min(col + dx, 15))
-    case area == GRAYS
-      gray = max(0, min(gray + dx, 13))
-    else
-      pos[across()] = clampStep(pos[across()] + dx)
-    end
-  end
-  if dy != 0
-    x := pickedX()
-    if area == PICO
-      if dy > 0 and row == 1
-        area = GRAYS
-        gray = grayAt(x)
-      else
-        row = max(0, min(row + dy, 1))
-      end
-    case area == GRAYS
-      if dy < 0
-        area = PICO
-        row = 1
-        col = picoAt(x)
-      else
-        area = CUBE
-        pos[across()] = faceAt(x)
-        pos[down()] = 0
-      end
-    case dy < 0 and pos[down()] == 0
-      area = GRAYS
-      gray = grayAt(x)
-    else
-      pos[down()] = clampStep(pos[down()] + dy)
-    end
-  end
-end
-
-deeper :: proc(d: Int)   # (in the cube: elsewhere, the depth's for nothing)
-  if area == CUBE
-    pos[axis] = clampStep(pos[axis] + d)
-  end
-end
-
-turn :: proc()
-  axis = (axis + 1) % 3
-end
-
-# ---------------------------------------------------------------- called, and the stash
-
-calledFor := false    # (a caller waits for a color)
-leaving := false
-finish :: proc(result: String)
-  leaving = true
-  pc.done(result)
-end
-# text, made up: numbers onto it in decimal, and in hex
-text: Blob[..24]
-pushNumber :: proc(v: Int)
-  step := 1
-  for step * 10 <= v
-    step *= 10
-  end
-  for step > 0
-    ok := text.push(48 + v / step % 10)
-    step /= 10
-  end
-end
-pushHex :: proc(v: Int, digits: Int)
-  for i in 0..<digits
-    d := v
-    for k in 0..<digits - 1 - i
-      d /= 16
-    end
-    d %= 16
-    if d < 10
-      ok := text.push(48 + d)
-    else
-      ok := text.push(55 + d)
-    end
-  end
-end
-
-choose :: proc()
-  if calledFor
-    text.clear()
-    pushNumber(picked())
-    finish(text[:].asString())
-  end
-end
-
-stashed: Blob[3]      # where it was: the color, the cube's turn, and which of them (a gray's in the cube too)
-saved := -1
-last := -1
-still := 0
-remember :: proc()   # (once it's rested a moment: not each step of a drag or a held arrow)
-  now := picked() + axis * 256 + area * 1024
-  if now != last
-    last = now
-    still = 0
-  end
-  still += 1
-  if still == 30 and now != saved
-    saved = now
-    stashed[0] = picked()
-    stashed[1] = axis
-    stashed[2] = area
-    ok := pc.stashWrite("pick", stashed[:].asString())
-  end
-end
-
-# ---------------------------------------------------------------- keys, buttons and the pointer
-
-# an arrow typed but not held as a button (a terminal's, say): the buttons, below, take the rest
-key :: proc(c: Int)
-  k := c & 255
-  if c < 1024 and k >= 128 and k <= 131 and pc.btn(k - 128) == 0
-    if k == 128
-      move(-1, 0)
-    case k == 129
-      move(1, 0)
-    case k == 130
-      move(0, -1)
-    else
-      move(0, 1)
-    end
-  case k == 9 or k == 136
-    if c & 256 != 0
-      deeper(-1)
-    else
-      deeper(1)
-    end
-  case k == 135
-    deeper(-1)
-  case c == 32
-    turn()
-  case c == 13
-    choose()
-  case c == 27 and calledFor
-    finish("")
-  end
-end
-
-# what's under a point, picked (true: something was)
-pointAt :: proc(x: Int, y: Int) -> Bool
-  if x >= PICO_X and x < PICO_X + SPAN and y >= PICO_Y and y < PICO_Y + 28
-    area = PICO
-    col = picoAt(x)
-    row = (y - PICO_Y) / 14
-  case x >= PICO_X and x < PICO_X + SPAN and y >= GRAY_Y and y < GRAY_Y + 12
-    area = GRAYS
-    gray = grayAt(x)
-  case x >= FACE_X and x < FACE_X + 6 * CELL and y >= FACE_Y and y < FACE_Y + 6 * CELL
-    area = CUBE
-    pos[across()] = (x - FACE_X) / CELL
-    pos[down()] = (y - FACE_Y) / CELL
-  case x >= DEPTH_X and x < DEPTH_X + 18 and y >= FACE_Y and y < FACE_Y + 6 * CELL
-    area = CUBE
-    pos[axis] = (y - FACE_Y) / CELL
-  case x >= PANEL_X and x < PANEL_X + 6 * 19 and y >= SLICES_Y and y < SLICES_Y + 18
-    s := (x - PANEL_X) / 19
-    i := (x - PANEL_X) % 19 / 3
-    if i < 6
-      area = CUBE
-      pos[axis] = s
-      pos[across()] = i
-      pos[down()] = (y - SLICES_Y) / 3
-    end
-  else
-    return false
-  end
-  return true
-end
-
-held := 0
-repeat := 0
-clicked := 0
-pc.pointer(pc.Pointer.ui)
-update* :: proc()
-  c := pc.key()
-  for c >= 0
-    key(c)
-    c = -1
-    if not leaving # (gone back to its caller: the rest typed is its)
-      c = pc.key()
-    end
-  end
-  if leaving
-    return
-  end
-  # the arrows and the d-pad, as buttons: a step a press, then more while it's held; Y turns the cube
-  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8 + pc.btn(7) * 16
-  pressed := bits & ~held
-  step := false
-  if bits & 15 != held & 15
-    repeat = 15
-    step = true
-  case bits & 15 != 0
-    repeat -= 1
-    if repeat == 0
-      repeat = 4
-      step = true
-    end
-  end
-  held = bits
-  if step
-    move((bits & 2) / 2 - (bits & 1), (bits & 8) / 8 - (bits & 4) / 4)
-  end
-  if pressed & 16 != 0
-    turn()
-  end
-  # the pointer: held down over a color picks it (a drag goes through them); pressed on the one
-  # already picked, or the big one, chooses it; the secondary button turns the cube
-  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
-  x := pc.pointerX()
-  y := pc.pointerY()
-  if click & 1 != 0
-    was := picked()
-    over := pointAt(x, y)
-    if clicked & 1 == 0 and ((over and picked() == was) or (x >= PANEL_X and y >= FACE_Y and y < FACE_Y + 64))
-      choose()
-    end
-  end
-  if click & 2 != 0 and clicked & 2 == 0
-    turn()
-  end
-  clicked = click
-  s := pc.scroll(1)
-  if s != 0
-    deeper(-s)
-  end
-  remember()
-end
-
-# ---------------------------------------------------------------- the screen
-
-# a line around a box, just outside it
-outline :: proc(x: Int, y: Int, w: Int, h: Int, c: Int)
-  pc.rect(x - 1, y - 1, w + 2, 1, c)
-  pc.rect(x - 1, y + h, w + 2, 1, c)
-  pc.rect(x - 1, y, 1, h, c)
-  pc.rect(x + w, y, 1, h, c)
-end
-# a frame around what's picked: white, then black inside, to show on any color
-frame :: proc(x: Int, y: Int, w: Int, h: Int)
-  outline(x, y, w, h, 7)
-  outline(x + 1, y + 1, w - 2, h - 2, 0)
-end
-
-# the cube's color at a face's cell, in slice s
-faceColor :: proc(s: Int, i: Int, j: Int) -> Int
-  p := [3]Int{0, 0, 0}
-  p[axis] = s
-  p[across()] = i
-  p[down()] = j
-  return cubeColor(p[0], p[1], p[2])
-end
-
-draw* :: proc()
-  pc.cls(backColor)
-  pc.rect(PICO_X - 4, PICO_Y - 4, SPAN + 8, GRAY_Y + 16 - PICO_Y, BG) # (the gray behind the colors)
-  pc.rect(FACE_X - 4, FACE_Y - 4, DEPTH_X + 22 - FACE_X, 6 * CELL + 8, BG)
-  pc.rect(PANEL_X - 4, FACE_Y - 4, 122, 72, BG)
-  pc.rect(PANEL_X - 4, SLICES_Y - 4, 122, 26, BG)
-  for i in 0..<32
-    pc.rect(PICO_X + i % 16 * 19, PICO_Y + i / 16 * 14, 19, 14, i)
-  end
-  for i in 0..<14
-    pc.rect(grayX(i), GRAY_Y, grayX(i + 1) - grayX(i), 12, grays[i])
-  end
-  outline(PICO_X, PICO_Y, SPAN, 28, 0) # (black around them: the gray that's the background shows too)
-  outline(PICO_X, GRAY_Y, SPAN, 12, 0)
-  for j in 0..<6
-    for i in 0..<6
-      pc.rect(FACE_X + i * CELL, FACE_Y + j * CELL, CELL, CELL, faceColor(pos[axis], i, j))
-    end
-    pc.rect(DEPTH_X, FACE_Y + j * CELL, 18, CELL, faceColor(j, pos[across()], pos[down()]))
-  end
-  for s in 0..<6
-    for j in 0..<6
-      for i in 0..<6
-        pc.rect(PANEL_X + s * 19 + i * 3, SLICES_Y + j * 3, 3, 3, faceColor(s, i, j))
-      end
-    end
-  end
-  # what's picked: framed, and in the cube, its slice and its column too
-  switch area
-  case PICO
-    frame(PICO_X + col * 19, PICO_Y + row * 14, 19, 14)
-  case GRAYS
-    frame(grayX(gray), GRAY_Y, grayX(gray + 1) - grayX(gray), 12)
-  else
-    frame(FACE_X + pos[across()] * CELL, FACE_Y + pos[down()] * CELL, CELL, CELL)
-    frame(DEPTH_X, FACE_Y + pos[axis] * CELL, 18, CELL)
-    frame(PANEL_X + pos[axis] * 19, SLICES_Y, 18, 18)
-  end
-  # the color, big, and what it is
-  c := picked()
-  pc.rect(PANEL_X, FACE_Y, 114, 64, c)
-  text.clear()
-  text.pushAll("color ")
-  pushNumber(c)
-  pc.print(text[:].asString(), PANEL_X, FACE_Y + 72, textColor)
-  text.clear()
-  text.pushAll("#")
-  pushHex(rgb(c), 6)
-  pc.print(text[:].asString(), PANEL_X, FACE_Y + 82, softColor)
-  text.clear()
-  switch area
-  case PICO
-    text.pushAll("PICO-8 ")
-    pushNumber(c % 16 + c / 16 * 128)
-  case GRAYS
-    text.pushAll("gray ")
-    pushNumber(gray + 1)
-    text.pushAll(" of 14")
-  else
-    for k in 0..<3
-      ok := text.push(names[k][0])
-      pushNumber(pos[k])
-      ok = text.push(32)
-    end
-  end
-  pc.print(text[:].asString(), PANEL_X, FACE_Y + 92, softColor)
-  pc.print("deeper:", PANEL_X, FACE_Y + 110, faintColor)
-  pc.print(names[axis], PANEL_X + 48, FACE_Y + 110, faintColor)
-  if calledFor
-    pc.print("arrows  Tab deeper  Space turn  Enter pick", 8, 228, faintColor)
-  else
-    pc.print("arrows  Tab deeper  Space turn", 8, 228, faintColor)
-  end
-end
+include "parts/cube.rio"
+include "parts/hues.rio"
+include "parts/keys.rio"
+include "parts/screen.rio"
 
 # ---------------------------------------------------------------- starting
 
@@ -476,15 +90,20 @@ start := -1
 if argsLen >= 4 and args[0:4].asString() == "pick" # (pick, or pick 12)
   calledFor = true
   for i in 5..<argsLen
-    if args[i] >= 48 and args[i] <= 57 and start < 256
-      start = max(start, 0) * 10 + args[i] - 48
+    if args[i] >= '0' and args[i] <= '9' and start < 256
+      start = max(start, 0) * 10 + args[i] - '0'
     end
   end
 end
-if pc.stashRead("pick", stashed[:]) == 3
+stashLen := pc.stashRead("pick", stashed[:])
+if stashLen >= 3
   axis = stashed[1] % 3
   pickColor(stashed[0], stashed[2] == CUBE)
+  if stashLen >= 4 and stashed[3] == HUE_VIEW
+    setView(HUE_VIEW)
+  end
 end
 if start >= 0 and start < 256
   pickColor(start, false)
+  hue = start
 end

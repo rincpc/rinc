@@ -1,0 +1,91 @@
+# Colors: the view by hue, and what a color is as OKLCH (part of colors.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- by hue
+
+# the color at each cell (-1: none), from each color's cell
+colorAt: [COLS * ROWS]Int
+for i in 0..<COLS * ROWS
+  colorAt[i] = -1
+end
+for c in 0..<256
+  colorAt[hueCells[c]] = c
+end
+
+# the nearest color that way: the first step out with one in reach (as far to the side as it's gone
+# along), the one least to the side
+moveInHues :: proc(dx: Int, dy: Int)
+  x := hueCells[hue] % COLS
+  y := hueCells[hue] / COLS
+  for k in 1..<COLS
+    best := -1
+    side := 0
+    for o in -k..=k
+      cx := x + dx * k + dy * o
+      cy := y + dy * k + dx * o
+      if cx >= 0 and cx < COLS and cy >= 0 and cy < ROWS and colorAt[cy * COLS + cx] >= 0 and (best < 0 or abs(o) < abs(side))
+        best = colorAt[cy * COLS + cx]
+        side = o
+      end
+    end
+    if best >= 0
+      hue = best
+      return
+    end
+  end
+end
+
+# the color under a point, picked (true: there was one)
+pointAtHue :: proc(x: Int, y: Int) -> Bool
+  cx := (x - HUE_X) / HUE_CELL
+  cy := (y - HUE_Y) / HUE_CELL
+  if x < HUE_X or y < HUE_Y or cx >= COLS or cy >= ROWS or colorAt[cy * COLS + cx] < 0
+    return false
+  end
+  hue = colorAt[cy * COLS + cx]
+  return true
+end
+
+# the other view, at the same color
+setView :: proc(v: Int)
+  if v == view
+    return
+  end
+  if v == HUE_VIEW
+    hue = picked()
+  else
+    pickColor(hue, false)
+  end
+  view = v
+end
+
+# ---------------------------------------------------------------- OKLCH: lightness, chroma, hue
+
+# a color as OKLCH (Björn Ottosson's OKLab, from sRGB, round): lightness 0 to 1, chroma (0.37 at most
+# here), and hue in degrees
+okL := 0.0
+okC := 0.0
+okH := 0.0
+linear :: proc(v: Int) -> Float
+  c := v.toFloat() / 255.0
+  if c <= 0.04045
+    return c / 12.92
+  end
+  return pow((c + 0.055) / 1.055, 2.4)
+end
+oklch :: proc(color: Int)
+  v := rgb(color)
+  r := linear(v / 65536)
+  g := linear(v / 256 % 256)
+  b := linear(v % 256)
+  l := pow(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b, 1.0 / 3.0)
+  m := pow(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b, 1.0 / 3.0)
+  s := pow(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b, 1.0 / 3.0)
+  okL = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s
+  a := 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s
+  bb := 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+  okC = sqrt(a * a + bb * bb)
+  okH = atan2(bb, a) * 180.0 / 3.14159265
+  if okH < 0.0
+    okH += 360.0
+  end
+end

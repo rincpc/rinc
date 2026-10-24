@@ -1,0 +1,143 @@
+# Colors: the screen (part of colors.rio, included there, in order: the names it uses are declared before it)
+
+# a line around a box, just outside it
+outline :: proc(x: Int, y: Int, w: Int, h: Int, c: Int)
+  pc.rect(x - 1, y - 1, w + 2, 1, c)
+  pc.rect(x - 1, y + h, w + 2, 1, c)
+  pc.rect(x - 1, y, 1, h, c)
+  pc.rect(x + w, y, 1, h, c)
+end
+# a frame around what's picked: white, then black inside, to show on any color
+frame :: proc(x: Int, y: Int, w: Int, h: Int)
+  outline(x, y, w, h, 7)
+  outline(x + 1, y + 1, w - 2, h - 2, 0)
+end
+
+# the cube's color at a face's cell, in slice s
+faceColor :: proc(s: Int, i: Int, j: Int) -> Int
+  p := [3]Int{0, 0, 0}
+  p[axis] = s
+  p[across()] = i
+  p[down()] = j
+  return cubeColor(p[0], p[1], p[2])
+end
+
+# what the color picked is, a line each from y: its number, its RGB, where it is in the palette, and as
+# OKLCH (lightness and chroma, out of 100, and hue: none, for a gray)
+describe :: proc(x: Int, y: Int)
+  c := picked()
+  text.clear()
+  ok := text.pushAll("color ")
+  pushNumber(c)
+  pc.print(text[:].asString(), x, y, textColor)
+  text.clear()
+  ok = text.pushAll("#")
+  pushHex(rgb(c), 6)
+  pc.print(text[:].asString(), x, y + 10, softColor)
+  text.clear()
+  if c < 32
+    ok = text.pushAll("PICO-8 ")
+    pushNumber(c % 16 + c / 16 * 128)
+  case c >= 248
+    ok = text.pushAll("gray ")
+    pushNumber(c - 247)
+    ok = text.pushAll(" of 8")
+  else
+    ok = text.push('r')
+    pushNumber((c - 32) / 36)
+    ok = text.pushAll(" g")
+    pushNumber((c - 32) / 6 % 6)
+    ok = text.pushAll(" b")
+    pushNumber((c - 32) % 6)
+  end
+  pc.print(text[:].asString(), x, y + 20, softColor)
+  oklch(c)
+  text.clear()
+  ok = text.pushAll("L ")
+  pushNumber((okL * 100.0 + 0.5).toInt())
+  ok = text.pushAll("  C ")
+  pushNumber((okC * 100.0 + 0.5).toInt())
+  if okC >= 0.03
+    ok = text.pushAll("  h ")
+    pushNumber((okH + 0.5).toInt() % 360)
+  end
+  pc.print(text[:].asString(), x, y + 30, softColor)
+end
+
+drawCube :: proc()
+  pc.rect(PICO_X - 4, PICO_Y - 4, SPAN + 8, GRAY_Y + 16 - PICO_Y, BG) # (the gray behind the colors)
+  pc.rect(FACE_X - 4, FACE_Y - 4, DEPTH_X + 22 - FACE_X, 6 * CELL + 8, BG)
+  pc.rect(PANEL_X - 4, FACE_Y - 4, 122, 72, BG)
+  pc.rect(PANEL_X - 4, SLICES_Y - 4, 122, 26, BG)
+  for i in 0..<32
+    pc.rect(PICO_X + i % 16 * 19, PICO_Y + i / 16 * 14, 19, 14, i)
+  end
+  for i in 0..<14
+    pc.rect(grayX(i), GRAY_Y, grayX(i + 1) - grayX(i), 12, grays[i])
+  end
+  outline(PICO_X, PICO_Y, SPAN, 28, 0) # (black around them: the gray that's the background shows too)
+  outline(PICO_X, GRAY_Y, SPAN, 12, 0)
+  for j in 0..<6
+    for i in 0..<6
+      pc.rect(FACE_X + i * CELL, FACE_Y + j * CELL, CELL, CELL, faceColor(pos[axis], i, j))
+    end
+    pc.rect(DEPTH_X, FACE_Y + j * CELL, 18, CELL, faceColor(j, pos[across()], pos[down()]))
+  end
+  for s in 0..<6
+    for j in 0..<6
+      for i in 0..<6
+        pc.rect(PANEL_X + s * 19 + i * 3, SLICES_Y + j * 3, 3, 3, faceColor(s, i, j))
+      end
+    end
+  end
+  # what's picked: framed, and in the cube, its slice and its column too
+  switch area
+  case PICO
+    frame(PICO_X + col * 19, PICO_Y + row * 14, 19, 14)
+  case GRAYS
+    frame(grayX(gray), GRAY_Y, grayX(gray + 1) - grayX(gray), 12)
+  else
+    frame(FACE_X + pos[across()] * CELL, FACE_Y + pos[down()] * CELL, CELL, CELL)
+    frame(DEPTH_X, FACE_Y + pos[axis] * CELL, 18, CELL)
+    frame(PANEL_X + pos[axis] * 19, SLICES_Y, 18, 18)
+  end
+  # the color, big, and what it is
+  pc.rect(PANEL_X, FACE_Y, 114, 64, picked())
+  describe(PANEL_X, FACE_Y + 72)
+  pc.print("deeper:", PANEL_X, FACE_Y + 112, faintColor)
+  pc.print(names[axis], PANEL_X + 48, FACE_Y + 112, faintColor)
+end
+
+drawHues :: proc()
+  pc.rect(HUE_X - 4, HUE_Y - 4, COLS * HUE_CELL + 8, ROWS * HUE_CELL + 8, BG)
+  for i in 0..<COLS * ROWS
+    if colorAt[i] >= 0
+      pc.rect(HUE_X + i % COLS * HUE_CELL, HUE_Y + i / COLS * HUE_CELL, HUE_CELL - 1, HUE_CELL - 1, colorAt[i])
+    end
+  end
+  frame(HUE_X + hueCells[hue] % COLS * HUE_CELL, HUE_Y + hueCells[hue] / COLS * HUE_CELL, HUE_CELL - 1, HUE_CELL - 1)
+  # the color, big, and what it is
+  pc.rect(HUE_X - 4, INFO_Y - 4, 68, 52, BG)
+  pc.rect(HUE_X, INFO_Y, 60, 44, picked())
+  describe(HUE_X + 70, INFO_Y)
+  pc.print("grays, then hues across; light to dark, down", HUE_X, INFO_Y + 48, faintColor)
+end
+
+draw* :: proc()
+  pc.cls(backColor)
+  if view == HUE_VIEW
+    drawHues()
+  else
+    drawCube()
+  end
+  switch view * 2 + calledFor.toInt()
+  case 0
+    pc.print("arrows  Tab deeper  Space turn  V by hue", 8, 228, faintColor)
+  case 1
+    pc.print("arrows  Tab deeper  Space turn  V hue  Enter pick", 8, 228, faintColor)
+  case 2
+    pc.print("arrows  V the cube", 8, 228, faintColor)
+  else
+    pc.print("arrows  V the cube  Enter pick", 8, 228, faintColor)
+  end
+end

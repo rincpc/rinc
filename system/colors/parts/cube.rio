@@ -1,0 +1,150 @@
+# Colors: the colors as numbers and RGB, and the cube's view: where things are, and moving over them (part of colors.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the color picked
+
+cubeColor :: proc(r: Int, g: Int, b: Int) -> Int
+  return 32 + 36 * r + 6 * g + b
+end
+# the color picked, as a palette number
+picked :: proc() -> Int
+  if view == HUE_VIEW
+    return hue
+  end
+  switch area
+  case PICO
+    return row * 16 + col
+  case GRAYS
+    return grays[gray]
+  end
+  return cubeColor(pos[0], pos[1], pos[2])
+end
+
+# a color's RGB, as 0xRRGGBB (docs/spec/screen.md's palette)
+rgb :: proc(c: Int) -> Int
+  if c < 32
+    return pico[c]
+  case c < 248
+    k := c - 32
+    return levels[k / 36] * 65536 + levels[k / 6 % 6] * 256 + levels[k % 6]
+  end
+  return grayLevels[c - 248] * 65793
+end
+
+# the face's channels: across, and down (its slices are the depth's steps)
+across :: proc() -> Int
+  return (axis + 2) % 3
+end
+down :: proc() -> Int
+  return (axis + 1) % 3
+end
+
+# going to a color in the cube's view, wherever it is: PICO-8's, a gray, else the cube (or the cube
+# first, for the grays it has too)
+pickColor :: proc(c: Int, cubeFirst: Bool)
+  if not cubeFirst and c < 32
+    area = PICO
+    row = c / 16
+    col = c % 16
+    return
+  end
+  for i in 0..<14
+    if not cubeFirst and grays[i] == c
+      area = GRAYS
+      gray = i
+      return
+    end
+  end
+  if c >= 32 and c < 248
+    k := c - 32
+    area = CUBE
+    pos[0] = k / 36
+    pos[1] = k / 6 % 6
+    pos[2] = k % 6
+  end
+end
+
+# ---------------------------------------------------------------- where things are
+
+grayX :: proc(i: Int) -> Int
+  return PICO_X + i * SPAN / 14
+end
+# the nearest of each, under a point across: for moving up and down between them
+picoAt :: proc(x: Int) -> Int
+  return max(0, min((x - PICO_X) / 19, 15))
+end
+grayAt :: proc(x: Int) -> Int
+  return max(0, min((x - PICO_X) * 14 / SPAN, 13))
+end
+faceAt :: proc(x: Int) -> Int
+  return max(0, min((x - FACE_X) / CELL, 5))
+end
+# the middle, across, of what's picked
+pickedX :: proc() -> Int
+  switch area
+  case PICO
+    return PICO_X + col * 19 + 9
+  case GRAYS
+    return (grayX(gray) + grayX(gray + 1)) / 2
+  end
+  return FACE_X + pos[across()] * CELL + CELL / 2
+end
+
+# ---------------------------------------------------------------- moving
+
+clampStep :: proc(v: Int) -> Int
+  return max(0, min(v, 5))
+end
+
+moveInCube :: proc(dx: Int, dy: Int)
+  if dx != 0
+    switch area
+    case PICO
+      col = max(0, min(col + dx, 15))
+    case GRAYS
+      gray = max(0, min(gray + dx, 13))
+    else
+      pos[across()] = clampStep(pos[across()] + dx)
+    end
+  end
+  if dy != 0
+    x := pickedX()
+    switch area
+    case PICO
+      if dy > 0 and row == 1
+        area = GRAYS
+        gray = grayAt(x)
+      else
+        row = max(0, min(row + dy, 1))
+      end
+    case GRAYS
+      if dy < 0
+        area = PICO
+        row = 1
+        col = picoAt(x)
+      else
+        area = CUBE
+        pos[across()] = faceAt(x)
+        pos[down()] = 0
+      end
+    else
+      if dy < 0 and pos[down()] == 0
+        area = GRAYS
+        gray = grayAt(x)
+      else
+        pos[down()] = clampStep(pos[down()] + dy)
+      end
+    end
+  end
+end
+
+deeper :: proc(d: Int)   # (in the cube: elsewhere, the depth's for nothing)
+  if view == CUBE_VIEW and area == CUBE
+    pos[axis] = clampStep(pos[axis] + d)
+  end
+end
+
+turn :: proc()
+  if view == CUBE_VIEW
+    axis = (axis + 1) % 3
+  end
+end

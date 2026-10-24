@@ -4,12 +4,12 @@
    console app there, the firmware's own console (rinc_fwBegin) takes their place.
 
    Memory, of the RP2350's 520 KB of SRAM:
-     app space            256 KB  (Rio: an app's code and data; an app's source, read from the SD card,
-                                   sits at its top while it compiles, where its data will be zero)
+     app space            256 KB  (Rio: an app's code and data, and its loops compiled to Thumb-2, by
+                                   rio_jit, in what it leaves free; an app's source, read from the SD
+                                   card, sits at its top while it compiles, where its data will be zero)
      screen               150 KB  (drawn into, and the copy being shown)
-     native loops          16 KB  (rio_jit: loops compiled to Thumb-2)
      rio's interpreter     10 KB  (its loop runs from SRAM: see RINC_RIO_IN_RAM)
-     USB, console, stacks  the rest */
+     USB, console, stacks  the rest (no heap: nothing calls malloc, and stdout has no buffer) */
 #include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
@@ -25,8 +25,7 @@ extern const uint8_t rinc_firmwareBundle[]; extern const uint32_t rinc_firmwareB
 
 #define rinc_APP_SPACE (256 << 10) /* the app space */
 
-static _Alignas(16) uint8_t rinc_appSpace[rinc_APP_SPACE];
-static _Alignas(8) uint8_t rinc_jitCode[16 << 10]; /* simple loops, compiled to machine code (SRAM runs code) */
+static _Alignas(16) uint8_t rinc_appSpace[rinc_APP_SPACE]; /* (SRAM: it runs the native code there too) */
 static rio_Vm rinc_vm;
 /* log output: to the serial port (and, while an app starts and once it's stopped, the screen: rinc_say) */
 static void rinc_put(const char *s, int n) { fwrite(s, 1, (size_t)n, stdout); fflush(stdout); }
@@ -49,9 +48,9 @@ static int rinc_systemKeys(void) {
   return rinc_systemKey(rinc_DOWN(HID_KEY_GUI_LEFT) || rinc_DOWN(HID_KEY_GUI_RIGHT) || rinc_padGuide, mods, other, keys);
 }
 
-/* an app's native code, once it's loaded: its simple loops compiled to Thumb-2 (after its image is
-   cached, which keeps to bytecode) */
-static int rinc_jitApp(rio_Vm *vm) { return rio_jit(vm, rinc_jitCode, sizeof rinc_jitCode); }
+/* an app's native code, once it's loaded: its simple loops compiled to Thumb-2, in the app space it
+   leaves free (after its image is cached, which keeps to bytecode) */
+static int rinc_jitApp(rio_Vm *vm) { return rio_jit(vm, 0, 0); }
 
 /* an app, by name, started (rinc_appBegin, rinc_appStart): from the SD card, else the firmware's
    bundle, compiled whole (or its cached image, while it's still its source's); its top-level code,
@@ -159,6 +158,7 @@ int main(void) {
   set_sys_clock_khz(252000, true); /* 10x the 25.2 MHz pixel clock of 640x480 DVI; fine at the default core voltage */
   rinc_keyboardSetup();
   stdio_init_all();
+  setvbuf(stdout, 0, _IONBF, 0); /* (so no buffer from the heap: the SDK's heap is its least, 256 bytes) */
   rinc_time = rinc_now;
   rinc_consoleClear(rinc_themeColor(0)); /* (the theme's defaults: the card isn't read yet) */
   rinc_consolePut("Rinc\r\n\r\n", 8);
