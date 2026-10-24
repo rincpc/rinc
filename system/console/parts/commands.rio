@@ -167,6 +167,10 @@ startsWith :: proc(t: String, word: String) -> Bool
   return t.len() >= word.len() and t[:word.len()] == word
 end
 
+# the next line's indent, as it's given: spaces typed at its start take its place first (so pasted,
+# already indented code isn't indented twice), as the C console does
+autoIndent := 0
+
 enter :: proc()
   shown: Blob[..256]
   t := trim(line[:].asString())
@@ -186,7 +190,7 @@ enter :: proc()
     shown.pushAll(". ")
   end
   shown.pushAll(line[:].asString())
-  say(shown[:].asString(), textColor)
+  say(shown[:].asString(), CODE_ROW)
   text := line[:].asString()
   remember(text)
   back = 0
@@ -209,6 +213,7 @@ enter :: proc()
         line.push(32)
       end
       cur = line.len()
+      autoIndent = cur
       return
     end
     if r < 0
@@ -220,38 +225,56 @@ enter :: proc()
 end
 
 typing :: proc(c: Int)
-  if c == 13
+  if c != 32
+    autoIndent = 0
+  end
+  switch c
+  case 13
     enter()
-  case c == 8
-    if cur > 0
+  case 8 # (in the indent, at its end: a whole step, back to the one before)
+    if cur > 0 and cur == line.len() and blank(line[:].asString()) and cur >= 2
+      for k in 0..<2 - cur % 2
+        line.remove(cur - 1)
+        cur -= 1
+      end
+    case cur > 0
       line.remove(cur - 1)
       cur -= 1
     end
-  case c == 134                       # Delete
+  case 134 # Delete
     if cur < line.len()
       line.remove(cur)
     end
-  case c == 128
+  case 128
     cur = max(cur - 1, 0)
-  case c == 129
+  case 129
     cur = min(cur + 1, line.len())
-  case c == 132 or c == 1             # Home, Ctrl-A
+  case 132, 1 # Home, Ctrl-A
     cur = 0
-  case c == 133 or c == 5             # End, Ctrl-E
+  case 133, 5 # End, Ctrl-E
     cur = line.len()
-  case c == 130
+  case 130
     recall(1)
-  case c == 131
+  case 131
     recall(-1)
-  case c == 3                         # Ctrl-C: drop what's typed
+  case 3 # Ctrl-C: drop what's typed
     say("^C", softColor)
     acc.clear()
     setLine("")
-  case c == 9
+  case 9
     insert(32)
     insert(32)
-  case c >= 32 and c < 127
-    insert(c)
+  case 32
+    if autoIndent > 0 and cur == line.len() and blank(line[:].asString())
+      autoIndent -= 1
+    else
+      autoIndent = 0
+      insert(32)
+    end
+  else
+    if c >= 32 and c < 127
+      insert(c)
+    end
   end
 end
 

@@ -11,18 +11,27 @@ static void (*rinc_put)(const char *s, int n);
 
 static uint16_t rinc_rgb565(int r, int g, int b) { return (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | b >> 3); }
 
-static void rinc_initPalette(void) {
+/* color i of the palette as 0xRRGGBB (docs/spec/screen.md#the-palette): shown at 16 bits a pixel, RGB565,
+   and written as it is in PNG files */
+uint32_t rinc_rgb(int i) {
   static const uint32_t pico8[16] = {0x000000, 0x1D2B53, 0x7E2553, 0x008751, 0xAB5236, 0x5F574F, 0xC2C3C7, 0xFFF1E8,
                                      0xFF004D, 0xFFA300, 0xFFEC27, 0x00E436, 0x29ADFF, 0x83769C, 0xFF77A8, 0xFFCCAA};
   static const uint32_t secret[16] = {0x291814, 0x111D35, 0x422136, 0x125359, 0x742F29, 0x49333B, 0xA28879, 0xF3EF7D,
                                       0xBE1250, 0xFF6C24, 0xA8E72E, 0x00B543, 0x065AB5, 0x754665, 0xFF6E59, 0xFF9D81}; /* (PICO-8's 128-143) */
-  static const int level[6] = {0, 95, 135, 175, 215, 255};
-  static const int gray[8] = {19, 38, 57, 76, 115, 155, 195, 235}; /* (between the cube's: with them, 14 grays about 20 apart) */
+  static const uint32_t level[6] = {0, 95, 135, 175, 215, 255};
+  static const uint32_t gray[8] = {19, 38, 57, 76, 115, 155, 195, 235}; /* (between the cube's: with them, 14 grays about 20 apart) */
+  i &= 255;
+  if (i < 16) return pico8[i];
+  if (i < 32) return secret[i - 16];
+  if (i < 248) return level[(i - 32) / 36] << 16 | level[(i - 32) / 6 % 6] << 8 | level[(i - 32) % 6];
+  return gray[i - 248] * 0x010101u;
+}
+static void rinc_initPalette(void) {
   int i;
-  for (i = 0; i < 16; i++) rinc_palette[i] = rinc_rgb565((int)(pico8[i] >> 16), (int)(pico8[i] >> 8 & 255), (int)(pico8[i] & 255));
-  for (i = 0; i < 16; i++) rinc_palette[16 + i] = rinc_rgb565((int)(secret[i] >> 16), (int)(secret[i] >> 8 & 255), (int)(secret[i] & 255));
-  for (i = 0; i < 216; i++) rinc_palette[32 + i] = rinc_rgb565(level[i / 36], level[i / 6 % 6], level[i % 6]);
-  for (i = 0; i < 8; i++) rinc_palette[248 + i] = rinc_rgb565(gray[i], gray[i], gray[i]);
+  for (i = 0; i < 256; i++) {
+    uint32_t c = rinc_rgb(i);
+    rinc_palette[i] = rinc_rgb565((int)(c >> 16), (int)(c >> 8 & 255), (int)(c & 255));
+  }
 }
 
 /* host procs: arguments arrive in a[], a result goes in a[0]. Drawing outside the screen is clipped */
@@ -36,6 +45,30 @@ static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
   a[0].i = x < rinc_W && y < rinc_H ? rinc_screen[y][x] : 0;
+}
+/* blit(picture, sx, sy, w, h, x, y, scale): part of a picture (its width and height, 2 bytes each, then
+   its pixels, as pc.pngRead gives it), w by h from sx, sy, drawn at x, y, each pixel scale by scale
+   (at least 1); color 0 is see-through */
+static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
+  const uint8_t *p = (const uint8_t *)rio_sliceBytes(v, a); uint32_t n = a[1].u;
+  int pw, ph, sx = a[2].i, sy = a[3].i, w = a[4].i, h = a[5].i, x0 = a[6].i, y0 = a[7].i, k = a[8].i < 1 ? 1 : a[8].i, i, j;
+  if (!p || n < 4) return;
+  pw = p[0] | p[1] << 8; ph = p[2] | p[3] << 8;
+  if ((uint32_t)pw * (uint32_t)ph > n - 4) return;
+  if (sx < 0) { w += sx; x0 -= sx * k; sx = 0; } /* (the part that's in the picture) */
+  if (sy < 0) { h += sy; y0 -= sy * k; sy = 0; }
+  if (w > pw - sx) w = pw - sx;
+  if (h > ph - sy) h = ph - sy;
+  for (j = 0; j < h; j++) {
+    const uint8_t *row = p + 4 + (sy + j) * pw + sx;
+    int y = y0 + j * k, ya = y < 0 ? 0 : y, yb = y + k > rinc_H ? rinc_H : y + k;
+    if (ya >= yb) continue;
+    for (i = 0; i < w; i++) {
+      int x = x0 + i * k, xa = x < 0 ? 0 : x, xb = x + k > rinc_W ? rinc_W : x + k, yy;
+      if (!row[i] || xa >= xb) continue;
+      for (yy = ya; yy < yb; yy++) memset(&rinc_screen[yy][xa], row[i], (size_t)(xb - xa));
+    }
+  }
 }
 static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
   int x0 = a[0].i, y0 = a[1].i, x1 = x0 + a[2].i, y1 = y0 + a[3].i, y;
@@ -700,6 +733,21 @@ static void rinc_hostFileRead(rio_Vm *v, rio_Val *a) {
 static void rinc_hostFileWrite(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_argPath(v, a, path, 1);
   if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
+}
+/* pictures as PNG files (png.c): pngRead(path, out) -> Int: the picture, into out: its width and height
+   (2 bytes each, low first), then its pixels, a byte each, row by row; its size, or -1 (out needs more
+   room than that, for the PNG's rows as they come: w * h + 2 * h + 4 for one of the palette's).
+   pngWrite(path, picture) -> Int: one, laid out the same, as an indexed PNG: 0, or -1 */
+static void rinc_hostPngRead(rio_Vm *v, rio_Val *a) {
+  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); int named = rinc_argPath(v, a, path, 0);
+  a[0].i = named && out ? rinc_pngRead(path, out, a[3].u) : -1;
+}
+static void rinc_hostPngWrite(rio_Vm *v, rio_Val *a) {
+  char path[96]; const uint8_t *p = (const uint8_t *)rio_sliceBytes(v, a + 2); uint32_t n = a[3].u, w, h; int named = rinc_argPath(v, a, path, 1);
+  a[0].i = -1;
+  if (!named || !p || n < 4) return;
+  w = p[0] | (uint32_t)p[1] << 8; h = p[2] | (uint32_t)p[3] << 8;
+  if (w && h && (uint64_t)w * h <= n - 4) a[0].i = rinc_pngWrite(path, p + 4, (int)w, (int)h);
 }
 static void rinc_hostFileDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_argPath(v, a, path, 1);
@@ -1452,7 +1500,7 @@ static void rinc_hostScroll(rio_Vm *v, rio_Val *a) {
 
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", "i", rinc_hostCls) || rio_addFfi(vm, "pc.pset", "iii", rinc_hostPset) || rio_addFfi(vm, "pc.pget", "ii>i", rinc_hostPget) ||
-         rio_addFfi(vm, "pc.rect", "iiiii", rinc_hostRect) || rio_addFfi(vm, "pc.print", "siii", rinc_hostPrint) || rio_addFfi(vm, "pc.btn", "i>i", rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", ">f", rinc_hostTime) ||
+         rio_addFfi(vm, "pc.rect", "iiiii", rinc_hostRect) || rio_addFfi(vm, "pc.blit", "siiiiiii", rinc_hostBlit) || rio_addFfi(vm, "pc.print", "siii", rinc_hostPrint) || rio_addFfi(vm, "pc.btn", "i>i", rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", ">f", rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", "bs>i", rinc_hostFromhex) || rio_addFfi(vm, "pc.stick", "i>f", rinc_hostStick) || rio_addFfi(vm, "pc.trigger", "i>f", rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", ">i", rinc_hostKey) || rio_addFfi(vm, "pc.apps", ">i", rinc_hostApps) || rio_addFfi(vm, "pc.appName", "ib>i", rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", "ib>i", rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", "s", rinc_hostLaunch) ||
@@ -1469,7 +1517,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.call", "ss", rinc_hostCall) || rio_addFfi(vm, "pc.args", "b>i", rinc_hostArgs) ||
          rio_addFfi(vm, "pc.done", "s", rinc_hostDone) || rio_addFfi(vm, "pc.result", "b>i", rinc_hostResult) ||
          rio_addFfi(vm, "pc.dir", "sb>i", rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", "sb>i", rinc_hostFileRead) ||
-         rio_addFfi(vm, "pc.fileWrite", "ss>i", rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", "s>i", rinc_hostFileDelete) ||
+         rio_addFfi(vm, "pc.fileWrite", "ss>i", rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", "s>i", rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", "sb>i", rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", "ss>i", rinc_hostPngWrite) ||
          rio_addFfi(vm, "pc.fileCopy", "ss>i", rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", "s>i", rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", "ss>i", rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", "ss>i", rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
          rio_addFfi(vm, "pc.pointerY", ">i", rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", "i>i", rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", ">i", rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", "i>i", rinc_hostScroll) ||

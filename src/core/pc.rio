@@ -9,6 +9,9 @@ cls* :: @host proc(c: Int)                           # fill the screen with colo
 pset* :: @host proc(x, y, c: Int)                    # one pixel
 pget* :: @host proc(x, y: Int) -> Int
 rect* :: @host proc(x, y, w, h, c: Int)              # a filled rectangle
+# part of a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it),
+# w by h from sx, sy, drawn at x, y, each pixel scale by scale; color 0 is see-through
+blit* :: @host proc(picture: String, sx, sy, w, h, x, y, scale: Int)
 print* :: @host proc(s: String, x, y, c: Int)        # text, in the 5x8 font, 6 pixels a character
 
 # ---------------------------------------------------------------- input
@@ -91,6 +94,12 @@ fileDelete* :: @host proc(path: String) -> Int              # a file, or a folde
 fileCopy* :: @host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1
 fileRename* :: @host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1
 dirMake* :: @host proc(path: String) -> Int                 # a folder, at a path not taken: 0, or -1
+# pictures as PNG files: a picture is its width and height (2 bytes each, low first), then its pixels, a
+# byte each, row by row (0: see-through). pngRead reads one into out, each color the palette's nearest
+# (exactly, for one written by pngWrite): its size, or -1 (out needs room for the PNG's rows as they come
+# too: w * h + 2 * h + 4 bytes for one of the palette's). pngWrite writes one as an indexed PNG
+pngRead* :: @host proc(path: String, out: Blob) -> Int
+pngWrite* :: @host proc(path: String, picture: String) -> Int # 0, or -1
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 

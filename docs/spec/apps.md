@@ -172,6 +172,32 @@ d notes
 
 Files shows them: its help text, `files/README`, says how. Deleting there takes the whole name typed.
 
+Pictures are PNG files. A picture in memory is its width and height (2 bytes each, low first), then its
+pixels, a color number each, row by row, 0 see-through:
+
+| proc | |
+|---|---|
+| `pc.pngWrite(path, picture) -> Int` | a picture as an indexed PNG: Rinc's 256 colors are its own, 0 see-through, so other programs show it as Rinc does |
+| `pc.pngRead(path, out) -> Int` | a PNG (8 bits a color, or indexed at 1 to 8 bits; not interlaced) into `out` as a picture, each color Rinc's nearest (exactly the same, for one `pngWrite` wrote): its size, or -1. `out` needs room for the PNG's rows as they come too: `w * h + 2 * h + 4` bytes for one of Rinc's |
+
+```rio
+pic: Blob[4 + 4]
+pic[0] = 2
+pic[2] = 2
+pic[4] = 8
+pic[7] = 12
+log(pc.pngWrite("/rinc/save/demo2/tiny.png", pic[:].asString()))
+back: Blob[16]
+log(pc.pngRead("/rinc/save/demo2/tiny.png", back[:]), back[0], back[2], back[4], back[5], back[7])
+log(pc.fileDelete("/rinc/save/demo2"))
+```
+
+```output
+0
+8 2 2 8 0 12
+0
+```
+
 ## Calling an app
 
 An app can start another for something, such as a file picked, and have the answer back. `pc.call(name,

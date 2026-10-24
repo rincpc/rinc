@@ -12,6 +12,15 @@ textColor := pc.theme(pc.Role.text)
 softColor := pc.theme(pc.Role.soft)
 errorColor := pc.theme(pc.Role.error)
 accentColor := pc.theme(pc.Role.accent)
+codeColor := pc.theme(pc.Role.code) # code, as typed: colored as the editor colors it
+punctColor := pc.theme(pc.Role.punct)
+keywordColor := pc.theme(pc.Role.keyword)
+typeColor := pc.theme(pc.Role.type)
+callColor := pc.theme(pc.Role.call)
+numberColor := pc.theme(pc.Role.number)
+stringColor := pc.theme(pc.Role.string)
+commentColor := pc.theme(pc.Role.comment)
+CODE_ROW :: -1 # a row's color, for a row of typed code: colored as code
 
 # the session's memory, handed over to it: the typed program's code and data, and its compiler's tables
 sessionMem: Blob[147456]
@@ -19,6 +28,65 @@ sessionTables: Blob[40960]
 file: Blob[24576]  # an app's source, loading or saving
 fileLen := 0
 logBuf: Blob[2048]
+
+# code, colored as the editor colors it: comments, strings, numbers, keywords, names with a capital
+# (types), names called, other names, and the rest (operators and punctuation)
+KEYWORDS :: " proc struct if else for in end return break continue import include enum union switch case is nil and or not true false "
+isWordChar :: proc(c: Int) -> Bool
+  return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_'
+end
+isKeyword :: proc(w: String) -> Bool
+  n := w.len()
+  for p in 1..<KEYWORDS.len() - n
+    if KEYWORDS[p - 1] == ' ' and KEYWORDS[p + n] == ' ' and KEYWORDS[p:p + n] == w
+      return true
+    end
+  end
+  return false
+end
+printCode :: proc(t: String, x: Int, y: Int)
+  i := 0
+  quote := 0 # (in a string: its quote)
+  for i < t.len()
+    j := i + 1
+    color := punctColor
+    c := t[i]
+    if quote != 0 or c == '"' or c == 39
+      if quote == 0
+        quote = c
+      else
+        j = i
+      end
+      for j < t.len() and t[j] != quote # (to its end, a backslash's next character skipped)
+        j += 1 + (t[j] == 92).toInt()
+      end
+      j = min(j + 1, t.len())
+      quote = 0
+      color = stringColor
+    case c == '#'
+      j = t.len()
+      color = commentColor
+    case isWordChar(c)
+      for j < t.len() and isWordChar(t[j])
+        j += 1
+      end
+      w := t[i:j]
+      if c >= '0' and c <= '9'
+        color = numberColor
+      case isKeyword(w)
+        color = keywordColor
+      case c >= 'A' and c <= 'Z'
+        color = typeColor
+      case j < t.len() and t[j] == '('
+        color = callColor
+      else
+        color = codeColor
+      end
+    end
+    pc.print(t[i:j], x + i * 6, y, color)
+    i = j
+  end
+end
 
 # the screen: finished rows, then the line being typed
 Row :: struct
@@ -134,12 +202,20 @@ draw* :: proc()
   first := max(rowCount + inputRows - ROWS, 0)
   y := 0
   for i in first..<rowCount
-    pc.print(rows[i].text[:].asString(), 0, y * 9, rows[i].color)
+    if rows[i].color == CODE_ROW
+      printCode(rows[i].text[:].asString(), 0, y * 9)
+    else
+      pc.print(rows[i].text[:].asString(), 0, y * 9, rows[i].color)
+    end
     y += 1
   end
   for k in 0..<inputRows
     a := k * COLS
-    pc.print(shown[a:min(a + COLS, shown.len())].asString(), 0, (y + k) * 9, textColor)
+    if mode == .typing
+      printCode(shown[a:min(a + COLS, shown.len())].asString(), 0, (y + k) * 9)
+    else
+      pc.print(shown[a:min(a + COLS, shown.len())].asString(), 0, (y + k) * 9, textColor)
+    end
   end
   if (pc.time() * 2.0).toInt() % 2 == 0
     pc.rect(at % COLS * 6, (y + at / COLS) * 9 + 8, 5, 1, accentColor)

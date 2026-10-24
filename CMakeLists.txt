@@ -54,7 +54,7 @@ set(RINC_PC_SOURCE ${CMAKE_BINARY_DIR}/pc_source.c)
 add_custom_command(OUTPUT ${RINC_PC_SOURCE}
   COMMAND ${CMAKE_COMMAND} -DIN=${CMAKE_CURRENT_LIST_DIR}/src/core/pc.rio -DOUT=${RINC_PC_SOURCE} -DNAME=rinc_pcSource -P ${CMAKE_CURRENT_LIST_DIR}/tools/embed_text.cmake
   DEPENDS src/core/pc.rio tools/embed_text.cmake)
-add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c ${RINC_BUILD_ID} ${RINC_PC_SOURCE})
+add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c src/core/png.c ${RINC_BUILD_ID} ${RINC_PC_SOURCE})
 add_dependencies(rinccore rinc_build_id)
 target_include_directories(rinccore PUBLIC src/core)
 target_link_libraries(rinccore PUBLIC riocore)

@@ -14,6 +14,7 @@ where what it logs shows until it draws, and where Rinc shows what went wrong if
 | `pc.pget(x, y) -> Int` | pixel `x, y`, or 0 off the screen |
 | `pc.rect(x, y, w, h, c)` | pixels from `x` up to `x + w`, and `y` up to `y + h`, become `c`; cut off at the screen's edges; nothing when `w` or `h` is 0 or less |
 | `pc.print(s, x, y, c)` | the text's characters, one every 6 pixels from `x`, drawn at `y` in color `c` |
+| `pc.blit(picture, sx, sy, w, h, x, y, scale)` | part of a picture, `w` by `h` from `sx`, `sy`, drawn at `x`, `y`, each pixel `scale` by `scale`; its 0s are see-through. A picture is its width and height (2 bytes each, low first), then its pixels, a byte each, row by row: as `pc.pngRead` gives one (see [apps](apps.md#files)) |
 
 A color is the low 8 bits of the number given: `pc.cls(257)` is `pc.cls(1)`.
 
@@ -26,6 +27,25 @@ log(pc.pget(0, 0), pc.pget(4, 4), pc.pget(5, 5), pc.pget(10, 10))
 
 ```output
 7 7 44 44
+```
+
+A sprite drawn twice as big, its see-through pixel leaving what's under it:
+
+```rio
+pc.cls(1)
+pic: Blob[4 + 4]
+pic[0] = 2 # (2 by 2)
+pic[2] = 2
+pic[4] = 8
+pic[5] = 0
+pic[6] = 9
+pic[7] = 10
+pc.blit(pic[:].asString(), 0, 0, 2, 2, 10, 10, 2)
+log(pc.pget(10, 10), pc.pget(11, 11), pc.pget(12, 10), pc.pget(13, 13), pc.pget(14, 14))
+```
+
+```output
+8 8 1 10 1
 ```
 
 ## Text

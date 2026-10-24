@@ -9,7 +9,7 @@
 # picker: Enter (A, or a click on the color picked) gives its number back as text (pc.done), Esc
 # nothing.
 
-BG :: 249             # a dark gray: every color shows against it, the black too
+BG :: 249             # a dark gray, behind the colors: every color shows against it, the black too
 PICO_X :: 8           # PICO-8's colors: 2 rows of 16, 19x14
 PICO_Y :: 6
 GRAY_Y :: 40          # the grays: 14 across the same width, 12 high
@@ -20,6 +20,12 @@ CELL :: 26
 DEPTH_X :: 172        # the column through it, 18 wide
 PANEL_X :: 198        # the color, big, what it is, and the slices
 SLICES_Y :: 198
+
+# colors: the theme's, for the screen and its text (the colors themselves sit on BG's gray)
+backColor := pc.theme(pc.Role.bg)
+textColor := pc.theme(pc.Role.text)
+softColor := pc.theme(pc.Role.soft)
+faintColor := pc.theme(pc.Role.faint)
 
 PICO :: 0             # where the pick is
 GRAYS :: 1
@@ -388,7 +394,11 @@ faceColor :: proc(s: Int, i: Int, j: Int) -> Int
 end
 
 draw* :: proc()
-  pc.cls(BG)
+  pc.cls(backColor)
+  pc.rect(PICO_X - 4, PICO_Y - 4, SPAN + 8, GRAY_Y + 16 - PICO_Y, BG) # (the gray behind the colors)
+  pc.rect(FACE_X - 4, FACE_Y - 4, DEPTH_X + 22 - FACE_X, 6 * CELL + 8, BG)
+  pc.rect(PANEL_X - 4, FACE_Y - 4, 122, 72, BG)
+  pc.rect(PANEL_X - 4, SLICES_Y - 4, 122, 26, BG)
   for i in 0..<32
     pc.rect(PICO_X + i % 16 * 19, PICO_Y + i / 16 * 14, 19, 14, i)
   end
@@ -411,9 +421,10 @@ draw* :: proc()
     end
   end
   # what's picked: framed, and in the cube, its slice and its column too
-  if area == PICO
+  switch area
+  case PICO
     frame(PICO_X + col * 19, PICO_Y + row * 14, 19, 14)
-  case area == GRAYS
+  case GRAYS
     frame(grayX(gray), GRAY_Y, grayX(gray + 1) - grayX(gray), 12)
   else
     frame(FACE_X + pos[across()] * CELL, FACE_Y + pos[down()] * CELL, CELL, CELL)
@@ -426,16 +437,17 @@ draw* :: proc()
   text.clear()
   text.pushAll("color ")
   pushNumber(c)
-  pc.print(text[:].asString(), PANEL_X, FACE_Y + 70, 7)
+  pc.print(text[:].asString(), PANEL_X, FACE_Y + 72, textColor)
   text.clear()
   text.pushAll("#")
   pushHex(rgb(c), 6)
-  pc.print(text[:].asString(), PANEL_X, FACE_Y + 80, 6)
+  pc.print(text[:].asString(), PANEL_X, FACE_Y + 82, softColor)
   text.clear()
-  if area == PICO
+  switch area
+  case PICO
     text.pushAll("PICO-8 ")
     pushNumber(c % 16 + c / 16 * 128)
-  case area == GRAYS
+  case GRAYS
     text.pushAll("gray ")
     pushNumber(gray + 1)
     text.pushAll(" of 14")
@@ -446,13 +458,13 @@ draw* :: proc()
       ok = text.push(32)
     end
   end
-  pc.print(text[:].asString(), PANEL_X, FACE_Y + 90, 6)
-  pc.print("deeper:", PANEL_X, FACE_Y + 110, 118)
-  pc.print(names[axis], PANEL_X + 48, FACE_Y + 110, 118)
+  pc.print(text[:].asString(), PANEL_X, FACE_Y + 92, softColor)
+  pc.print("deeper:", PANEL_X, FACE_Y + 110, faintColor)
+  pc.print(names[axis], PANEL_X + 48, FACE_Y + 110, faintColor)
   if calledFor
-    pc.print("arrows  Tab deeper  Space turn  Enter pick", 8, 226, 118)
+    pc.print("arrows  Tab deeper  Space turn  Enter pick", 8, 228, faintColor)
   else
-    pc.print("arrows  Tab deeper  Space turn", 8, 226, 118)
+    pc.print("arrows  Tab deeper  Space turn", 8, 228, faintColor)
   end
 end
 
