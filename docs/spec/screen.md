@@ -62,7 +62,9 @@ cube, and 248 to 255 grays:
 
 - **The cube:** color `32 + 36 * r + 6 * g + b`, for `r`, `g` and `b` from 0 to 5, has each component at
   the level 0, 95, 135, 175, 215 or 255.
-- **The grays:** color `248 + i`, for `i` from 0 to 7, has each component at `8 + 32 * i`.
+- **The grays:** colors 248 to 255 have each component at 19, 38, 57, 76, 115, 155, 195 and 235: the
+  steps between the cube's own grays (0, 95, 135, 175, 215, 255), so together they go from black to
+  white in 14 steps of about 20.
 
 Every Rinc shows the palette at 16 bits a pixel, RGB565: each component's top 5, 6 and 5 bits. Where a
 display has more bits, a component `v` of `n` bits becomes `v * 255 / (2^n - 1)`, rounded down, so every

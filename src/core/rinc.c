@@ -17,11 +17,12 @@ static void rinc_initPalette(void) {
   static const uint32_t secret[16] = {0x291814, 0x111D35, 0x422136, 0x125359, 0x742F29, 0x49333B, 0xA28879, 0xF3EF7D,
                                       0xBE1250, 0xFF6C24, 0xA8E72E, 0x00B543, 0x065AB5, 0x754665, 0xFF6E59, 0xFF9D81}; /* (PICO-8's 128-143) */
   static const int level[6] = {0, 95, 135, 175, 215, 255};
+  static const int gray[8] = {19, 38, 57, 76, 115, 155, 195, 235}; /* (between the cube's: with them, 14 grays about 20 apart) */
   int i;
   for (i = 0; i < 16; i++) rinc_palette[i] = rinc_rgb565((int)(pico8[i] >> 16), (int)(pico8[i] >> 8 & 255), (int)(pico8[i] & 255));
   for (i = 0; i < 16; i++) rinc_palette[16 + i] = rinc_rgb565((int)(secret[i] >> 16), (int)(secret[i] >> 8 & 255), (int)(secret[i] & 255));
   for (i = 0; i < 216; i++) rinc_palette[32 + i] = rinc_rgb565(level[i / 36], level[i / 6 % 6], level[i % 6]);
-  for (i = 0; i < 8; i++) rinc_palette[248 + i] = rinc_rgb565(8 + 32 * i, 8 + 32 * i, 8 + 32 * i);
+  for (i = 0; i < 8; i++) rinc_palette[248 + i] = rinc_rgb565(gray[i], gray[i], gray[i]);
 }
 
 /* host procs: arguments arrive in a[], a result goes in a[0]. Drawing outside the screen is clipped */
@@ -832,7 +833,8 @@ static void rinc_hostSettingWrite(rio_Vm *v, rio_Val *a) {
 /* the theme: a color for each role the system apps draw with (pc.Role, in this order), so they look
    alike and a theme changes them all. theme(role) -> Int. The theme setting names one, owner/id: a
    file of an app's, owner/themes/id.theme.rio, in its folder (or the bundle's) or its save space, or a
-   project's (owner*). The file is Rio's form of constants, and only that is read, never run: lines of
+   project's (owner*); owner/id+ is only the save space's, your copy of a locked one (Rinc's own are
+   rinc/slate and so on, in /rinc/apps/rinc/themes). The file is Rio's form of constants, and only that is read, never run: lines of
    name :: number (a star after the name, or not), # comments, and the first line its title. Roles it
    leaves out, or with no theme, are Rinc's own colors, these */
 static const char *const rinc_roleNames[] = {"bg", "bar", "text", "soft", "dim", "faint", "accent", "heading", "pick", "select", "link",
@@ -841,16 +843,17 @@ static const char *const rinc_roleNames[] = {"bg", "bar", "text", "soft", "dim",
 static const uint8_t rinc_roleDefaults[rinc_ROLES] = {1, 0, 7, 6, 13, 5, 10, 9, 12, 2, 12, 8, 11, 17, 7, 6, 14, 15, 12, 9, 11, 13};
 static uint8_t rinc_theme[rinc_ROLES]; static int rinc_themeOn; /* (loaded once: before, the defaults) */
 /* a theme's file, read into the roles: 0, or -1 (no such file) */
-static int rinc_themeRead(const char *owner, int n, const char *id, int m) {
-  static char text[2048]; char path[112]; uint32_t len = 0; int project = owner[n - 1] == '*', i, found = 0;
+static int rinc_themeRead(const char *owner, int n, const char *id, int m, int copy) {
+  static char text[1024]; char path[112]; uint32_t len = 0; int project = owner[n - 1] == '*', i, found = 0; /* (a theme file is about 640 bytes) */
   const rinc_File *f;
+  if (copy && project) return -1;
   snprintf(path, sizeof path, "/rinc/%s/%.*s/themes/%.*s.theme.rio", project ? "projects" : "apps", project ? n - 1 : n, owner, m, id);
-  if (!rinc_readFile(path, text, sizeof text - 1, &len)) found = 1;
+  if (!copy && !rinc_readFile(path, text, sizeof text - 1, &len)) found = 1;
   if (!found && !project) {
     snprintf(path, sizeof path, "/rinc/save/%.*s/themes/%.*s.theme.rio", n, owner, m, id);
     if (!rinc_readFile(path, text, sizeof text - 1, &len)) found = 1;
   }
-  if (!found && !project) {
+  if (!found && !project && !copy) {
     snprintf(path, sizeof path, "apps/%.*s/themes/%.*s.theme.rio", n, owner, m, id);
     if ((f = rinc_bundleFile(path))) { len = f->len < sizeof text - 1 ? f->len : sizeof text - 1; memcpy(text, f->data, len); found = 1; }
   }
@@ -879,15 +882,17 @@ static int rinc_themeRead(const char *owner, int n, const char *id, int m) {
 }
 /* the theme the setting names (each app's start: a change shows in the next app) */
 void rinc_themeLoad(void) {
-  char name[80]; uint32_t len = 0; const char *slash; int n;
+  char name[80]; uint32_t len = 0; const char *slash; int n, copy;
   memcpy(rinc_theme, rinc_roleDefaults, sizeof rinc_theme);
   rinc_themeOn = 1;
   rinc_textFg = rinc_theme[2]; /* (the screen console's text) */
   if (rinc_readFile("/rinc/settings/theme", name, sizeof name - 1, &len) || len >= sizeof name) return;
   while (len && (name[len - 1] == '\n' || name[len - 1] == '\r' || name[len - 1] == ' ')) len--;
   name[len] = 0;
+  copy = len > 1 && name[len - 1] == '+'; /* (rinc/slate+: your copy of a locked theme, in the save space) */
+  if (copy) name[--len] = 0;
   if (!(slash = strchr(name, '/')) || !rinc_refOk(name, n = (int)(slash - name)) || !rinc_nameOk(slash + 1, (int)strlen(slash + 1), 0)) return;
-  rinc_themeRead(name, n, slash + 1, (int)strlen(slash + 1));
+  rinc_themeRead(name, n, slash + 1, (int)strlen(slash + 1), copy);
   rinc_textFg = rinc_theme[2];
 }
 static void rinc_hostTheme(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < (uint32_t)rinc_ROLES ? rinc_theme[a[0].i] : rinc_theme[2]; }

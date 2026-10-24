@@ -30,7 +30,8 @@ pico := [32]Int{0x000000, 0x1D2B53, 0x7E2553, 0x008751, 0xAB5236, 0x5F574F, 0xC2
                 0x291814, 0x111D35, 0x422136, 0x125359, 0x742F29, 0x49333B, 0xA28879, 0xF3EF7D,
                 0xBE1250, 0xFF6C24, 0xA8E72E, 0x00B543, 0x065AB5, 0x754665, 0xFF6E59, 0xFF9D81}
 levels := [6]Int{0, 95, 135, 175, 215, 255} # (each of the cube's steps)
-grays := [14]Int{32, 248, 249, 250, 75, 251, 118, 252, 253, 161, 254, 204, 255, 247} # (the cube's and the 8 grays, dark to light)
+grays := [14]Int{32, 248, 249, 250, 251, 75, 252, 118, 253, 161, 254, 204, 255, 247} # (the cube's and the 8 grays, dark to light)
+grayLevels := [8]Int{19, 38, 57, 76, 115, 155, 195, 235} # (248 to 255: between the cube's)
 names := [3]String{"red", "green", "blue"}
 
 area := CUBE
@@ -61,8 +62,7 @@ rgb :: proc(c: Int) -> Int
     k := c - 32
     return levels[k / 36] * 65536 + levels[k / 6 % 6] * 256 + levels[k % 6]
   end
-  v := 8 + 32 * (c - 248)
-  return v * 65793
+  return grayLevels[c - 248] * 65793
 end
 
 # the face's channels: across, and down (its slices are the depth's steps)
@@ -447,12 +447,12 @@ draw* :: proc()
     end
   end
   pc.print(text[:].asString(), PANEL_X, FACE_Y + 90, 6)
-  pc.print("deeper:", PANEL_X, FACE_Y + 110, 252)
-  pc.print(names[axis], PANEL_X + 48, FACE_Y + 110, 252)
+  pc.print("deeper:", PANEL_X, FACE_Y + 110, 118)
+  pc.print(names[axis], PANEL_X + 48, FACE_Y + 110, 118)
   if calledFor
-    pc.print("arrows  Tab deeper  Space turn  Enter pick", 8, 226, 252)
+    pc.print("arrows  Tab deeper  Space turn  Enter pick", 8, 226, 118)
   else
-    pc.print("arrows  Tab deeper  Space turn", 8, 226, 252)
+    pc.print("arrows  Tab deeper  Space turn", 8, 226, 118)
   end
 end
 

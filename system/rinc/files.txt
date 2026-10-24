@@ -1,0 +1,7 @@
+themes/amber.theme.rio
+themes/contrast.theme.rio
+themes/green.theme.rio
+themes/night.theme.rio
+themes/paper.theme.rio
+themes/rinc.theme.rio
+themes/slate.theme.rio

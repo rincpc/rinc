@@ -211,15 +211,17 @@ makes the app picked there active and opens the editor, and marks the active one
 `home` names the app `home` means (see bundles), when the Rinc wasn't started with one: `launcher`, say,
 for a home app of another name. Without it, home is the app named `home`.
 
-`theme` names the theme in use, `themes/slate` say (see themes).
+`theme` names the theme in use, `rinc/slate` say (see themes).
 
 ## Themes
 
 A theme gives a palette color to each role the system apps draw with, so they look alike and code is
 colored the same in all of them. `theme` (a setting) names the one in use, `owner/id`: the file
 `themes/id.theme.rio` of app `owner`, in its folder (or the bundle's) or its save space
-(`/rinc/save/owner/themes`), or of project `owner*`. Without one, or for a role a theme leaves out,
-the color is Rinc's own. The Themes app picks, makes and edits them (see its help).
+(`/rinc/save/owner/themes`), or of project `owner*`; `owner/id+` is only the save space's, a copy of a
+locked one. Rinc's own themes are `rinc`'s: `/rinc/apps/rinc/themes`, `rinc/slate` and so on. Without
+a theme, or for a role it leaves out, the color is Rinc's own. The Themes app picks, makes and edits
+them (see its help).
 
 `pc.theme(role) -> Int` is the color a role has in the theme in use, read as each app starts:
 
