@@ -1,0 +1,137 @@
+# Themes: its state, using and editing one, and names typed (part of themes.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the state: kept, for coming back from Colors
+
+screen := LIST
+pick := 0             # the theme picked in the list
+top := 0
+role := 0             # the role picked, editing
+editing := -1         # the theme being edited
+message: Blob[..64]
+messageColor := 0
+prompting := 0        # 0 none; 1 a name for a new one; 2 a new name for one of yours
+input: Blob[..20]
+
+say :: proc(s: String, c: Int)
+  message.clear()
+  fine = message.pushAll(s)
+  messageColor = c
+end
+remember :: proc()
+  state: Blob[..4]
+  fine = state.push(screen)
+  fine = state.push(pick)
+  fine = state.push(role)
+  ok := pc.stashWrite("view", state[0:state.len()].asString())
+  if editing >= 0
+    ok = pc.stashWrite("edit", nameOf(editing))
+  end
+end
+
+# the colors Themes itself draws with: the current theme's (or, editing, the one being edited's)
+ink :: proc(r: Int) -> Int
+  return color(current, r)
+end
+
+follow :: proc()
+  if pick < top
+    top = pick
+  end
+  if pick >= top + LIST_ROWS
+    top = pick - LIST_ROWS + 1
+  end
+  top = max(0, min(top, count - LIST_ROWS))
+end
+
+use :: proc(t: Int)
+  if pc.settingWrite("theme", nameOf(t)) == 0
+    current = t
+    message.clear()
+    fine = message.format("Using ", titleName(t), ": apps started from now")
+    messageColor = ink(R_OK)
+  else
+    say("Couldn't change the setting", ink(R_ERROR))
+  end
+end
+
+edit :: proc(t: Int)
+  if place[t] == APPS # (locked: its copy, made the first time)
+    probe: Blob[..80]
+    fine = probe.format(nameOf(t), "+")
+    c := find(probe[0:probe.len()].asString())
+    if c < 0
+      c = make(t, ownerOf(t), idOf(t), true, false)
+    end
+    if c < 0
+      say("Couldn't make its copy", ink(R_ERROR))
+      return
+    end
+    t = c
+    pick = c
+    follow()
+  end
+  editing = t
+  screen = EDIT
+  role = 0
+end
+
+# Colors, to pick role's color; Themes starts again when it's done
+pickColor :: proc()
+  remember()
+  args: Blob[..16]
+  fine = args.format("pick ", colors[editing * ROLES + role])
+  pc.call("colors", args[0:args.len()].asString())
+end
+
+nameOk :: proc(s: String) -> Bool
+  if s.len() == 0 or s.len() > 20
+    return false
+  end
+  for k in 0..<s.len()
+    if not isNameChar(s[k]) and s[k] != 45
+      return false
+    end
+  end
+  return true
+end
+
+# a name typed: what it was for
+answered :: proc()
+  id := input[0:input.len()].asString()
+  if not nameOk(id)
+    say("A name is up to 20 letters, digits, _ and -", ink(R_ERROR))
+    return
+  end
+  if prompting == 1 # (a new one, from the one picked: yours, in Rinc's save space)
+    n := make(pick, "rinc", id, false, false)
+    if n < 0
+      say("Couldn't make it: is that name taken?", ink(R_ERROR))
+      return
+    end
+    prompting = 0
+    pick = n
+    follow()
+    edit(n)
+    return
+  end
+  if prompting == 2 # (a new name, for one of yours: a copy gets a name of its own)
+    old: Blob[..112]
+    fine = old.pushAll(pathOf(pick))
+    wasCurrent := pick == current
+    n := make(pick, ownerOf(pick), id, false, true)
+    if n < 0
+      say("Couldn't rename it: is that name taken?", ink(R_ERROR))
+      return
+    end
+    made: Blob[..80]
+    fine = made.pushAll(nameOf(n))
+    gone := pc.fileDelete(old[0:old.len()].asString())
+    findAll()
+    pick = max(0, find(made[0:made.len()].asString()))
+    if wasCurrent
+      use(pick)
+    end
+    follow()
+    prompting = 0
+  end
+end

@@ -1,0 +1,148 @@
+# Themes: keys, buttons and the pointer (part of themes.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- input
+
+held := 0
+repeat := 0
+clicked := 0
+still := 0
+# a key, while a name's typed
+promptKey :: proc(c: Int)
+  switch c
+  case ENTER
+    answered()
+  case ESC
+    prompting = 0
+    say("", 0)
+  case BACKSPACE
+    if input.len() > 0
+      input.pop()
+    end
+  else
+    if c >= 32 and c < 127 and input.len() < 20
+      fine = input.push(c)
+    end
+  end
+end
+
+# a key, on the list of themes
+listKey :: proc(c: Int)
+  if count == 0
+    return
+  end
+  switch c
+  case ENTER
+    use(pick)
+  case 'e', 'E'
+    edit(pick)
+  case 'n', 'N'
+    prompting = 1
+    input.clear()
+  case 'r', 'R' # (yours only)
+    if place[pick] == OWN
+      prompting = 2
+      input.clear()
+      id := idOf(pick)
+      fine = input.pushAll(id[0:id.len() - isCopy(pick).toInt()])
+    end
+  case DELETE_KEY
+    if place[pick] == APPS
+      say("Locked: it's an installed app's", ink(R_ERROR))
+    case pick == current
+      say("It's in use: use another first", ink(R_ERROR))
+    else
+      if pc.fileDelete(pathOf(pick)) == 0
+        say("Deleted", ink(R_OK))
+      end
+      findAll()
+      pick = min(pick, max(count - 1, 0))
+      follow()
+    end
+  end
+end
+
+# a key, editing a theme: true when Colors is called (and Themes stops for now)
+editKey :: proc(c: Int) -> Bool
+  switch c
+  case ENTER
+    pickColor()
+    return true
+  case ESC
+    screen = LIST
+    message.clear()
+  case LEFT_KEY, RIGHT_KEY
+    step(c - LEFT_KEY)
+  end
+  return false
+end
+
+update* :: proc()
+  c := pc.key()
+  for c >= 0
+    if prompting > 0
+      promptKey(c)
+    case screen == LIST
+      listKey(c)
+    case editKey(c)
+      return
+    end
+    c = pc.key()
+  end
+  # the arrows (and the d-pad): up and down move, held they repeat; editing, left and right step colors
+  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(0) * 4 + pc.btn(1) * 8
+  move := 0
+  side := 0
+  if bits != held
+    repeat = 12
+    move = (bits & 2) / 2 - (bits & 1)
+    side = (bits & 8) / 8 - (bits & 4) / 4
+  case bits != 0
+    repeat -= 1
+    if repeat == 0
+      repeat = 4
+      move = (bits & 2) / 2 - (bits & 1)
+      side = (bits & 8) / 8 - (bits & 4) / 4
+    end
+  end
+  held = bits
+  if prompting == 0
+    if screen == LIST and count > 0
+      pick = (pick + move + count) % count
+      follow()
+    case screen == EDIT
+      role = (role + move + ROLES) % ROLES
+      if side != 0 and (bits & 12) != 0
+        step((side + 1) / 2)
+      end
+    end
+  end
+  # a click: on a theme picks it (on the one picked, uses it); on a role, Colors for it
+  click := pc.pointerDown(0)
+  if click == 1 and clicked == 0 and prompting == 0
+    x := pc.pointerX()
+    y := pc.pointerY()
+    if screen == LIST and x < PREVIEW_X - 4 and y >= 14
+      t := top + (y - 14) / 12
+      if t < count and t == pick
+        use(t)
+      case t < count
+        pick = t
+      end
+    case screen == EDIT and x < PREVIEW_X - 4 and y >= 14
+      r := (y - 14) / 9
+      if r < ROLES and r == role
+        pickColor()
+      case r < ROLES
+        role = r
+      end
+    end
+  end
+  clicked = click
+  still += 1
+  if move != 0 or side != 0
+    still = 0
+  end
+  if still == 30
+    remember()
+  end
+end

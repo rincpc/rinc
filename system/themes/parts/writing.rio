@@ -1,0 +1,94 @@
+# Themes: writing one, and making new ones (part of themes.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- writing one
+
+# a color's name, for the comment after it in the file
+colorText: Blob[..24]
+levels := [6]Int{0, 95, 135, 175, 215, 255}
+grayLevels := [8]Int{19, 38, 57, 76, 115, 155, 195, 235}
+colorName :: proc(c: Int) -> String
+  if c < 32
+    return picoNames[c]
+  end
+  colorText.clear()
+  if c < 248
+    k := c - 32
+    fine = colorText.format("cube ", levels[k / 36], " ", levels[k / 6 % 6], " ", levels[k % 6])
+  else
+    fine = colorText.format("gray ", grayLevels[c - 248])
+  end
+  return colorText[0:colorText.len()].asString()
+end
+
+out: Blob[..2048]
+save :: proc(t: Int) -> Bool
+  out.clear()
+  fine = out.format("# ", titles[titleAt[t]:titleAt[t] + titleLen[t]].asString(), "\n")
+  for r in 0..<ROLES
+    fine = out.format(roleNames[r], "*")
+    for k in roleNames[r].len() + 1..<8 # (lined up: comment*, the longest, is 8)
+      fine = out.push(32)
+    end
+    c := colors[t * ROLES + r]
+    fine = out.format(" :: ", c)
+    for k in 0..<4 - (c >= 10).toInt() - (c >= 100).toInt()
+      fine = out.push(32)
+    end
+    fine = out.format("# ", colorName(c), "\n")
+  end
+  return pc.fileWrite(pathOf(t), out[0:out.len()].asString()) == 0
+end
+
+# a new theme in owner's save space, from theme t: a locked one's copy (owner/id+, its title as is), or
+# one of a name of its own (owner/id), its title "id: from Slate", or, renaming (keep), "id" and what
+# t's title says from its colon on. Its number, or -1 (the name's taken, or no room)
+make :: proc(t: Int, owner: String, id: String, plus: Bool, keep: Bool) -> Int
+  idBuf.clear()
+  fine = idBuf.format(owner, "/", id)
+  if plus
+    fine = idBuf.push(43)
+  end
+  if count >= MOST or find(idBuf[0:idBuf.len()].asString()) >= 0
+    return -1
+  end
+  n := count
+  nameAt[n] = namesUsed
+  for k in 0..<idBuf.len()
+    names[namesUsed] = idBuf[k]
+    namesUsed += 1
+  end
+  nameLen[n] = idBuf.len()
+  place[n] = OWN
+  titleAt[n] = titlesUsed
+  colorText.clear()
+  old := titles[titleAt[t]:titleAt[t] + titleLen[t]].asString()
+  if plus
+    fine = colorText.pushAll(old[0:min(old.len(), 24)])
+  case keep
+    fine = colorText.pushAll(id)
+    rest := titleName(t).len()
+    for k in rest..<min(old.len(), rest + 24 - colorText.len())
+      fine = colorText.push(old[k])
+    end
+  else
+    fine = colorText.format(id, ": from ")
+    t2 := titleName(t)
+    for k in 0..<min(t2.len(), 24 - colorText.len())
+      fine = colorText.push(t2[k])
+    end
+  end
+  for k in 0..<colorText.len()
+    titles[titlesUsed + k] = colorText[k]
+  end
+  titleLen[n] = colorText.len()
+  titlesUsed += titleLen[n]
+  for r in 0..<ROLES
+    colors[n * ROLES + r] = color(t, r)
+  end
+  count += 1
+  if not save(n)
+    count -= 1
+    return -1
+  end
+  return n
+end

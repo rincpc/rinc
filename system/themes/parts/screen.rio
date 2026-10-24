@@ -1,0 +1,140 @@
+# Themes: the screen (part of themes.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the screen
+
+# what a theme looks like: a little of home, of code, and of messages, in its colors
+rows := [3]String{"Chord", "Bounce", "Notes"}
+about := [3]String{"8 voices", "a ball", "jot down"}
+promptLabels := [2]String{"New theme, from this: ", "Rename to: "}
+preview :: proc(t: Int, x: Int, y: Int)
+  w := 316 - x
+  pc.rect(x, y, w, 196, color(t, R_BG))
+  pc.rect(x, y, w, 10, color(t, R_BAR))
+  pc.print("Home", x + 3, y + 1, color(t, R_TEXT))
+  pc.print("3 apps", x + w - 39, y + 1, color(t, R_FAINT))
+  pc.rect(x + 4, y + 13, 30, 1, color(t, R_ACCENT))
+  for i in 0..<3
+    ry := y + 18 + i * 11
+    if i == 1
+      pc.rect(x + 3, ry - 2, w - 6, 11, color(t, R_PICK))
+    end
+    pc.print(rows[i], x + 7, ry, color(t, R_TEXT))
+    d := R_DIM
+    if i == 1
+      d = R_SOFT
+    end
+    pc.print(about[i], x + 58, ry, color(t, d))
+  end
+  # code, as the editor colors it
+  cy := y + 56
+  pc.rect(x + 3, cy - 2, w - 6, 48, color(t, R_CODE_BG))
+  pc.print("if", x + 6, cy, color(t, R_KEYWORD))
+  pc.print("n", x + 24, cy, color(t, R_CODE))
+  pc.print(">", x + 36, cy, color(t, R_PUNCT))
+  pc.print("10", x + 48, cy, color(t, R_NUMBER))
+  pc.print("# big", x + 66, cy, color(t, R_COMMENT))
+  pc.print("log(", x + 12, cy + 10, color(t, R_CALL))
+  pc.print("\"hi\"", x + 36, cy + 10, color(t, R_STRING))
+  pc.print(")", x + 60, cy + 10, color(t, R_PUNCT))
+  pc.print("s", x + 12, cy + 20, color(t, R_CODE))
+  pc.print(":", x + 18, cy + 20, color(t, R_PUNCT))
+  pc.print("Blob", x + 30, cy + 20, color(t, R_TYPE))
+  pc.print("end", x + 6, cy + 30, color(t, R_KEYWORD))
+  pc.rect(x + 35, cy + 29, 31, 9, color(t, R_SELECT))
+  pc.print("text", x + 36, cy + 30, color(t, R_CODE))
+  # text, as help shows it
+  hy := y + 110
+  pc.print("Heading", x + 4, hy, color(t, R_ACCENT))
+  pc.print("Another", x + 4, hy + 11, color(t, R_HEADING))
+  pc.print("Some longer text", x + 4, hy + 22, color(t, R_SOFT))
+  pc.print("a link", x + 4, hy + 33, color(t, R_LINK))
+  pc.rect(x + 4, hy + 41, 35, 1, color(t, R_LINK))
+  pc.print("a note", x + 50, hy + 33, color(t, R_DIM))
+  pc.print("Saved", x + 4, hy + 46, color(t, R_OK))
+  pc.print("Can't", x + 46, hy + 46, color(t, R_ERROR))
+  pc.rect(x, y + 186, w, 10, color(t, R_BAR))
+  pc.print("Enter open", x + 3, y + 187, color(t, R_FAINT))
+end
+
+swatch :: proc(t: Int, x: Int, y: Int)
+  pc.rect(x, y, 18, 8, color(t, R_BG))
+  pc.rect(x + 2, y + 3, 4, 2, color(t, R_TEXT))
+  pc.rect(x + 7, y + 3, 4, 2, color(t, R_ACCENT))
+  pc.rect(x + 12, y + 3, 4, 2, color(t, R_KEYWORD))
+end
+
+drawList :: proc()
+  for row in 0..<min(count - top, LIST_ROWS)
+    t := top + row
+    y := 16 + row * 12
+    if t == pick
+      pc.rect(2, y - 2, PREVIEW_X - 6, 12, ink(R_PICK))
+    end
+    if t == current
+      pc.rect(0, y - 1, 2, 9, ink(R_ACCENT))
+    end
+    swatch(t, 5, y)
+    name := titleName(t)
+    pc.print(name[0:min(name.len(), 17)], 27, y, ink(R_TEXT))
+    if isCopy(t) # (a locked theme's copy, until it's renamed)
+      pc.print("+", 27 + min(name.len(), 17) * 6, y, ink(R_ACCENT))
+    end
+  end
+  if count == 0
+    pc.print("No themes: install rinc", 6, 16, ink(R_DIM))
+  end
+  if count > 0
+    preview(pick, PREVIEW_X, 14)
+  end
+end
+
+drawEdit :: proc()
+  t := editing
+  for r in 0..<ROLES
+    y := 16 + r * 9
+    if r == role
+      pc.rect(2, y - 1, PREVIEW_X - 6, 9, ink(R_PICK))
+    end
+    c := colors[t * ROLES + r]
+    pc.rect(5, y, 14, 7, 0)
+    pc.rect(6, y + 1, 12, 5, c)
+    pc.print(roleNames[r], 24, y, ink(R_TEXT))
+    n: Blob[..4]
+    fine = n.format(c)
+    pc.print(n[0:n.len()].asString(), PREVIEW_X - 10 - n.len() * 6, y, ink(R_DIM))
+  end
+  preview(t, PREVIEW_X, 14)
+end
+
+draw* :: proc()
+  pc.cls(ink(R_BG))
+  pc.rect(0, 0, 320, 11, ink(R_BAR))
+  if screen == EDIT and editing >= 0
+    pc.print(titleName(editing), 3, 2, ink(R_ACCENT))
+    pc.print(nameOf(editing), 317 - nameLen[editing] * 6, 2, ink(R_DIM))
+    drawEdit()
+  else
+    pc.print("Themes", 3, 2, ink(R_ACCENT))
+    if count > 0
+      pc.print(nameOf(pick), 317 - nameLen[pick] * 6, 2, ink(R_DIM))
+    end
+    drawList()
+  end
+  pc.rect(0, 216, 320, 24, ink(R_BAR))
+  if prompting > 0
+    label := promptLabels[prompting - 1]
+    pc.print(label, 3, 219, ink(R_ACCENT))
+    pc.print(input[0:input.len()].asString(), 3 + label.len() * 6, 219, ink(R_TEXT))
+    pc.rect(3 + (label.len() + input.len()) * 6, 218, 1, 9, ink(R_ACCENT))
+    pc.print("Enter: done  Esc: no", 3, 230, ink(R_FAINT))
+  else
+    if message.len() > 0
+      pc.print(message[0:message.len()].asString(), 3, 219, messageColor)
+    end
+    if screen == EDIT
+      pc.print("Enter pick  Left/Right step  Esc back", 3, 230, ink(R_FAINT))
+    else
+      pc.print("Enter use  E edit  N new  R rename  Del", 3, 230, ink(R_FAINT))
+    end
+  end
+end

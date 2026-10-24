@@ -1681,6 +1681,9 @@ int rinc_appStart(rio_Vm *vm, void *space, uint32_t size, const char *name) {
   char path[96]; const char *src = 0; const rinc_App *b = 0;
   uint32_t hash[2], len = 0; int i, res, stored = 0;
   snprintf(rinc_loadApp, sizeof rinc_loadApp, "%s", name); /* (its own files: in its folder) */
+#ifndef rio_NO_COMPILER
+  rinc_hostFolder[0] = 0; /* (an app from storage or the bundle: its files from there, not the host's, after an app from the host's) */
+#endif
   if (rinc_cacheTrust)
     for (i = 0; i < rinc_checkedCount; i++)
       if (!strcmp(rinc_checked[i].name, name)) {

@@ -1,0 +1,269 @@
+# Themes: the themes found, and reading them (part of themes.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the themes found
+
+names: Blob[2048]     # each one's owner/id, one after another
+nameAt: [MOST]Int
+nameLen: [MOST]Int
+titles: Blob[4096]    # and its title (its first line, # left off)
+titleAt: [MOST]Int
+titleLen: [MOST]Int
+place: [MOST]Int
+colors: [MOST * ROLES]Int
+count := 0
+current := -1         # the one the theme setting names
+
+nameOf :: proc(t: Int) -> String
+  return names[nameAt[t]:nameAt[t] + nameLen[t]].asString()
+end
+# its owner and its id, either side of the slash (a copy's + left on the id)
+slashOf :: proc(n: String) -> Int
+  for k in 0..<n.len()
+    if n[k] == 47
+      return k
+    end
+  end
+  return 0
+end
+ownerOf :: proc(t: Int) -> String
+  n := nameOf(t)
+  return n[0:slashOf(n)]
+end
+idOf :: proc(t: Int) -> String
+  n := nameOf(t)
+  return n[slashOf(n) + 1:n.len()]
+end
+isCopy :: proc(t: Int) -> Bool # (a locked theme's copy: its name ends with +)
+  return nameLen[t] > 0 and names[nameAt[t] + nameLen[t] - 1] == 43
+end
+# its title's name, before the colon (else all of it)
+titleName :: proc(t: Int) -> String
+  n := titleLen[t]
+  for k in 0..<titleLen[t]
+    if n == titleLen[t] and titles[titleAt[t] + k] == 58
+      n = k
+    end
+  end
+  return titles[titleAt[t]:titleAt[t] + n].asString()
+end
+color :: proc(t: Int, role: Int) -> Int
+  if t < 0
+    return defaults[role]
+  end
+  return colors[t * ROLES + role]
+end
+
+# a theme's file: where it is, by its name and place
+pathBuf: Blob[..112]
+fine := true
+pathOf :: proc(t: Int) -> String
+  n := nameOf(t)
+  slash := slashOf(n)
+  pathBuf.clear()
+  if place[t] == OWN # (a copy, slate+, is slate's file in the save space)
+    fine = pathBuf.format("/rinc/save/", n[0:slash], "/themes/", n[slash + 1:n.len() - isCopy(t).toInt()], ".theme.rio")
+  case place[t] == PROJECTS
+    fine = pathBuf.format("/rinc/projects/", n[0:slash - 1], "/themes/", n[slash + 1:n.len()], ".theme.rio")
+  else
+    fine = pathBuf.format("/rinc/apps/", n[0:slash], "/themes/", n[slash + 1:n.len()], ".theme.rio")
+  end
+  return pathBuf[0:pathBuf.len()].asString()
+end
+
+# one theme's text read into its colors and title: lines of name :: number (a star after the name, or
+# not), as Rinc reads them; the first line, a comment, its title
+fileBuf: Blob[2048]
+isNameChar :: proc(c: Int) -> Bool
+  return (c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95
+end
+parse :: proc(t: Int, n: Int)
+  for r in 0..<ROLES
+    colors[t * ROLES + r] = defaults[r]
+  end
+  i := 0
+  if n > 0 and fileBuf[0] == 35 # (the title)
+    i = 1
+    for i < n and fileBuf[i] == 32
+      i += 1
+    end
+    a := i
+    for i < n and fileBuf[i] != 10 and fileBuf[i] != 13
+      i += 1
+    end
+    titleAt[t] = titleAt[t]
+    m := min(i - a, 60)
+    for k in 0..<m
+      if titleAt[t] + titleLen[t] < 4096
+        titles[titleAt[t] + titleLen[t]] = fileBuf[a + k]
+        titleLen[t] += 1
+      end
+    end
+  end
+  for i < n
+    for i < n and (fileBuf[i] == 32 or fileBuf[i] == 9)
+      i += 1
+    end
+    a := i
+    for i < n and isNameChar(fileBuf[i])
+      i += 1
+    end
+    b := i
+    if i < n and fileBuf[i] == 42
+      i += 1
+    end
+    for i < n and fileBuf[i] == 32
+      i += 1
+    end
+    if b > a and i + 1 < n and fileBuf[i] == 58 and fileBuf[i + 1] == 58
+      i += 2
+      for i < n and fileBuf[i] == 32
+        i += 1
+      end
+      v := 0
+      digits := 0
+      for i < n and fileBuf[i] >= 48 and fileBuf[i] <= 57 and digits < 4
+        v = v * 10 + fileBuf[i] - 48
+        digits += 1
+        i += 1
+      end
+      word := fileBuf[a:b].asString()
+      for r in 0..<ROLES
+        if digits > 0 and v < 256 and word == roleNames[r]
+          colors[t * ROLES + r] = v
+        end
+      end
+    end
+    for i < n and fileBuf[i] != 10
+      i += 1
+    end
+    i += 1
+  end
+end
+
+# a theme found: added, its file read
+titlesUsed := 0
+namesUsed := 0
+add :: proc(owner: String, id: String, where: Int, path: String, plus: Bool)
+  if count >= MOST or namesUsed + owner.len() + id.len() + 3 > 2048
+    return
+  end
+  n := pc.fileRead(path, fileBuf[:])
+  if n < 0
+    return
+  end
+  t := count
+  nameAt[t] = namesUsed
+  for k in 0..<owner.len()
+    names[namesUsed] = owner[k]
+    namesUsed += 1
+  end
+  names[namesUsed] = 47
+  namesUsed += 1
+  for k in 0..<id.len()
+    names[namesUsed] = id[k]
+    namesUsed += 1
+  end
+  if plus
+    names[namesUsed] = 43
+    namesUsed += 1
+  end
+  nameLen[t] = namesUsed - nameAt[t]
+  place[t] = where
+  titleAt[t] = titlesUsed
+  titleLen[t] = 0
+  parse(t, min(n, 2048))
+  if titleLen[t] == 0 # (no title: its name)
+    for k in 0..<min(id.len(), 60)
+      titles[titleAt[t] + k] = id[k]
+    end
+    titleLen[t] = min(id.len(), 60)
+  end
+  titlesUsed += titleLen[t]
+  count += 1
+end
+
+find :: proc(name: String) -> Int
+  for t in 0..<count
+    if nameOf(t) == name
+      return t
+    end
+  end
+  return -1
+end
+
+# every theme in a folder's themes/: folder is /rinc/apps/<owner> and so on
+sub: Blob[2048]
+idBuf: Blob[..40]
+scanThemes :: proc(folder: String, owner: String, where: Int)
+  pathBuf.clear()
+  fine = pathBuf.format(folder, "/themes")
+  n := pc.dir(pathBuf[0:pathBuf.len()].asString(), sub[:])
+  at := 0
+  for i in 0..<sub.len()
+    if n > 0 and sub[i] == 10
+      e := sub[at + 2:i].asString() # (its name, after "f ")
+      if sub[at] == 102 and e.len() > 10 and e[e.len() - 10:e.len()] == ".theme.rio"
+        idBuf.clear()
+        fine = idBuf.pushAll(e[0:e.len() - 10])
+        file: Blob[..112]
+        fine = file.format(folder, "/themes/", e)
+        probe: Blob[..80] # (in a save space, a locked theme's name: its copy)
+        fine = probe.format(owner, "/", idBuf[0:idBuf.len()].asString())
+        plus := where == OWN and find(probe[0:probe.len()].asString()) >= 0
+        add(owner, idBuf[0:idBuf.len()].asString(), where, file[0:file.len()].asString(), plus)
+      end
+      n -= 1
+      at = i + 1
+    end
+  end
+end
+
+# every folder of a top folder (/rinc/apps, /rinc/projects, /rinc/save), each one's themes
+top: Blob[4096]
+ownerBuf: Blob[..40]
+folderBuf: Blob[..80]
+scanAll :: proc(root: String, where: Int)
+  n := pc.dir(root, top[:])
+  at := 0
+  for i in 0..<top.len()
+    if n > 0 and top[i] == 10
+      if top[at] == 100
+        e := top[at + 2:i].asString()
+        ownerBuf.clear()
+        fine = ownerBuf.pushAll(e)
+        if where == PROJECTS
+          fine = ownerBuf.push(43) # (a project's: its +)
+        end
+        folderBuf.clear()
+        fine = folderBuf.format(root, "/", e)
+        scanThemes(folderBuf[0:folderBuf.len()].asString(), ownerBuf[0:ownerBuf.len()].asString(), where)
+      end
+      n -= 1
+      at = i + 1
+    end
+  end
+end
+
+setting: Blob[80]
+findAll :: proc()
+  count = 0
+  namesUsed = 0
+  titlesUsed = 0
+  scanAll("/rinc/apps", APPS)
+  scanAll("/rinc/projects", PROJECTS)
+  scanAll("/rinc/save", OWN)
+  current = -1
+  n := pc.settingRead("theme", setting[:])
+  for n > 0 and (setting[n - 1] == 10 or setting[n - 1] == 13 or setting[n - 1] == 32)
+    n -= 1
+  end
+  want := "rinc/rinc" # (no setting: Rinc's own colors)
+  if n > 0 and n <= 80
+    want = setting[0:n].asString()
+  end
+  for t in 0..<count
+    if nameOf(t) == want
+      current = t
+    end
+  end
+end

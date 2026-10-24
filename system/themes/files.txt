@@ -1,2 +1,7 @@
 themes.rio
 help/README.md
+parts/found.rio
+parts/input.rio
+parts/screen.rio
+parts/state.rio
+parts/writing.rio
