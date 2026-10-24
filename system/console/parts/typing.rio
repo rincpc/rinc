@@ -8,13 +8,13 @@ showLog :: proc()
     if n <= 0
       break
     end
-    say(logBuf[:n].asString(), GRAY)
+    say(logBuf[:n].asString(), softColor)
   end
 end
 
 showError :: proc()
   n := pc.rioError(logBuf[:])
-  say(logBuf[:n].asString(), RED)
+  say(logBuf[:n].asString(), errorColor)
 end
 
 fresh :: proc() -> Bool

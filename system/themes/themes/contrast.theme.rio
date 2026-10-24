@@ -1,0 +1,23 @@
+# Contrast: black, bright, as clear as it gets
+bg*      :: 0    # black
+bar*     :: 0    # black
+text*    :: 7    # white
+soft*    :: 7    # white
+dim*     :: 6    # light gray
+faint*   :: 6    # light gray
+accent*  :: 10   # yellow
+heading* :: 10   # yellow
+pick*    :: 28   # royal blue
+select*  :: 2    # dark purple
+link*    :: 12   # blue
+error*   :: 8    # red
+ok*      :: 11   # green
+codeBg*  :: 17   # night blue
+code*    :: 7    # white
+punct*   :: 6    # light gray
+keyword* :: 14   # pink
+type*    :: 15   # peach
+call*    :: 12   # blue
+number*  :: 10   # yellow
+string*  :: 11   # green
+comment* :: 6    # light gray

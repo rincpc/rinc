@@ -5,7 +5,7 @@
 ls :: proc()
   n := pc.apps()
   if n == 0
-    say("no apps (or no card): /rinc/apps", GRAY)
+    say("no apps (or no card): /rinc/apps", softColor)
     return
   end
   names: Blob[..2048]
@@ -15,7 +15,7 @@ ls :: proc()
     names.pushAll(name[:k].asString())
     names.pushAll("  ")
   end
-  say(names[:].asString(), WHITE)
+  say(names[:].asString(), textColor)
 end
 
 load :: proc(name: String)
@@ -23,12 +23,12 @@ load :: proc(name: String)
   n := pc.appSource(name, file[:])
   if n < 0
     msg.format("can't open ", name)
-    say(msg[:].asString(), RED)
+    say(msg[:].asString(), errorColor)
     return
   end
   if n > file.len()
     msg.format(name, " is too big to load here (", n, " bytes)")
-    say(msg[:].asString(), RED)
+    say(msg[:].asString(), errorColor)
     return
   end
   if not fresh()
@@ -39,22 +39,22 @@ load :: proc(name: String)
   if r < 0
     showError()
   case r == 1
-    say("(it ends unfinished)", RED)
+    say("(it ends unfinished)", errorColor)
   else
     msg.format("loaded ", name)
-    say(msg[:].asString(), GRAY)
+    say(msg[:].asString(), softColor)
   end
 end
 
 startSave :: proc(name: String)
   saveName.clear()
   if not saveName.pushAll(name)
-    say("names are up to 32 letters, digits, _ and -, and a file's path up to 100", RED)
+    say("names are up to 32 letters, digits, _ and -, and a file's path up to 100", errorColor)
     return
   end
   fileLen = 0
   mode = .saving
-  say("type or paste it, then Ctrl-D (Ctrl-C gives up)", GRAY)
+  say("type or paste it, then Ctrl-D (Ctrl-C gives up)", softColor)
 end
 
 # save name: the app's source; save name/a/file: a file of its own, in its folder (chord/parts/sound.rio,
@@ -86,10 +86,10 @@ finishSave :: proc()
   mode = .typing
   if saveTo() != 0
     msg.format("couldn't save ", saveName[:])
-    say(msg[:].asString(), RED)
+    say(msg[:].asString(), errorColor)
   else
     msg.format("saved ", fileLen, " bytes")
-    say(msg[:].asString(), GRAY)
+    say(msg[:].asString(), softColor)
   end
 end
 
@@ -111,9 +111,9 @@ command :: proc(t: String) -> Bool
     n := pc.settingRead("active", v[:])
     if n > 0
       msg.format("active: ", v[0:min(n, 34)])
-      say(msg[:].asString(), GRAY)
+      say(msg[:].asString(), softColor)
     else
-      say("nothing active: active name makes one active (name* for a project)", GRAY)
+      say("nothing active: active name makes one active (name* for a project)", softColor)
     end
     return true
   end
@@ -136,26 +136,26 @@ command :: proc(t: String) -> Bool
   case "active"                          # app or project (name*) name, active: the editor opens it next
     if pc.appSource(name, msg[0:0]) >= 0 and pc.settingWrite("active", name) == 0
       msg.format("active: ", name)
-      say(msg[:].asString(), GRAY)
+      say(msg[:].asString(), softColor)
     else
       msg.format("no app or project ", name)
-      say(msg[:].asString(), RED)
+      say(msg[:].asString(), errorColor)
     end
   case "install"                         # project name* as the app name
     if pc.appInstall(name) == 0
       msg.format("installed ", name)
-      say(msg[:].asString(), GRAY)
+      say(msg[:].asString(), softColor)
     else
       msg.format("can't install ", name, " (from its project, ", name, "*)")
-      say(msg[:].asString(), RED)
+      say(msg[:].asString(), errorColor)
     end
   case "delete"
     if pc.appDelete(name) == 0
       msg.format("deleted ", name)
-      say(msg[:].asString(), GRAY)
+      say(msg[:].asString(), softColor)
     else
       msg.format("can't delete ", name)
-      say(msg[:].asString(), RED)
+      say(msg[:].asString(), errorColor)
     end
   else
     return false
@@ -186,19 +186,19 @@ enter :: proc()
     shown.pushAll(". ")
   end
   shown.pushAll(line[:].asString())
-  say(shown[:].asString(), WHITE)
+  say(shown[:].asString(), textColor)
   text := line[:].asString()
   remember(text)
   back = 0
   if blank(text)
     if acc.len() > 0
-      say("(unfinished input dropped)", GRAY)
+      say("(unfinished input dropped)", softColor)
       acc.clear()
     end
   case acc.len() == 0 and command(trim(text))
     acc.clear()
   case not (acc.pushAll(text) and acc.push(10))
-    say("(input too long)", RED)
+    say("(input too long)", errorColor)
     acc.clear()
   else
     r := pc.rioEval(acc[:].asString())
@@ -244,7 +244,7 @@ typing :: proc(c: Int)
   case c == 131
     recall(-1)
   case c == 3                         # Ctrl-C: drop what's typed
-    say("^C", GRAY)
+    say("^C", softColor)
     acc.clear()
     setLine("")
   case c == 9
@@ -258,24 +258,24 @@ end
 saving :: proc(c: Int)
   if c == 4                              # Ctrl-D: done
     if line.len() > 0
-      say(line[:].asString(), GRAY)
+      say(line[:].asString(), softColor)
     end
     setLine("")
     finishSave()
   case c == 3
     setLine("")
     mode = .typing
-    say("gave up", GRAY)
+    say("gave up", softColor)
   case c == 13 or c == 9 or (c >= 32 and c < 127)
     if fileLen == file.len()
       setLine("")
       mode = .typing
-      say("too big to save here", RED)
+      say("too big to save here", errorColor)
       return
     end
     if c == 13
       file[fileLen] = 10
-      say(line[:].asString(), GRAY)
+      say(line[:].asString(), softColor)
       setLine("")
     else
       file[fileLen] = c

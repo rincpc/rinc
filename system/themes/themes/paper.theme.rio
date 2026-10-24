@@ -1,0 +1,23 @@
+# Paper: light, dark text
+bg*      :: 7    # white
+bar*     :: 6    # light gray
+text*    :: 0    # black
+soft*    :: 5    # dark gray
+dim*     :: 29   # mauve
+faint*   :: 22   # stone
+accent*  :: 24   # crimson
+heading* :: 2    # dark purple
+pick*    :: 12   # blue
+select*  :: 15   # peach
+link*    :: 28   # royal blue
+error*   :: 24   # crimson
+ok*      :: 3    # dark green
+codeBg*  :: 6    # light gray
+code*    :: 0    # black
+punct*   :: 5    # dark gray
+keyword* :: 2    # dark purple
+type*    :: 4    # brown
+call*    :: 28   # royal blue
+number*  :: 20   # rust
+string*  :: 3    # dark green
+comment* :: 13   # lavender

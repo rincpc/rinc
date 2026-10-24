@@ -211,6 +211,43 @@ makes the app picked there active and opens the editor, and marks the active one
 `home` names the app `home` means (see bundles), when the Rinc wasn't started with one: `launcher`, say,
 for a home app of another name. Without it, home is the app named `home`.
 
+`theme` names the theme in use, `themes/slate` say (see themes).
+
+## Themes
+
+A theme gives a palette color to each role the system apps draw with, so they look alike and code is
+colored the same in all of them. `theme` (a setting) names the one in use, `owner/id`: the file
+`themes/id.theme.rio` of app `owner`, in its folder (or the bundle's) or its save space
+(`/rinc/save/owner/themes`), or of project `owner*`. Without one, or for a role a theme leaves out,
+the color is Rinc's own. The Themes app picks, makes and edits them (see its help).
+
+`pc.theme(role) -> Int` is the color a role has in the theme in use, read as each app starts:
+
+| `pc.Role` | Rinc's own | for |
+|---|---|---|
+| `bg`, `bar` | 1, 0 | the background; bars and boxes to type in |
+| `text`, `soft`, `dim`, `faint` | 7, 6, 13, 5 | text; long text; what goes with it; hints |
+| `accent`, `heading` | 10, 9 | what stands out, the cursor; other headings |
+| `pick`, `select` | 12, 2 | behind the row picked; behind selected text |
+| `link`, `error`, `ok` | 12, 8, 11 | links; what went wrong; what went right |
+| `codeBg` | 17 | behind code, among text |
+| `code`, `punct`, `keyword`, `type` | 7, 6, 14, 15 | code: names, operators, keywords, a capital's names |
+| `call`, `number`, `string`, `comment` | 12, 9, 11, 13 | code: calls, numbers, strings, comments |
+
+```rio
+pc.cls(pc.theme(pc.Role.bg))
+pc.print("hello", 8, 8, pc.theme(pc.Role.text))
+```
+
+A theme's file is Rio constants, but Rinc only reads them, never runs it: lines of `name :: number` (a
+star after the name or not), comments, and its first line, a comment, its title.
+
+```rio fragment
+# Slate: warm slate gray, with yellow and blue
+bg*      :: 5    # dark gray
+text*    :: 7    # white
+```
+
 ## Where an app was: its stash
 
 An app's stash is what it keeps of where it was, for its next start: the text it was showing, an

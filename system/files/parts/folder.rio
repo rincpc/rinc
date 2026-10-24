@@ -81,7 +81,7 @@ end
 open :: proc(p: String) -> Bool
   n := pc.dir(p, listing[:])
   if n < 0
-    say("Can't look in ", 8)
+    say("Can't look in ", errorColor)
     ok := message.pushAll(p)
     return false
   end
@@ -199,7 +199,7 @@ edit :: proc(ref: String)
   if pc.settingWrite("active", ref) == 0
     pc.launch("edit")
   else
-    say("No storage: nothing can be edited", 8)
+    say("No storage: nothing can be edited", errorColor)
   end
 end
 
@@ -216,7 +216,7 @@ VIEW_ROWS :: 22
 showFile :: proc(k: Int)
   n := pc.fileRead(pathTo(nameOf(k)), view[:])
   if n < 0
-    say("Can't read it", 8)
+    say("Can't read it", errorColor)
     return
   end
   viewAll = n

@@ -1,0 +1,4 @@
+# Odd: two roles, the rest Rinc's own (a test)
+bg* :: 3
+keyword :: 200   # (no star: read the same)
+nothing* :: 9    # (no such role: left alone)

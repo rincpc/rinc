@@ -122,6 +122,34 @@ stashDelete* :: @host proc(key: String) -> Int               # 0, or -1
 # being worked on (chord, or chord*); keys are named as save files are
 settingRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1
 settingWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
+
+# the theme: a color for each role, which the system apps draw with, so they look alike and a theme (the
+# theme setting: owner/id, a file owner/themes/id.theme.rio) changes them all. Read at each app's start
+Role* :: enum
+  bg       # the background
+  bar      # bars (a title's, the keys' at the bottom), and boxes to type in
+  text     # text
+  soft     # long text, a little quieter (help's)
+  dim      # what goes with text: descriptions, line numbers, notes
+  faint    # hints: the keys at the bottom, an empty box's placeholder
+  accent   # what stands out: the main heading, the cursor, marks
+  heading  # other headings, emphasis
+  pick     # behind the row or item picked
+  select   # behind selected text
+  link     # links
+  error    # what went wrong
+  ok       # what went right
+  codeBg   # behind code, among text
+  code     # code: names
+  punct    # code: operators and punctuation
+  keyword  # code: if, for, proc...
+  type     # code: a name with a capital (Int, Blob)
+  call     # code: a name called, f(...)
+  number   # code: 12, 1.5
+  string   # code: "text"
+  comment  # code: # comments
+end
+theme* :: @host proc(role: Role) -> Int
 boot* :: @host proc() -> Int                                 # how many times this Rinc has started (0: no storage)
 
 # ---------------------------------------------------------------- Rio inside an app: a session

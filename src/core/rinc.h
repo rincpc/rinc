@@ -166,6 +166,9 @@ extern uint8_t rinc_textFg, rinc_textBg;
 void rinc_char(int c, int x, int y, int fg, int bg); /* bg < 0: transparent */
 void rinc_consolePut(const char *s, int n);
 void rinc_consoleClear(int bg);
+/* the theme (pc.theme): read from the theme setting, and a role's color (pc.Role's order: 0 bg, 2 text) */
+void rinc_themeLoad(void);
+int rinc_themeColor(int role);
 
 /* files, where the platform has storage (else rinc_fs is NULL): one open at a time. open: 0 or -1
    (writing makes the directories along the path, and replaces the file); read: bytes read, 0 at its

@@ -1,0 +1,23 @@
+# Green: an old terminal's green on black
+bg*      :: 0    # black
+bar*     :: 19   # teal
+text*    :: 11   # green
+soft*    :: 27   # emerald
+dim*     :: 3    # dark green
+faint*   :: 19   # teal
+accent*  :: 26   # lime
+heading* :: 23   # pale yellow
+pick*    :: 19   # teal
+select*  :: 19   # teal
+link*    :: 26   # lime
+error*   :: 8    # red
+ok*      :: 26   # lime
+codeBg*  :: 17   # night blue
+code*    :: 11   # green
+punct*   :: 27   # emerald
+keyword* :: 26   # lime
+type*    :: 23   # pale yellow
+call*    :: 11   # green
+number*  :: 10   # yellow
+string*  :: 27   # emerald
+comment* :: 3    # dark green

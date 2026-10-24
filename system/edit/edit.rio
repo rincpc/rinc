@@ -38,20 +38,26 @@ DELETE :: 134
 PAGE_UP :: 135
 PAGE_DOWN :: 136
 
-BACK :: 1             # colors
-DARK :: 0
-DIM :: 5
-GRAY :: 6
-WHITE :: 7
-RED :: 8
-ORANGE :: 9
-YELLOW :: 10
-GREEN :: 11
-BLUE :: 12
-LAVENDER :: 13
-PINK :: 14
-PEACH :: 15
-SELECTED :: 2
+# colors: the theme's, for each role (pc.Role), so the editor looks like the other apps
+backColor := pc.theme(pc.Role.bg)
+barColor := pc.theme(pc.Role.bar)
+textColor := pc.theme(pc.Role.text)
+softColor := pc.theme(pc.Role.soft)
+dimColor := pc.theme(pc.Role.dim)
+faintColor := pc.theme(pc.Role.faint)
+accentColor := pc.theme(pc.Role.accent)
+warnColor := pc.theme(pc.Role.heading)
+selectColor := pc.theme(pc.Role.select)
+errorColor := pc.theme(pc.Role.error)
+okColor := pc.theme(pc.Role.ok)
+codeColor := pc.theme(pc.Role.code)
+punctColor := pc.theme(pc.Role.punct)
+keywordColor := pc.theme(pc.Role.keyword)
+typeColor := pc.theme(pc.Role.type)
+callColor := pc.theme(pc.Role.call)
+numberColor := pc.theme(pc.Role.number)
+stringColor := pc.theme(pc.Role.string)
+commentColor := pc.theme(pc.Role.comment)
 
 # ---------------------------------------------------------------- its parts
 
@@ -123,5 +129,5 @@ case place[0] > 0 and load(lastPath)
   reveal()
 else
   fresh()
-  say("New: ^S saves it, ^O opens one, ^Shift+P every command", GRAY)
+  say("New: ^S saves it, ^O opens one, ^Shift+P every command", softColor)
 end

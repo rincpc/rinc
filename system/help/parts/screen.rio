@@ -4,7 +4,7 @@
 
 title: Blob[..53]
 draw* :: proc()
-  pc.cls(BACK)
+  pc.cls(backColor)
   for row in 0..<ROWS
     r := top + row
     if r >= rowCount
@@ -12,7 +12,7 @@ draw* :: proc()
     end
     y := TOP_Y + row * 9
     if rowBack[r] != 0
-      pc.rect(0, y - 1, 320, 9, rowBack[r])
+      pc.rect(0, y - 1, 320, 9, codeBackColor)
     end
     x := TEXT_X + rowIndent[r] * 6
     a := rowAt[r]
@@ -20,7 +20,7 @@ draw* :: proc()
     if pick >= 0 and linkFrom[pick] < e and linkTo[pick] > a # (the picked link)
       from := max(linkFrom[pick], a)
       to := min(linkTo[pick], e)
-      pc.rect(x + (from - a) * 6 - 1, y - 1, (to - from) * 6 + 1, 9, 28)
+      pc.rect(x + (from - a) * 6 - 1, y - 1, (to - from) * 6 + 1, 9, pickColor)
     end
     k := a
     for k < e # (each run of one style)
@@ -31,7 +31,7 @@ draw* :: proc()
       end
       color := styleColor(s)
       if s == LINK and pick >= 0 and k >= linkFrom[pick] and k < linkTo[pick]
-        color = WHITE
+        color = textColor
       end
       pc.print(out[k:j].asString(), x + (k - a) * 6, y, color)
       if s == LINK or s == H1 or s == H2 # (underlined)
@@ -41,24 +41,24 @@ draw* :: proc()
     end
   end
   # the title bar: what's shown, and how far down
-  pc.rect(0, 0, 320, 10, BAR)
+  pc.rect(0, 0, 320, 10, barColor)
   title.clear()
   if doc.len() == 0
     ok := title.pushAll("Help")
   else
     ok := title.pushAll(doc[0:min(doc.len(), 40)])
   end
-  pc.print(title[0:title.len()].asString(), 2, 1, WHITE)
+  pc.print(title[0:title.len()].asString(), 2, 1, textColor)
   if rowCount > ROWS
     title.clear()
     ok := title.format(min(100, (top + ROWS) * 100 / rowCount), "%")
-    pc.print(title[0:title.len()].asString(), 318 - title.len() * 6, 1, 5)
+    pc.print(title[0:title.len()].asString(), 318 - title.len() * 6, 1, faintColor)
   end
   # the bottom bar: a message, else the keys
-  pc.rect(0, 229, 320, 11, BAR)
+  pc.rect(0, 229, 320, 11, barColor)
   if message.len() > 0
-    pc.print(message[0:message.len()].asString(), 2, 231, 9)
+    pc.print(message[0:message.len()].asString(), 2, 231, headingColor)
   else
-    pc.print("Tab link  Enter open  Alt+arrows back fwd up", 2, 231, 5)
+    pc.print("Tab link  Enter open  Alt+arrows back fwd up", 2, 231, faintColor)
   end
 end

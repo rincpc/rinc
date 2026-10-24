@@ -1,0 +1,23 @@
+# Amber: an old terminal's orange on brown
+bg*      :: 16   # brown black
+bar*     :: 0    # black
+text*    :: 9    # orange
+soft*    :: 25   # tangerine
+dim*     :: 22   # stone
+faint*   :: 4    # brown
+accent*  :: 10   # yellow
+heading* :: 15   # peach
+pick*    :: 20   # rust
+select*  :: 20   # rust
+link*    :: 31   # salmon
+error*   :: 30   # coral
+ok*      :: 23   # pale yellow
+codeBg*  :: 0    # black
+code*    :: 9    # orange
+punct*   :: 25   # tangerine
+keyword* :: 10   # yellow
+type*    :: 15   # peach
+call*    :: 31   # salmon
+number*  :: 23   # pale yellow
+string*  :: 31   # salmon
+comment* :: 4    # brown

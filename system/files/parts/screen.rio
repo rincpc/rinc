@@ -8,29 +8,29 @@ drawList :: proc()
     k := shown[i]
     y := TOP + row * 11
     if i == pick
-      pc.rect(2, y - 2, 316, 11, 12)
+      pc.rect(2, y - 2, 316, 11, pickColor)
     end
     if isActive(k) # (the active app: a mark at its left)
-      pc.rect(0, y - 1, 2, 9, 10)
+      pc.rect(0, y - 1, 2, 9, accentColor)
     end
     if kind[k] == UP
-      pc.print("..", 6, y, 6)
+      pc.print("..", 6, y, softColor)
     case kind[k] == FOLDER
-      color := 7
+      color := textColor
       if inProjects()
-        color = 15
+        color = headingColor
       end
       pc.print(nameOf(k), 6, y, color)
-      pc.print("/", 6 + nameLen[k] * 6, y, 13)
+      pc.print("/", 6 + nameLen[k] * 6, y, dimColor)
     else
-      pc.print(nameOf(k), 6, y, 6)
+      pc.print(nameOf(k), 6, y, softColor)
     end
   end
   if nshown <= 1 and filter.len() == 0 and (count == 0 or kind[0] == UP)
-    pc.print("(empty)", 6, TOP + 11 * nshown, 13)
+    pc.print("(empty)", 6, TOP + 11 * nshown, dimColor)
   end
   if filter.len() > 0
-    pc.print(filter[0:filter.len()].asString(), 316 - filter.len() * 6, 2, 10)
+    pc.print(filter[0:filter.len()].asString(), 316 - filter.len() * 6, 2, accentColor)
   end
 end
 
@@ -54,12 +54,12 @@ drawView :: proc()
       end
       line[i] = b
     end
-    pc.print(line[0:n].asString(), 1, 14 + row * 9, 7)
+    pc.print(line[0:n].asString(), 1, 14 + row * 9, textColor)
   end
 end
 
 drawBottom :: proc()
-  pc.rect(0, 216, 320, 24, 0)
+  pc.rect(0, 216, 320, 24, barColor)
   if prompting()
     label := "Copy as: "
     if mode == RENAME
@@ -71,17 +71,17 @@ drawBottom :: proc()
     case mode == NEW_FOLDER
       label = "New folder: "
     end
-    pc.print(label, 3, 219, 10)
+    pc.print(label, 3, 219, accentColor)
     x := 3 + label.len() * 6
     if inputFresh # (selected)
-      pc.rect(x - 1, 218, input.len() * 6 + 1, 9, 12)
+      pc.rect(x - 1, 218, input.len() * 6 + 1, 9, selectColor)
     end
-    pc.print(input[0:input.len()].asString(), x, 219, 7)
-    pc.rect(x + input.len() * 6, 218, 1, 9, 10)
+    pc.print(input[0:input.len()].asString(), x, 219, textColor)
+    pc.rect(x + input.len() * 6, 218, 1, 9, accentColor)
     if mode == DELETE
-      pc.print("All of it, for good. Enter: delete  Esc: no", 3, 230, 8)
+      pc.print("All of it, for good. Enter: delete  Esc: no", 3, 230, errorColor)
     else
-      pc.print("Enter: done  Esc: no", 3, 230, 5)
+      pc.print("Enter: done  Esc: no", 3, 230, faintColor)
     end
     return
   end
@@ -89,53 +89,53 @@ drawBottom :: proc()
     pc.print(message[0:message.len()].asString(), 3, 219, messageColor)
   end
   if mode == VIEW
-    pc.print("Esc back  Page Up/Down", 3, 230, 5)
+    pc.print("Esc back  Page Up/Down", 3, 230, faintColor)
     if viewAll > viewLen
-      pc.print("(its start)", 3 + 23 * 6, 230, 13)
+      pc.print("(its start)", 3 + 23 * 6, 230, dimColor)
     end
   case saving
-    pc.print("Save as: ", 3, 219, 10)
-    pc.print(saveName[0:saveName.len()].asString(), 3 + 9 * 6, 219, 7)
-    pc.rect(3 + (9 + saveName.len()) * 6, 218, 1, 9, 10)
-    pc.print("Type a name, Enter save  Esc no", 3, 230, 5)
+    pc.print("Save as: ", 3, 219, accentColor)
+    pc.print(saveName[0:saveName.len()].asString(), 3 + 9 * 6, 219, textColor)
+    pc.rect(3 + (9 + saveName.len()) * 6, 218, 1, 9, accentColor)
+    pc.print("Type a name, Enter save  Esc no", 3, 230, faintColor)
   case picking
-    pc.print("Enter pick  Backspace up  Esc none", 3, 230, 5)
+    pc.print("Enter pick  Backspace up  Esc none", 3, 230, faintColor)
   else
-    pc.print("Enter open  Space more  ^N project  ^Shift+N folder", 3, 230, 5)
+    pc.print("Enter open  Space more  ^N project  ^Shift+N folder", 3, 230, faintColor)
   end
 end
 
 letter: Blob[1]
 drawMenu :: proc()
   h := 14 + itemCount * 11
-  pc.rect(MENU_X - 2, MENU_Y - 2, 164, h + 4, 0)
-  pc.rect(MENU_X, MENU_Y, 160, h, 2)
-  pc.print(nameOf(target)[0:min(nameLen[target], 25)], MENU_X + 4, MENU_Y + 3, 10)
+  pc.rect(MENU_X - 2, MENU_Y - 2, 164, h + 4, barColor)
+  pc.rect(MENU_X, MENU_Y, 160, h, selectColor)
+  pc.print(nameOf(target)[0:min(nameLen[target], 25)], MENU_X + 4, MENU_Y + 3, accentColor)
   for i in 0..<itemCount
     y := MENU_Y + 14 + i * 11
-    color := 7
+    color := textColor
     if not itemOk[i]
-      color = 13
+      color = dimColor
     end
     if i == menuPick
-      pc.rect(MENU_X + 2, y - 1, 156, 10, 12)
+      pc.rect(MENU_X + 2, y - 1, 156, 10, pickColor)
     end
     letter[0] = KEYS[items[i]]
-    pc.print(letter[:].asString(), MENU_X + 5, y + 1, 10)
+    pc.print(letter[:].asString(), MENU_X + 5, y + 1, accentColor)
     pc.print(LABELS[items[i]], MENU_X + 16, y + 1, color)
   end
 end
 
 draw* :: proc()
-  pc.cls(1)
-  pc.rect(0, 0, 320, 11, 0)
+  pc.cls(backColor)
+  pc.rect(0, 0, 320, 11, barColor)
   title := "Files"
   if saving
     title = "Save where"
   case picking
     title = "Pick a file"
   end
-  pc.print(title, 3, 2, 10)
+  pc.print(title, 3, 2, accentColor)
   p := here()
   if mode == VIEW
     p = pathTo(nameOf(target))
@@ -144,7 +144,7 @@ draw* :: proc()
   if p.len() > room # (its end, if it's long)
     p = p[p.len() - room:p.len()]
   end
-  pc.print(p, 3 + (title.len() + 1) * 6, 2, 6)
+  pc.print(p, 3 + (title.len() + 1) * 6, 2, softColor)
   if mode == VIEW
     drawView()
   else

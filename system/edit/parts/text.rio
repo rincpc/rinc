@@ -83,7 +83,7 @@ end
 # ---------------------------------------------------------------- messages
 
 message: Blob[..53]
-messageColor := GRAY
+messageColor := softColor
 messageAt := 0.0
 
 say :: proc(s: String, color: Int)
@@ -179,11 +179,11 @@ edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
   merged := false
   r := recTop - 1
   if textLen - (b - a) + s.len() > CAP
-    say("No room: 32 KB at most", RED)
+    say("No room: 32 KB at most", errorColor)
     return false
   end
   if lineCount - newlines(text[a:b].asString()) + newlines(s) > MAX_LINES
-    say("Too many lines: 4096 at most", RED)
+    say("Too many lines: 4096 at most", errorColor)
     return false
   end
   if kind > 0 and kind == merging and recTop == recCount and recTop > 0 and undoLen + (b - a) + s.len() <= UNDO_BYTES
@@ -221,7 +221,7 @@ edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
       end
       forgetAll()
       savedTop = -1
-      say("(too big to undo)", GRAY)
+      say("(too big to undo)", softColor)
     else
       for recCount == UNDOS or undoLen + (b - a) + s.len() > UNDO_BYTES
         forgetOldest()
@@ -252,7 +252,7 @@ end
 
 undo :: proc()
   if recTop == 0
-    say("Nothing to undo", GRAY)
+    say("Nothing to undo", softColor)
     return
   end
   r := recTop - 1
@@ -266,7 +266,7 @@ end
 
 redo :: proc()
   if recTop == recCount
-    say("Nothing to redo", GRAY)
+    say("Nothing to redo", softColor)
     return
   end
   r := recTop

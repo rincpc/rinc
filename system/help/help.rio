@@ -32,35 +32,36 @@ EM :: 7
 LINK :: 8
 DIM :: 9
 
-# colors
-BACK :: 1
-CODE_BACK :: 17
-BAR :: 0
-TEXT :: 6
-WHITE :: 7
+# colors: the theme's, for each role (pc.Role)
+backColor := pc.theme(pc.Role.bg)
+codeBackColor := pc.theme(pc.Role.codeBg)
+barColor := pc.theme(pc.Role.bar)
+textColor := pc.theme(pc.Role.text)
+softColor := pc.theme(pc.Role.soft)
+dimColor := pc.theme(pc.Role.dim)
+faintColor := pc.theme(pc.Role.faint)
+accentColor := pc.theme(pc.Role.accent)
+headingColor := pc.theme(pc.Role.heading)
+pickColor := pc.theme(pc.Role.pick)
+linkColor := pc.theme(pc.Role.link)
+codeColor := pc.theme(pc.Role.code)
 
 styleColor :: proc(s: Int) -> Int
   switch
   case s == H1
-    return 10
-  case s == H2
-    return 9
-  case s == H3
-    return 15
-  case s == CODE
-    return 26
-  case s == BLOCK
-    return 11
+    return accentColor
+  case s == H2 or s == H3 or s == EM
+    return headingColor
+  case s == CODE or s == BLOCK
+    return codeColor
   case s == BOLD
-    return WHITE
-  case s == EM
-    return 14
+    return textColor
   case s == LINK
-    return 12
+    return linkColor
   case s == DIM
-    return 13
+    return dimColor
   end
-  return TEXT
+  return softColor
 end
 
 # ---------------------------------------------------------------- its parts

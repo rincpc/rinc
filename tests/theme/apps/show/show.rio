@@ -1,0 +1,2 @@
+# Show: logs a few of the theme's colors (a test)
+log("theme", pc.theme(pc.Role.bg), pc.theme(pc.Role.keyword), pc.theme(pc.Role.text))

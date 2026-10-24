@@ -113,18 +113,18 @@ load :: proc(p: String) -> Bool
     bundled = n >= 0
   end
   if n > CAP
-    say("Too big for the editor: 32 KB at most", RED)
+    say("Too big for the editor: 32 KB at most", errorColor)
     return false
   end
   fresh()
   setPath(p)
   if n < 0
     if readOnly()
-      say("Can't read it", RED)
+      say("Can't read it", errorColor)
       path.clear()
       return false
     end
-    sayName("New: ", "", GRAY)
+    sayName("New: ", "", softColor)
   else
     if bundled
       n = pc.appSource(a, text[0:CAP])
@@ -133,11 +133,11 @@ load :: proc(p: String) -> Bool
     end
     settle(min(n, CAP))
     if not readOnly()
-      sayName("", ": ^S saves, ^R runs", GRAY)
+      sayName("", ": ^S saves, ^R runs", softColor)
     case appOf(here()).len() > 0
-      sayName("", ": read only (saving makes its project)", GRAY)
+      sayName("", ": read only (saving makes its project)", softColor)
     else
-      sayName("", ": read only (^Shift+S saves a copy)", GRAY)
+      sayName("", ": read only (^Shift+S saves a copy)", softColor)
     end
   end
   remember()
@@ -159,7 +159,7 @@ argsBuf: Blob[..128]
 leaving := false
 callFiles :: proc(how: String)
   if pc.appSource("files", one[0:0]) < 0
-    say("There's no Files app here", RED)
+    say("There's no Files app here", errorColor)
     return
   end
   ok := pc.stashWrite("draft", text[0:textLen].asString())
@@ -209,7 +209,7 @@ save :: proc() -> Bool
   if readOnly()
     a := appOf(here())
     if a.len() == 0
-      say("Read only here: ^Shift+S saves a copy", ORANGE)
+      say("Read only here: ^Shift+S saves a copy", warnColor)
       return false
     end
     # an installed app's file: saved in its project, the app copied as one first if it hasn't one
@@ -217,18 +217,18 @@ save :: proc() -> Bool
     ok := refBuf.pushAll(a)
     ok = refBuf.push(42)
     if pc.appSource(refBuf[0:refBuf.len()].asString(), one[0:0]) < 0 and pc.appCopy(a, refBuf[0:refBuf.len()].asString()) != 0
-      say("Couldn't make its project", RED)
+      say("Couldn't make its project", errorColor)
       return false
     end
     setPath(projectPath(here()))
   end
   if pc.fileWrite(here(), text[0:textLen].asString()) < 0
-    sayName("Couldn't save ", "", RED)
+    sayName("Couldn't save ", "", errorColor)
     return false
   end
   savedTop = recTop
   merging = 0
-  sayName("Saved ", "", GREEN)
+  sayName("Saved ", "", okColor)
   remember()
   return true
 end
@@ -243,7 +243,7 @@ run :: proc()
   end
   a := appOf(here())
   if a.len() == 0
-    say("Not in an app: nothing to run", ORANGE)
+    say("Not in an app: nothing to run", warnColor)
     return
   end
   if modified() and not save()

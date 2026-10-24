@@ -232,7 +232,7 @@ indentLines :: proc(dir: Int)
       end
     end
     if built.len() + (e - p) + 1 > BUILT
-      say("Too much to indent at once", RED)
+      say("Too much to indent at once", errorColor)
       return
     end
     built.pushAll(text[p:e])
@@ -284,7 +284,7 @@ moveLines :: proc(dir: Int)
   oa := lineAt[o]
   oe := lineEnd(o)
   if (b - a) + (oe - oa) + 1 > BUILT
-    say("Too much to move at once", RED)
+    say("Too much to move at once", errorColor)
     return
   end
   c := cursor
@@ -344,7 +344,7 @@ copy :: proc(cut: Bool)
     end
   end
   if b - a > CLIP
-    say("Too much to copy: 16 KB at most", RED)
+    say("Too much to copy: 16 KB at most", errorColor)
     return
   end
   clip.clear()

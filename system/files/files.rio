@@ -29,7 +29,19 @@ top := 0
 active: Blob[34]
 activeLen := 0
 message: Blob[..53]
-messageColor := 6
+# colors: the theme's, for each role (pc.Role)
+backColor := pc.theme(pc.Role.bg)
+barColor := pc.theme(pc.Role.bar)
+textColor := pc.theme(pc.Role.text)
+softColor := pc.theme(pc.Role.soft)
+dimColor := pc.theme(pc.Role.dim)
+faintColor := pc.theme(pc.Role.faint)
+accentColor := pc.theme(pc.Role.accent)
+headingColor := pc.theme(pc.Role.heading)
+pickColor := pc.theme(pc.Role.pick)
+selectColor := pc.theme(pc.Role.select)
+errorColor := pc.theme(pc.Role.error)
+messageColor := softColor
 picking := false      # (called to pick a file)
 saving := false       # (called to pick where to save: a folder, and a name typed)
 saveName: Blob[..60]

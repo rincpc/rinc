@@ -829,6 +829,70 @@ static void rinc_hostSettingWrite(rio_Vm *v, rio_Val *a) {
   char path[64]; int named = rinc_settingPath(v, a, path, sizeof path);
   if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
 }
+/* the theme: a color for each role the system apps draw with (pc.Role, in this order), so they look
+   alike and a theme changes them all. theme(role) -> Int. The theme setting names one, owner/id: a
+   file of an app's, owner/themes/id.theme.rio, in its folder (or the bundle's) or its save space, or a
+   project's (owner*). The file is Rio's form of constants, and only that is read, never run: lines of
+   name :: number (a star after the name, or not), # comments, and the first line its title. Roles it
+   leaves out, or with no theme, are Rinc's own colors, these */
+static const char *const rinc_roleNames[] = {"bg", "bar", "text", "soft", "dim", "faint", "accent", "heading", "pick", "select", "link",
+                                             "error", "ok", "codeBg", "code", "punct", "keyword", "type", "call", "number", "string", "comment"};
+#define rinc_ROLES ((int)(sizeof rinc_roleNames / sizeof rinc_roleNames[0]))
+static const uint8_t rinc_roleDefaults[rinc_ROLES] = {1, 0, 7, 6, 13, 5, 10, 9, 12, 2, 12, 8, 11, 17, 7, 6, 14, 15, 12, 9, 11, 13};
+static uint8_t rinc_theme[rinc_ROLES]; static int rinc_themeOn; /* (loaded once: before, the defaults) */
+/* a theme's file, read into the roles: 0, or -1 (no such file) */
+static int rinc_themeRead(const char *owner, int n, const char *id, int m) {
+  static char text[2048]; char path[112]; uint32_t len = 0; int project = owner[n - 1] == '*', i, found = 0;
+  const rinc_File *f;
+  snprintf(path, sizeof path, "/rinc/%s/%.*s/themes/%.*s.theme.rio", project ? "projects" : "apps", project ? n - 1 : n, owner, m, id);
+  if (!rinc_readFile(path, text, sizeof text - 1, &len)) found = 1;
+  if (!found && !project) {
+    snprintf(path, sizeof path, "/rinc/save/%.*s/themes/%.*s.theme.rio", n, owner, m, id);
+    if (!rinc_readFile(path, text, sizeof text - 1, &len)) found = 1;
+  }
+  if (!found && !project) {
+    snprintf(path, sizeof path, "apps/%.*s/themes/%.*s.theme.rio", n, owner, m, id);
+    if ((f = rinc_bundleFile(path))) { len = f->len < sizeof text - 1 ? f->len : sizeof text - 1; memcpy(text, f->data, len); found = 1; }
+  }
+  if (!found) return -1;
+  if (len > sizeof text - 1) len = sizeof text - 1;
+  text[len] = 0;
+  for (i = 0; text[i]; ) { /* (a line: name, a star or not, ::, a number) */
+    int a, b, r, v = 0, digits = 0;
+    while (text[i] == ' ' || text[i] == '\t') i++;
+    a = i;
+    while ((text[i] >= 'a' && text[i] <= 'z') || (text[i] >= 'A' && text[i] <= 'Z') || (text[i] >= '0' && text[i] <= '9') || text[i] == '_') i++;
+    b = i;
+    if (text[i] == '*') i++;
+    while (text[i] == ' ' || text[i] == '\t') i++;
+    if (b > a && text[i] == ':' && text[i + 1] == ':') {
+      i += 2;
+      while (text[i] == ' ' || text[i] == '\t') i++;
+      while (text[i] >= '0' && text[i] <= '9' && digits < 4) { v = v * 10 + text[i++] - '0'; digits++; }
+      for (r = 0; digits && v < 256 && r < rinc_ROLES; r++)
+        if ((int)strlen(rinc_roleNames[r]) == b - a && !memcmp(rinc_roleNames[r], text + a, (size_t)(b - a))) rinc_theme[r] = (uint8_t)v;
+    }
+    while (text[i] && text[i] != '\n') i++;
+    if (text[i]) i++;
+  }
+  return 0;
+}
+/* the theme the setting names (each app's start: a change shows in the next app) */
+void rinc_themeLoad(void) {
+  char name[80]; uint32_t len = 0; const char *slash; int n;
+  memcpy(rinc_theme, rinc_roleDefaults, sizeof rinc_theme);
+  rinc_themeOn = 1;
+  rinc_textFg = rinc_theme[2]; /* (the screen console's text) */
+  if (rinc_readFile("/rinc/settings/theme", name, sizeof name - 1, &len) || len >= sizeof name) return;
+  while (len && (name[len - 1] == '\n' || name[len - 1] == '\r' || name[len - 1] == ' ')) len--;
+  name[len] = 0;
+  if (!(slash = strchr(name, '/')) || !rinc_refOk(name, n = (int)(slash - name)) || !rinc_nameOk(slash + 1, (int)strlen(slash + 1), 0)) return;
+  rinc_themeRead(name, n, slash + 1, (int)strlen(slash + 1));
+  rinc_textFg = rinc_theme[2];
+}
+static void rinc_hostTheme(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < (uint32_t)rinc_ROLES ? rinc_theme[a[0].i] : rinc_theme[2]; }
+int rinc_themeColor(int role) { return role < 0 || role >= rinc_ROLES ? rinc_roleDefaults[2] : rinc_themeOn ? rinc_theme[role] : rinc_roleDefaults[role]; }
+
 /* boot() -> Int: how many times this Rinc has started (kept in /rinc/boot), counted the first time an
    app asks after each start: so an app can tell a restart from just being opened again (0: no storage) */
 static int rinc_bootNow = -1;
@@ -1047,6 +1111,7 @@ static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
 int rinc_start(rio_Vm *vm, void *mem, uint32_t memsize, void (*put)(const char *s, int n)) {
   rinc_put = put;
   rinc_initPalette();
+  rinc_themeLoad(); /* (each start: a change of theme shows in the next app) */
   if (rio_init(vm, mem, memsize, 0, 0)) return -1; /* no code buffer: the code goes in mem too */
   rinc_audioReset();
   rio_setLog(vm, rinc_logLine, 0);
@@ -1381,7 +1446,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.helpTopic", "b>i", rinc_hostHelpTopic) ||
          rio_addFfi(vm, "pc.stashWrite", "ss>i", rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", "sb>i", rinc_hostStashRead) ||
          rio_addFfi(vm, "pc.stashDelete", "s>i", rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", ">i", rinc_hostBoot) ||
-         rio_addFfi(vm, "pc.settingRead", "sb>i", rinc_hostSettingRead) || rio_addFfi(vm, "pc.settingWrite", "ss>i", rinc_hostSettingWrite) ||
+         rio_addFfi(vm, "pc.settingRead", "sb>i", rinc_hostSettingRead) || rio_addFfi(vm, "pc.settingWrite", "ss>i", rinc_hostSettingWrite) || rio_addFfi(vm, "pc.theme", "i>i", rinc_hostTheme) ||
          rio_addFfi(vm, "pc.pointer", "i", rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", "s>i", rinc_hostAppInstall) ||
          rio_addFfi(vm, "pc.appCopy", "ss>i", rinc_hostAppCopy) ||
          rio_addFfi(vm, "pc.call", "ss", rinc_hostCall) || rio_addFfi(vm, "pc.args", "b>i", rinc_hostArgs) ||
@@ -1407,7 +1472,8 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   rinc_game = 0;
   rinc_showLog = 1;
   rinc_put = put;
-  rinc_consoleClear(1);
+  rinc_themeLoad();
+  rinc_consoleClear(rinc_themeColor(0));
   if (rinc_start(vm, space, size, put)) { rinc_say("can't start rio"); rinc_back(); return -1; }
   rinc_callStart(name);
   rinc_setAppName(name);
@@ -1639,7 +1705,7 @@ int rinc_gameFrame(rio_Vm *vm) {
   res = rinc_frame(vm);
   rinc_perfNote(rinc_time ? (rinc_time() - t0) * 1000.0f : 0); /* (for the performance strip) */
   if (res != 0) { /* an error, or no update or draw any more */
-    rinc_game = 0; rinc_showLog = 1; rinc_audioReset(); rinc_consoleClear(1);
+    rinc_game = 0; rinc_showLog = 1; rinc_audioReset(); rinc_consoleClear(rinc_themeColor(0));
     rinc_say(res < 0 ? rio_error(vm) : "nothing to run: define update* or draw*");
     rinc_back();
   }
@@ -1674,10 +1740,17 @@ int rinc_frame(rio_Vm *vm) {
    the same. Typing at the end of the line, the usual case (and all of a pasted app), sends little
    more than what's typed: a word takes its color as soon as it is one (the end of the line ends it,
    for now), recolored as it changes. Edits elsewhere redraw the line. */
-#define rinc_PAINT_KEYWORD "\033[38;5;12m" /* (PICO-8 colors by number: blue) */
-#define rinc_PAINT_NUMBER "\033[38;5;9m"   /* (orange, as strings) */
-#define rinc_PAINT_STRING "\033[38;5;9m"
-#define rinc_PAINT_COMMENT "\033[38;5;13m" /* (lavender: readable on the dark blue, apart from white) */
+/* code's colors, the theme's (pc.Role: keyword, number, string, comment), as palette escapes: a buffer
+   each, so a word's color can be told by its pointer (r->wp) */
+static const char *rinc_paintOf(int role) {
+  static char paints[4][16]; char *p = paints[role == 16 ? 0 : role == 19 ? 1 : role == 20 ? 2 : 3];
+  snprintf(p, 16, "\033[38;5;%dm", rinc_themeColor(role));
+  return p;
+}
+#define rinc_PAINT_KEYWORD rinc_paintOf(16)
+#define rinc_PAINT_NUMBER rinc_paintOf(19)
+#define rinc_PAINT_STRING rinc_paintOf(20)
+#define rinc_PAINT_COMMENT rinc_paintOf(21)
 #define rinc_PAINT_PLAIN "\033[0m"
 enum { rinc_Mode_plain, rinc_Mode_string, rinc_Mode_comment };
 static void rinc_puts(rinc_Repl *r, const char *s) { r->put(s, (int)strlen(s)); }

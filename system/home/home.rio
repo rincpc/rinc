@@ -18,6 +18,15 @@ filter: Blob[..24]
 pick := 0
 top := 0 # the first row shown: it moves only to keep the pick in view
 ROWS :: 13 # rows that fit above the keys at the bottom
+# colors: the theme's, for each role (pc.Role)
+backColor := pc.theme(pc.Role.bg)
+barColor := pc.theme(pc.Role.bar)
+textColor := pc.theme(pc.Role.text)
+softColor := pc.theme(pc.Role.soft)
+dimColor := pc.theme(pc.Role.dim)
+faintColor := pc.theme(pc.Role.faint)
+accentColor := pc.theme(pc.Role.accent)
+pickColor := pc.theme(pc.Role.pick)
 held := 0
 repeat := 0
 
@@ -232,43 +241,43 @@ pill :: proc(x: Int, y: Int, w: Int, h: Int, c: Int, under: Int)
 end
 
 draw* :: proc()
-  pc.cls(1)
-  pc.print("Rinc", 12, 12, 7)
-  pc.rect(12, 21, 23, 1, 10) # (an accent under the name)
+  pc.cls(backColor)
+  pc.print("Rinc", 12, 12, textColor)
+  pc.rect(12, 21, 23, 1, accentColor) # (an accent under the name)
   if count > 0
     n: Blob[..16]
     ok := n.format(count, " apps")
-    pc.print(n[0:n.len()].asString(), 308 - n.len() * 6, 12, 13)
+    pc.print(n[0:n.len()].asString(), 308 - n.len() * 6, 12, dimColor)
   end
-  pill(8, 30, 304, 15, 0, 1)
+  pill(8, 30, 304, 15, barColor, backColor)
   if filter.len() == 0
-    pc.print("Search", 14, 34, 5)
+    pc.print("Search", 14, 34, faintColor)
   end
-  pc.print(filter[0:filter.len()].asString(), 14, 34, 7)
-  pc.rect(13 + filter.len() * 6, 33, 1, 8, 10)
+  pc.print(filter[0:filter.len()].asString(), 14, 34, textColor)
+  pc.rect(13 + filter.len() * 6, 33, 1, 8, accentColor)
   if nshown > ROWS # (a bar at the right: how far down, and how much shows)
     h := max(6, 169 * ROWS / nshown)
-    pc.rect(314, 51 + (169 - h) * top / (nshown - ROWS), 2, h, 13)
+    pc.rect(314, 51 + (169 - h) * top / (nshown - ROWS), 2, h, dimColor)
   end
   for row in 0..<min(nshown - top, ROWS)
     i := top + row
     y := 54 + row * 13
     selected := i == pick
     if selected
-      pill(8, y - 3, 304, 13, 12, 1)
+      pill(8, y - 3, 304, 13, pickColor, backColor)
     end
     k := shown[i]
-    dim := 13
+    dim := dimColor
     if selected
-      dim = 6
+      dim = softColor
     end
     t := title(k)
     if isActive(k) # (the active one: a mark at its left)
-      pc.rect(3, y - 1, 2, 9, 10)
+      pc.rect(3, y - 1, 2, 9, accentColor)
     end
-    pc.print(t.asString(), 16, y, 7)
+    pc.print(t.asString(), 16, y, textColor)
     if names[nameAt[k] + nameLen[k] - 1] == 42 # (a project: its star)
-      pc.print("*", 16 + min(t.len(), 12) * 6, y, 10)
+      pc.print("*", 16 + min(t.len(), 12) * 6, y, accentColor)
     end
     if titleLen[k] > 0
       at := titleLen[k] + 1
@@ -280,10 +289,10 @@ draw* :: proc()
     end
   end
   if nshown == 0
-    pc.print("Nothing matches", 16, 54, 13)
+    pc.print("Nothing matches", 16, 54, dimColor)
   end
   if count == 0
-    pc.print("No apps yet", 12, 216, 13)
+    pc.print("No apps yet", 12, 216, dimColor)
   end
-  pc.print("Enter open  Ctrl+Enter edit  Esc clear", 12, 228, 5)
+  pc.print("Enter open  Ctrl+Enter edit  Esc clear", 12, 228, faintColor)
 end

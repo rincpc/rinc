@@ -82,7 +82,8 @@ static void rinc_fwPut(const char *s, int n) { rinc_put(s, n); rinc_consolePut(s
 static void rinc_fwBegin(const char *why) {
   uint32_t k = (sizeof(rinc_Repl) + 15) & ~15u;
   rinc_game = 0; rinc_showLog = 1;
-  rinc_consoleClear(1);
+  rinc_themeLoad();
+  rinc_consoleClear(rinc_themeColor(0));
   rinc_fw = (rinc_Repl *)(void *)rinc_appSpace;
   rinc_fwPut(why, (int)strlen(why));
   if (rinc_start(&rinc_vm, rinc_appSpace + k, rinc_FW_MEM, rinc_fwPut) ||
@@ -159,7 +160,7 @@ int main(void) {
   rinc_keyboardSetup();
   stdio_init_all();
   rinc_time = rinc_now;
-  rinc_consoleClear(1);
+  rinc_consoleClear(rinc_themeColor(0)); /* (the theme's defaults: the card isn't read yet) */
   rinc_consolePut("Rinc\r\n\r\n", 8);
   rinc_audioSetup();
   rinc_videoStart(); /* (core 1: video, then sound) */

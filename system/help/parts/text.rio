@@ -9,7 +9,7 @@ sty: Blob[24576]       # and their styles
 outLen := 0
 logAt: [2048]Int       # each rendered line: where it starts in out
 logIndent: [2048]Int   # its wrapped rows' indent
-logBack: [2048]Int     # its background (0: none)
+logBack: [2048]Int     # its background (0: none, 1: code's)
 logCount := 0
 rowAt: [3072]Int       # each row on screen: where it starts in out, how long, its indent and background
 rowLen: [3072]Int
@@ -306,7 +306,7 @@ render :: proc()
       end
       inPara = false
     case inCode
-      newLine(0, CODE_BACK)
+      newLine(0, 1)
       for k in a..<e
         emit(src[k], BLOCK)
       end

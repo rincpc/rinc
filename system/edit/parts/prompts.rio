@@ -99,7 +99,7 @@ findNext :: proc()
       end
     end
   end
-  say("Not found", GRAY)
+  say("Not found", softColor)
 end
 
 # what the prompt does with Enter
@@ -116,14 +116,14 @@ promptDone :: proc()
       ok = ok and ((c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45)
     end
     if s.len() == 0 or s.len() > 32 or not ok
-      say("A name is letters, digits, _ and -", RED)
+      say("A name is letters, digits, _ and -", errorColor)
       return
     end
     refBuf.clear()
     pushed := refBuf.pushAll(s)
     pushed = refBuf.push(42)
     if pc.appSource(refBuf[0:refBuf.len()].asString(), one[0:0]) >= 0
-      say("There's a project of that name already", RED)
+      say("There's a project of that name already", errorColor)
       return
     end
     mode = NONE

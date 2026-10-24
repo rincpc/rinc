@@ -33,23 +33,23 @@ drawLine :: proc(l: Int, y: Int)
     c0 = max(0, c0)
     c1 = min(COLS, c1)
     if c1 > c0
-      pc.rect(TEXT_X + c0 * 6 - 1, y - 1, (c1 - c0) * 6, 9, SELECTED)
+      pc.rect(TEXT_X + c0 * 6 - 1, y - 1, (c1 - c0) * 6, 9, selectColor)
     end
   end
   inString := 0 # its quote, while in one
   inComment := false
   wordEnd := a
-  wordColor := WHITE
+  wordColor := codeColor
   runStart := -1
-  runColor := WHITE
+  runColor := codeColor
   for p in a..=e
-    color := WHITE
+    color := codeColor
     if p < e
       c := text[p]
       if inComment
-        color = LAVENDER
+        color = commentColor
       case inString > 0
-        color = GREEN
+        color = stringColor
         if c == inString and text[p - 1] != 92
           inString = 0
         end
@@ -57,29 +57,29 @@ drawLine :: proc(l: Int, y: Int)
         color = wordColor
       case c == 35
         inComment = true
-        color = LAVENDER
+        color = commentColor
       case c == 34 or c == 39
         inString = c
-        color = GREEN
+        color = stringColor
       case isWord(c)
         q := p
         for q < e and isWord(text[q])
           q += 1
         end
         wordEnd = q
-        wordColor = WHITE
+        wordColor = codeColor
         if c >= 48 and c <= 57
-          wordColor = ORANGE
+          wordColor = numberColor
         case isKeyword(p, q)
-          wordColor = PINK
+          wordColor = keywordColor
         case c >= 65 and c <= 90
-          wordColor = PEACH
+          wordColor = typeColor
         case q < e and text[q] == 40
-          wordColor = BLUE
+          wordColor = callColor
         end
         color = wordColor
       else
-        color = GRAY
+        color = punctColor
       end
     end
     col := p - a - left
@@ -100,34 +100,34 @@ end
 
 # Ctrl+Shift+P's list of commands, narrowed by what's typed
 drawPalette :: proc()
-  pc.rect(40, 24, 240, 40 + LIST_ROWS * 10, DARK)
-  pc.print("Every command (type to narrow):", 46, 28, YELLOW)
-  pc.rect(44, 38, 232, 11, BACK)
-  pc.print(input[0:input.len()].asString(), 46, 40, WHITE)
-  pc.rect(46 + input.len() * 6, 39, 1, 9, YELLOW)
+  pc.rect(40, 24, 240, 40 + LIST_ROWS * 10, barColor)
+  pc.print("Every command (type to narrow):", 46, 28, accentColor)
+  pc.rect(44, 38, 232, 11, backColor)
+  pc.print(input[0:input.len()].asString(), 46, 40, textColor)
+  pc.rect(46 + input.len() * 6, 39, 1, 9, accentColor)
   from := max(0, pick - LIST_ROWS + 1)
   for row in 0..<min(nlisted - from, LIST_ROWS)
     i := from + row
     k := listed[i]
     y := 54 + row * 10
-    color := GRAY
+    color := softColor
     if i == pick
-      pc.rect(44, y - 2, 232, 10, SELECTED)
-      color = WHITE
+      pc.rect(44, y - 2, 232, 10, selectColor)
+      color = textColor
     end
     pc.print(labels[k], 48, y, color)
-    pc.print(keyNames[k], 272 - keyNames[k].len() * 6, y, DIM)
+    pc.print(keyNames[k], 272 - keyNames[k].len() * 6, y, faintColor)
   end
   if nlisted == 0
-    pc.print("No such command", 48, 54, DIM)
+    pc.print("No such command", 48, 54, faintColor)
   end
 end
 
 draw* :: proc()
-  pc.cls(BACK)
+  pc.cls(backColor)
   cl := lineOf(cursor)
   # the title bar: the app, whether it's changed, and where the cursor is
-  pc.rect(0, 0, 320, 10, DARK)
+  pc.rect(0, 0, 320, 10, barColor)
   shown := 0
   if path.len() > 0 # (its path, /rinc/ left off; its end, if it's long)
     t := path[0:path.len()].asString()
@@ -137,22 +137,22 @@ draw* :: proc()
     if t.len() > 36
       t = t[t.len() - 36:t.len()]
     end
-    color := WHITE
+    color := textColor
     if readOnly()
-      color = GRAY
+      color = softColor
     end
     pc.print(t, 2, 1, color)
     shown = t.len()
   else
-    pc.print("(new)", 2, 1, GRAY)
+    pc.print("(new)", 2, 1, softColor)
     shown = 5
   end
   if modified()
-    pc.print("*", 4 + shown * 6, 1, ORANGE)
+    pc.print("*", 4 + shown * 6, 1, warnColor)
   end
   num.clear()
   num.format("Ln ", cl + 1, ", Col ", cursor - lineAt[cl] + 1)
-  pc.print(num[0:num.len()].asString(), 318 - num.len() * 6, 1, GRAY)
+  pc.print(num[0:num.len()].asString(), 318 - num.len() * 6, 1, softColor)
   # the lines
   for row in 0..<ROWS
     l := top + row
@@ -162,9 +162,9 @@ draw* :: proc()
     y := TOP_Y + row * 9
     num.clear()
     num.format(l + 1)
-    numColor := DIM
+    numColor := faintColor
     if l == cl
-      numColor = GRAY
+      numColor = softColor
     end
     pc.print(num[0:num.len()].asString(), TEXT_X - 6 - num.len() * 6, y, numColor)
     drawLine(l, y)
@@ -173,11 +173,11 @@ draw* :: proc()
   ccol := cursor - lineAt[cl] - left
   if mode == NONE and cl >= top and cl < top + ROWS and ccol >= 0 and ccol <= COLS
     if pc.time() - movedAt < 0.5 or (pc.time() * 2.0).toInt() % 2 == 0
-      pc.rect(TEXT_X + ccol * 6 - 1, TOP_Y + (cl - top) * 9 - 1, 1, 9, YELLOW)
+      pc.rect(TEXT_X + ccol * 6 - 1, TOP_Y + (cl - top) * 9 - 1, 1, 9, accentColor)
     end
   end
   # the bottom bar: a prompt, a message, or the keys
-  pc.rect(0, 229, 320, 11, DARK)
+  pc.rect(0, 229, 320, 11, barColor)
   if mode == GO_TO or mode == FIND or mode == NAMING
     label := "Go to line: "
     if mode == FIND
@@ -185,17 +185,17 @@ draw* :: proc()
     case mode == NAMING
       label = "A new project, called: "
     end
-    pc.print(label, 2, 231, YELLOW)
+    pc.print(label, 2, 231, accentColor)
     t := input[0:input.len()]
     if mode == FIND
       t = query[0:query.len()]
     end
-    pc.print(t.asString(), 2 + label.len() * 6, 231, WHITE)
-    pc.rect(2 + (label.len() + t.len()) * 6, 230, 1, 9, YELLOW)
+    pc.print(t.asString(), 2 + label.len() * 6, 231, textColor)
+    pc.rect(2 + (label.len() + t.len()) * 6, 230, 1, 9, accentColor)
   case message.len() > 0 and pc.time() - messageAt < 4.0
     pc.print(message[0:message.len()].asString(), 2, 231, messageColor)
   else
-    pc.print("^O open  ^S save  ^R run  ^Shift+P all", 2, 231, DIM)
+    pc.print("^O open  ^S save  ^R run  ^Shift+P all", 2, 231, faintColor)
   end
   if mode == PALETTE
     drawPalette()

@@ -1,0 +1,23 @@
+# Rinc: dark blue, Rinc's own colors
+bg*      :: 1    # dark blue
+bar*     :: 0    # black
+text*    :: 7    # white
+soft*    :: 6    # light gray
+dim*     :: 13   # lavender
+faint*   :: 5    # dark gray
+accent*  :: 10   # yellow
+heading* :: 9    # orange
+pick*    :: 12   # blue
+select*  :: 2    # dark purple
+link*    :: 12   # blue
+error*   :: 8    # red
+ok*      :: 11   # green
+codeBg*  :: 17   # night blue
+code*    :: 7    # white
+punct*   :: 6    # light gray
+keyword* :: 14   # pink
+type*    :: 15   # peach
+call*    :: 12   # blue
+number*  :: 9    # orange
+string*  :: 11   # green
+comment* :: 13   # lavender

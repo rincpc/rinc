@@ -1,0 +1,23 @@
+# Night: black, quiet
+bg*      :: 0    # black
+bar*     :: 17   # night blue
+text*    :: 7    # white
+soft*    :: 6    # light gray
+dim*     :: 13   # lavender
+faint*   :: 5    # dark gray
+accent*  :: 10   # yellow
+heading* :: 9    # orange
+pick*    :: 1    # dark blue
+select*  :: 21   # dusk
+link*    :: 12   # blue
+error*   :: 8    # red
+ok*      :: 11   # green
+codeBg*  :: 17   # night blue
+code*    :: 7    # white
+punct*   :: 6    # light gray
+keyword* :: 14   # pink
+type*    :: 15   # peach
+call*    :: 12   # blue
+number*  :: 9    # orange
+string*  :: 11   # green
+comment* :: 13   # lavender

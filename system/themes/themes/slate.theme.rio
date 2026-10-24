@@ -1,0 +1,23 @@
+# Slate: warm slate gray, with yellow and blue
+bg*      :: 5    # dark gray
+bar*     :: 21   # dusk
+text*    :: 7    # white
+soft*    :: 7    # white
+dim*     :: 6    # light gray
+faint*   :: 22   # stone
+accent*  :: 10   # yellow
+heading* :: 15   # peach
+pick*    :: 28   # royal blue
+select*  :: 21   # dusk
+link*    :: 11   # green
+error*   :: 14   # pink
+ok*      :: 26   # lime
+codeBg*  :: 21   # dusk
+code*    :: 7    # white
+punct*   :: 6    # light gray
+keyword* :: 14   # pink
+type*    :: 15   # peach
+call*    :: 23   # pale yellow
+number*  :: 9    # orange
+string*  :: 26   # lime
+comment* :: 31   # salmon

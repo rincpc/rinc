@@ -79,7 +79,7 @@ act :: proc(i: Int)
   k := target
   mode = NONE
   if not itemOk[i]
-    say("That can't be done here", 8)
+    say("That can't be done here", errorColor)
     return
   end
   switch
@@ -101,10 +101,10 @@ act :: proc(i: Int)
     startPrompt(NEW_FOLDER)
   case id == INSTALL_IT
     if pc.appInstall(nameOf(k)) == 0
-      say("Installed as its app: ", 6)
+      say("Installed as its app: ", softColor)
       ok := message.pushAll(nameOf(k))
     else
-      say("Couldn't install it", 8)
+      say("Couldn't install it", errorColor)
     end
   end
 end
@@ -148,12 +148,12 @@ promptDone :: proc()
   k := target
   if m == NEW_FOLDER # (here)
     if not validName(s, true)
-      say("A name is letters, digits, _, - and .", 8)
+      say("A name is letters, digits, _, - and .", errorColor)
       return
     end
     mode = NONE
     if here().len() <= 6 or here()[0:6] != "/rinc/" or pc.dirMake(pathTo(s)) != 0
-      say("Couldn't make it here: is something called that already?", 8)
+      say("Couldn't make it here: is something called that already?", errorColor)
       return
     end
     reopen(s)
@@ -161,7 +161,7 @@ promptDone :: proc()
   end
   if m == DELETE
     if s != nameOf(k)
-      say("Type its whole name to delete it", 8)
+      say("Type its whole name to delete it", errorColor)
       return
     end
     mode = NONE
@@ -173,20 +173,20 @@ promptDone :: proc()
       res = pc.fileDelete(pathTo(nameOf(k)))
     end
     if res == 0
-      say("Deleted ", 6)
+      say("Deleted ", softColor)
       ok := message.pushAll(s)
       reopen("")
     else
-      say("Couldn't delete it", 8)
+      say("Couldn't delete it", errorColor)
     end
     return
   end
   app := m == NEW or (kind[k] == FOLDER and appRef(k).len() > 0)
   if not validName(s, not app) or (app and s.len() > 32)
     if app
-      say("A name is letters, digits, _ and -", 8)
+      say("A name is letters, digits, _ and -", errorColor)
     else
-      say("A name is letters, digits, _, - and .", 8)
+      say("A name is letters, digits, _, - and .", errorColor)
     end
     return
   end
@@ -195,7 +195,7 @@ promptDone :: proc()
   if m == NEW
     to := projectRef(s)
     if pc.appSource(to, input[0:0]) >= 0
-      say("There's a project of that name already", 8)
+      say("There's a project of that name already", errorColor)
       return
     end
     header: Blob[..80]
@@ -205,7 +205,7 @@ promptDone :: proc()
     if pc.appSave(to, header[0:header.len()].asString()) == 0
       edit(to)
     else
-      say("Couldn't make it", 8)
+      say("Couldn't make it", errorColor)
     end
     return
   end
@@ -225,15 +225,15 @@ promptDone :: proc()
     end
   end
   if res != 0
-    say("Couldn't: is something called that already?", 8)
+    say("Couldn't: is something called that already?", errorColor)
     return
   end
   if app and m == COPY and inApps()
-    say("Copied as project ", 6)
+    say("Copied as project ", softColor)
     ok := message.pushAll(s)
     ok = message.push(42)
   else
-    say("Done: ", 6)
+    say("Done: ", softColor)
     ok := message.pushAll(s)
     reopen(s)
   end

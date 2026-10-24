@@ -123,7 +123,7 @@ key :: proc(k: Int)
     run()
   case base == 15 # Ctrl+O
     if modified() and confirm != 15
-      say("Unsaved changes: Ctrl+O again drops them", ORANGE)
+      say("Unsaved changes: Ctrl+O again drops them", warnColor)
       confirm = 15
     else
       confirm = 0
@@ -133,13 +133,13 @@ key :: proc(k: Int)
     startPrompt(PALETTE)
   case base == 14 # Ctrl+N
     if modified() and confirm != 14
-      say("Unsaved changes: Ctrl+N again drops them", ORANGE)
+      say("Unsaved changes: Ctrl+N again drops them", warnColor)
       confirm = 14
     else
       confirm = 0
       fresh()
       path.clear()
-      say("New: Ctrl+S saves it, where Files says", GRAY)
+      say("New: Ctrl+S saves it, where Files says", softColor)
     end
   case base == 6
     if cursor != anchor and selEnd() - selStart() <= 48 # (what's selected, to find)

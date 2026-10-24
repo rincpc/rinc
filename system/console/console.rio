@@ -7,14 +7,15 @@
 
 COLS :: 53        # 6x9 characters, on the 320x240 screen
 ROWS :: 26
-WHITE :: 7
-GRAY :: 6
-RED :: 8
-BLUE :: 12
+backColor := pc.theme(pc.Role.bg) # colors: the theme's (pc.Role)
+textColor := pc.theme(pc.Role.text)
+softColor := pc.theme(pc.Role.soft)
+errorColor := pc.theme(pc.Role.error)
+accentColor := pc.theme(pc.Role.accent)
 
 # the session's memory, handed over to it: the typed program's code and data, and its compiler's tables
 sessionMem: Blob[147456]
-sessionTables: Blob[32768]
+sessionTables: Blob[40960]
 file: Blob[24576]  # an app's source, loading or saving
 fileLen := 0
 logBuf: Blob[2048]
@@ -71,8 +72,8 @@ include "parts/commands.rio"
 
 # ---------------------------------------------------------------- frames
 
-say("Rinc console: Rio, typed and run", WHITE)
-say("run, ls, load, run, save, delete, install, active name, home", GRAY)
+say("Rinc console: Rio, typed and run", textColor)
+say("run, ls, load, run, save, delete, install, active name, home", softColor)
 ok := fresh()
 
 update* :: proc()
@@ -84,7 +85,7 @@ update* :: proc()
       end
       if c == 27
         mode = .typing
-        say("stopped", GRAY)
+        say("stopped", softColor)
         return
       end
       pc.rioType(c)
@@ -94,7 +95,7 @@ update* :: proc()
     if r != 0
       mode = .typing
       if r == 1
-        say("nothing to run: define update* or draw*", GRAY)
+        say("nothing to run: define update* or draw*", softColor)
       else
         showError()
       end
@@ -118,7 +119,7 @@ draw* :: proc()
   if mode == .running
     return                               # (what's running drew)
   end
-  pc.cls(1)
+  pc.cls(backColor)
   shown: Blob[..256]
   if mode == .typing
     if acc.len() == 0
@@ -138,9 +139,9 @@ draw* :: proc()
   end
   for k in 0..<inputRows
     a := k * COLS
-    pc.print(shown[a:min(a + COLS, shown.len())].asString(), 0, (y + k) * 9, WHITE)
+    pc.print(shown[a:min(a + COLS, shown.len())].asString(), 0, (y + k) * 9, textColor)
   end
   if (pc.time() * 2.0).toInt() % 2 == 0
-    pc.rect(at % COLS * 6, (y + at / COLS) * 9 + 8, 5, 1, WHITE)
+    pc.rect(at % COLS * 6, (y + at / COLS) * 9 + 8, 5, 1, accentColor)
   end
 end
