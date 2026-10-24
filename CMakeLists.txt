@@ -210,6 +210,9 @@ else()
   # then a color picked with nothing waiting for it
   add_test(NAME app_colors COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/colors/colors.rio -frames 60
     -data ${CMAKE_CURRENT_BINARY_DIR}/colors-data -type "\\x1b[A\\x1b[B\\x1b[B\\x1b[B\\x1b[C\\t\\t \\x1b[Z\\n")
+  # -hold: buttons held in the frames it names
+  add_test(NAME hold COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/hold.rio -frames 6 -hold "b 2-3, x 4-4")
+  set_tests_properties(hold PROPERTIES PASS_REGULAR_EXPRESSION "frame 1 b 0 x 0[^f]*frame 2 b 1 x 0[^f]*frame 3 b 1 x 0[^f]*frame 4 b 0 x 1[^f]*frame 5 b 0 x 0")
   add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio -frames 30 -type "\\t\\n")
   # an app's own help, in its folder (apps/demo/help/intro.md): demo/intro
   set(apphelp ${CMAKE_CURRENT_BINARY_DIR}/apphelp-data)

@@ -23,6 +23,8 @@ rinc app.rio -frames 120          no window: run 120 frames (A held for the firs
   -wav sound.wav                  and the sound those frames made
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,
                                   \xHH a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right)
+  -hold 'a 10-40, right 20-30'    and hold buttons, as a controller would, in those frames (counted from
+                                  0): left right up down a b x y lb rb ls rs start back
 rinc app.rio -i app.rioi          compile to an image, and list the host procs its code calls
 rinc a.rio b.rio -export game     a program to hand out (game.exe on Windows): rinc with the apps in it
   -home a                         the one it starts at (by default the only one, or one named home)

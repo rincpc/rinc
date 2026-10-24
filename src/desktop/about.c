@@ -16,6 +16,8 @@ const char rinc_help[] =
   "    -wav sound.wav           and the sound those frames made\n"
   "    -type 'log(1)\\n'         and type this, as fast as the app takes it (\\n Enter, \\e Esc, \\t Tab,\n"
   "                             \\xHH a byte as a terminal sends it: \\x13 Ctrl+S, \\x1b[1;5C Ctrl+right)\n"
+  "    -hold 'a 10-40, right 20-30'  and hold buttons, as a controller would, in those frames (from 0:\n"
+  "                             left right up down a b x y lb rb ls rs start back)\n"
   "  rinc app.rio -i app.rioi    compile to an image, and list the host procs its code calls\n"
   "  rinc a.rio b.rio -export game\n"
   "                             a program to hand out (game.exe on Windows): rinc with the apps in it\n"

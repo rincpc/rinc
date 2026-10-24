@@ -1,0 +1,6 @@
+# rinc -hold: buttons held in the frames it says (rinc tests/hold.rio -frames 6 -hold "b 2-3, x 4-4")
+frame := 0
+update* :: proc()
+  log("frame", frame, "b", pc.btn(5), "x", pc.btn(6))
+  frame += 1
+end

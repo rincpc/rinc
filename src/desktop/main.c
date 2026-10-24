@@ -360,6 +360,24 @@ static void rinc_typeMore(void) {
   }
 }
 
+/* -hold: buttons held, as a controller would, in frames counted from 0: "a 10-40, right 20-30" (names:
+   left right up down a b x y lb rb ls rs start back): the buttons for frame i */
+static const char *rinc_holding;
+static uint16_t rinc_held(int frame) {
+  static const char *names[14] = {"left", "right", "up", "down", "a", "b", "x", "y", "lb", "rb", "ls", "rs", "start", "back"};
+  const char *s = rinc_holding;
+  uint16_t bits = 0;
+  while (s && *s) {
+    char name[8]; int first, last, n = 0, k;
+    while (*s == ' ' || *s == ',') s++;
+    if (!*s || sscanf(s, "%7[a-z] %d-%d%n", name, &first, &last, &n) != 3) break;
+    s += n;
+    for (k = 0; k < 14; k++)
+      if (!strcmp(name, names[k]) && frame >= first && frame <= last) bits |= (uint16_t)(1 << k);
+  }
+  return bits;
+}
+
 /* storage (files.c) */
 const char *rinc_storageStart(const char *name);
 const char *rinc_storageAt(const char *dir);
@@ -648,8 +666,9 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-install")) while (i + 1 < argc && argv[i + 1][0] != '-' && ninstall < 32) installs[ninstall++] = rinc_appArg(argv[++i]);
     else if (!strcmp(argv[i], "-m")) memReport = 1;
     else if (!strcmp(argv[i], "-type") && i + 1 < argc) rinc_typing = argv[++i];
+    else if (!strcmp(argv[i], "-hold") && i + 1 < argc) rinc_holding = argv[++i];
     else if (argv[i][0] == '-' || napps == rinc_BUNDLE_MOST) {
-      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-i app.rioi]\n"
+      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-hold buttons] [-i app.rioi]\n"
                       "       rinc app.rio... -export program [-runner rinc] [-home name] [-name folder] [-docs name=folder]...\n"
                       "       rinc app.rio... -web page.html [-home name]\n"
                       "       rinc -install name|app.rio...      (and -data folder with any of these: storage there)\n"
@@ -718,7 +737,8 @@ int main(int argc, char **argv) {
     if (!out && !frames) return rinc_window(app);
 #endif
     for (i = 0; i < frames; i++) { /* a game, without a window: A held for the first frames (to start it) */
-      rinc_buttons = i < 3 && !rinc_typing && rinc_lettersAsButtons() ? rinc_Button_a : 0; /* (not when typing: the typing is what drives it; nor a pointer app's, where A is Enter) */
+      rinc_buttons = i < 3 && !rinc_typing && !rinc_holding && rinc_lettersAsButtons() ? rinc_Button_a : 0; /* (not when typing: the typing is what drives it; nor a pointer app's, where A is Enter) */
+      rinc_buttons |= rinc_held(i);
       rinc_typeMore();
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();
