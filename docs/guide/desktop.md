@@ -11,10 +11,10 @@ arm64 for a Raspberry Pi 4 or 5 with 64-bit Raspberry Pi OS), so `rinc -help` an
 carry what would otherwise be files beside it.
 
 ```
-rinc app.rio                      play, in a window (closing it quits)
+rinc app.rio                      play, in a window (closing it quits); it's home until then
 rinc game/   (or rinc ., in it)   an app of a folder: game/game.rio, with its other files (include, import)
-rinc                              home, if it's installed; else a REPL in the terminal
-rinc -app chord                   an app from storage, by name
+rinc                              home (or the app the home setting names), if it's installed; else a REPL
+rinc -app chord                   an app from storage, by name, home for this session too
 rinc -install home console        standard apps into storage, fetched with curl (or app.rio files, copied)
   -data folder                    with any of these: storage in this folder instead
 rinc app.rio -m                   how near the app comes to its limits (see memory)

@@ -60,11 +60,13 @@ static void rinc_fwBegin(const char *why);
 static rinc_Repl *rinc_fw; /* the firmware's own console, while it's on (rinc_fwBegin) */
 static void rinc_open(const char *name) {
   rinc_fw = 0; /* (its memory is the app's now) */
-  name = rinc_appFor(name); /* (home: the card's, else the bundle's) */
-  if ((!strcmp(name, "home") || !strcmp(name, "console")) && rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) {
-    rinc_fwBegin(!strcmp(name, "home") ? "No home app on the SD card (/rinc/apps/home).\r\n"
-                                         "uv run tools/install.py puts Rinc's apps there.\r\n\r\n"
-                                       : "No console app on the SD card: Rinc's own console.\r\n\r\n");
+  int home = !strcmp(name, "home");
+  name = rinc_appFor(name); /* (home: rinc_homeName's) */
+  if ((home || !strcmp(name, "console")) && rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) {
+    char why[160];
+    if (home) snprintf(why, sizeof why, "No home app on the SD card (/rinc/apps/%s).\r\nuv run tools/install.py puts Rinc's apps there.\r\n\r\n", name);
+    else snprintf(why, sizeof why, "No console app on the SD card: Rinc's own console.\r\n\r\n");
+    rinc_fwBegin(why);
     return;
   }
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, rinc_APP_SPACE, name, rinc_put)) return;

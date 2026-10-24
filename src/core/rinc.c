@@ -169,10 +169,24 @@ uint32_t rinc_bundleWrite(uint8_t *out, uint32_t cap, const char *name, const ch
   return at;
 }
 const char *rinc_bundleName(void) { return rinc_bundleStorage; }
-const char *rinc_appFor(const char *name) {
-  if (strcmp(name, "home") || rinc_readApp("home", 0, 0) != -1) return name;
-  return rinc_bundleHome;
+/* the app home means: the session's (rinc_setHome: the desktop's rinc whatever), else a bundle's home
+   app (one that carries apps: an exported game, a web page), else the home setting, else home */
+static char rinc_homeOver[rinc_REF], rinc_homeSet[rinc_REF];
+static int rinc_readFile(const char *path, char *buf, uint32_t cap, uint32_t *total);
+static int rinc_refOk(const char *s, int n);
+void rinc_setHome(const char *name) { snprintf(rinc_homeOver, sizeof rinc_homeOver, "%s", name ? name : ""); }
+const char *rinc_homeName(void) {
+  uint32_t n;
+  if (rinc_homeOver[0]) return rinc_homeOver;
+  if (rinc_bundleCount) return rinc_bundleHome;
+  if (!rinc_readFile("/rinc/settings/home", rinc_homeSet, sizeof rinc_homeSet - 1, &n) && n < sizeof rinc_homeSet) {
+    while (n && (rinc_homeSet[n - 1] == '\n' || rinc_homeSet[n - 1] == '\r' || rinc_homeSet[n - 1] == ' ')) n--; /* (as an editor saves it) */
+    rinc_homeSet[n] = 0;
+    if (rinc_refOk(rinc_homeSet, (int)n)) return rinc_homeSet;
+  }
+  return "home";
 }
+const char *rinc_appFor(const char *name) { return strcmp(name, "home") ? name : rinc_homeName(); }
 static char rinc_appNow[33] = "app"; /* the app running, for its stash (a project's is its app's) */
 static char rinc_appRef[rinc_REF] = "app"; /* and as it was started: chord, or its project, chord* */
 static int rinc_appProject; /* (it's a project: its own save space) */
@@ -229,10 +243,10 @@ static int rinc_nameOk(const char *s, int n, int dots) {
 }
 /* an app's name, or its project's (a star after it) */
 static int rinc_refOk(const char *s, int n) { return n > 1 && s[n - 1] == '*' ? rinc_nameOk(s, n - 1, 0) : rinc_nameOk(s, n, 0); }
-static char rinc_appNames[64][rinc_REF]; static int rinc_appCount;
+static char rinc_appNames[64][rinc_REF], rinc_appHome[rinc_REF]; static int rinc_appCount;
 static void rinc_appAdd(const char *name) {
   size_t n = strlen(name); int i;
-  if (!rinc_refOk(name, (int)n) || !strcmp(name, "home") || !strcmp(name, rinc_bundleHome) || rinc_appCount >= 64) return; /* (home: where this list is shown) */
+  if (!rinc_refOk(name, (int)n) || !strcmp(name, rinc_appHome) || rinc_appCount >= 64) return; /* (home: where this list is shown) */
   for (i = 0; i < rinc_appCount; i++) if (!strcmp(rinc_appNames[i], name)) return;
   memcpy(rinc_appNames[rinc_appCount++], name, n + 1);
 }
@@ -253,6 +267,7 @@ static int rinc_lowerCmp(const char *a, const char *b) {
 static int rinc_findApps(void) {
   int i, j;
   rinc_appCount = 0;
+  snprintf(rinc_appHome, sizeof rinc_appHome, "%s", rinc_homeName()); /* (read first: storage has one file open at a time) */
   if (rinc_fs) { rinc_fs->list("/rinc/apps", rinc_appFound, 0); rinc_fs->list("/rinc/projects", rinc_appFound, (void *)1); }
   for (i = 0; i < rinc_bundleCount; i++) { /* (apps/name/name.rio or .rioi) */
     const char *q = rinc_entryPath(i), *slash; char name[33]; size_t k;
@@ -385,9 +400,10 @@ static int rinc_findHelps(char *out, int cap) {
   int i, apps = rinc_findApps(); char path[96];
   rinc_helpOut = out; rinc_helpCap = cap; rinc_helpUsed = rinc_helpCount = rinc_helpDirCount = 0;
   rinc_helpDir("/rinc/help");
-  for (i = 0; i < apps; i++) { /* (each app's help folder, and each project's) */
-    int n = (int)strlen(rinc_appNames[i]), project = rinc_appNames[i][n - 1] == '*';
-    snprintf(path, sizeof path, "/rinc/%s/%.*s/help", project ? "projects" : "apps", project ? n - 1 : n, rinc_appNames[i]);
+  for (i = 0; i <= apps; i++) { /* (each app's help folder, and each project's; and, last, home's, which the list leaves out) */
+    const char *a = i < apps ? rinc_appNames[i] : rinc_appHome; int n = (int)strlen(a), project = n && a[n - 1] == '*';
+    if (!n) continue;
+    snprintf(path, sizeof path, "/rinc/%s/%.*s/help", project ? "projects" : "apps", project ? n - 1 : n, a);
     rinc_helpDir(path);
   }
   for (rinc_helpDirNow = 0; rinc_fs && rinc_helpDirNow < rinc_helpDirCount; rinc_helpDirNow++) /* (storage: a folder at a time) */

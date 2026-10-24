@@ -1,0 +1,11 @@
+# Homer: goes home on its third frame, to show which app home is (a test)
+include "parts/say.rio"
+frames := 0
+update* :: proc()
+  frames += 1
+  if frames == 3
+    pc.launch("home")
+  end
+end
+draw* :: proc()
+end

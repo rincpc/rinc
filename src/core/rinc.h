@@ -212,9 +212,12 @@ uint32_t rinc_bundleWrite(uint8_t *out, uint32_t cap, const char *name, const ch
 const rinc_File *rinc_bundleFile(const char *path); /* NULL if the bundle has no such file */
 const rinc_App *rinc_bundled(const char *name); /* NULL if the bundle has no such app */
 const char *rinc_bundleName(void); /* the bundle's storage folder's name ("": Rinc's own) */
-/* the app "home" means: an app named home in storage, else the bundle's home app; and any other name,
-   itself */
+/* the app "home" means (rinc_homeName): the session's home, if the platform set one (rinc_setHome: the
+   desktop's rinc whatever), else a bundle's home app, if the bundle carries apps, else the home
+   setting (/rinc/settings/home), else home; and any other name, itself */
 const char *rinc_appFor(const char *name);
+const char *rinc_homeName(void);
+void rinc_setHome(const char *name); /* for this session only (NULL: none) */
 /* an app's source from storage, read into buf: its length, -1 if storage has no such app, or -2 if it
    doesn't fit */
 int rinc_readApp(const char *name, char *buf, uint32_t cap);

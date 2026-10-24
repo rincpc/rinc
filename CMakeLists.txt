@@ -216,6 +216,14 @@ else()
   add_test(NAME app_help_setup COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/tests/apphelp ${apphelp}/apps)
   add_test(NAME app_help_own COMMAND rinc -data ${apphelp} -app demo -frames 1)
   set_tests_properties(app_help_own PROPERTIES DEPENDS app_help_setup PASS_REGULAR_EXPRESSION "found # Intro")
+  # which app home is: the home setting's (homer, which goes home on its third frame, so starts again),
+  # and rinc app/ for the session, a folder's app run from its files
+  set(homedata ${CMAKE_CURRENT_BINARY_DIR}/home-data)
+  add_test(NAME home_setup COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/tests/home ${homedata})
+  add_test(NAME home_setting COMMAND rinc -data ${homedata} -frames 10)
+  add_test(NAME home_session COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/home/apps/homer -data ${CMAKE_CURRENT_BINARY_DIR}/home-session-data -frames 10)
+  set_tests_properties(home_setting PROPERTIES DEPENDS home_setup PASS_REGULAR_EXPRESSION "homer started[\r\n]+homer started")
+  set_tests_properties(home_session PROPERTIES PASS_REGULAR_EXPRESSION "homer started[\r\n]+homer started")
   # an app's stash: none the first time, then what it wrote
   set(stash ${CMAKE_CURRENT_BINARY_DIR}/stash-data)
   add_test(NAME stash_clear COMMAND ${CMAKE_COMMAND} -E rm -rf ${stash})

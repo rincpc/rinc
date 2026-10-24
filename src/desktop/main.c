@@ -366,10 +366,14 @@ const char *rinc_storageAt(const char *dir);
 void rinc_mkdirsFor(const char *file);
 
 /* an app, by name, started as on every Rinc (rinc_appBegin, rinc_appRun): from storage, else the
-   bundle. What goes wrong is on the screen (and printed): 0, or -1 */
+   bundle; or, for rinc app.rio, that file, which is home for the session (rinc_hostHome: its name, and
+   rinc_hostApp: its file). What goes wrong is on the screen (and printed): 0, or -1 */
+static const char *rinc_hostApp; static char rinc_hostHome[40];
 static int rinc_openApp(const char *name) {
-  name = rinc_appFor(name); /* (home: storage's, else the bundle's) */
+  name = rinc_appFor(name); /* (home: rinc_homeName's) */
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_put)) return -1;
+  if (rinc_hostApp && !strcmp(name, rinc_hostHome))
+    return rinc_appRunHost(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_useFolder(rinc_hostApp));
   if (rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) { rinc_appFail(name, ": no app of this name (rinc -install it, if it's a standard one)"); return -1; }
   return rinc_appStart(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name);
 }
@@ -678,9 +682,10 @@ int main(int argc, char **argv) {
     return bad;
   }
   if (rinc_start(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, rinc_put)) { fprintf(stderr, "rinc: can't start\n"); return 1; }
-  if (!app && !named && (rinc_readApp("home", 0, 0) != -1 || rinc_bundled(rinc_appFor("home")))) named = "home"; /* (plain rinc: home, if it's installed) */
+  if (!app && !named && (rinc_readApp(rinc_appFor("home"), 0, 0) != -1 || rinc_bundled(rinc_appFor("home")))) named = "home"; /* (plain rinc: home, if it's installed) */
   if (named) { /* (a failure to start: on the screen in a window, else the end) */
     if (app) { fprintf(stderr, "rinc: an app's file, or -app, not both\n"); return 2; }
+    if (strcmp(named, "home")) rinc_setHome(named); /* (rinc -app name: home for this session) */
     if (rinc_openApp(named) && !windowed) return 1;
     app = named;
     opened = 1;
@@ -692,6 +697,9 @@ int main(int argc, char **argv) {
       fclose(f); /* (read a part at a time, as it compiles) */
       rinc_stem(app, stem, sizeof stem);
       rinc_setAppName(stem);
+      snprintf(rinc_hostHome, sizeof rinc_hostHome, "%s", stem); /* (home for this session: system+Esc comes back to it) */
+      rinc_hostApp = app;
+      rinc_setHome(stem);
       if (img) {
         if (!(size = rinc_makeImage(app, 1))) return 1;
         return rinc_writeFile(img, rinc_image, size, 0, 0, 0, 0);

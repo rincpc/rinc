@@ -43,8 +43,14 @@ space) with its description in `apps/<name>/<name>.info`. A bundle also names it
   It carries them compiled, unless one of them runs Rio itself or writes apps (the console, the
   editor): then their sources, so they can be read and changed too.
 
-`home` means an app named `home` in storage if there is one, else the bundle's home app. An app on
-storage of the same name as a bundled one takes its place.
+`home` means, in this order:
+- the app a Rinc was started with, for that session: `rinc chord` on the desktop makes chord home until
+  it quits, so system+Esc comes back to it, though it's still named chord;
+- a bundle's home app, if the bundle carries apps (an exported game, a web page, a firmware of its own);
+- the `home` setting, if it names an app (see settings);
+- else the app named `home`.
+
+An app on storage of the same name as a bundled one takes its place.
 
 Every Rinc reads the same format, all numbers little-endian:
 
@@ -201,6 +207,9 @@ can be active too, to read its source). The editor makes what it opens active, a
 active, so an app that picks one (a file browser, say) has the editor open it next. Home's Ctrl+Enter
 makes the app picked there active and opens the editor, and marks the active one; the console's
 `active name` makes `name` active.
+
+`home` names the app `home` means (see bundles), when the Rinc wasn't started with one: `launcher`, say,
+for a home app of another name. Without it, home is the app named `home`.
 
 ## Where an app was: its stash
 
