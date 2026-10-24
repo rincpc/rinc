@@ -175,9 +175,10 @@ int rinc_themeColor(int role);
    end, -1 failed; write: n, or -1; seek: reading on from byte at (its end, at most): 0 or -1; list: each
    entry of a directory, with whether it's one too.
    Apps live in /rinc/apps/<name>/<name>.rio */
-/* an app's name, 1 to 32 letters, digits, _ and -: the installed app, /rinc/apps/<name>; with a star
-   after it (chord*), its project, /rinc/projects/<name>, the app in work. rinc_REF holds either */
+/* an app's name, 1 to 32 letters, digits, _ and -: the installed app, /rinc/apps/<name>; with a +
+   after it (chord+), its project, /rinc/projects/<name>, the app in work. rinc_REF holds either */
 #define rinc_REF 34
+#define rinc_PROJECT '+' /* what marks a project's name: chord+ */
 typedef struct {
   int (*open)(const char *path, int write);
   int (*read)(char *buf, int n);

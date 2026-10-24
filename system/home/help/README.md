@@ -9,7 +9,7 @@ has, in storage and built in, in order of their titles, each with what it does.
 | up, down (or the d-pad) | pick an app |
 | Enter (or A) | start it |
 | Esc | clear what's typed |
-| Ctrl+Enter | make it the active app (or project, `chord*`) and open it in the editor: a yellow mark at its left shows the active one |
+| Ctrl+Enter | make it the active app (or project, `chord+`) and open it in the editor: a yellow mark at its left shows the active one |
 | a click (or A, pointing) | start the app clicked |
 | the wheel (or the right stick) | pick an app further up or down |
 

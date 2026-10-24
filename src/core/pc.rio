@@ -60,10 +60,10 @@ soundPlaying* :: @host proc(v: Int) -> Int
 
 # ---------------------------------------------------------------- apps, for home and the console
 
-# A name is an installed app's (chord), or with a star after it, its project's (chord*): the app in work,
+# A name is an installed app's (chord), or with a + after it, its project's (chord+): the app in work,
 # with a save space of its own
 apps* :: @host proc() -> Int                         # the apps and projects (sorted, each project after its app): how many
-appName* :: @host proc(i: Int, out: Blob) -> Int     # app i's name (a project's with its star), into out: how long
+appName* :: @host proc(i: Int, out: Blob) -> Int     # app i's name (a project's with its +), into out: how long
 appInfo* :: @host proc(i: Int, out: Blob) -> Int     # its first line: "Title: what it does"
 launch* :: @host proc(name: String)                  # switch to an app or project (or "home", "console") after this frame
 # one app calling another: call starts it with args (after this frame), which it reads with args; done goes
@@ -94,7 +94,7 @@ dirMake* :: @host proc(path: String) -> Int                 # a folder, at a pat
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 
-# the help texts (Markdown): their names (paths, .md left off: rinc/spec/apps; a project's, chord*/...),
+# the help texts (Markdown): their names (paths, .md left off: rinc/spec/apps; a project's, chord+/...),
 # in order, into out, each with a 10 after it, as many as fit: how many
 helps* :: @host proc(out: Blob) -> Int
 # a help text into out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none
@@ -119,7 +119,7 @@ stashWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
 stashRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1 for none
 stashDelete* :: @host proc(key: String) -> Int               # 0, or -1
 # the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): "active" is the app or project
-# being worked on (chord, or chord*); keys are named as save files are
+# being worked on (chord, or chord+); keys are named as save files are
 settingRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1
 settingWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
 

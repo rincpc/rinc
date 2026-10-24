@@ -149,7 +149,7 @@ inProjects :: proc() -> Bool
   return here() == "/rinc/projects"
 end
 
-# an app's name for an entry: an app's folder (chord) or a project's (chord*), or its main file; "" if it's
+# an app's name for an entry: an app's folder (chord) or a project's (chord+), or its main file; "" if it's
 # neither
 refBuf: Blob[..34]
 appRef :: proc(k: Int) -> String
@@ -157,7 +157,7 @@ appRef :: proc(k: Int) -> String
   if kind[k] == FOLDER and (inApps() or inProjects())
     ok := refBuf.pushAll(nameOf(k))
     if inProjects()
-      ok = refBuf.push(42)
+      ok = refBuf.push(43)
     end
   case kind[k] == FILE
     p := here()
@@ -172,7 +172,7 @@ appRef :: proc(k: Int) -> String
         if n.len() == app.len() + 4 and n[0:app.len()] == app and n[app.len():n.len()] == ".rio"
           ok := refBuf.pushAll(app)
           if prefix == 1
-            ok = refBuf.push(42)
+            ok = refBuf.push(43)
           end
         end
       end

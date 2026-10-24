@@ -126,7 +126,7 @@ refTo: Blob[..34]
 projectRef :: proc(s: String) -> String
   refTo.clear()
   ok := refTo.pushAll(s)
-  ok = refTo.push(42)
+  ok = refTo.push(43)
   return refTo[0:refTo.len()].asString()
 end
 
@@ -231,7 +231,7 @@ promptDone :: proc()
   if app and m == COPY and inApps()
     say("Copied as project ", softColor)
     ok := message.pushAll(s)
-    ok = message.push(42)
+    ok = message.push(43)
   else
     say("Done: ", softColor)
     ok := message.pushAll(s)

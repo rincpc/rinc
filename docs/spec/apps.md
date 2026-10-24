@@ -12,7 +12,8 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 ```
 /rinc/apps/chord/chord.rio    an app: a folder of its name, holding its Rio file of the same name
 /rinc/apps/chord/help/...     its help texts, Markdown (see help texts)
-/rinc/projects/chord/...      its project, chord*: the app in work (see projects), its own saves in save/
+/rinc/apps/rinc/themes/...     Rinc's own themes (see themes): rinc is no app, so it isn't listed
+/rinc/projects/chord/...      its project, chord+: the app in work (see projects), its own saves in save/
 /rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
 /rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
 /rinc/cache/chord/...         what it can make again: anything may clear it
@@ -111,7 +112,7 @@ projects), so work on it can't spoil the app's.
 
 ## Projects
 
-An app in work is a project: `/rinc/projects/chord`, which is `chord*` wherever an app's name goes (a
+An app in work is a project: `/rinc/projects/chord`, which is `chord+` wherever an app's name goes (a
 star after it), and installing it makes it the app, `chord`. It's the same app at another stage, so
 it shares the app's name, and what goes with the name: its stash, and its own cache. A star marks it
 where it's listed: home, the switcher, the editor's list.
@@ -127,15 +128,15 @@ Only its saves are its own. A project being worked on can do anything to them, a
 app's saves are copied in, so it starts from real data. Deleting its `save` folder starts it over from
 the app's again. Nothing goes back the other way.
 
-`pc.launch("chord*")` runs the project, and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
+`pc.launch("chord+")` runs the project, and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
 project's name too (`pc.appDelete` removes all of its folder: a project's own saves too, but never the
 app's, in `/rinc/save`). The rest, each 0 or -1:
 
 | proc | |
 |---|---|
-| `pc.appInstall("chord")` | project `chord*` installed as app `chord`: its files copied over the app's (its save space aside); the console's `install chord` too |
-| `pc.appCopy(from, "tune*")` | app or project `from` copied as new project `tune*`: its files, its main file renamed `tune.rio` (a project's own saves aside) |
-| `pc.appRename("tune*", "song*")` | project `tune*` renamed `song*`: its folder and its main file (and the active setting, if it was the active one) |
+| `pc.appInstall("chord")` | project `chord+` installed as app `chord`: its files copied over the app's (its save space aside); the console's `install chord` too |
+| `pc.appCopy(from, "tune+")` | app or project `from` copied as new project `tune+`: its files, its main file renamed `tune.rio` (a project's own saves aside) |
+| `pc.appRename("tune+", "song+")` | project `tune+` renamed `song+`: its folder and its main file (and the active setting, if it was the active one) |
 
 ## Files
 
@@ -202,7 +203,7 @@ The whole Rinc's settings, not any one app's, are in `/rinc/settings`, a file a 
 read and change them: `pc.settingRead(key, out) -> Int` (as much as fits: its whole length, or -1 if
 there's none) and `pc.settingWrite(key, data) -> Int` (0, or -1). Keys are named as save files are.
 
-`active` is the app or project being worked on: `chord`, or its project, `chord*` (an installed app
+`active` is the app or project being worked on: `chord`, or its project, `chord+` (an installed app
 can be active too, to read its source). The editor makes what it opens active, and starts with what's
 active, so an app that picks one (a file browser, say) has the editor open it next. Home's Ctrl+Enter
 makes the app picked there active and opens the editor, and marks the active one; the console's
@@ -218,7 +219,7 @@ for a home app of another name. Without it, home is the app named `home`.
 A theme gives a palette color to each role the system apps draw with, so they look alike and code is
 colored the same in all of them. `theme` (a setting) names the one in use, `owner/id`: the file
 `themes/id.theme.rio` of app `owner`, in its folder (or the bundle's) or its save space
-(`/rinc/save/owner/themes`), or of project `owner*`; `owner/id+` is only the save space's, a copy of a
+(`/rinc/save/owner/themes`), or of project `owner+`; `owner/id+` is only the save space's, a copy of a
 locked one. Rinc's own themes are `rinc`'s: `/rinc/apps/rinc/themes`, `rinc/slate` and so on. Without
 a theme, or for a role it leaves out, the color is Rinc's own. The Themes app picks, makes and edits
 them (see its help).
@@ -371,7 +372,7 @@ no app's in `/rinc/help/<path>.md` (named `<path>`); a bundle carries them the s
 (`apps/<app>/help/...`, `help/...`), and storage takes the place of the bundle, as for apps. A name
 leaves `.md` off: `rinc/spec/apps`. A set of texts (the first part of their names) with a `SUMMARY`
 text is listed by that, as the docs' tables of contents are. A project's texts are its own, in
-`/rinc/projects/<app>/help`, named with its star: `chord*/README`, which the system key with H shows
+`/rinc/projects/<app>/help`, named with its +: `chord+/README`, which the system key with H shows
 while the project runs.
 
 | proc | |

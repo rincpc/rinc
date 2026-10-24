@@ -1,7 +1,7 @@
 # Files
 
 Files (`system/files/files.rio`, a system app) looks through storage, folder by
-folder: the apps (`/rinc/apps`), their projects (`/rinc/projects`, the apps in work, `chord*`), the
+folder: the apps (`/rinc/apps`), their projects (`/rinc/projects`, the apps in work, `chord+`), the
 apps' saves (`/rinc/save`), their stashes and caches: everything in `/rinc`, the root. It starts there,
 or where it was last. A yellow mark at the left is the active app or project, which the editor opens.
 

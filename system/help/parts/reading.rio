@@ -46,10 +46,10 @@ addSrcBlob :: proc(s: Blob)
   end
 end
 
-# after a set's title, a project's star
+# after a set's title, a project's +
 addSetStar :: proc(set: Blob)
-  if set.len() > 0 and set[set.len() - 1] == 42
-    addSrc(" *") # (a link's text is as it is: no emphasis)
+  if set.len() > 0 and set[set.len() - 1] == 43
+    addSrc(" +") # (a link's text is as it is: no emphasis)
   end
 end
 

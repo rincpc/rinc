@@ -26,14 +26,14 @@ A line on its own can be a command instead:
 | command | |
 |---|---|
 | `run` | run what's been typed as a game (its `update*` and `draw*`), until Esc |
-| `ls` | list the apps, and the projects (a star after the name: `chord*`) |
+| `ls` | list the apps, and the projects (a + after the name: `chord+`) |
 | `load name` | app `name`'s source, into a fresh session |
 | `run name` | run app `name`, as itself |
 | `save name` | what's typed or pasted next, until Ctrl-D, becomes app `name`'s source (Ctrl-C gives up) |
 | `save name/a/file` | likewise, a file of app `name`'s own, in its folder: `save chord/parts/sound.rio` |
 | `delete name` | remove app `name` |
-| `install name` | install project `name*` as app `name` (its own saves stay with the project) |
+| `install name` | install project `name+` as app `name` (its own saves stay with the project) |
 | `active`, `active name` | say which app or project is active (what the editor opens), or make `name` it |
 | `home` | back home |
 
-Each `name` can be a project's, with its star: `run chord*` runs project `chord*`, with its own saves.
+Each `name` can be a project's, with its +: `run chord+` runs project `chord+`, with its own saves.

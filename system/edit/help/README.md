@@ -6,10 +6,10 @@ editors. Ctrl+O opens one through Files, and Ctrl+Shift+S saves as another, thro
 asks where. Ctrl+R saves it and runs the app or project it's in, and the system key with Tab comes back
 to the editor. Ctrl+Shift+P lists every command, with its keys.
 
-Projects are where apps are worked on: `chord*` is app `chord` in work, in `/rinc/projects`, with saves
+Projects are where apps are worked on: `chord+` is app `chord` in work, in `/rinc/projects`, with saves
 of its own (a copy of the app's), so trying things can't spoil the app's. An installed app's files are
 read only, for reading; saving one saves it in the app's project, made from the app first, and Ctrl+R
-on it, unchanged, runs the app. Files (or the console's `install chord`) installs project `chord*` as
+on it, unchanged, runs the app. Files (or the console's `install chord`) installs project `chord+` as
 the app. Anything outside `/rinc` is read only too.
 
 The app or project of the file it has open is the active one, the whole Rinc's setting, and it starts

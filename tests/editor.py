@@ -26,7 +26,7 @@ for app in ('edit', 'files'): # (installed: their folders, parts and all)
 put('projects/demo/demo.rio', 'log(1)\n')
 put('projects/demo/parts/a.rio', 'a :: 1\n')
 put('apps/live/live.rio', 'log(2)\n')
-put('settings/active', 'demo*')
+put('settings/active', 'demo+')
 
 typing('x' + SAVE)
 check(get('projects/demo/demo.rio') == 'xlog(1)\n', 'the active project, edited and saved: %r' % get('projects/demo/demo.rio'))

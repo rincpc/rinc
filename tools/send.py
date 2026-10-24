@@ -63,7 +63,7 @@ with serial.Serial(port, 115200, timeout=0.2) as s:
     if os.path.isdir(app):              # an app of a folder: each of its files, into its folder there
       folder = os.path.normpath(app)
       name = os.path.basename(os.path.abspath(folder))
-      ref = name + ('*' if project else '')
+      ref = name + ('+' if project else '')
       for f in folderFiles(folder, name):
         saveAs(s, ref if f == name + '.rio' else ref + '/' + f, os.path.join(folder, f))
     elif save:

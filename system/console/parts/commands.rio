@@ -58,7 +58,7 @@ startSave :: proc(name: String)
 end
 
 # save name: the app's source; save name/a/file: a file of its own, in its folder (chord/parts/sound.rio,
-# or a project's, chord*/parts/sound.rio)
+# or a project's, chord+/parts/sound.rio)
 saveTo :: proc() -> Int
   slash := -1
   for i in 0..<saveName.len()
@@ -73,7 +73,7 @@ saveTo :: proc() -> Int
     return -1
   end
   path: Blob[..128]
-  if saveName[slash - 1] == '*'
+  if saveName[slash - 1] == '+'
     path.format("/rinc/projects/", saveName[0:slash - 1], saveName[slash:])
   else
     path.format("/rinc/apps/", saveName[:])
@@ -113,7 +113,7 @@ command :: proc(t: String) -> Bool
       msg.format("active: ", v[0:min(n, 34)])
       say(msg[:].asString(), softColor)
     else
-      say("nothing active: active name makes one active (name* for a project)", softColor)
+      say("nothing active: active name makes one active (name+ for a project)", softColor)
     end
     return true
   end
@@ -133,7 +133,7 @@ command :: proc(t: String) -> Bool
     pc.launch(name)                      # an app runs as itself, in all of its memory
   case "save"
     startSave(name)
-  case "active"                          # app or project (name*) name, active: the editor opens it next
+  case "active"                          # app or project (name+) name, active: the editor opens it next
     if pc.appSource(name, msg[0:0]) >= 0 and pc.settingWrite("active", name) == 0
       msg.format("active: ", name)
       say(msg[:].asString(), softColor)
@@ -141,7 +141,7 @@ command :: proc(t: String) -> Bool
       msg.format("no app or project ", name)
       say(msg[:].asString(), errorColor)
     end
-  case "install"                         # project name* as the app name
+  case "install"                         # project name+ as the app name
     if pc.appInstall(name) == 0
       msg.format("installed ", name)
       say(msg[:].asString(), softColor)

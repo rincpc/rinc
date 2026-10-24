@@ -263,7 +263,7 @@ scanAll :: proc(root: String, where: Int)
         ownerBuf.clear()
         fine = ownerBuf.pushAll(e)
         if where == PROJECTS
-          fine = ownerBuf.push(42) # (a project's: its star)
+          fine = ownerBuf.push(43) # (a project's: its +)
         end
         folderBuf.clear()
         fine = folderBuf.format(root, "/", e)
