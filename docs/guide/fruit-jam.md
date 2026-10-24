@@ -15,13 +15,15 @@ cmake --build build --target flash   # picotool reboots the running board into B
 The first time (or if the board isn't answering on USB), hold BOOT while resetting it and copy
 `build/rinc.uf2` to the drive that appears.
 
-The firmware's bundle is a build setting: `RINC_BUNDLE`, its apps' `.rio` files separated by `|` (home,
-the console, the editor, help and files by default), `RINC_HELP`, the help texts (`name=folder` pairs: Rinc's
-docs as `rinc`, Rio's as `rio`), and `RINC_HOME`, the one home means (by default the only app, or one named
-home). A firmware of your own apps is just a different list:
+The firmware carries no apps, as on the desktop and the web: they go on the SD card (below), so the
+firmware stays small (about 650 KB) and quick to flash, and apps change without flashing. A firmware
+can still carry apps, such as a game of its own, as its bundle: `RINC_BUNDLE`, its apps' `.rio` files
+separated by `|`, `RINC_HOME`, the one home means (by default the only app, or one named home), and
+`RINC_HELP`, help texts (`name=folder` pairs: Rinc's docs as `rinc`, say). An app of the same name on the
+card takes a bundled one's place.
 
 ```sh
-cmake -S . -B build -G Ninja "-DRINC_BUNDLE=$PWD/apps/breakout.rio|$PWD/system/console/console.rio" -DRINC_HOME=breakout
+cmake -S . -B build -G Ninja "-DRINC_BUNDLE=$PWD/apps/breakout.rio" -DRINC_HOME=breakout
 ```
 
 ## Using it
@@ -50,18 +52,33 @@ python -m serial.tools.miniterm COM3 115200 --eol CR   # pip install pyserial; C
 ```
 
 Over serial (not the keyboard), Ctrl-C opens the console in place of whatever's running, for tools such
-as `send.py`. A serial terminal sees each line once it's entered, not as it's typed.
+as `send.py`, and Ctrl-B opens the firmware's own console, which needs no apps on the card (below). A
+serial terminal sees each line once it's entered, not as it's typed.
 
 ## Apps on the SD card
 
-The firmware carries home, the console, the editor, help and files, with Rinc's and Rio's docs to read in it; an
-app of the same name on the card takes its
-place, so a home, console or editor of your own goes there. A FAT32 card holds apps as `/rinc/apps/name/name.rio` (and each
-app's own files in `/rinc/save/name`), managed from the console with `ls`, `run`,
-`load`, `save`, `delete` and `home` (see [the console](../spec/apps.md#the-console)). From a PC,
-`uv run tools/send.py apps/*.rio --save` puts apps on the card over USB serial, and
-`uv run tools/send.py apps/bounce.rio` sends one and starts it, in a couple of seconds. A card reader
-works too.
+A FAT32 card holds Rinc's storage, `/rinc`: apps as `/rinc/apps/name/name.rio`, with their other files
+beside them, each app's own files in `/rinc/save/name`, and help texts in `/rinc/help`. To fill a card,
+the board plugged in over USB:
+
+```sh
+uv run tools/install.py              # home, the console, the editor, help, files, colors, the demos, and Rinc's and Rio's docs
+uv run tools/install.py home chord   # just these apps
+uv run tools/install.py --to E:      # or into a card in a reader, at E:
+```
+
+That replaces those files on the card and leaves the rest alone (your projects, saves and other apps).
+Running it again after changing Rinc updates the card. Without a checkout, a release's
+`rinc-system-apps.zip` (the system apps and the docs) and `rinc-demo-apps.zip` each hold a `rinc` folder: unzip
+them onto the card's top level.
+
+With no home app on the card, the board starts in the firmware's own console, on the screen and over
+serial: Rio, with `ls`, `save`, `delete`, `home`, and `put path`, any file under `/rinc` as hex (how
+`install.py` sends them). With no console app, Ctrl-C opens it too.
+
+Apps on the card are managed from the console app with `ls`, `run`, `load`, `save`, `delete` and `home`
+(see [the console](../spec/apps.md#the-console)). From a PC, `uv run tools/send.py apps/bounce.rio`
+sends one app and starts it, in a couple of seconds, and `--save` keeps it on the card.
 
 The console edits the line being typed (left and right, Home and End or Ctrl-A and Ctrl-E, Backspace and
 Delete; up and down go back through earlier lines), colors it (keywords, constants, comments), and

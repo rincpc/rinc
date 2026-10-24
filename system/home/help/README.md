@@ -1,6 +1,6 @@
 # Home
 
-Home (`system/home/home.rio`, built into the Fruit Jam's firmware) is where a Rinc starts: the apps it
+Home (`system/home/home.rio`, a system app) is where a Rinc starts: the apps it
 has, in storage and built in, in order of their titles, each with what it does.
 
 | keys | |

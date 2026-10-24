@@ -1,6 +1,6 @@
 # Editor
 
-The editor (`system/edit/edit.rio`, built into the Fruit Jam's firmware) edits a file at a time, by
+The editor (`system/edit/edit.rio`, a system app) edits a file at a time, by
 path (an app's source, its other files, its help, its saves), up to 32 KB, with the keys of most
 editors. Ctrl+O opens one through Files, and Ctrl+Shift+S saves as another, through Files too, which
 asks where. Ctrl+R saves it and runs the app or project it's in, and the system key with Tab comes back

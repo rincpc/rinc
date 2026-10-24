@@ -1,6 +1,7 @@
 /* Rinc on the RP2350 (Adafruit Fruit Jam): it runs one app at a time, starting at home. Every
-   app, home and the console included, is an app compiled whole into the app space
-   (docs/spec/running.md); the system key, or Ctrl-C over USB serial, switches.
+   app, home and the console included, is an app on the SD card, compiled whole into the app space
+   (docs/spec/running.md); the system key, or Ctrl-C over USB serial, switches. With no home or
+   console app there, the firmware's own console (rinc_fwBegin) takes their place.
 
    Memory, of the RP2350's 520 KB of SRAM:
      app space            256 KB  (Rio: an app's code and data; an app's source, read from the SD card,
@@ -55,16 +56,58 @@ static int rinc_jitApp(rio_Vm *vm) { return rio_jit(vm, rinc_jitCode, sizeof rin
 /* an app, by name, started (rinc_appBegin, rinc_appStart): from the SD card, else the firmware's
    bundle, compiled whole (or its cached image, while it's still its source's); its top-level code,
    then main; then, if it's a game, its frames. What goes wrong stays on the screen */
+static void rinc_fwBegin(const char *why);
+static rinc_Repl *rinc_fw; /* the firmware's own console, while it's on (rinc_fwBegin) */
 static void rinc_open(const char *name) {
+  rinc_fw = 0; /* (its memory is the app's now) */
   name = rinc_appFor(name); /* (home: the card's, else the bundle's) */
+  if ((!strcmp(name, "home") || !strcmp(name, "console")) && rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) {
+    rinc_fwBegin(!strcmp(name, "home") ? "No home app on the SD card (/rinc/apps/home).\r\n"
+                                         "uv run tools/install.py puts Rinc's apps there.\r\n\r\n"
+                                       : "No console app on the SD card: Rinc's own console.\r\n\r\n");
+    return;
+  }
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, rinc_APP_SPACE, name, rinc_put)) return;
   rinc_appStart(&rinc_vm, rinc_appSpace, rinc_APP_SPACE, name);
 }
 
-/* typing, from the USB keyboard and the serial port, for pc.key(); Ctrl-C over serial (a developer's
-   tools, such as send.py; not the keyboard's) opens the console, in place of whatever's running */
+/* the firmware's own console (rinc_Repl, as the desktop's terminal has): when the card has no home or
+   no console app, or on Ctrl-B over serial. It runs Rio, and it puts files on the card (put: how
+   tools/install.py fills it). On the screen and over serial, typed at from either. It and its rio
+   session live in the app space, since no app runs meanwhile */
+#define rinc_FW_MEM (128 << 10)
+static void rinc_fwPut(const char *s, int n) { rinc_put(s, n); rinc_consolePut(s, n); }
+static void rinc_fwBegin(const char *why) {
+  uint32_t k = (sizeof(rinc_Repl) + 15) & ~15u;
+  rinc_game = 0; rinc_showLog = 1;
+  rinc_consoleClear(1);
+  rinc_fw = (rinc_Repl *)(void *)rinc_appSpace;
+  rinc_fwPut(why, (int)strlen(why));
+  if (rinc_start(&rinc_vm, rinc_appSpace + k, rinc_FW_MEM, rinc_fwPut) ||
+      rinc_replBegin(rinc_fw, &rinc_vm, rinc_appSpace + k + rinc_FW_MEM, rinc_APP_SPACE - k - rinc_FW_MEM)) {
+    const char *e = rio_error(&rinc_vm);
+    rinc_fwPut(e, (int)strlen(e));
+    rinc_fw = 0;
+    return;
+  }
+  rinc_fw->put = rinc_fwPut;
+}
+
+/* typing, from the USB keyboard and the serial port, for pc.key() (or the firmware's console, while
+   it's on); over serial (a developer's tools, such as send.py; not the keyboard's), Ctrl-C opens the
+   console app, in place of whatever's running: 1; and Ctrl-B the firmware's own console: 2 */
 static int rinc_type(void) {
   int c;
+  if (rinc_fw) {
+    while ((c = rinc_keyboardChar()) >= 0) if (!rinc_systemHeld()) rinc_replChar(rinc_fw, c);
+    while (rinc_fw && (c = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
+      if (c == 2) return 2; /* (a fresh one) */
+      if (c == 3 && (rinc_readApp("console", 0, 0) != -1 || rinc_bundled("console"))) return 1;
+      rinc_replChar(rinc_fw, c);
+    }
+    if (rinc_fw && rinc_fw->run) rinc_replStop(rinc_fw, "(run is for the desktop's terminal: here, apps run from home)");
+    return 0;
+  }
   while (rinc_textRoom() > 8 && (c = rinc_keyboardChar()) >= 0) {
     if (rinc_systemHeld()) continue; /* (a combination with the system key: not the app's typing) */
     if (c == 27) { /* (Esc itself, or the start of an editing key's escape: ESC [ ...) */
@@ -78,6 +121,7 @@ static int rinc_type(void) {
   }
   while (rinc_textRoom() > 8 && (c = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
     if (c == 3) return 1;
+    if (c == 2) return 2;
     rinc_textPush(c);
   }
   return 0;
@@ -92,7 +136,8 @@ static void rinc_frameNow(void) {
   if ((connected = stdio_usb_connected()) && !wasConnected) printf("%s", rinc_keyboardEvents()); /* (a terminal arrived: what's plugged in) */
   wasConnected = connected;
   rinc_padRead();
-  if (stop) { strcpy(rinc_launchName, "console"); rinc_launch = 1; }
+  if (stop & 2) { rinc_fwBegin("Rinc's own console (Ctrl-B).\r\n\r\n"); rinc_launch = 0; return; }
+  if (stop & 1) { strcpy(rinc_launchName, "console"); rinc_launch = 1; }
   if (rinc_systemKeys()) rinc_launch = 1; /* (the one key no app gets: to rinc_launchName) */
   if (rinc_launch) { rinc_launch = 0; rinc_open(rinc_launchName); return; }
   if (!rinc_game) return;
@@ -120,7 +165,7 @@ int main(void) {
   rinc_sdSetup();
   rinc_native = rinc_jitApp;
   rinc_cacheTrust = 1; /* (the card changes only through Rinc while it runs: a remount drops what's checked) */
-  rinc_bundleRead(rinc_firmwareBundle, rinc_firmwareBundleSize); /* (home and the console, by default; the card's override them) */
+  rinc_bundleRead(rinc_firmwareBundle, rinc_firmwareBundleSize); /* (none, by default: the apps are on the card; a bundled one gives way to the card's) */
   rinc_open("home"); /* (the board starts at home) */
   for (;;) rinc_frameNow();
 }

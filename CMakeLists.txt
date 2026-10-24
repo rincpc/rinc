@@ -72,14 +72,16 @@ if(RINC_PLATFORM STREQUAL rp2350)
   # sources compiled here (tinyusb_host would turn the native port into a host too: it stays a device,
   # for the serial port); tusb_config.h in src/rp2350 configures both
   set(TUSB ${PICO_SDK_PATH}/lib/tinyusb/src)
-  # the firmware's bundle (docs/spec/apps.md#bundles): the apps it carries, home, the console and the
-  # editor by default (the SD card's apps of the same names take their place); RINC_HOME is the one home means
-  set(RINC_BUNDLE "${CMAKE_CURRENT_LIST_DIR}/system/home/home.rio|${CMAKE_CURRENT_LIST_DIR}/system/console/console.rio|${CMAKE_CURRENT_LIST_DIR}/system/edit/edit.rio|${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio|${CMAKE_CURRENT_LIST_DIR}/system/files/files.rio|${CMAKE_CURRENT_LIST_DIR}/system/colors/colors.rio" CACHE STRING
-    "the firmware's apps, their .rio files, separated by |")
+  # the firmware's bundle (docs/spec/apps.md#bundles): none by default, as on the desktop and the web: the
+  # apps and help texts go on the SD card (tools/install.py). A firmware can still carry apps, such as a
+  # game of its own: RINC_BUNDLE's .rio files (the card's apps of the same names take their place), and
+  # RINC_HOME the one home means
+  set(RINC_BUNDLE "" CACHE STRING "the firmware's apps, their .rio files, separated by | (none by default)")
   set(RINC_HOME "" CACHE STRING "the firmware's home app, by name (by default the only app, else one named home)")
-  # and its help texts, for the help app: each name=folder's Markdown, as help/<name>/... (rinc's docs and rio's)
-  set(RINC_HELP "rinc=${CMAKE_CURRENT_LIST_DIR}/docs|rio=${RIO_DIR}/docs" CACHE STRING
-    "the firmware's help texts: name=folder pairs, separated by |, each folder's .md files")
+  # and its help texts, for the help app: each name=folder's Markdown, as help/<name>/... (on the card by
+  # default, in /rinc/help: rinc=docs|rio=lib/rio/docs, say)
+  set(RINC_HELP "" CACHE STRING
+    "the firmware's help texts: name=folder pairs, separated by |, each folder's .md files (none by default)")
   string(REPLACE "|" ";" bundleApps "${RINC_BUNDLE}")
   set(helpDocs "") # (so the bundle is made again when a help text changes: the apps' own, and the rest)
   foreach(app ${bundleApps})

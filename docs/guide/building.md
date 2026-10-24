@@ -35,7 +35,8 @@ system/            the built-in apps, ordinary apps: home.rio and console.rio
 apps/              demo apps
 tests/             pc.c: pc.rio matches what Rinc registers
 tools/             font.py (the font table), web.py (the web players' wasm), send.py (an app to
-                   the board), embed.cmake (the web players, built into the desktop rinc),
-                   bundle.cmake (the firmware's apps), adpcm.py (sound into IMA ADPCM)
+                   the board), install.py (Rinc's apps and docs onto the board's SD card),
+                   embed.cmake (the web players, built into the desktop rinc), bundle.cmake (a
+                   firmware's own apps, if any), adpcm.py (sound into IMA ADPCM)
 docs/              these docs: SUMMARY.md sets the order; mdbook builds them as a site
 ```

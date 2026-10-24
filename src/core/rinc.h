@@ -225,7 +225,9 @@ void rinc_setAppName(const char *name);
    Besides rio, it knows a few commands, each a line on its own: run (the game loop, for what's been
    typed), home (back home, where there is one), and with storage: ls (the apps), load name (an app's source, as if typed, into a fresh
    session: restart gives one), run name (load, then run), save name (what's typed next, until
-   Ctrl-D, becomes the app's source; Ctrl-C gives up), delete name (its source and folder, if that's
+   Ctrl-D, becomes the app's source; Ctrl-C gives up), put path (any file under /rinc, such as
+   apps/chord/parts/sound.rio or help/rinc/README.md: hex digits until Ctrl-D, any bytes, anything else
+   between the digits ignored; for tools/install.py), delete name (its source and folder, if that's
    all the folder holds) */
 typedef struct {
   rio_Vm *vm;
@@ -241,6 +243,7 @@ typedef struct {
   char hist[1024], draft[256]; int hlen, back, draftn; /* lines typed before, and the one being typed */
   int (*restart)(void); /* a fresh rio session, for load (0: done) */
   int loading, errors, saving, saved, cr; char out[256]; int nout; /* load and save as they go */
+  int hex, half; /* put: the file comes as hex digits; half, a byte's first digit (or -1) */
 } rinc_Repl;
 int rinc_replBegin(rinc_Repl *r, rio_Vm *vm, void *scratch, uint32_t size);
 void rinc_replStop(rinc_Repl *r, const char *why); /* the game loop ended (why: NULL, or a message) */

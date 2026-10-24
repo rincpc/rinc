@@ -5,6 +5,9 @@
 #            built in, so rinc -web and rinc -export work without anything else installed; tests run
 #            every app headless
 #   board    rinc.uf2 for the Fruit Jam, with the Pico SDK and Arm's toolchain
+#   apps     rinc-system-apps.zip (the system apps, and Rinc's and Rio's docs as help texts) and
+#            rinc-demo-apps.zip, each a /rinc folder to unzip onto an SD card's top, since the firmware
+#            carries no apps
 # A tag like v0.1.0 also publishes all of them as a GitHub release. Each night (if main changed since
 # the last one), and whenever it's run by hand (Actions > ci > Run workflow), they go to the rolling
 # "nightly" prerelease instead.
@@ -154,9 +157,30 @@ jobs:
           name: rinc.uf2
           path: build/rinc.uf2
 
+  apps:
+    needs: check
+    if: needs.check.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Zip
+        run: |
+          python3 tools/install.py --system --to out/system
+          python3 tools/install.py --demos --to out/demos
+          (cd out/system && zip -qr ../../rinc-system-apps.zip rinc)
+          (cd out/demos && zip -qr ../../rinc-demo-apps.zip rinc)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rinc-apps
+          path: |
+            rinc-system-apps.zip
+            rinc-demo-apps.zip
+
   release:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    needs: [web, desktop, board]
+    needs: [web, desktop, board, apps]
     runs-on: ubuntu-latest
     permissions:
       contents: write

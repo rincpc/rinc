@@ -36,9 +36,9 @@ or, compiled for a Rinc without a compiler, `apps/<name>/<name>.rioi` (a Rio ima
 space) with its description in `apps/<name>/<name>.info`. A bundle also names its **home app**, the one
 `home` means, and its **storage folder**, where its apps' save spaces go.
 
-- **The Fruit Jam's firmware** bundles home, the console, the editor, help and files by default, home as home,
-  and Rinc's and Rio's docs as help texts.
-- **The desktop and the web** carry none, so their programs stay small.
+- **The Fruit Jam's firmware, the desktop and the web** carry none, so they stay small: their apps and
+  help texts are in storage (on the Fruit Jam, its SD card, filled by `tools/install.py`). A firmware
+  can be built with a bundle of its own, though, such as a game's.
 - **An exported game** carries its own apps, starting at its home app. One app on its own is home.
   It carries them compiled, unless one of them runs Rio itself or writes apps (the console, the
   editor): then their sources, so they can be read and changed too.

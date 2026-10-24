@@ -1,8 +1,7 @@
 # Home: the apps, to start one
 #
 # Type to narrow the list, up and down to choose, Enter to start one (or the d-pad and A). Esc clears
-# what's typed. Built into the Fruit Jam's firmware: it starts here, and Windows+Esc (or a controller's
-# Xbox+Back) comes back. An app's title and description come from its first line, as
+# what's typed. A Rinc starts here, and Windows+Esc (or a controller's Xbox+Back) comes back. An app's title and description come from its first line, as
 # "# Title: what it does".
 
 names: Blob[2176] # every app's folder name, one after another
@@ -17,6 +16,8 @@ shown: [64]Int # what's listed: each app's number
 nshown := 0
 filter: Blob[..24]
 pick := 0
+top := 0 # the first row shown: it moves only to keep the pick in view
+ROWS :: 13 # rows that fit above the keys at the bottom
 held := 0
 repeat := 0
 
@@ -135,11 +136,21 @@ isActive :: proc(k: Int) -> Bool
   return activeLen > 0 and names[nameAt[k]:nameAt[k] + nameLen[k]].asString() == active[0:activeLen].asString()
 end
 
+# the rows shown, so the pick is among them, and never past either end of the list
+follow :: proc()
+  if pick < top
+    top = pick
+  end
+  if pick >= top + ROWS
+    top = pick - ROWS + 1
+  end
+  top = max(0, min(top, nshown - ROWS))
+end
+
 # the app listed at a point on the screen, or -1
 rowAt :: proc(px: Int, py: Int) -> Int
-  top := max(0, pick - 12)
   row := (py - 51) / 13
-  if px < 8 or px >= 312 or py < 51 or row >= min(nshown - top, 14)
+  if px < 8 or px >= 312 or py < 51 or row >= min(nshown - top, ROWS)
     return -1
   end
   return top + row
@@ -207,6 +218,7 @@ update* :: proc()
   if nshown > 0
     pick = (pick + move + nshown) % nshown
   end
+  follow()
   held = bits
 end
 
@@ -234,8 +246,11 @@ draw* :: proc()
   end
   pc.print(filter[0:filter.len()].asString(), 14, 34, 7)
   pc.rect(13 + filter.len() * 6, 33, 1, 8, 10)
-  top := max(0, pick - 12)
-  for row in 0..<min(nshown - top, 14)
+  if nshown > ROWS # (a bar at the right: how far down, and how much shows)
+    h := max(6, 169 * ROWS / nshown)
+    pc.rect(314, 51 + (169 - h) * top / (nshown - ROWS), 2, h, 13)
+  end
+  for row in 0..<min(nshown - top, ROWS)
     i := top + row
     y := 54 + row * 13
     selected := i == pick

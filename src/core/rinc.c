@@ -1830,7 +1830,7 @@ static int rinc_feed(rinc_Repl *r, const char *src, int len) {
   char buf[256]; int got, i, echo = r->echo, at = 0;
   if (r->restart && r->restart()) { rinc_replSay(r, "can't start a fresh session\r\n"); return -1; }
   r->loading = 1; r->errors = 0; r->echo = 0; r->n = 0; r->line0 = r->cur = r->scr = 0; r->run = 0;
-  r->esc = 0; r->saving = 0; /* (nothing half typed carries over: an Esc that began a key's escape, say) */
+  r->esc = 0; r->saving = 0; r->hex = 0; /* (nothing half typed carries over: an Esc that began a key's escape, say) */
   for (;;) {
     if (src) { got = len - at < (int)sizeof buf ? len - at : (int)sizeof buf; memcpy(buf, src + at, (size_t)got); at += got; }
     else got = rinc_fs->read(buf, sizeof buf);
@@ -1865,7 +1865,15 @@ static void rinc_saveChar(rinc_Repl *r, int c) { /* while saving: everything typ
     if (rinc_fs->close() || r->saving < 0) rinc_replSay(r, "couldn't save it all\r\n");
     else if (c == 4) { char b[48]; rinc_replSay(r, "saved "); r->put(b, snprintf(b, sizeof b, "%d bytes\r\n", r->saved)); }
     else rinc_replSay(r, "gave up (the file has what came before)\r\n");
-    r->saving = 0; rinc_prompt(r); return;
+    r->saving = 0; r->hex = 0; rinc_prompt(r); return;
+  }
+  if (r->hex) { /* (put: two hex digits a byte, anything else skipped) */
+    int v = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+    if (v < 0) return;
+    if (r->half < 0) { r->half = v; return; }
+    r->out[r->nout++] = (char)(r->half << 4 | v); r->half = -1;
+    if (r->nout == (int)sizeof r->out) rinc_saveFlush(r);
+    return;
   }
   if (c == '\n' && r->cr) { r->cr = 0; return; } /* (\r\n: one line break) */
   r->cr = c == '\r';
@@ -1881,6 +1889,18 @@ static void rinc_save(rinc_Repl *r, const char *name, int n) {
   if (!rinc_fs || rinc_fs->open(path, 1)) { rinc_replSay(r, rinc_fs ? "can't write " : "no storage: "); rinc_replSay(r, path); rinc_replSay(r, "\r\n"); return; }
   rinc_replSay(r, "saving "); rinc_replSay(r, path); rinc_replSay(r, ": type or paste it, then Ctrl-D (Ctrl-C gives up)\r\n");
   r->saving = 1; r->saved = 0; r->nout = 0; r->cr = 0;
+}
+/* put path: a file anywhere under /rinc (each part of its path a name, dots allowed, not starting
+   with one), its bytes as hex */
+static void rinc_putFile(rinc_Repl *r, const char *s, int n) {
+  char path[112]; int i = 0, j;
+  if (n < 1 || n > 100 || s[n - 1] == '/') i = -1;
+  while (i >= 0 && i < n) { for (j = i; j < n && s[j] != '/'; j++) {} i = rinc_nameOk(s + i, j - i, 1) ? j + 1 : -1; }
+  if (i < 0) { rinc_replSay(r, "a path under /rinc: names of letters, digits, _, - and ., parted by /\r\n"); return; }
+  snprintf(path, sizeof path, "/rinc/%.*s", n, s);
+  if (!rinc_fs || rinc_fs->open(path, 1)) { rinc_replSay(r, rinc_fs ? "can't write " : "no storage: "); rinc_replSay(r, path); rinc_replSay(r, "\r\n"); return; }
+  rinc_replSay(r, "putting "); rinc_replSay(r, path); rinc_replSay(r, ": hex digits, then Ctrl-D (Ctrl-C gives up)\r\n");
+  r->saving = 1; r->hex = 1; r->half = -1; r->saved = 0; r->nout = 0;
 }
 /* a command line? (only as a whole input of its own) */
 static int rinc_command(rinc_Repl *r) {
@@ -1898,6 +1918,7 @@ static int rinc_command(rinc_Repl *r) {
   }
   if (n > w + 1 && ((w == 4 && !memcmp(s, "load", 4)) || (w == 3 && !memcmp(s, "run", 3)))) { rinc_load(r, s + w + 1, n - w - 1, w == 3); return 1; }
   if (n > w + 1 && w == 4 && !memcmp(s, "save", 4)) { rinc_save(r, s + w + 1, n - w - 1); return 1; }
+  if (n > w + 1 && w == 3 && !memcmp(s, "put", 3)) { rinc_putFile(r, s + w + 1, n - w - 1); return 1; }
   if (n > w + 1 && w == 7 && !memcmp(s, "install", 7)) { /* project name* as the app name */
     char name[33], from[64], to[64]; int k = n - w - 1;
     if (!rinc_nameOk(s + w + 1, k, 0)) { rinc_replSay(r, "names are letters, digits, _ and -\r\n"); return 1; }
