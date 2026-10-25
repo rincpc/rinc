@@ -24,6 +24,11 @@ same site (or, from disk, the same folder). Ctrl and Shift tapped together, and 
 a controller it's the guide button and Back. The page keeps a lone Alt from the browser's menus, as Alt
 tapped twice is Rinc's Alt lock.
 
+A bundle of apps (a .zip, such as a release's `rinc-system-apps.zip`) dropped on such a page installs
+into its storage, as on [the desktop](desktop.md), and then home starts. Installed apps come before the
+page's own of the same name. A page with only the VM-only player (below) can't run apps from storage,
+so it says so and installs nothing.
+
 ## The two players
 
 The desktop rinc carries two web players and gives a page the smaller one it can:

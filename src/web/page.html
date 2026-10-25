@@ -107,9 +107,28 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     try { localStorage.removeItem(k); } catch (e) { return -1; }
     return 0;
   };
+  let dropped = null; // (a .zip dropped on the page, while it's installed)
+  env.zip_read = (at, p, n) => {
+    if (!dropped) return -1;
+    const m = Math.max(0, Math.min(n, dropped.length - at));
+    new Uint8Array(ex.memory.buffer, p, m).set(dropped.subarray(at, at + m));
+    return m;
+  };
   ex = (await WebAssembly.instantiate(await gunzip(b64("{{WASM}}")), { env })).instance.exports;
   ex._initialize();
   new Uint8Array(ex.memory.buffer, ex.source(), app.length).set(app);
+  // a bundle of apps (a .zip) dropped on the page: installed into storage, then home (ex.drop)
+  addEventListener("dragover", e => e.preventDefault());
+  addEventListener("drop", async e => {
+    const f = e.dataTransfer && e.dataTransfer.files[0];
+    e.preventDefault();
+    if (!f) return;
+    dropped = new Uint8Array(await f.arrayBuffer());
+    const name = new TextEncoder().encode(f.name.slice(0, 60));
+    new Uint8Array(ex.memory.buffer, ex.dropName(), name.length + 1).set([...name, 0]);
+    ex.drop(dropped.length);
+    dropped = null;
+  });
   const draw = () => { image.data.set(new Uint8Array(ex.memory.buffer, ex.pixels(), 320 * 240 * 4)); ctx.putImageData(image, 0, 0); };
   if (ex.start(app.length)) { draw(); fail(ex.error()); return; }
   // sound: an AudioWorklet plays what the wasm mixes, kept about 60 ms ahead of the audio clock.

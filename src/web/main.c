@@ -120,6 +120,34 @@ rinc_EXPORT(frame) int rinc_webFrame(int buttons, int keys) {
   if (rinc_launch) { rinc_launch = 0; rinc_webOpen(rinc_launchName); }
   return !rinc_game;
 }
+/* a bundle of apps (a .zip, named dropName()) dropped on the page, size bytes, which zip_read gives:
+   installed into storage (rinc_zipInstall, in the app space: the app stops), then home. With the compiler
+   only, as apps from storage run from source */
+rinc_IMPORT(zip_read) extern int js_zipRead(uint32_t at, uint8_t *buf, uint32_t n);
+static char rinc_dropName[64];
+rinc_EXPORT(dropName) char *rinc_webDropName(void) { return rinc_dropName; }
+static void rinc_told(int err, const char *text) { /* (the screen's line breaks are \r\n) */
+  char line[700]; int n = 0;
+  (void)err;
+  for (; *text && n < (int)sizeof line - 3; text++) { if (*text == '\n') line[n++] = '\r'; line[n++] = *text; }
+  line[n] = 0;
+  rinc_say(line);
+}
+rinc_EXPORT(drop) void rinc_webDrop(uint32_t size) {
+  static rinc_Zip z; char done[500]; size_t n = strlen(rinc_dropName); int bad;
+  rinc_game = 0; rinc_audioReset(); rinc_showLog = 1;
+  rinc_say("\r\n");
+#ifdef rio_NO_COMPILER
+  (void)size; (void)z; (void)done; (void)n; (void)bad;
+  rinc_say("(this page runs its own apps: the whole Rinc's page installs bundles)\r\n");
+#else
+  if (n < 4 || (strcmp(rinc_dropName + n - 4, ".zip") && strcmp(rinc_dropName + n - 4, ".ZIP"))) { rinc_dropped(1); return; }
+  z.size = size; z.read = js_zipRead; z.name = rinc_dropName; z.tell = rinc_told; z.work = rinc_appSpace; z.cap = sizeof rinc_appSpace;
+  bad = rinc_zipInstall(&z);
+  if (!bad) { snprintf(done, sizeof done, "installed %d files from %s:%s\n", z.files, rinc_dropName, *z.apps ? z.apps : " no apps"); rinc_told(0, done); }
+  rinc_dropped(bad);
+#endif
+}
 rinc_EXPORT(error) const char *rinc_webError(void) { return rio_error(&rinc_vm); }
 /* whether the page should fill the display (Sys+Enter) */
 rinc_EXPORT(fullscreen) int rinc_webFullscreen(void) { return rinc_fullscreen; }

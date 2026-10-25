@@ -26,6 +26,26 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 /* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */
 int rinc_inflateRaw(int (*read)(char *buf, int n), uint32_t size, uint8_t *out, uint32_t cap);
+/* a bundle of apps, as a zip (zip.c: a release's rinc-system-apps.zip): its apps/ and help/ files,
+   under rinc/ in it or at its top, into storage (rinc_fs), each stored or deflated. Nothing else in
+   storage changes: projects and saves stay. Every name's checked first: one that would land outside
+   apps/ or help/ (or a file packed another way, or bigger than work) installs nothing. read: n bytes
+   of the zip from at (n, else it's short); tell: what went wrong, a line. Then files, and apps (" home
+   edit ..."): what came. 0, or 1 (told why) */
+typedef struct {
+  uint32_t size;
+  int (*read)(uint32_t at, uint8_t *buf, uint32_t n);
+  const char *name; /* (for what's told) */
+  void (*tell)(int err, const char *text);
+  uint8_t *work;
+  uint32_t cap;
+  int files;
+  char apps[400];
+} rinc_Zip;
+int rinc_zipInstall(rinc_Zip *zip);
+/* after a drop on the screen (bad: nothing installed): home, if there is one now (rinc_launch), else
+   it says what to do */
+void rinc_dropped(int bad);
 extern float (*rinc_time)(void);          /* seconds since start, from the platform */
 /* buttons held: bit 0 left, 1 right, 2 up, 3 down, then the face buttons, named as on an Xbox
    controller and in order of importance: 4 A (V key), 5 B (C), 6 X (X), 7 Y (Z), then the

@@ -26,7 +26,7 @@ def build_wasm(path, full):
   with open(os.path.join(root, 'src', 'core', 'pc.rio'), 'rb') as f: pc = f.read()
   with open(pc_source, 'w') as f:
     f.write('const char rinc_pcSource[] = {%s0};\nconst int rinc_pcSource_len = %d;\n' % (''.join('%d,' % b for b in pc), len(pc)))
-  sources = [os.path.join(root, 'src', 'web', 'main.c'), build_id] + ([pc_source] if full else []) + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c', 'png.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
+  sources = [os.path.join(root, 'src', 'web', 'main.c'), build_id] + ([pc_source] if full else []) + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c', 'png.c', 'zip.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
   # (rio_MAX_FFI: CMakeLists.txt's RINC_MAX_FFI)
   subprocess.run(['zig', 'cc', '-target', 'wasm32-wasi', '-mexec-model=reactor', '-Oz', '-Drio_SMALL', '-Drio_MAX_FFI=96'] + ([] if full else ['-Drio_NO_COMPILER']) +
                  ['-I' + os.path.join(rio, 'src'), '-I' + os.path.join(root, 'src', 'core'), '-Wl,--strip-all', '-o', path] + sources, check=True)
