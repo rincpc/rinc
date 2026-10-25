@@ -328,10 +328,19 @@ static int rinc_findApps(void) {
   return rinc_appCount;
 }
 /* a file in storage, into buf as far as it fits: 0 (*total: its whole length), or -1 */
+/* a file the bundle carries, by its storage path (/rinc/apps/...): as rinc_readFile reads one */
+static int rinc_readBundled(const char *path, char *buf, uint32_t cap, uint32_t *total) {
+  const rinc_File *f = strncmp(path, "/rinc/", 6) ? 0 : rinc_bundleFile(path + 6);
+  if (!f) return -1;
+  if (buf) memcpy(buf, f->data, f->len < cap ? f->len : cap);
+  *total = f->len;
+  return 0;
+}
+/* a file, from storage, else the bundle: as much as fits in buf (cap), and its whole length (total) */
 static int rinc_readFile(const char *path, char *buf, uint32_t cap, uint32_t *total) {
   char chunk[256]; int got;
   *total = 0;
-  if (!rinc_fs || rinc_fs->open(path, 0)) return -1;
+  if (!rinc_fs || rinc_fs->open(path, 0)) return rinc_readBundled(path, buf, cap, total);
   while ((got = rinc_fs->read(chunk, sizeof chunk)) > 0) {
     if (buf && *total < cap) memcpy(buf + *total, chunk, (size_t)got < cap - *total ? (size_t)got : cap - *total);
     *total += (uint32_t)got;
@@ -720,10 +729,41 @@ static void rinc_dirFound(const char *name, int dir, void *ud) { /* (into its pl
   p[0] = dir ? 'd' : 'f'; p[1] = ' '; memcpy(p + 2, name, (size_t)n); p[n + 2] = 10;
   rinc_dirUsed += n + 3; rinc_dirCount++;
 }
-static void rinc_hostDir(rio_Vm *v, rio_Val *a) {
-  char path[96]; int named = rinc_argPath(v, a, path, 0);
+/* whether the entries found so far have this one */
+static int rinc_dirHas(const char *name, int dir) {
+  char *p = rinc_dirOut, *e = rinc_dirOut + rinc_dirUsed; size_t n = strlen(name);
+  while (p && p < e) {
+    char *end = memchr(p, 10, (size_t)(e - p));
+    if ((p[0] == 'd') == (dir != 0) && (size_t)(end - p) == n + 2 && !memcmp(p + 2, name, n)) return 1;
+    p = end + 1;
+  }
+  return 0;
+}
+/* a folder's entries in the bundle (path: /rinc/...), each once, after storage's: whether it has any */
+static int rinc_dirBundled(const char *path) {
+  const char *rel = !strcmp(path, "/rinc") ? "" : !strncmp(path, "/rinc/", 6) ? path + 6 : 0;
+  size_t n; int i, any = 0;
+  if (!rel) return 0;
+  for (n = strlen(rel); n && rel[n - 1] == '/'; n--) {}
+  for (i = 0; i < rinc_bundleCount; i++) {
+    const char *e = rinc_entryPath(i), *rest, *slash; char name[64]; size_t k, len = strnlen(e, 96);
+    if (n && (len <= n || strncmp(e, rel, n) || e[n] != '/')) continue;
+    rest = e + (n ? n + 1 : 0);
+    slash = memchr(rest, '/', len - (size_t)(rest - e));
+    k = slash ? (size_t)(slash - rest) : len - (size_t)(rest - e);
+    if (!k || k > 60) continue;
+    memcpy(name, rest, k); name[k] = 0;
+    any = 1;
+    if (!rinc_dirHas(name, slash != 0)) rinc_dirFound(name, slash != 0, 0);
+  }
+  return any;
+}
+static void rinc_hostDir(rio_Vm *v, rio_Val *a) { /* (storage's entries, then the bundle's) */
+  char path[96]; int named = rinc_argPath(v, a, path, 0), listed, bundled;
   rinc_dirOut = (char *)rio_sliceBytes(v, a + 2); rinc_dirCap = rinc_dirOut ? (int)a[3].u : 0; rinc_dirUsed = rinc_dirCount = 0;
-  a[0].i = named && rinc_fs && !rinc_fs->list(path, rinc_dirFound, 0) ? rinc_dirCount : -1;
+  listed = named && rinc_fs && !rinc_fs->list(path, rinc_dirFound, 0);
+  bundled = named && rinc_dirBundled(path);
+  a[0].i = listed || bundled ? rinc_dirCount : -1;
   rinc_dirOut = 0;
 }
 static void rinc_hostFileRead(rio_Vm *v, rio_Val *a) {
@@ -1073,6 +1113,19 @@ int rinc_game, rinc_showLog;
 /* what an app logs, and what Rinc says about it: to the platform, and on the screen while rinc_showLog */
 static void rinc_out(const char *s, int n) { rinc_put(s, n); if (rinc_showLog) rinc_consolePut(s, n); }
 void rinc_say(const char *s) { rinc_out(s, (int)strlen(s)); }
+void rinc_noHome(char *out, int size, const char *how) { /* (wrapped between words, for the screen's width) */
+  char text[400]; const char *s = text; int n = 0, col = 0;
+  snprintf(text, sizeof text, "No apps here yet: no home app (/rinc/apps/%s).\n\n%s\n\n", rinc_appFor("home"), how);
+  while (*s && n < size - 3) {
+    int word = 0;
+    if (*s == '\n') { out[n++] = '\r'; out[n++] = '\n'; col = 0; s++; continue; }
+    while (s[word] && s[word] != ' ' && s[word] != '\n') word++;
+    if (col && col + word > rinc_W / 6 - 1) { out[n++] = '\r'; out[n++] = '\n'; col = 0; }
+    for (; word && n < size - 3; word--, col++) out[n++] = *s++;
+    if (*s == ' ') { if (col) { out[n++] = ' '; col++; } s++; }
+  }
+  out[n] = 0;
+}
 static void rinc_logLine(void *ud, const char *s, int n) { (void)ud; rinc_out(s, n); rinc_out("\r\n", 2); }
 /* the way home: on the screen (it's for whoever's looking at it), not in what's printed */
 static void rinc_back(void) { static const char s[] = "\r\n(Sys+Esc: back home)\r\n"; if (rinc_showLog) rinc_consolePut(s, (int)sizeof s - 1); }

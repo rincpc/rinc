@@ -152,6 +152,8 @@ void rinc_cacheDrop(const char *name);
 extern const char rinc_buildId[];
 void rinc_appFail(const char *name, const char *why);
 void rinc_say(const char *s);
+/* what every Rinc says with no home app to start, into out: how, the platform's way to install apps */
+void rinc_noHome(char *out, int size, const char *how);
 int rinc_gameFrame(rio_Vm *vm);
 
 /* sound (audio.c): rinc_VOICES voices mixed to rinc_RATE frames a second of 16-bit stereo. Host procs,

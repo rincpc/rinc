@@ -13,17 +13,20 @@ carry what would otherwise be files beside it.
 ```
 rinc app.rio                      play, in a window (closing it quits); it's home until then
 rinc game/   (or rinc ., in it)   an app of a folder: game/game.rio, with its other files (include, import)
-rinc                              home (or the app the home setting names), if it's installed; else a REPL
+rinc                              home (or the app the home setting names), in a window; with nothing
+                                  installed, a window that says so and takes a bundle dropped on it
 rinc -app chord                   an app from storage, by name, home for this session too
 rinc -install apps.zip game/      apps into storage: a bundle of them (a release's rinc-system-apps.zip),
                                   an app's folder (what its files.txt lists, else all of it), or app.rio
   -data folder                    with any of these: storage in this folder instead
+rinc -repl                        Rio typed in the terminal, a line at a time
 rinc app.rio -m                   how near the app comes to its limits (see memory)
 rinc app.rio -frames 120          no window: run 120 frames (A held for the first 3, unless -type)
   -o screen.ppm                   then save the screen
   -wav sound.wav                  and the sound those frames made
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,
                                   \xHH a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right)
+  -drop apps.zip                  and first, as if it were dropped on the window
   -hold 'a 10-40, right 20-30'    and hold buttons, as a controller would, in those frames (counted from
                                   0): left right up down a b x y lb rb ls rs start back, and the
                                   sticks pushed: lsleft lsright lsup lsdown rsleft rsright rsup rsdown
@@ -32,6 +35,8 @@ rinc a.rio b.rio -export game     a program to hand out (game.exe on Windows): r
   -home a                         the one it starts at (by default the only one, or one named home)
   -name folder                    its storage folder's name (by default its home app's)
   -docs rinc=docs                 help texts for the help app: the folder's .md files, as rinc/... (repeatable)
+  -files apps/rinc=system/rinc    other files: all of the folder, as apps/rinc/... (under apps/, help/ or
+                                  lib/; repeatable), such as the themes
   -runner path/to/rinc            a copy of that rinc instead, such as another system's from a release
 rinc a.rio b.rio -web game.html   a page that plays them (see the web)
 rinc -help                        all this; and rinc -license, the licenses of what's in it
@@ -43,6 +48,10 @@ PlayStation, Switch and more), and Esc is the app's. The system key is Ctrl and 
 (the operating system keeps the Windows key), or a controller's guide button; with Esc (or Back) it goes
 home. F11, or the system key with Enter, fills the display, and keeps the mouse on it until it's a
 window again (or another window gets the focus: Alt+Tab, Cmd+Tab).
+
+Dropping a bundle of apps (a `.zip`) or an app's folder on the window installs it, as `rinc -install`
+does, and then goes home. On Windows, a double-clicked `rinc.exe` closes the console Windows opens for it,
+so there's only the window; started in a terminal, it prints there as usual.
 
 ## Storage
 

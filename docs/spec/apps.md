@@ -143,7 +143,9 @@ app's, in `/rinc/save`). The rest, each 0 or -1:
 Any app can look through storage by path, as Files (`system/files/files.rio`) does: absolute paths,
 `/rinc/save/chord/best`, with no `.` or `..` parts. `/rinc` is the root, for now: looking goes
 anywhere in it, changing only inside it, never `/rinc` itself. (An exported program's storage is its
-own folder, still `/rinc` to its apps.) Each gives 0, or -1, unless it says otherwise:
+own folder, still `/rinc` to its apps.) Reading sees a bundle's files too (see bundles), after
+storage's: an exported game's own files, say, or the themes a web page carries; changes go to storage.
+Each gives 0, or -1, unless it says otherwise:
 
 | proc | |
 |---|---|

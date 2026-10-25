@@ -62,8 +62,8 @@ static void rinc_open(const char *name) {
   int home = !strcmp(name, "home");
   name = rinc_appFor(name); /* (home: rinc_homeName's) */
   if ((home || !strcmp(name, "console")) && rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) {
-    char why[160];
-    if (home) snprintf(why, sizeof why, "No home app on the SD card (/rinc/apps/%s).\r\nuv run tools/install.py puts Rinc's apps there.\r\n\r\n", name);
+    char why[400];
+    if (home) rinc_noHome(why, sizeof why, "Copy apps to rinc/apps on the SD card: a release's rinc-system-apps.zip, unzipped onto the card's top, has home and the rest. (Or, over USB: uv run tools/install.py)");
     else snprintf(why, sizeof why, "No console app on the SD card: Rinc's own console.\r\n\r\n");
     rinc_fwBegin(why);
     return;

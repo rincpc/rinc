@@ -293,6 +293,12 @@ else()
   target_link_libraries(rinc_keys_test PRIVATE rinccore)
   add_test(NAME keys COMMAND rinc_keys_test)
   set_tests_properties(keys PROPERTIES PASS_REGULAR_EXPRESSION "all keys came through")
+  # an exported program's own files, and -files', read as storage's are (pc.dir, pc.fileRead)
+  set(bf ${CMAKE_CURRENT_BINARY_DIR}/bf-game${CMAKE_EXECUTABLE_SUFFIX})
+  add_test(NAME export_files COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/bundlefiles/bf/bf.rio -files apps/extra=${CMAKE_CURRENT_LIST_DIR}/tests/bundlefiles/extra -export ${bf})
+  add_test(NAME export_files_read COMMAND ${bf} -frames 1 -data ${CMAKE_CURRENT_BINARY_DIR}/bf-data)
+  set_tests_properties(export_files_read PROPERTIES DEPENDS export_files
+    PASS_REGULAR_EXPRESSION "data 1 f a.txt[\r\n]+a true from the app[\r\n]+extra 2 d sub f b.txt[\r\n]+c true deeper[\r\n]+none -1 -1")
   # a bundle of two apps, exported: it starts at the one -home names
   set(pair ${CMAKE_CURRENT_BINARY_DIR}/pair-game${CMAKE_EXECUTABLE_SUFFIX})
   add_test(NAME export_bundle COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/apps/bounce.rio ${CMAKE_CURRENT_LIST_DIR}/apps/hello.rio -export ${pair} -home hello)

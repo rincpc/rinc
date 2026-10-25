@@ -13,11 +13,13 @@ with the first key or click, as browsers require.
 A page can carry several apps, as an exported program does (see [the desktop](desktop.md)):
 
 ```sh
-rinc system/home system/console apps/*.rio apps/chord -home home -name rinc -web rinc.html
+rinc system/home system/console system/edit system/files system/help system/colors system/themes \
+  apps/*.rio apps/chord -home home -name rinc -files apps/rinc=system/rinc -web rinc.html
 ```
 
-is the whole Rinc, as on the Fruit Jam. [Storage](../spec/apps.md#storage) is the browser's
-localStorage, under the bundle's storage name, so what's saved stays in that browser, for pages from the
+is the whole Rinc, as on the Fruit Jam: every system app, and the themes (`-files` carries a folder's
+files, here the themes, which apps read as they would storage's). [Storage](../spec/apps.md#storage)
+is the browser's localStorage, under the bundle's storage name, so what's saved stays in that browser, for pages from the
 same site (or, from disk, the same folder). Ctrl and Shift tapped together, and then Esc, goes home; on
 a controller it's the guide button and Back. The page keeps a lone Alt from the browser's menus, as Alt
 tapped twice is Rinc's Alt lock.

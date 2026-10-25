@@ -38,6 +38,16 @@ with zipfile.ZipFile(zipPath, 'w') as z:
       staged.append((rel[5:], full))
 if len(staged) < 20: fail('only %d files staged' % len(staged))
 
+# nothing installed: plain rinc says so (and how: a drop), and a bundle dropped on it installs, then home
+r = run('-frames', '2')
+if r.returncode != 1 or 'No apps here yet' not in r.stdout or 'Drop a bundle' not in r.stdout: fail('with nothing installed: ' + r.stdout + r.stderr)
+r = run('-frames', '30', '-drop', zipPath)
+if r.returncode or 'installed %d files' % len(staged) not in r.stdout or 'error' in (r.stdout + r.stderr).lower(): fail('a dropped bundle: ' + r.stdout + r.stderr)
+if not os.path.exists(os.path.join(data, 'apps', 'home', 'home.rio')): fail('a dropped bundle left out home')
+r = run('-frames', '2', '-drop', os.path.join(work, 'nothing.zip'))
+if r.returncode != 0 or 'nothing installed' not in r.stdout: fail('a drop that installs nothing, with home there: ' + r.stdout + r.stderr)
+shutil.rmtree(data, ignore_errors=True)
+
 put('projects/files/files.rio', 'log("mine")\n')
 put('save/files/note', 'kept')
 r = run('-install', zipPath)
