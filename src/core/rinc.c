@@ -737,7 +737,8 @@ static void rinc_hostFileWrite(rio_Vm *v, rio_Val *a) {
 /* pictures as PNG files (png.c): pngRead(path, out) -> Int: the picture, into out: its width and height
    (2 bytes each, low first), then its pixels, a byte each, row by row; its size, or -1 (out needs more
    room than that, for the PNG's rows as they come: w * h + 2 * h + 4 for one of the palette's).
-   pngWrite(path, picture) -> Int: one, laid out the same, as an indexed PNG: 0, or -1 */
+   pngWrite(path, picture, notes) -> Int: one, laid out the same, as an indexed PNG, with the app's notes
+   (text; "": none): 0, or -1. pngNotes(path, out) -> Int: those notes, into out: how many bytes, or -1 */
 static void rinc_hostPngRead(rio_Vm *v, rio_Val *a) {
   char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); int named = rinc_argPath(v, a, path, 0);
   a[0].i = named && out ? rinc_pngRead(path, out, a[3].u) : -1;
@@ -747,7 +748,12 @@ static void rinc_hostPngWrite(rio_Vm *v, rio_Val *a) {
   a[0].i = -1;
   if (!named || !p || n < 4) return;
   w = p[0] | (uint32_t)p[1] << 8; h = p[2] | (uint32_t)p[3] << 8;
-  if (w && h && (uint64_t)w * h <= n - 4) a[0].i = rinc_pngWrite(path, p + 4, (int)w, (int)h);
+  if (w && h && (uint64_t)w * h <= n - 4 && a[5].u <= rinc_PNG_NOTES)
+    a[0].i = rinc_pngWrite(path, p + 4, (int)w, (int)h, (const char *)rio_sliceBytes(v, a + 4), (int)a[5].u);
+}
+static void rinc_hostPngNotes(rio_Vm *v, rio_Val *a) {
+  char path[96]; char *out = (char *)rio_sliceBytes(v, a + 2); int named = rinc_argPath(v, a, path, 0);
+  a[0].i = named && out ? rinc_pngNotes(path, out, a[3].u) : -1;
 }
 static void rinc_hostFileDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_argPath(v, a, path, 1);
@@ -1517,7 +1523,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.call", "ss", rinc_hostCall) || rio_addFfi(vm, "pc.args", "b>i", rinc_hostArgs) ||
          rio_addFfi(vm, "pc.done", "s", rinc_hostDone) || rio_addFfi(vm, "pc.result", "b>i", rinc_hostResult) ||
          rio_addFfi(vm, "pc.dir", "sb>i", rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", "sb>i", rinc_hostFileRead) ||
-         rio_addFfi(vm, "pc.fileWrite", "ss>i", rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", "s>i", rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", "sb>i", rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", "ss>i", rinc_hostPngWrite) ||
+         rio_addFfi(vm, "pc.fileWrite", "ss>i", rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", "s>i", rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", "sb>i", rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", "sss>i", rinc_hostPngWrite) || rio_addFfi(vm, "pc.pngNotes", "sb>i", rinc_hostPngNotes) ||
          rio_addFfi(vm, "pc.fileCopy", "ss>i", rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", "s>i", rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", "ss>i", rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", "ss>i", rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
          rio_addFfi(vm, "pc.pointerY", ">i", rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", "i>i", rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", ">i", rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", "i>i", rinc_hostScroll) ||

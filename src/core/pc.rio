@@ -97,9 +97,12 @@ dirMake* :: @host proc(path: String) -> Int                 # a folder, at a pat
 # pictures as PNG files: a picture is its width and height (2 bytes each, low first), then its pixels, a
 # byte each, row by row (0: see-through). pngRead reads one into out, each color the palette's nearest
 # (exactly, for one written by pngWrite): its size, or -1 (out needs room for the PNG's rows as they come
-# too: w * h + 2 * h + 4 bytes for one of the palette's). pngWrite writes one as an indexed PNG
+# too: w * h + 2 * h + 4 bytes for one of the palette's). pngWrite writes one as an indexed PNG, with the
+# app's notes about it (text, up to 512 bytes, kept in the PNG: a sprite sheet's sprite size, say; "":
+# none), and pngNotes reads them back
 pngRead* :: @host proc(path: String, out: Blob) -> Int
-pngWrite* :: @host proc(path: String, picture: String) -> Int # 0, or -1
+pngWrite* :: @host proc(path: String, picture: String, notes: String) -> Int # 0, or -1
+pngNotes* :: @host proc(path: String, out: Blob) -> Int      # the notes, into out: how many bytes, or -1 (none)
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 

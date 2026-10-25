@@ -16,9 +16,14 @@ uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
    pngWrite: w * h pixels, a byte each, row by row: 0, or -1. pngRead: into out (cap bytes), w and h (2
    bytes each, low first), then the pixels, each the palette's nearest color (exactly the same, for a PNG
    of the palette's colors), its size; or -1: no such file, a PNG it can't read, or out too small (it
-   needs room for the PNG's rows as they come, too: w * h + 2 * h + 4 bytes for one of the palette's) */
-int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h);
+   needs room for the PNG's rows as they come, too: w * h + 2 * h + 4 bytes for one of the palette's).
+   notes: an app's text about the picture (a sprite sheet's sprite size, say), kept in the PNG in a tEXt
+   chunk named Rinc (up to rinc_PNG_NOTES bytes; n 0: none), which other programs keep or ignore;
+   pngNotes reads them back into out: how many bytes, or -1 (no such file, not a PNG, or none) */
+#define rinc_PNG_NOTES 512
+int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n);
 int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap);
+int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 extern float (*rinc_time)(void);          /* seconds since start, from the platform */
 /* buttons held: bit 0 left, 1 right, 2 up, 3 down, then the face buttons, named as on an Xbox
    controller and in order of importance: 4 A (V key), 5 B (C), 6 X (X), 7 Y (Z), then the

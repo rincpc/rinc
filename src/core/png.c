@@ -88,11 +88,11 @@ static const uint8_t *rinc_pngPixels;
 static uint32_t rinc_pngW;
 static int rinc_pngData(uint32_t k) { uint32_t col = k % (rinc_pngW + 1); return col ? rinc_pngPixels[k / (rinc_pngW + 1) * rinc_pngW + col - 1] : 0; }
 
-int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h) {
+int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n0) {
   static const uint8_t signature[8] = {137, 'P', 'N', 'G', 13, 10, 26, 10};
   uint8_t head[13], plte[768], trns[1] = {0};
   uint32_t n, k, d, i;
-  if (!rinc_fs || w < 1 || h < 1 || w > 4096 || h > 4096 || rinc_fs->open(path, 1)) return -1;
+  if (!rinc_fs || w < 1 || h < 1 || w > 4096 || h > 4096 || n0 < 0 || n0 > rinc_PNG_NOTES || rinc_fs->open(path, 1)) return -1;
   rinc_pngBad = rinc_fs->write((const char *)signature, 8) != 8;
   rinc_put32be(head, (uint32_t)w);
   rinc_put32be(head + 4, (uint32_t)h);
@@ -101,6 +101,11 @@ int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h) {
   for (i = 0; i < 256; i++) { uint32_t c = rinc_rgb((int)i); plte[i * 3] = (uint8_t)(c >> 16); plte[i * 3 + 1] = (uint8_t)(c >> 8); plte[i * 3 + 2] = (uint8_t)c; }
   rinc_pngChunk("PLTE", plte, 768);
   rinc_pngChunk("tRNS", trns, 1); /* (color 0: see-through) */
+  if (n0 > 0) { /* the app's notes: text, named Rinc (in plte's room, done with) */
+    memcpy(plte, "Rinc", 5);
+    memcpy(plte + 5, notes, (size_t)n0);
+    rinc_pngChunk("tEXt", plte, 5 + (uint32_t)n0);
+  }
   rinc_pngPixels = pixels; rinc_pngW = (uint32_t)w;
   rinc_pngOutLen = rinc_pngBits = rinc_pngBitCount = 0; rinc_pngAdlerA = 1; rinc_pngAdlerB = 0;
   rinc_pngByte(0x78); rinc_pngByte(0x01); /* (zlib: deflate, a 32 KB window) */
@@ -282,6 +287,33 @@ static uint8_t rinc_nearest(uint32_t c, int i) {
 static int rinc_paeth(int a, int b, int c) {
   int p = a + b - c, pa = p > a ? p - a : a - p, pb = p > b ? p - b : b - p, pc = p > c ? p - c : c - p;
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+}
+
+/* the app's notes (the tEXt chunk named Rinc), before the pixels: into out, how many bytes; or -1 */
+int rinc_pngNotes(const char *path, char *out, uint32_t cap) {
+  uint32_t len, type, i;
+  int n = -1;
+  uint8_t sig[8];
+  if (!rinc_fs || rinc_fs->open(path, 0)) return -1;
+  rinc_pngBad = 0; rinc_pngInLen = rinc_pngInAt = 0;
+  for (i = 0; i < 8; i++) sig[i] = (uint8_t)rinc_pngByteIn();
+  while (!memcmp(sig, "\211PNG\r\n\032\n", 8)) {
+    len = rinc_png32(); type = rinc_png32();
+    if (rinc_pngBad || type == 0x49444154u || type == 0x49454E44u || len > (1u << 24)) break; /* (IDAT, IEND: no notes before the pixels) */
+    if (type == 0x74455874u && len >= 5) { /* tEXt: its name, a 0, then its text */
+      char name[5];
+      for (i = 0; i < 5; i++) name[i] = (char)rinc_pngByteIn();
+      if (!memcmp(name, "Rinc", 5)) {
+        for (n = 0, i = 5; i < len; i++) { int b = rinc_pngByteIn(); if ((uint32_t)n < cap) out[n++] = (char)b; }
+        break;
+      }
+      for (i = 5; i < len + 4; i++) rinc_pngByteIn();
+      continue;
+    }
+    for (i = 0; i < len + 4; i++) rinc_pngByteIn(); /* (another: skipped, its CRC too) */
+  }
+  rinc_fs->close();
+  return rinc_pngBad ? -1 : n;
 }
 
 int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap) {

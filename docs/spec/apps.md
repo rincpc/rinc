@@ -177,8 +177,9 @@ pixels, a color number each, row by row, 0 see-through:
 
 | proc | |
 |---|---|
-| `pc.pngWrite(path, picture) -> Int` | a picture as an indexed PNG: Rinc's 256 colors are its own, 0 see-through, so other programs show it as Rinc does |
+| `pc.pngWrite(path, picture, notes) -> Int` | a picture as an indexed PNG: Rinc's 256 colors are its own, 0 see-through, so other programs show it as Rinc does; with the app's notes about it (text up to 512 bytes, `""` for none: a sprite sheet's sprite size, say), kept in the PNG as a text chunk named `Rinc`, which other programs keep or ignore |
 | `pc.pngRead(path, out) -> Int` | a PNG (8 bits a color, or indexed at 1 to 8 bits; not interlaced) into `out` as a picture, each color Rinc's nearest (exactly the same, for one `pngWrite` wrote): its size, or -1. `out` needs room for the PNG's rows as they come too: `w * h + 2 * h + 4` bytes for one of Rinc's |
+| `pc.pngNotes(path, out) -> Int` | those notes, into `out`: how many bytes, or -1 (none, or no such PNG) |
 
 ```rio
 pic: Blob[4 + 4]
@@ -186,15 +187,19 @@ pic[0] = 2
 pic[2] = 2
 pic[4] = 8
 pic[7] = 12
-log(pc.pngWrite("/rinc/save/demo2/tiny.png", pic[:].asString()))
+log(pc.pngWrite("/rinc/save/demo2/tiny.png", pic[:].asString(), "sprite 2"))
 back: Blob[16]
 log(pc.pngRead("/rinc/save/demo2/tiny.png", back[:]), back[0], back[2], back[4], back[5], back[7])
+notes: Blob[16]
+n := pc.pngNotes("/rinc/save/demo2/tiny.png", notes[:])
+log(n, notes[0:max(n, 0)].asString())
 log(pc.fileDelete("/rinc/save/demo2"))
 ```
 
 ```output
 0
 8 2 2 8 0 12
+8 sprite 2
 0
 ```
 
