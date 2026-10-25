@@ -1126,6 +1126,15 @@ void rinc_noHome(char *out, int size, const char *how) { /* (wrapped between wor
   }
   out[n] = 0;
 }
+int rinc_hasHome(void) { return rinc_readApp(rinc_appFor("home"), 0, 0) != -1 || rinc_bundled(rinc_appFor("home")); }
+void rinc_noHomeShow(void (*put)(const char *s, int n), const char *how) {
+  char text[600];
+  rinc_game = 0; rinc_showLog = 1; rinc_put = put;
+  rinc_themeLoad();
+  rinc_consoleClear(rinc_themeColor(0));
+  rinc_noHome(text, sizeof text, how);
+  rinc_say(text);
+}
 static void rinc_logLine(void *ud, const char *s, int n) { (void)ud; rinc_out(s, n); rinc_out("\r\n", 2); }
 /* the way home: on the screen (it's for whoever's looking at it), not in what's printed */
 static void rinc_back(void) { static const char s[] = "\r\n(Sys+Esc: back home)\r\n"; if (rinc_showLog) rinc_consolePut(s, (int)sizeof s - 1); }

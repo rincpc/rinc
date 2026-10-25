@@ -29,6 +29,15 @@ into its storage, as on [the desktop](desktop.md), and then home starts. Install
 page's own of the same name. A page with only the VM-only player (below) can't run apps from storage,
 so it says so and installs nothing.
 
+```sh
+rinc -name rinc-empty -web empty.html
+```
+
+is a Rinc with nothing installed: it says so, and takes a dropped bundle, as the desktop rinc does
+with none. Its Reset button, in the corner, takes it back to empty (it asks first). The storage name,
+which an empty page must have, keeps it apart from other pages from the same site: each keeps its
+storage under its own.
+
 ## The two players
 
 The desktop rinc carries two web players and gives a page the smaller one it can:

@@ -174,6 +174,10 @@ void rinc_appFail(const char *name, const char *why);
 void rinc_say(const char *s);
 /* what every Rinc says with no home app to start, into out: how, the platform's way to install apps */
 void rinc_noHome(char *out, int size, const char *how);
+/* whether there's a home app to start (storage's, or the bundle's); and, where there's none, that on
+   the screen (rinc_noHome), and to put, with no app running */
+int rinc_hasHome(void);
+void rinc_noHomeShow(void (*put)(const char *s, int n), const char *how);
 int rinc_gameFrame(rio_Vm *vm);
 
 /* sound (audio.c): rinc_VOICES voices mixed to rinc_RATE frames a second of 16-bit stereo. Host procs,

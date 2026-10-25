@@ -26,12 +26,15 @@ THE USE OR OTHER DEALINGS IN THE SOFTWARE. -->
 <style>
 html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated; cursor: none; aspect-ratio: 4 / 3; width: min(100vw, 133.33vh); }
+#reset { position: absolute; top: 6px; right: 6px; font: 12px sans-serif; color: #888; background: #111; border: 1px solid #333; border-radius: 4px; padding: 3px 8px; cursor: pointer; z-index: 1; }
+#reset:hover { color: #ccc; }
 #err { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 8px; color: #ff77a8; font: 13px monospace; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <canvas width="320" height="240"></canvas>
 <pre id="err" hidden></pre>
+<button id="reset" tabindex="-1" hidden>Reset</button>
 <script>
 (async () => {
   const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
@@ -131,6 +134,19 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
   });
   const draw = () => { image.data.set(new Uint8Array(ex.memory.buffer, ex.pixels(), 320 * 240 * 4)); ctx.putImageData(image, 0, 0); };
   if (ex.start(app.length)) { draw(); fail(ex.error()); return; }
+  // an empty page (a Rinc with nothing installed): Reset, asked first, takes it back to empty: everything
+  // under its storage name goes, what was installed and saved
+  const reset = document.getElementById("reset");
+  if ({{EMPTY}}) {
+    const store = text(ex.storeName(), new Uint8Array(ex.memory.buffer, ex.storeName()).indexOf(0));
+    reset.hidden = false;
+    reset.addEventListener("pointerdown", e => e.stopPropagation());
+    reset.addEventListener("click", () => {
+      if (!confirm(`Reset this page to empty? Everything installed and saved here (its storage, ${store}) goes.`)) return;
+      keys_().filter(k => k === store || k.startsWith(store + "/")).forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+      location.reload();
+    });
+  }
   // sound: an AudioWorklet plays what the wasm mixes, kept about 60 ms ahead of the audio clock.
   // Browsers start sound only after a key or a click; until then a frame's sound is mixed and dropped
   const worklet = `class Rinc extends AudioWorkletProcessor {

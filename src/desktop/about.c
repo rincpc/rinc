@@ -32,6 +32,8 @@ const char rinc_help[] =
   "    -runner path/to/rinc     a copy of that rinc instead, such as another system's\n"
   "  rinc a.rio b.rio -web game.html\n"
   "                             one page that plays them in a browser, all inline\n"
+  "  rinc -name folder -web rinc.html\n"
+  "                             an empty one, a Rinc with nothing installed, that takes dropped bundles\n"
   "  rinc -help | -license      this, or the licenses\n"
   "\n"
   "Storage is a rinc folder in your user data: %APPDATA% on Windows, ~/Library/Application Support on\n"

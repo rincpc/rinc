@@ -89,6 +89,12 @@ rinc_EXPORT(sourceCap) int rinc_webSourceCap(void) { return (int)sizeof rinc_src
 /* an app, by name, started (rinc_appBegin, rinc_appRun): from storage (with the compiler), else the
    bundle: an image (or, with the compiler, a source too). Whatever goes wrong is on the screen */
 static void rinc_webOpen(const char *name) {
+#ifndef rio_NO_COMPILER /* (an empty page, till a bundle's dropped on it: it has the compiler) */
+  if (!strcmp(name, "home") && !rinc_hasHome()) {
+    rinc_noHomeShow(rinc_put, "Drop a bundle of apps on this page to install it: a release's rinc-system-apps.zip has home and the rest.");
+    return;
+  }
+#endif
   name = rinc_appFor(name);
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_put)) return;
   rinc_appStart(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name);
@@ -148,6 +154,8 @@ rinc_EXPORT(drop) void rinc_webDrop(uint32_t size) {
   rinc_dropped(bad);
 #endif
 }
+/* the storage name: what's under it in localStorage is this page's (its Reset clears it) */
+rinc_EXPORT(storeName) const char *rinc_webStoreName(void) { return rinc_store; }
 rinc_EXPORT(error) const char *rinc_webError(void) { return rio_error(&rinc_vm); }
 /* whether the page should fill the display (Sys+Enter) */
 rinc_EXPORT(fullscreen) int rinc_webFullscreen(void) { return rinc_fullscreen; }

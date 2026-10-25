@@ -76,7 +76,7 @@ int rinc_zipInstall(rinc_Zip *z) {
 /* after a drop (bad: nothing installed): home, if there is one now (rinc_launch), else what to do */
 void rinc_dropped(int bad) {
   if (bad) rinc_say("(nothing installed: drop a bundle of apps, a .zip such as a release's rinc-system-apps.zip)\r\n");
-  else if (rinc_readApp(rinc_appFor("home"), 0, 0) != -1 || rinc_bundled(rinc_appFor("home"))) {
+  else if (rinc_hasHome()) {
     snprintf(rinc_launchName, sizeof rinc_launchName, "home");
     rinc_launch = 1;
   } else rinc_say("(no home app yet: the home app's in rinc-system-apps.zip, from a release)\r\n");

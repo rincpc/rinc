@@ -232,7 +232,7 @@ static uint32_t rinc_makeBundle(const char *const *apps, int n, const char *home
     else { fprintf(stderr, "rinc: which app is home? (-home name)\n"); return 0; }
   }
   for (i = 0; i < n && strcmp(list[i].name, home); i++) {}
-  if (i == n) { fprintf(stderr, "rinc: -home %s isn't one of the apps\n", home); return 0; }
+  if (n && i == n) { fprintf(stderr, "rinc: -home %s isn't one of the apps\n", home); return 0; }
   { /* the files: apps/name/name.rioi, and apps/name/name.info for a description (or apps/name/name.rio);
        then the help texts */
     static rinc_File files[rinc_BUNDLE_MOST]; static char paths[rinc_BUNDLE_MOST][96]; int nf = 0;
@@ -320,14 +320,17 @@ static size_t rinc_base64(const uint8_t *b, size_t n, char *out) {
   return k;
 }
 /* -web: the page, with the title (the home app's name), the player (gzipped: with the compiler if an app
-   runs Rio itself) and the bundle in place of {{TITLE}}, {{WASM}} and {{APP}} */
+   runs Rio itself) and the bundle in place of {{TITLE}}, {{WASM}} and {{APP}}; and {{EMPTY}}, whether it
+   has no apps: a Rinc with nothing installed (rinc_webEmpty), with the compiler, to run what's dropped */
+static int rinc_webEmpty;
 static int rinc_exportWeb(const char *path, const char *app, uint32_t size) {
 #if rinc_WEB
   const char *p = rinc_webPage, *name = app, *q; char *wasm, *img, title[256]; size_t nw, ni, k = 0; FILE *f; int bad = 0;
   const unsigned char *player = rinc_nested ? rinc_webWasmFull : rinc_webWasm;
   unsigned nplayer = rinc_nested ? rinc_webWasmFullSize : rinc_webWasmSize;
   if (!nplayer) { fprintf(stderr, "rinc: an app runs Rio itself, and this rinc was built without the web player that can (RINC_WEB_WASM_FULL)\n"); return 1; }
-  for (q = app; *q; q++) if (*q == '/' || *q == '\\') name = q + 1;
+  if (rinc_webEmpty) name = "Rinc";
+  for (q = name; *q; q++) if (*q == '/' || *q == '\\') name = q + 1;
   while (name[k] && name[k] != '.' && k < sizeof title - 1) { title[k] = strchr("<>&\"", name[k]) ? '_' : name[k]; k++; }
   title[k] = 0;
   wasm = malloc(4 * (nplayer / 3 + 1)); img = malloc(4 * (size / 3 + 1));
@@ -337,6 +340,7 @@ static int rinc_exportWeb(const char *path, const char *app, uint32_t size) {
     if (!strncmp(p, "{{TITLE}}", 9)) { fputs(title, f); p += 9; }
     else if (!strncmp(p, "{{WASM}}", 8)) { fwrite(wasm, 1, nw, f); p += 8; }
     else if (!strncmp(p, "{{APP}}", 7)) { fwrite(img, 1, ni, f); p += 7; }
+    else if (!strncmp(p, "{{EMPTY}}", 9)) { fputs(rinc_webEmpty ? "true" : "false", f); p += 9; }
     else fputc(*p++, f);
   }
   bad = ferror(f); if (fclose(f)) bad = 1;
@@ -745,7 +749,8 @@ int main(int argc, char **argv) {
   rinc_t0 = clock(); rinc_time = rinc_now;
   windowed = rinc_SDL && !out && !frames; /* (a window shows what goes wrong; without one, it ends rinc) */
   if (exp || web) { /* a bundle of the apps, as a program or a page */
-    if (!napps) { fprintf(stderr, "rinc: -export and -web take the apps to bundle: rinc a.rio b.rio -export game\n"); return 2; }
+    if (!napps && (exp || !storage)) { fprintf(stderr, "rinc: -export takes the apps to bundle (rinc a.rio b.rio -export game), and -web too, but for an empty page with a storage name of its own (rinc -name rinc-empty -web empty.html)\n"); return 2; }
+    if (!napps) { rinc_webEmpty = 1; rinc_nested = 1; home = "home"; } /* (an empty page: the player with the compiler, for what's dropped) */
     rinc_storageStart("rinc");
     if (!(size = rinc_makeBundle(apps, napps, home, storage, docs, ndocs, carry, ncarry))) return 1;
     if (exp && rinc_exportNative(exp, runner, size)) return 1;
@@ -767,7 +772,7 @@ int main(int argc, char **argv) {
     return bad;
   }
   if (rinc_start(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, rinc_put)) { fprintf(stderr, "rinc: can't start\n"); return 1; }
-  if (!app && !named && !repl && (rinc_readApp(rinc_appFor("home"), 0, 0) != -1 || rinc_bundled(rinc_appFor("home")))) named = "home"; /* (plain rinc: home, if it's installed) */
+  if (!app && !named && !repl && rinc_hasHome()) named = "home"; /* (plain rinc: home, if it's installed) */
   if (!app && !named && !repl) { /* nothing installed: a window that says so, and takes a bundle dropped on it */
     char text[400];
     rinc_showLog = 1;

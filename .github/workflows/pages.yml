@@ -43,7 +43,8 @@ jobs:
             echo 'main{max-width:720px;margin:auto}a{color:#ffec27}h1{font-size:22px}li{margin:10px 0}p{color:#c2c3c7}</style>'
             echo '</head><body><main><h1>Rinc apps</h1>'
             echo '<p>Rinc apps, playing in the browser: the same Rio VM as on the board and the desktop. Arrows and V C X Z, or a controller. <a href="docs/">Docs</a>: making apps, and what a Rinc provides.</p>'
-            echo '<p><a href="rinc.html">The whole Rinc</a>: home, the console, the editor, files, help (with these docs), colors, themes and every app below, as on the Fruit Jam. What you save stays in this browser. Ctrl and Shift tapped together, and then Esc, goes home.</p><ul>'
+            echo '<p><a href="rinc.html">The whole Rinc</a>: home, the console, the editor, files, help (with these docs), colors, themes and every app below, as on the Fruit Jam. What you save stays in this browser. Ctrl and Shift tapped together, and then Esc, goes home.</p>'
+            echo '<p><a href="empty.html">An empty Rinc</a>: nothing installed yet. Drop a bundle of apps on it, such as <code>rinc-system-apps.zip</code> from a <a href="https://github.com/rincpc/rinc/releases">release</a>. Its Reset button takes it back to empty.</p><ul>'
             demos=""
             for app in apps/*.rio apps/*/; do # (an app of one file, or of a folder)
               name=$(basename "$app" .rio)
@@ -56,6 +57,7 @@ jobs:
             done
             echo '</ul><p><a href="docs/">Docs</a> &middot; <a href="https://github.com/rincpc/rinc">Source</a></p></main></body></html>'
           } > site/index.html
+          build/rinc -name rinc-empty -web site/empty.html
           system=""
           for d in system/*/; do # (every system app; system/rinc holds the themes, carried as files)
             name=$(basename "$d")
