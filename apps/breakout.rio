@@ -113,7 +113,7 @@ draw* :: proc()
   pc.rect(padx.toInt(), 226, PADW, 4, 7)
   pc.rect(ball.x.toInt() - 2, ball.y.toInt() - 2, 4, 4, 10)
   text.clear()
-  ok := text.format("SCORE ", score, "   LIVES ", lives)
+  ok := text.print("SCORE ", score, "   LIVES ", lives)
   pc.print(text[:].asString(), 4, 4, 7)
   if left == 0
     pc.print("YOU WIN!  V to play again", 85, 120, 11)

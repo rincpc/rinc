@@ -100,7 +100,7 @@ drawEdit :: proc()
     pc.rect(6, y + 1, 12, 5, c)
     pc.print(roleNames[r], 24, y, ink(R_TEXT))
     n: Blob[..4]
-    fine = n.format(c)
+    fine = n.print(c)
     pc.print(n[0:n.len()].asString(), PREVIEW_X - 10 - n.len() * 6, y, ink(R_DIM))
   end
   preview(t, PREVIEW_X, 14)

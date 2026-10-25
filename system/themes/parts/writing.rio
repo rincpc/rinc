@@ -13,9 +13,9 @@ colorName :: proc(c: Int) -> String
   colorText.clear()
   if c < 248
     k := c - 32
-    fine = colorText.format("cube ", levels[k / 36], " ", levels[k / 6 % 6], " ", levels[k % 6])
+    fine = colorText.print("cube ", levels[k / 36], " ", levels[k / 6 % 6], " ", levels[k % 6])
   else
-    fine = colorText.format("gray ", grayLevels[c - 248])
+    fine = colorText.print("gray ", grayLevels[c - 248])
   end
   return colorText[0:colorText.len()].asString()
 end
@@ -23,18 +23,18 @@ end
 out: Blob[..2048]
 save :: proc(t: Int) -> Bool
   out.clear()
-  fine = out.format("# ", titles[titleAt[t]:titleAt[t] + titleLen[t]].asString(), "\n")
+  fine = out.print("# ", titles[titleAt[t]:titleAt[t] + titleLen[t]].asString(), "\n")
   for r in 0..<ROLES
-    fine = out.format(roleNames[r], "*")
+    fine = out.print(roleNames[r], "*")
     for k in roleNames[r].len() + 1..<8 # (lined up: comment*, the longest, is 8)
       fine = out.push(32)
     end
     c := colors[t * ROLES + r]
-    fine = out.format(" :: ", c)
+    fine = out.print(" :: ", c)
     for k in 0..<4 - (c >= 10).toInt() - (c >= 100).toInt()
       fine = out.push(32)
     end
-    fine = out.format("# ", colorName(c), "\n")
+    fine = out.print("# ", colorName(c), "\n")
   end
   return pc.fileWrite(pathOf(t), out[0:out.len()].asString()) == 0
 end
@@ -44,7 +44,7 @@ end
 # t's title says from its colon on. Its number, or -1 (the name's taken, or no room)
 make :: proc(t: Int, owner: String, id: String, plus: Bool, keep: Bool) -> Int
   idBuf.clear()
-  fine = idBuf.format(owner, "/", id)
+  fine = idBuf.print(owner, "/", id)
   if plus
     fine = idBuf.push(43)
   end
@@ -71,7 +71,7 @@ make :: proc(t: Int, owner: String, id: String, plus: Bool, keep: Bool) -> Int
       fine = colorText.push(old[k])
     end
   else
-    fine = colorText.format(id, ": from ")
+    fine = colorText.print(id, ": from ")
     t2 := titleName(t)
     for k in 0..<min(t2.len(), 24 - colorText.len())
       fine = colorText.push(t2[k])

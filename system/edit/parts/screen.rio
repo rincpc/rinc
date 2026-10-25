@@ -151,7 +151,7 @@ draw* :: proc()
     pc.print("*", 4 + shown * 6, 1, warnColor)
   end
   num.clear()
-  num.format("Ln ", cl + 1, ", Col ", cursor - lineAt[cl] + 1)
+  num.print("Ln ", cl + 1, ", Col ", cursor - lineAt[cl] + 1)
   pc.print(num[0:num.len()].asString(), 318 - num.len() * 6, 1, softColor)
   # the lines
   for row in 0..<ROWS
@@ -161,7 +161,7 @@ draw* :: proc()
     end
     y := TOP_Y + row * 9
     num.clear()
-    num.format(l + 1)
+    num.print(l + 1)
     numColor := faintColor
     if l == cl
       numColor = softColor

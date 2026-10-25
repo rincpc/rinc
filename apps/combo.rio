@@ -160,7 +160,7 @@ draw* :: proc()
   pc.print("LAST KEY:", 8, 148, 6)
   if last >= 0
     lk: Blob[..12]
-    ok := lk.format(last)
+    ok := lk.print(last)
     pc.print(lk[0:lk.len()].asString(), 70, 148, 10)
   end
 end

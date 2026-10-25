@@ -246,7 +246,7 @@ draw* :: proc()
   pc.rect(12, 21, 23, 1, accentColor) # (an accent under the name)
   if count > 0
     n: Blob[..16]
-    ok := n.format(count, " apps")
+    ok := n.print(count, " apps")
     pc.print(n[0:n.len()].asString(), 308 - n.len() * 6, 12, dimColor)
   end
   pill(8, 30, 304, 15, barColor, backColor)

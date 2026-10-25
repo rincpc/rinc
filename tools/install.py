@@ -18,7 +18,7 @@ Over serial, Ctrl-B opens the firmware's own console, whatever is running (it ne
 card), and its put command takes each file as hex, so any bytes arrive whole. Then it goes home. A
 file already on the card is replaced; nothing else there is touched.
 """
-import glob, os, shutil, sys, time
+import glob, os, re, shutil, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = [('rinc', os.path.join(ROOT, 'docs')), ('rio', os.path.join(ROOT, 'lib', 'rio', 'docs'))]
@@ -61,7 +61,7 @@ def docFiles():
 args = sys.argv[1:]
 to = args[args.index('--to') + 1] if '--to' in args else None
 words = [a for i, a in enumerate(args) if not a.startswith('--') and not (i and args[i - 1] == '--to')]
-port = next((a for a in words if a.upper().startswith('COM') or a.startswith('/dev/')), 'COM3')
+port = next((a for a in words if re.fullmatch(r'COM[0-9]+', a, re.I) or a.startswith('/dev/')), 'COM3')
 names = [a for a in words if a != port]
 picked = [f for f in ('--system', '--demos', '--apps', '--docs') if f in args]
 everything = not picked and not names

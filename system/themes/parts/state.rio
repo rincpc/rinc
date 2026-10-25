@@ -47,7 +47,7 @@ use :: proc(t: Int)
   if pc.settingWrite("theme", nameOf(t)) == 0
     current = t
     message.clear()
-    fine = message.format("Using ", titleName(t), ": apps started from now")
+    fine = message.print("Using ", titleName(t), ": apps started from now")
     messageColor = ink(R_OK)
   else
     say("Couldn't change the setting", ink(R_ERROR))
@@ -57,7 +57,7 @@ end
 edit :: proc(t: Int)
   if place[t] == APPS # (locked: its copy, made the first time)
     probe: Blob[..80]
-    fine = probe.format(nameOf(t), "+")
+    fine = probe.print(nameOf(t), "+")
     c := find(probe[0:probe.len()].asString())
     if c < 0
       c = make(t, ownerOf(t), idOf(t), true, false)
@@ -79,7 +79,7 @@ end
 pickColor :: proc()
   remember()
   args: Blob[..16]
-  fine = args.format("pick ", colors[editing * ROLES + role])
+  fine = args.print("pick ", colors[editing * ROLES + role])
   pc.call("colors", args[0:args.len()].asString())
 end
 

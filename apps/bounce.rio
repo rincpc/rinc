@@ -70,6 +70,6 @@ draw* :: proc()
   # Report ball count.
   report: Blob[..100]
   report.clear()
-  report.format("count: ", balls.len())
+  report.print("count: ", balls.len())
   pc.print(report[:].asString(), 4, 13, 6)
 end

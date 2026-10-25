@@ -248,7 +248,7 @@ contents :: proc()
   ok := keptApps.pushAll(appsNow[0:appsNow.len()])
   keptBoot = pc.boot()
   keptText.clear()
-  ok = keptText.format(keptBoot)
+  ok = keptText.print(keptBoot)
   ok = keptText.push(10)
   ok = keptText.pushAll(keptApps[0:keptApps.len()])
   ok = keptText.push(10)
@@ -407,10 +407,10 @@ end
 savePlace :: proc()
   histTop[histAt] = top
   place.clear()
-  ok := place.format(histAt)
+  ok := place.print(histAt)
   ok = place.push(10)
   for i in 0..<histLen
-    ok = place.format(histTop[i], " ")
+    ok = place.print(histTop[i], " ")
     ok = place.pushAll(histName[i][0:histName[i].len()])
     ok = place.push(10)
   end

@@ -22,12 +22,12 @@ load :: proc(name: String)
   msg: Blob[..80]
   n := pc.appSource(name, file[:])
   if n < 0
-    msg.format("can't open ", name)
+    msg.print("can't open ", name)
     say(msg[:].asString(), errorColor)
     return
   end
   if n > file.len()
-    msg.format(name, " is too big to load here (", n, " bytes)")
+    msg.print(name, " is too big to load here (", n, " bytes)")
     say(msg[:].asString(), errorColor)
     return
   end
@@ -41,7 +41,7 @@ load :: proc(name: String)
   case r == 1
     say("(it ends unfinished)", errorColor)
   else
-    msg.format("loaded ", name)
+    msg.print("loaded ", name)
     say(msg[:].asString(), softColor)
   end
 end
@@ -74,9 +74,9 @@ saveTo :: proc() -> Int
   end
   path: Blob[..128]
   if saveName[slash - 1] == '+'
-    path.format("/rinc/projects/", saveName[0:slash - 1], saveName[slash:])
+    path.print("/rinc/projects/", saveName[0:slash - 1], saveName[slash:])
   else
-    path.format("/rinc/apps/", saveName[:])
+    path.print("/rinc/apps/", saveName[:])
   end
   return pc.fileWrite(path[:].asString(), file[:fileLen].asString())
 end
@@ -85,10 +85,10 @@ finishSave :: proc()
   msg: Blob[..80]
   mode = .typing
   if saveTo() != 0
-    msg.format("couldn't save ", saveName[:])
+    msg.print("couldn't save ", saveName[:])
     say(msg[:].asString(), errorColor)
   else
-    msg.format("saved ", fileLen, " bytes")
+    msg.print("saved ", fileLen, " bytes")
     say(msg[:].asString(), softColor)
   end
 end
@@ -110,7 +110,7 @@ command :: proc(t: String) -> Bool
     v: Blob[34]
     n := pc.settingRead("active", v[:])
     if n > 0
-      msg.format("active: ", v[0:min(n, 34)])
+      msg.print("active: ", v[0:min(n, 34)])
       say(msg[:].asString(), softColor)
     else
       say("nothing active: active name makes one active (name+ for a project)", softColor)
@@ -135,26 +135,26 @@ command :: proc(t: String) -> Bool
     startSave(name)
   case "active"                          # app or project (name+) name, active: the editor opens it next
     if pc.appSource(name, msg[0:0]) >= 0 and pc.settingWrite("active", name) == 0
-      msg.format("active: ", name)
+      msg.print("active: ", name)
       say(msg[:].asString(), softColor)
     else
-      msg.format("no app or project ", name)
+      msg.print("no app or project ", name)
       say(msg[:].asString(), errorColor)
     end
   case "install"                         # project name+ as the app name
     if pc.appInstall(name) == 0
-      msg.format("installed ", name)
+      msg.print("installed ", name)
       say(msg[:].asString(), softColor)
     else
-      msg.format("can't install ", name, " (from its project, ", name, "*)")
+      msg.print("can't install ", name, " (from its project, ", name, "*)")
       say(msg[:].asString(), errorColor)
     end
   case "delete"
     if pc.appDelete(name) == 0
-      msg.format("deleted ", name)
+      msg.print("deleted ", name)
       say(msg[:].asString(), softColor)
     else
-      msg.format("can't delete ", name)
+      msg.print("can't delete ", name)
       say(msg[:].asString(), errorColor)
     end
   else

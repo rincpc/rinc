@@ -61,11 +61,11 @@ pathOf :: proc(t: Int) -> String
   slash := slashOf(n)
   pathBuf.clear()
   if place[t] == OWN # (a copy, slate+, is slate's file in the save space)
-    fine = pathBuf.format("/rinc/save/", n[0:slash], "/themes/", n[slash + 1:n.len() - isCopy(t).toInt()], ".theme.rio")
+    fine = pathBuf.print("/rinc/save/", n[0:slash], "/themes/", n[slash + 1:n.len() - isCopy(t).toInt()], ".theme.rio")
   case place[t] == PROJECTS
-    fine = pathBuf.format("/rinc/projects/", n[0:slash - 1], "/themes/", n[slash + 1:n.len()], ".theme.rio")
+    fine = pathBuf.print("/rinc/projects/", n[0:slash - 1], "/themes/", n[slash + 1:n.len()], ".theme.rio")
   else
-    fine = pathBuf.format("/rinc/apps/", n[0:slash], "/themes/", n[slash + 1:n.len()], ".theme.rio")
+    fine = pathBuf.print("/rinc/apps/", n[0:slash], "/themes/", n[slash + 1:n.len()], ".theme.rio")
   end
   return pathBuf[0:pathBuf.len()].asString()
 end
@@ -196,7 +196,7 @@ sub: Blob[2048]
 idBuf: Blob[..40]
 scanThemes :: proc(folder: String, owner: String, where: Int)
   pathBuf.clear()
-  fine = pathBuf.format(folder, "/themes")
+  fine = pathBuf.print(folder, "/themes")
   n := pc.dir(pathBuf[0:pathBuf.len()].asString(), sub[:])
   at := 0
   for i in 0..<sub.len()
@@ -206,9 +206,9 @@ scanThemes :: proc(folder: String, owner: String, where: Int)
         idBuf.clear()
         fine = idBuf.pushAll(e[0:e.len() - 10])
         file: Blob[..112]
-        fine = file.format(folder, "/themes/", e)
+        fine = file.print(folder, "/themes/", e)
         probe: Blob[..80] # (in a save space, a locked theme's name: its copy)
-        fine = probe.format(owner, "/", idBuf[0:idBuf.len()].asString())
+        fine = probe.print(owner, "/", idBuf[0:idBuf.len()].asString())
         plus := where == OWN and find(probe[0:probe.len()].asString()) >= 0
         add(owner, idBuf[0:idBuf.len()].asString(), where, file[0:file.len()].asString(), plus)
       end
@@ -235,7 +235,7 @@ scanAll :: proc(root: String, where: Int)
           fine = ownerBuf.push(43) # (a project's: its +)
         end
         folderBuf.clear()
-        fine = folderBuf.format(root, "/", e)
+        fine = folderBuf.print(root, "/", e)
         scanThemes(folderBuf[0:folderBuf.len()].asString(), ownerBuf[0:ownerBuf.len()].asString(), where)
       end
       n -= 1

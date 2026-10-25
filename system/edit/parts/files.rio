@@ -46,7 +46,7 @@ end
 remember :: proc()
   last.clear()
   ok := last.pushAll(path[0:path.len()])
-  last.format(" ", cursor, " ", top)
+  last.print(" ", cursor, " ", top)
   saved := pc.saveWrite("last", last[0:last.len()].asString())
   a := appOf(here())
   if a.len() > 0
