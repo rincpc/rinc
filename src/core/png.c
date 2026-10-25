@@ -145,10 +145,12 @@ int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const c
 /* ------------------------------------------------------------------ reading */
 
 static int rinc_pngInLen, rinc_pngInAt;
+static int (*rinc_pngReader)(char *buf, int n); /* where bytes come from: storage (rinc_fs), else this */
+static int rinc_raw;                           /* inflating raw deflate data (a zip's), rinc_pngLeft bytes of it */
 static uint32_t rinc_pngLeft; /* bytes left of the IDAT chunk being read */
 static int rinc_pngByteIn(void) {
   if (rinc_pngInAt == rinc_pngInLen) {
-    rinc_pngInLen = rinc_fs->read((char *)rinc_pngIn, (int)sizeof rinc_pngIn);
+    rinc_pngInLen = rinc_pngReader ? rinc_pngReader((char *)rinc_pngIn, (int)sizeof rinc_pngIn) : rinc_fs->read((char *)rinc_pngIn, (int)sizeof rinc_pngIn);
     rinc_pngInAt = 0;
     if (rinc_pngInLen <= 0) { rinc_pngInLen = 0; return -1; }
   }
@@ -162,6 +164,11 @@ static uint32_t rinc_png32(void) {
 }
 /* the next byte of the compressed data, across IDAT chunks (-1 at their end) */
 static int rinc_pngData8(void) {
+  if (rinc_raw) {
+    if (!rinc_pngLeft) return -1;
+    rinc_pngLeft--;
+    return rinc_pngByteIn();
+  }
   while (!rinc_pngLeft) {
     uint32_t len, type;
     rinc_png32(); /* (the CRC of the chunk before) */
@@ -212,7 +219,7 @@ static int rinc_inflate(uint8_t *out, uint32_t start, uint32_t cap, uint32_t *en
   uint32_t at = start;
   int last = 0;
   rinc_inCount = 0;
-  rinc_bits(16); /* (the zlib header: deflate, its window) */
+  if (!rinc_raw) rinc_bits(16); /* (the zlib header: deflate, its window) */
   while (!last && !rinc_pngBad) {
     uint32_t type;
     last = (int)rinc_bits(1);
@@ -287,6 +294,18 @@ static uint8_t rinc_nearest(uint32_t c, int i) {
 static int rinc_paeth(int a, int b, int c) {
   int p = a + b - c, pa = p > a ? p - a : a - p, pb = p > b ? p - b : b - p, pc = p > c ? p - c : c - p;
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+}
+
+/* raw deflate data, as a zip holds a file: size bytes of it from read, inflated into out (cap bytes):
+   how many bytes, or -1 */
+int rinc_inflateRaw(int (*read)(char *buf, int n), uint32_t size, uint8_t *out, uint32_t cap) {
+  uint32_t end = 0;
+  int bad;
+  rinc_pngReader = read; rinc_raw = 1;
+  rinc_pngBad = 0; rinc_pngInLen = rinc_pngInAt = 0; rinc_pngLeft = size;
+  bad = rinc_inflate(out, 0, cap, &end) || rinc_pngBad;
+  rinc_pngReader = 0; rinc_raw = 0;
+  return bad ? -1 : (int)end;
 }
 
 /* the app's notes (the tEXt chunk named Rinc), before the pixels: into out, how many bytes; or -1 */

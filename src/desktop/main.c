@@ -361,19 +361,25 @@ static void rinc_typeMore(void) {
 }
 
 /* -hold: buttons held, as a controller would, in frames counted from 0: "a 10-40, right 20-30" (names:
-   left right up down a b x y lb rb ls rs start back): the buttons for frame i */
+   left right up down a b x y lb rb ls rs start back; and the sticks pushed all the way: lsleft lsright
+   lsup lsdown, rsleft rsright rsup rsdown, into rinc_axes): the buttons for frame i */
 static const char *rinc_holding;
 static uint16_t rinc_held(int frame) {
   static const char *names[14] = {"left", "right", "up", "down", "a", "b", "x", "y", "lb", "rb", "ls", "rs", "start", "back"};
+  static const char *sticks[8] = {"lsleft", "lsright", "lsup", "lsdown", "rsleft", "rsright", "rsup", "rsdown"};
   const char *s = rinc_holding;
   uint16_t bits = 0;
+  memset(rinc_axes, 0, 4 * sizeof rinc_axes[0]);
   while (s && *s) {
     char name[8]; int first, last, n = 0, k;
     while (*s == ' ' || *s == ',') s++;
     if (!*s || sscanf(s, "%7[a-z] %d-%d%n", name, &first, &last, &n) != 3) break;
     s += n;
+    if (frame < first || frame > last) continue;
     for (k = 0; k < 14; k++)
-      if (!strcmp(name, names[k]) && frame >= first && frame <= last) bits |= (uint16_t)(1 << k);
+      if (!strcmp(name, names[k])) bits |= (uint16_t)(1 << k);
+    for (k = 0; k < 8; k++) /* (left stick 0, 1; right 2, 3: x, then y, + right and down) */
+      if (!strcmp(name, sticks[k])) rinc_axes[k / 4 * 2 + (k % 4) / 2] = (int16_t)(k % 2 ? 32767 : -32767);
   }
   return bits;
 }
@@ -392,7 +398,7 @@ static int rinc_openApp(const char *name) {
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_put)) return -1;
   if (rinc_hostApp && !strcmp(name, rinc_hostHome))
     return rinc_appRunHost(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_useFolder(rinc_hostApp));
-  if (rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) { rinc_appFail(name, ": no app of this name (rinc -install it, if it's a standard one)"); return -1; }
+  if (rinc_readApp(name, 0, 0) == -1 && !rinc_bundled(name)) { rinc_appFail(name, ": no app of this name (rinc -install its folder, or a bundle with it, such as a release's rinc-system-apps.zip)"); return -1; }
   return rinc_appStart(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name);
 }
 /* pc.launch, or the system key: to rinc_launchName */
@@ -408,28 +414,90 @@ static void rinc_helpCopied(const char *path, void *ud) { /* (each file of an ap
   got = fread(rinc_src, 1, sizeof rinc_src, f); fclose(f);
   if (rinc_fs->open(to, 1) || rinc_fs->write(rinc_src, (int)got) != (int)got || rinc_fs->close()) h->bad = 1;
 }
-/* a file from the repository (or from, another place), through curl, into buf: how long, or -1 */
-static int rinc_fetch(const char *from, const char *path, const char *tmp, char *buf, size_t cap) {
-  char cmd[2400]; FILE *f; int got = -1;
-  snprintf(cmd, sizeof cmd, "curl -fsL -o \"%s\" \"%s/%s\"", tmp, from, path);
-  if (system(cmd) == 0 && (f = fopen(tmp, "rb"))) { got = (int)fread(buf, 1, cap, f); fclose(f); }
-  remove(tmp);
-  return got;
+/* a bundle of apps (a zip, such as a release's rinc-system-apps.zip): its apps/ and help/ files, under
+   rinc/ in it or at its top, into storage, as they are there (each file stored, or deflated). Nothing
+   else in storage changes: projects and saves stay. Every name is checked first: one that would land
+   outside apps/ or help/ (or a way of packing Rinc doesn't read) installs nothing. 0, or 1 (said why) */
+static FILE *rinc_zip;
+static int rinc_zipRead(char *buf, int n) { return (int)fread(buf, 1, (size_t)n, rinc_zip); }
+static uint32_t rinc_le16(const uint8_t *p) { return (uint32_t)p[0] | (uint32_t)p[1] << 8; }
+static uint32_t rinc_le32(const uint8_t *p) { return rinc_le16(p) | rinc_le16(p + 2) << 16; }
+static uint32_t rinc_crc32(const uint8_t *p, size_t n) {
+  uint32_t c = 0xFFFFFFFFu; size_t i; int k;
+  for (i = 0; i < n; i++) { c ^= p[i]; for (k = 0; k < 8; k++) c = c >> 1 ^ (0xEDB88320u & (0u - (c & 1))); }
+  return ~c;
 }
-/* -install: standard apps (home, console, the demos), by name, fetched with curl from the Rinc
-   repository's main branch (a system app, every file its system/name/files.txt lists; else a demo,
-   likewise from apps/name/files.txt, or apps/name.rio; RINC_INSTALL_URL: another place than the
-   repository); or an app's files (name.rio,
-   and, in a folder of its own name, all of that folder) copied. Into storage. 0, or 1 (said why) */
-static int rinc_install(const char *what, const char *root) {
-  char name[40], tmp[1100], cmd[1400]; const char *base = strrchr(what, '/'), *dot; size_t k, n; FILE *f; int got = 0, i;
+static int rinc_installZip(const char *path, const char *root) {
+  static uint8_t tail[65557]; uint8_t *dir = 0, *out = 0; long size, back; uint32_t entries, dirSize, dirAt, i, at = 0, files = 0;
+  char apps[400] = ""; int bad = 0, end = -1, k, pass;
+  if (!(rinc_zip = fopen(path, "rb"))) { fprintf(stderr, "rinc: can't open %s\n", path); return 1; }
+  fseek(rinc_zip, 0, SEEK_END); size = ftell(rinc_zip);
+  back = size < (long)sizeof tail ? size : (long)sizeof tail;
+  fseek(rinc_zip, size - back, SEEK_SET);
+  if (fread(tail, 1, (size_t)back, rinc_zip) != (size_t)back) back = 0;
+  for (k = (int)back - 22; k >= 0 && end < 0; k--) if (rinc_le32(tail + k) == 0x06054B50u) end = k; /* (the end of its directory) */
+  if (end < 0) { fprintf(stderr, "rinc: %s isn't a zip\n", path); fclose(rinc_zip); return 1; }
+  entries = rinc_le16(tail + end + 10); dirSize = rinc_le32(tail + end + 12); dirAt = rinc_le32(tail + end + 16);
+  if (!(dir = (uint8_t *)malloc(dirSize + 1)) || fseek(rinc_zip, (long)dirAt, SEEK_SET) || fread(dir, 1, dirSize, rinc_zip) != dirSize) {
+    fprintf(stderr, "rinc: can't read %s's directory\n", path); fclose(rinc_zip); free(dir); return 1;
+  }
+  for (pass = 0; pass < 2 && !bad; pass++) /* (names checked, then files written) */
+  for (i = 0, at = 0; i < entries && !bad; i++) {
+    uint8_t local[30]; char name[260], to[300]; const char *rel; uint32_t method, csize, usize, crc, nameLen, skip, local0, got;
+    if (at + 46 > dirSize || rinc_le32(dir + at) != 0x02014B50u) { bad = 1; fprintf(stderr, "rinc: %s's directory is damaged\n", path); break; }
+    method = rinc_le16(dir + at + 10); crc = rinc_le32(dir + at + 16); csize = rinc_le32(dir + at + 20); usize = rinc_le32(dir + at + 24);
+    nameLen = rinc_le16(dir + at + 28); skip = rinc_le16(dir + at + 30) + rinc_le16(dir + at + 32); local0 = rinc_le32(dir + at + 42);
+    if (at + 46 + nameLen > dirSize) { bad = 1; break; }
+    snprintf(name, sizeof name, "%.*s", (int)(nameLen < 259 ? nameLen : 259), (const char *)dir + at + 46);
+    at += 46 + nameLen + skip;
+    rel = strncmp(name, "rinc/", 5) ? name : name + 5;
+    if (!*rel || rel[strlen(rel) - 1] == '/' || (strncmp(rel, "apps/", 5) && strncmp(rel, "help/", 5))) continue; /* (folders, and anything but apps and help) */
+    if (strstr(rel, "..") || strchr(rel, '\\') || strchr(rel, ':') || nameLen > 200) { fprintf(stderr, "rinc: %s names %s: not installed\n", path, name); bad = 1; break; }
+    if ((method != 0 && method != 8) || usize > (64u << 20)) { fprintf(stderr, "rinc: %s: %s is packed a way Rinc doesn't read (stored or deflated only)\n", path, name); bad = 1; break; }
+    if (!pass) continue;
+    if (fseek(rinc_zip, (long)local0, SEEK_SET) || fread(local, 1, 30, rinc_zip) != 30 || rinc_le32(local) != 0x04034B50u ||
+        fseek(rinc_zip, (long)(rinc_le16(local + 26) + rinc_le16(local + 28)), SEEK_CUR)) { fprintf(stderr, "rinc: %s: can't read %s\n", path, name); bad = 1; break; }
+    free(out);
+    if (!(out = (uint8_t *)malloc(usize + 1))) { bad = 1; break; }
+    got = method ? (uint32_t)rinc_inflateRaw(rinc_zipRead, csize, out, usize) : (uint32_t)fread(out, 1, usize, rinc_zip);
+    if (got != usize || rinc_crc32(out, usize) != crc) { fprintf(stderr, "rinc: %s: %s is damaged\n", path, name); bad = 1; break; }
+    snprintf(to, sizeof to, "/rinc/%s", rel);
+    if (rinc_fs->open(to, 1) || (usize && rinc_fs->write((const char *)out, (int)usize) != (int)usize) || rinc_fs->close()) { fprintf(stderr, "rinc: can't write %s\n", to); bad = 1; break; }
+    files++;
+    if (!strncmp(rel, "apps/", 5)) { /* (each app's name, once, to say what came) */
+      char app[48], key[52]; const char *slash = strchr(rel + 5, '/');
+      snprintf(app, sizeof app, "%.*s", slash ? (int)(slash - rel - 5) : 40, rel + 5);
+      snprintf(key, sizeof key, " %s ", app);
+      if (!strstr(apps, key) && strlen(apps) + strlen(key) < sizeof apps) { if (!*apps) strcat(apps, " "); strcat(apps, key + 1); }
+    }
+  }
+  fclose(rinc_zip); free(dir); free(out);
+  if (bad) return 1;
+  printf("installed %u files from %s, in %s:%s\n", (unsigned)files, path, root, *apps ? apps : " no apps");
+  return 0;
+}
+
+/* -install: an app's .rio file (and, in a folder of its own name, the files its files.txt lists, else
+   all of that folder: a folder argument is its main file, rinc_appArg), or a bundle of apps (a .zip:
+   rinc_installZip). Into storage. 0, or 1 (said why) */
+static int rinc_install(const char *what0, const char *root) {
+  char what[1100], name[40], cmd[1400]; const char *base, *dot; size_t k, n; FILE *f; int got = 0;
+  snprintf(what, sizeof what, "%s", what0);
+  n = strlen(what);
+  if (n > 4 && (!strcmp(what + n - 4, ".zip") || !strcmp(what + n - 4, ".ZIP"))) return rinc_installZip(what, root);
+  while (n > 1 && (what[n - 1] == '/' || what[n - 1] == '\\')) what[--n] = 0; /* (a folder, written with a slash) */
+  base = strrchr(what, '/');
   base = base ? base + 1 : what;
   if (strrchr(base, '\\')) base = strrchr(base, '\\') + 1;
   dot = strstr(base, ".rio");
   n = dot ? (size_t)(dot - base) : strlen(base);
+  if (!dot) {
+    fprintf(stderr, "rinc: %s: install an app's .rio file, its folder, or a bundle of apps (a .zip, such as a release's rinc-system-apps.zip)\n", what0);
+    return 1;
+  }
   for (k = 0; k < n && k < sizeof name - 1; k++) {
     char c = base[k];
-    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) { fprintf(stderr, "rinc: %s: names are letters, digits, _ and -\n", what); return 1; }
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) { fprintf(stderr, "rinc: %s: names are letters, digits, _ and -\n", what0); return 1; }
     name[k] = c;
   }
   name[k] = 0;
@@ -439,51 +507,29 @@ static int rinc_install(const char *what, const char *root) {
     got = (int)fread(rinc_src, 1, sizeof rinc_src, f); fclose(f);
     snprintf(cmd, sizeof cmd, "/rinc/apps/%s/%s.rio", name, name);
     if (rinc_fs->open(cmd, 1) || rinc_fs->write(rinc_src, got) != got || rinc_fs->close()) { fprintf(stderr, "rinc: can't write %s\n", name); return 1; }
-    snprintf(folder, sizeof folder, "%.*s", (int)(base - what > 0 ? base - what - 1 : 0), what); /* (in a folder of its own name: all of that folder) */
+    snprintf(folder, sizeof folder, "%.*s", (int)(base - what > 0 ? base - what - 1 : 0), what); /* (in a folder of its own name: the files its files.txt lists, else all of it) */
     h.from = folder; h.name = name; h.bad = 0;
     k = (size_t)(base - what);
-    if (k > n && !strncmp(what + k - 1 - n, name, n) && (k - 1 == n || what[k - 2 - n] == '/' || what[k - 2 - n] == '\\'))
-      rinc_walkFolder(folder, rinc_helpCopied, &h);
-    if (h.bad) { fprintf(stderr, "rinc: can't copy %s's help\n", name); return 1; }
-  } else { /* a standard one, from the repository, through curl: a system app, every file its files.txt lists (system/name/...), else a demo, apps/name.rio */
-    const char *from = getenv("RINC_INSTALL_URL"); /* (another place to get them from: file:///a/checkout, say) */
-    char list[4096]; int listed;
-    if (!from || !*from) from = "https://raw.githubusercontent.com/rincpc/rinc/main";
-    snprintf(tmp, sizeof tmp, "%s/download.tmp", root);
-    rinc_mkdirsFor(tmp);
-    const char *where = "system"; /* (a system app's folder; else a demo's, apps/name, if it's a folder) */
-    snprintf(cmd, sizeof cmd, "system/%s/files.txt", name);
-    if ((listed = rinc_fetch(from, cmd, tmp, list, sizeof list - 1)) <= 0) {
-      where = "apps";
-      snprintf(cmd, sizeof cmd, "apps/%s/files.txt", name);
-      listed = rinc_fetch(from, cmd, tmp, list, sizeof list - 1);
+    if (k > n && !strncmp(what + k - 1 - n, name, n) && (k - 1 == n || what[k - 2 - n] == '/' || what[k - 2 - n] == '\\')) {
+      char list[8192]; int listed = -1;
+      snprintf(cmd, sizeof cmd, "%s/files.txt", folder);
+      if ((f = fopen(cmd, "rb"))) { listed = (int)fread(list, 1, sizeof list - 1, f); fclose(f); }
+      if (listed > 0) { /* (each line a file of the app's, under its folder) */
+        char *line = list, *e;
+        list[listed] = 0;
+        for (; *line && !h.bad; line = e) {
+          size_t m;
+          for (e = line; *e && *e != '\n'; e++) {}
+          m = (size_t)(e - line);
+          if (*e) *e++ = 0;
+          if (m && line[m - 1] == '\r') line[--m] = 0;
+          if (!m || line[0] == '#') continue;
+          if (strstr(line, "..") || line[0] == '/' || m > 200) { fprintf(stderr, "rinc: %s's files.txt names %s\n", name, line); return 1; }
+          rinc_helpCopied(line, &h);
+        }
+      } else rinc_walkFolder(folder, rinc_helpCopied, &h);
     }
-    if (listed > 0) {
-      char *line = list, *e;
-      list[listed] = 0;
-      for (; *line; line = e) {
-        size_t m;
-        for (e = line; *e && *e != '\n'; e++) {}
-        m = (size_t)(e - line);
-        if (*e) *e++ = 0;
-        if (m && line[m - 1] == '\r') line[--m] = 0;
-        if (!m) continue;
-        if (strstr(line, "..") || line[0] == '/' || m > 200) { fprintf(stderr, "rinc: %s's files.txt names %s\n", name, line); return 1; }
-        snprintf(cmd, sizeof cmd, "%s/%s/%.200s", where, name, line);
-        if ((got = rinc_fetch(from, cmd, tmp, rinc_src, sizeof rinc_src)) < 0) { fprintf(stderr, "rinc: couldn't get %s\n", cmd); return 1; }
-        snprintf(cmd, sizeof cmd, "/rinc/apps/%s/%.200s", name, line);
-        if (rinc_fs->open(cmd, 1) || rinc_fs->write(rinc_src, got) != got || rinc_fs->close()) { fprintf(stderr, "rinc: can't write %s\n", cmd); return 1; }
-      }
-      got = 1;
-    } else {
-      snprintf(cmd, sizeof cmd, "apps/%s.rio", name);
-      if ((got = rinc_fetch(from, cmd, tmp, rinc_src, sizeof rinc_src)) > 0) {
-        snprintf(cmd, sizeof cmd, "/rinc/apps/%s/%s.rio", name, name);
-        if (rinc_fs->open(cmd, 1) || rinc_fs->write(rinc_src, got) != got || rinc_fs->close()) { fprintf(stderr, "rinc: can't write %s\n", name); return 1; }
-      }
-    }
-    (void)i;
-    if (got <= 0) { fprintf(stderr, "rinc: couldn't get %s (installing a standard app takes curl, and the internet)\n", name); return 1; }
+    if (h.bad) { fprintf(stderr, "rinc: can't copy all of %s\n", name); return 1; }
   }
 
   printf("installed %s, in %s/apps/%s\n", name, root, name);
@@ -747,7 +793,7 @@ int main(int argc, char **argv) {
     if (wavout && rinc_saveWav(wavout, (uint32_t)(frames < 3600 ? frames : 3600) * (rinc_RATE / 60))) { fprintf(stderr, "rinc: can't write %s\n", wavout); return 1; }
   } else {
     int c;
-    fprintf(stderr, "(no home app here yet: rinc -install home console, with curl; or rinc app.rio)\n");
+    fprintf(stderr, "(no home app here yet: rinc -install rinc-system-apps.zip, from a release; or rinc app.rio)\n");
     if (rinc_replBegin(&rinc_repl, &rinc_vm, rinc_replScratch, sizeof rinc_replScratch)) { fprintf(stderr, "rinc: %s\n", rio_error(&rinc_vm)); return 1; }
     rinc_repl.echo = 0;
     while ((c = getchar()) != EOF) rinc_replChar(&rinc_repl, c);

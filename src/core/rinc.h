@@ -24,6 +24,8 @@ uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
 int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n);
 int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
+/* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */
+int rinc_inflateRaw(int (*read)(char *buf, int n), uint32_t size, uint8_t *out, uint32_t cap);
 extern float (*rinc_time)(void);          /* seconds since start, from the platform */
 /* buttons held: bit 0 left, 1 right, 2 up, 3 down, then the face buttons, named as on an Xbox
    controller and in order of importance: 4 A (V key), 5 B (C), 6 X (X), 7 Y (Z), then the

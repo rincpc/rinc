@@ -15,7 +15,8 @@ rinc app.rio                      play, in a window (closing it quits); it's hom
 rinc game/   (or rinc ., in it)   an app of a folder: game/game.rio, with its other files (include, import)
 rinc                              home (or the app the home setting names), if it's installed; else a REPL
 rinc -app chord                   an app from storage, by name, home for this session too
-rinc -install home console        standard apps into storage, fetched with curl (or app.rio files, copied)
+rinc -install apps.zip game/      apps into storage: a bundle of them (a release's rinc-system-apps.zip),
+                                  an app's folder (what its files.txt lists, else all of it), or app.rio
   -data folder                    with any of these: storage in this folder instead
 rinc app.rio -m                   how near the app comes to its limits (see memory)
 rinc app.rio -frames 120          no window: run 120 frames (A held for the first 3, unless -type)
@@ -24,7 +25,8 @@ rinc app.rio -frames 120          no window: run 120 frames (A held for the firs
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,
                                   \xHH a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right)
   -hold 'a 10-40, right 20-30'    and hold buttons, as a controller would, in those frames (counted from
-                                  0): left right up down a b x y lb rb ls rs start back
+                                  0): left right up down a b x y lb rb ls rs start back, and the
+                                  sticks pushed: lsleft lsright lsup lsdown rsleft rsright rsup rsdown
 rinc app.rio -i app.rioi          compile to an image, and list the host procs its code calls
 rinc a.rio b.rio -export game     a program to hand out (game.exe on Windows): rinc with the apps in it
   -home a                         the one it starts at (by default the only one, or one named home)
@@ -50,14 +52,16 @@ user data folder, laid out as on the Fruit Jam's SD card (`apps/name/name.rio`, 
 
 | | |
 |---|---|
-| Windows | `%APPDATA%inc` |
+| Windows | `%APPDATA%\rinc` |
 | macOS | `~/Library/Application Support/rinc` |
 | Linux and others | `$XDG_DATA_HOME/rinc`, or `~/.local/share/rinc` |
 
-`rinc -install home console` gets the same setup as the Fruit Jam: it fetches the standard apps from the
-Rinc repository with `curl`, which needs to be installed (Windows 10 and later, macOS and most Linux
-systems have it). Rinc itself never goes on the network. `rinc -install mygame.rio` copies an app of
-your own in. Apps only see their Rinc's folder, never the rest of the computer.
+`rinc -install rinc-system-apps.zip` gets the same setup as the Fruit Jam: home, the console and the
+rest of the standard apps, and the help texts, from the zip a [release](https://github.com/rincpc/rinc/releases)
+carries (`rinc-demo-apps.zip` has the demos). A bundle's apps replace those of the same names; projects
+and saves stay. `rinc -install mygame/` copies an app of your own in (the files its `files.txt` lists,
+else all of its folder), as does `rinc -install mygame.rio`. Rinc itself never goes on the network.
+Apps only see their Rinc's folder, never the rest of the computer.
 
 `ctest --test-dir build-desktop -C Release` runs every app headless, checks that an exported game draws
 exactly what rinc does, runs home, the console and the editor (typing at them), checks `pc.rio`, and runs the examples

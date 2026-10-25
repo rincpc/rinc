@@ -33,8 +33,10 @@ with what's active (another app can pick one for it), else the file it had last,
 | Esc | let go of the selection, or close the bar at the bottom |
 
 With a mouse, a click puts the cursor there and dragging selects (past the top or bottom, scrolling),
-and the wheel scrolls. In the list of apps that Ctrl+O shows, a click opens one, and a click outside
-the list closes it. A controller's left stick moves the pointer, A clicks, and the right stick scrolls.
+and the wheel scrolls (sideways too, tilted, or on a trackpad, as far as the longest line in view). In
+the list of apps that Ctrl+O shows, a click opens one, and a click outside the list closes it. A
+controller's left stick moves the pointer, A clicks, and the right stick scrolls, up and down or
+sideways.
 
 ## Writing Rio
 

@@ -232,6 +232,16 @@ pointer :: proc()
   if mode == NONE and s != 0
     top = max(0, min(top - 3 * s, lineCount - 1))
   end
+  # sideways (a wheel that tilts, a trackpad, a controller's right stick): as far as the longest line
+  # shown goes
+  across := pc.scroll(0)
+  if mode == NONE and across != 0
+    widest := 0
+    for l in top..<min(lineCount, top + ROWS)
+      widest = max(widest, lineEnd(l) - lineAt[l])
+    end
+    left = max(0, min(left + 4 * across, widest - COLS / 2))
+  end
 end
 
 update* :: proc()
