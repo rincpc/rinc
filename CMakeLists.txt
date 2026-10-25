@@ -206,6 +206,13 @@ else()
   add_test(NAME app_help_setup COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/tests/apphelp ${apphelp}/apps)
   add_test(NAME app_help_own COMMAND rinc -data ${apphelp} -app demo -frames 1)
   set_tests_properties(app_help_own PROPERTIES DEPENDS app_help_setup PASS_REGULAR_EXPRESSION "found # Intro")
+  # an error in a file an app included names that file, not the app's own
+  set(parterror ${CMAKE_CURRENT_BINARY_DIR}/parterror-data)
+  add_test(NAME part_error_setup COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/tests/parterror ${parterror}/apps)
+  add_test(NAME part_error_compile COMMAND rinc -data ${parterror} -app broken -frames 1)
+  add_test(NAME part_error_runtime COMMAND rinc -data ${parterror} -app faulty -frames 1)
+  set_tests_properties(part_error_compile PROPERTIES DEPENDS part_error_setup PASS_REGULAR_EXPRESSION "broken/parts/a.rio:2:8: expected expression")
+  set_tests_properties(part_error_runtime PROPERTIES DEPENDS part_error_setup PASS_REGULAR_EXPRESSION "faulty/parts/a.rio:3: runtime error: index out of bounds")
   # which app home is: the home setting's (homer, which goes home on its third frame, so starts again),
   # and rinc app/ for the session, a folder's app run from its files
   set(homedata ${CMAKE_CURRENT_BINARY_DIR}/home-data)

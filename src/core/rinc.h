@@ -68,6 +68,7 @@ int rinc_hostProcs(rio_Vm *vm);
    path in storage (or, host, path in rinc_hostFolder), as its other files are; or (rinc_compile) a
    source in memory, outside the app space, as a bundle's is. 0, or -1 (rio_error says why) */
 int rinc_compileFile(rio_Vm *vm, void *space, uint32_t size, const char *path, int host);
+const char *rinc_errorPart(rio_Vm *vm); /* the file an error's in, if not the app's own (else 0) */
 int rinc_compile(rio_Vm *vm, void *space, uint32_t size, const char *src, uint32_t len);
 int rinc_atLimit(const char *error); /* is this compile error about running out of something? */
 /* the system key (docs/spec/apps.md): the Windows key or a controller's guide button, held (sysDown), or

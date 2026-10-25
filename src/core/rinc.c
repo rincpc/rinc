@@ -1223,6 +1223,16 @@ int rinc_compileFile(rio_Vm *vm, void *space, uint32_t size, const char *path, i
   return rinc_compileSource(vm, 0, 0, path, host);
 }
 
+/* where an app's error is: the file it included or imported, if it was in one (else 0: the app's own) */
+const char *rinc_errorPart(rio_Vm *vm) { return rio_errorInfo(vm).file; }
+/* an app's error, after where it is */
+static void rinc_sayError(rio_Vm *vm, const char *name, int image) {
+  const char *part = image ? 0 : rinc_errorPart(vm);
+  if (part) { rinc_say(part); rinc_say(":"); }
+  else { rinc_say(name); rinc_say(image ? ": " : ".rio:"); }
+  rinc_say(rio_error(vm));
+}
+
 int rinc_atLimit(const char *e) { return strstr(e, "out of") || strstr(e, "too many") || strstr(e, "too complex") || strstr(e, "too deep"); }
 
 static int rinc_systemDown;
@@ -1574,7 +1584,7 @@ static int rinc_appLoad(rio_Vm *vm, void *space, uint32_t size, const char *name
 #endif
   }
   if (res) {
-    rinc_say(name); rinc_say(image ? ": " : ".rio:"); rinc_say(rio_error(vm));
+    rinc_sayError(vm, name, image != 0);
 #ifndef rio_NO_COMPILER
     if (!image && rinc_atLimit(rio_error(vm))) {
       char *text = (char *)space; /* (the app's memory: nothing's in it now) */
@@ -1593,7 +1603,7 @@ static int rinc_appGo(rio_Vm *vm, const char *name) {
   int fn;
   if (rinc_native && rinc_native(vm) < 0) { rinc_appFail(name, ": can't set up native code"); return -1; }
   if (rio_run(vm) || ((fn = rio_findProc(vm, "main")) >= 0 && rio_call(vm, fn))) {
-    rinc_say(name); rinc_say(".rio:"); rinc_say(rio_error(vm)); rinc_back();
+    rinc_sayError(vm, name, 0); rinc_back();
     return -1;
   }
   if (rio_findProc(vm, "update") >= 0 || rio_findProc(vm, "draw") >= 0) { rinc_game = 1; rinc_showLog = 0; }

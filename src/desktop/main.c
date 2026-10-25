@@ -97,7 +97,7 @@ static int rinc_compileApp(const char *app) {
   rio_trackUsage(&rinc_vm, &rinc_usage);
   if (!rinc_compileFile(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, file, 1)) return 0;
   fflush(stdout);
-  fprintf(stderr, "%s:%s\n", app, rio_error(&rinc_vm));
+  fprintf(stderr, "%s:%s\n", rinc_errorPart(&rinc_vm) ? rinc_errorPart(&rinc_vm) : app, rio_error(&rinc_vm));
   if (rinc_atLimit(rio_error(&rinc_vm))) { rio_usageText(&rinc_usage, text, sizeof text); fputs(text, stderr); }
   return -1;
 }

@@ -1,0 +1,5 @@
+# an error in a part (parts/a.rio) names the part
+include "parts/a.rio"
+
+draw* :: proc()
+end
