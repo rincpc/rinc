@@ -38,7 +38,7 @@ end
 isKeyword :: proc(w: String) -> Bool
   n := w.len()
   for p in 1..<KEYWORDS.len() - n
-    if KEYWORDS[p - 1] == ' ' and KEYWORDS[p + n] == ' ' and KEYWORDS[p:p + n] == w
+    if KEYWORDS[p - 1] == ' ' and KEYWORDS[p + n] == ' ' and KEYWORDS[p..<p + n] == w
       return true
     end
   end
@@ -70,7 +70,7 @@ printCode :: proc(t: String, x: Int, y: Int)
       for j < t.len() and isWordChar(t[j])
         j += 1
       end
-      w := t[i:j]
+      w := t[i..<j]
       if c >= '0' and c <= '9'
         color = numberColor
       case isKeyword(w)
@@ -83,7 +83,7 @@ printCode :: proc(t: String, x: Int, y: Int)
         color = codeColor
       end
     end
-    pc.print(t[i:j], x + i * 6, y, color)
+    pc.print(t[i..<j], x + i * 6, y, color)
     i = j
   end
 end
@@ -119,14 +119,14 @@ say :: proc(text: String, color: Int)
   for i in 0..=text.len()
     if i == text.len() or text[i] == 10
       if i < text.len() or start < i or text.len() == 0
-        line := text[start:i]
+        line := text[start..<i]
         log(line)
         at := 0
         for at + COLS < line.len()
-          addRow(line[at:at + COLS], color)
+          addRow(line[at..<at + COLS], color)
           at += COLS
         end
-        addRow(line[at:], color)
+        addRow(line[at..], color)
       end
       start = i + 1
     end
@@ -197,24 +197,24 @@ draw* :: proc()
     end
   end
   at := shown.len() + cur                # the cursor, in what's shown
-  shown.pushAll(line[:].asString())
+  shown.pushAll(line[].asString())
   inputRows := shown.len() / COLS + 1
   first := max(rowCount + inputRows - ROWS, 0)
   y := 0
   for i in first..<rowCount
     if rows[i].color == CODE_ROW
-      printCode(rows[i].text[:].asString(), 0, y * 9)
+      printCode(rows[i].text[].asString(), 0, y * 9)
     else
-      pc.print(rows[i].text[:].asString(), 0, y * 9, rows[i].color)
+      pc.print(rows[i].text[].asString(), 0, y * 9, rows[i].color)
     end
     y += 1
   end
   for k in 0..<inputRows
     a := k * COLS
     if mode == .typing
-      printCode(shown[a:min(a + COLS, shown.len())].asString(), 0, (y + k) * 9)
+      printCode(shown[a..<min(a + COLS, shown.len())].asString(), 0, (y + k) * 9)
     else
-      pc.print(shown[a:min(a + COLS, shown.len())].asString(), 0, (y + k) * 9, textColor)
+      pc.print(shown[a..<min(a + COLS, shown.len())].asString(), 0, (y + k) * 9, textColor)
     end
   end
   if (pc.time() * 2.0).toInt() % 2 == 0

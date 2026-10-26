@@ -75,7 +75,7 @@ drawList :: proc()
     end
     swatch(t, 5, y)
     name := titleName(t)
-    pc.print(name[0:min(name.len(), 17)], 27, y, ink(R_TEXT))
+    pc.print(name[0..<min(name.len(), 17)], 27, y, ink(R_TEXT))
     if isCopy(t) # (a locked theme's copy, until it's renamed)
       pc.print("+", 27 + min(name.len(), 17) * 6, y, ink(R_ACCENT))
     end
@@ -101,7 +101,7 @@ drawEdit :: proc()
     pc.print(roleNames[r], 24, y, ink(R_TEXT))
     n: Blob[..4]
     fine = n.print(c)
-    pc.print(n[0:n.len()].asString(), PREVIEW_X - 10 - n.len() * 6, y, ink(R_DIM))
+    pc.print(n[0..<n.len()].asString(), PREVIEW_X - 10 - n.len() * 6, y, ink(R_DIM))
   end
   preview(t, PREVIEW_X, 14)
 end
@@ -124,12 +124,12 @@ draw* :: proc()
   if prompting > 0
     label := promptLabels[prompting - 1]
     pc.print(label, 3, 219, ink(R_ACCENT))
-    pc.print(input[0:input.len()].asString(), 3 + label.len() * 6, 219, ink(R_TEXT))
+    pc.print(input[0..<input.len()].asString(), 3 + label.len() * 6, 219, ink(R_TEXT))
     pc.rect(3 + (label.len() + input.len()) * 6, 218, 1, 9, ink(R_ACCENT))
     pc.print("Enter: done  Esc: no", 3, 230, ink(R_FAINT))
   else
     if message.len() > 0
-      pc.print(message[0:message.len()].asString(), 3, 219, messageColor)
+      pc.print(message[0..<message.len()].asString(), 3, 219, messageColor)
     end
     if screen == EDIT
       pc.print("Enter pick  Left/Right step  Esc back", 3, 230, ink(R_FAINT))

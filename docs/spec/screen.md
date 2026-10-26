@@ -40,7 +40,7 @@ pic[4] = 8
 pic[5] = 0
 pic[6] = 9
 pic[7] = 10
-pc.blit(pic[:].asString(), 0, 0, 2, 2, 10, 10, 2)
+pc.blit(pic[].asString(), 0, 0, 2, 2, 10, 10, 2)
 log(pc.pget(10, 10), pc.pget(11, 11), pc.pget(12, 10), pc.pget(13, 13), pc.pget(14, 14))
 ```
 

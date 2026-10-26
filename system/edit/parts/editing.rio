@@ -84,7 +84,7 @@ typeChar :: proc(c: Int)
   if cursor != anchor
     kind = 0
   end
-  ok := edit(selStart(), selEnd(), one[0:1].asString(), kind)
+  ok := edit(selStart(), selEnd(), one[0..<1].asString(), kind)
 end
 
 # does line l's text, after its indent, start with word w (then a space or its end)?
@@ -137,7 +137,7 @@ enter :: proc()
     built.push(32)
   end
   merging = 0
-  ok := edit(selStart(), selEnd(), built[0:built.len()].asString(), 0)
+  ok := edit(selStart(), selEnd(), built[0..<built.len()].asString(), 0)
 end
 
 # having typed the end of `end`, `else` or `case` alone on its line, a step back out of the block
@@ -235,14 +235,14 @@ indentLines :: proc(dir: Int)
       say("Too much to indent at once", errorColor)
       return
     end
-    built.pushAll(text[p:e])
+    built.pushAll(text[p..<e])
     if l < last
       built.push(10)
     end
   end
   delta := built.len() - (b - a)
   merging = 0
-  ok := edit(a, b, built[0:built.len()].asString(), 0)
+  ok := edit(a, b, built[0..<built.len()].asString(), 0)
   if had or first != last
     anchor = a
     cursor = a + built.len()
@@ -291,19 +291,19 @@ moveLines :: proc(dir: Int)
   n := anchor
   built.clear()
   if dir < 0
-    built.pushAll(text[a:b])
+    built.pushAll(text[a..<b])
     built.push(10)
-    built.pushAll(text[oa:oe])
+    built.pushAll(text[oa..<oe])
     merging = 0
-    ok := edit(oa, b, built[0:built.len()].asString(), 0)
+    ok := edit(oa, b, built[0..<built.len()].asString(), 0)
     cursor = c - (oe - oa) - 1
     anchor = n - (oe - oa) - 1
   else
-    built.pushAll(text[oa:oe])
+    built.pushAll(text[oa..<oe])
     built.push(10)
-    built.pushAll(text[a:b])
+    built.pushAll(text[a..<b])
     merging = 0
-    ok := edit(a, oe, built[0:built.len()].asString(), 0)
+    ok := edit(a, oe, built[0..<built.len()].asString(), 0)
     cursor = c + (oe - oa) + 1
     anchor = n + (oe - oa) + 1
   end
@@ -348,7 +348,7 @@ copy :: proc(cut: Bool)
     return
   end
   clip.clear()
-  clip.pushAll(text[a:b])
+  clip.pushAll(text[a..<b])
   if clipIsLine and (b == a or text[b - 1] != 10)
     clip.push(10)
   end
@@ -363,10 +363,10 @@ paste :: proc()
   if clipIsLine and cursor == anchor # (a whole line: above this one)
     c := cursor
     l := lineOf(cursor)
-    ok := edit(lineAt[l], lineAt[l], clip[0:clip.len()].asString(), 0)
+    ok := edit(lineAt[l], lineAt[l], clip[0..<clip.len()].asString(), 0)
     cursor = c + clip.len()
     anchor = cursor
     return
   end
-  ok := edit(selStart(), selEnd(), clip[0:clip.len()].asString(), 0)
+  ok := edit(selStart(), selEnd(), clip[0..<clip.len()].asString(), 0)
 end

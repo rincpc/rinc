@@ -22,7 +22,7 @@ remember :: proc()
   fine = state.push(screen)
   fine = state.push(pick)
   fine = state.push(role)
-  ok := pc.stashWrite("view", state[0:state.len()].asString())
+  ok := pc.stashWrite("view", state[0..<state.len()].asString())
   if editing >= 0
     ok = pc.stashWrite("edit", nameOf(editing))
   end
@@ -58,7 +58,7 @@ edit :: proc(t: Int)
   if place[t] == APPS # (locked: its copy, made the first time)
     probe: Blob[..80]
     fine = probe.print(nameOf(t), "+")
-    c := find(probe[0:probe.len()].asString())
+    c := find(probe[0..<probe.len()].asString())
     if c < 0
       c = make(t, ownerOf(t), idOf(t), true, false)
     end
@@ -80,7 +80,7 @@ pickColor :: proc()
   remember()
   args: Blob[..16]
   fine = args.print("pick ", colors[editing * ROLES + role])
-  pc.call("colors", args[0:args.len()].asString())
+  pc.call("colors", args[0..<args.len()].asString())
 end
 
 nameOk :: proc(s: String) -> Bool
@@ -97,7 +97,7 @@ end
 
 # a name typed: what it was for
 answered :: proc()
-  id := input[0:input.len()].asString()
+  id := input[0..<input.len()].asString()
   if not nameOk(id)
     say("A name is up to 20 letters, digits, _ and -", ink(R_ERROR))
     return
@@ -125,9 +125,9 @@ answered :: proc()
     end
     made: Blob[..80]
     fine = made.pushAll(nameOf(n))
-    gone := pc.fileDelete(old[0:old.len()].asString())
+    gone := pc.fileDelete(old[0..<old.len()].asString())
     findAll()
-    pick = max(0, find(made[0:made.len()].asString()))
+    pick = max(0, find(made[0..<made.len()].asString()))
     if wasCurrent
       use(pick)
     end

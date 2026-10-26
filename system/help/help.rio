@@ -73,22 +73,22 @@ include "parts/screen.rio"
 
 # where it was asked to open (pc.help), else the contents
 topic: Blob[96]
-topicLen := min(pc.helpTopic(topic[0:96]), 96)
+topicLen := min(pc.helpTopic(topic[0..<96]), 96)
 hash := topicLen
 for k in 0..<topicLen
   if topic[k] == 35 and hash == topicLen
     hash = k
   end
 end
-if topicLen > 0 and open(topic[0:hash], topic[min(hash + 1, topicLen):topicLen])
+if topicLen > 0 and open(topic[0..<hash], topic[min(hash + 1, topicLen)..<topicLen])
   histLen = 0 # (opened at a topic: a fresh history, from there)
 else
   if not restorePlace()
-    ok := open(doc[0:0], doc[0:0])
+    ok := open(doc[0..<0], doc[0..<0])
   end
 end
 if histLen == 0
-  ok := histName[0].pushAll(doc[0:doc.len()]) # (where it's been: here)
+  ok := histName[0].pushAll(doc[0..<doc.len()]) # (where it's been: here)
   histLen = 1
   histAt = 0
 end

@@ -75,7 +75,7 @@ include "parts/screen.rio"
 # that's where it was, where it was, else a new file
 place: [3]Int # (the path's length, the cursor, the line at the top)
 lastBuf: Blob[128]
-lastLen := min(pc.saveRead("last", lastBuf[0:128]), 128)
+lastLen := min(pc.saveRead("last", lastBuf[0..<128]), 128)
 part := 0
 for i in 0..<max(lastLen, 0)
   c := lastBuf[i]
@@ -87,23 +87,23 @@ for i in 0..<max(lastLen, 0)
     place[part] = place[part] * 10 + c - 48
   end
 end
-lastPath := lastBuf[0:place[0]].asString()
+lastPath := lastBuf[0..<place[0]].asString()
 calling: Blob[8]
-callingLen := pc.stashRead("calling", calling[:])
+callingLen := pc.stashRead("calling", calling[])
 picked: Blob[128]
-pickedLen := pc.result(picked[:])
+pickedLen := pc.result(picked[])
 activeBuf: Blob[34]
-activeLen := min(pc.settingRead("active", activeBuf[0:34]), 34)
+activeLen := min(pc.settingRead("active", activeBuf[0..<34]), 34)
 if callingLen > 0
   ok := pc.stashDelete("calling")
   draftPath: Blob[96]
-  n := min(pc.stashRead("draftPath", draftPath[:]), 96)
+  n := min(pc.stashRead("draftPath", draftPath[]), 96)
   if n > 0
-    setPath(draftPath[0:n].asString())
+    setPath(draftPath[0..<n].asString())
   end
-  m := min(pc.stashRead("draft", text[0:CAP]), CAP)
+  m := min(pc.stashRead("draft", text[0..<CAP]), CAP)
   settle(max(m, 0))
-  disk := pc.fileRead(here(), one[0:0])
+  disk := pc.fileRead(here(), one[0..<0])
   savedTop = recTop
   if path.len() == 0 or disk != textLen # (changed from what's saved: shown as changed)
     savedTop = -1
@@ -111,15 +111,15 @@ if callingLen > 0
   cursor = min(place[1], textLen)
   anchor = cursor
   top = max(0, min(place[2], lineCount - 1))
-  if pickedLen > 0 and calling[0:callingLen].asString() == "save"
-    setPath(picked[0:min(pickedLen, 96)].asString())
+  if pickedLen > 0 and calling[0..<callingLen].asString() == "save"
+    setPath(picked[0..<min(pickedLen, 96)].asString())
     saved := save()
   case pickedLen > 0
-    loaded := load(picked[0:min(pickedLen, 128)].asString())
+    loaded := load(picked[0..<min(pickedLen, 128)].asString())
   end
   reveal()
-case activeLen > 0 and appOf(lastPath) != activeBuf[0:activeLen].asString() # (another app, made active)
-  if not load(mainPath(activeBuf[0:activeLen].asString()))
+case activeLen > 0 and appOf(lastPath) != activeBuf[0..<activeLen].asString() # (another app, made active)
+  if not load(mainPath(activeBuf[0..<activeLen].asString()))
     fresh()
   end
 case place[0] > 0 and load(lastPath)

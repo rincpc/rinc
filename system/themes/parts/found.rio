@@ -14,7 +14,7 @@ count := 0
 current := -1         # the one the theme setting names
 
 nameOf :: proc(t: Int) -> String
-  return names[nameAt[t]:nameAt[t] + nameLen[t]].asString()
+  return names[nameAt[t]..<nameAt[t] + nameLen[t]].asString()
 end
 # its owner and its id, either side of the slash (a copy's + left on the id)
 slashOf :: proc(n: String) -> Int
@@ -27,11 +27,11 @@ slashOf :: proc(n: String) -> Int
 end
 ownerOf :: proc(t: Int) -> String
   n := nameOf(t)
-  return n[0:slashOf(n)]
+  return n[0..<slashOf(n)]
 end
 idOf :: proc(t: Int) -> String
   n := nameOf(t)
-  return n[slashOf(n) + 1:n.len()]
+  return n[slashOf(n) + 1..<n.len()]
 end
 isCopy :: proc(t: Int) -> Bool # (a locked theme's copy: its name ends with +)
   return nameLen[t] > 0 and names[nameAt[t] + nameLen[t] - 1] == 43
@@ -44,7 +44,7 @@ titleName :: proc(t: Int) -> String
       n = k
     end
   end
-  return titles[titleAt[t]:titleAt[t] + n].asString()
+  return titles[titleAt[t]..<titleAt[t] + n].asString()
 end
 color :: proc(t: Int, role: Int) -> Int
   if t < 0
@@ -61,13 +61,13 @@ pathOf :: proc(t: Int) -> String
   slash := slashOf(n)
   pathBuf.clear()
   if place[t] == OWN # (a copy, slate+, is slate's file in the save space)
-    fine = pathBuf.print("/rinc/save/", n[0:slash], "/themes/", n[slash + 1:n.len() - isCopy(t).toInt()], ".theme.rio")
+    fine = pathBuf.print("/rinc/save/", n[0..<slash], "/themes/", n[slash + 1..<n.len() - isCopy(t).toInt()], ".theme.rio")
   case place[t] == PROJECTS
-    fine = pathBuf.print("/rinc/projects/", n[0:slash - 1], "/themes/", n[slash + 1:n.len()], ".theme.rio")
+    fine = pathBuf.print("/rinc/projects/", n[0..<slash - 1], "/themes/", n[slash + 1..<n.len()], ".theme.rio")
   else
-    fine = pathBuf.print("/rinc/apps/", n[0:slash], "/themes/", n[slash + 1:n.len()], ".theme.rio")
+    fine = pathBuf.print("/rinc/apps/", n[0..<slash], "/themes/", n[slash + 1..<n.len()], ".theme.rio")
   end
-  return pathBuf[0:pathBuf.len()].asString()
+  return pathBuf[0..<pathBuf.len()].asString()
 end
 
 # one theme's text read into its colors and title: lines of name :: number (a star after the name, or
@@ -126,7 +126,7 @@ parse :: proc(t: Int, n: Int)
         digits += 1
         i += 1
       end
-      word := fileBuf[a:b].asString()
+      word := fileBuf[a..<b].asString()
       for r in 0..<ROLES
         if digits > 0 and v < 256 and word == roleNames[r]
           colors[t * ROLES + r] = v
@@ -147,7 +147,7 @@ add :: proc(owner: String, id: String, where: Int, path: String, plus: Bool)
   if count >= MOST or namesUsed + owner.len() + id.len() + 3 > 2048
     return
   end
-  n := pc.fileRead(path, fileBuf[:])
+  n := pc.fileRead(path, fileBuf[])
   if n < 0
     return
   end
@@ -197,20 +197,20 @@ idBuf: Blob[..40]
 scanThemes :: proc(folder: String, owner: String, where: Int)
   pathBuf.clear()
   fine = pathBuf.print(folder, "/themes")
-  n := pc.dir(pathBuf[0:pathBuf.len()].asString(), sub[:])
+  n := pc.dir(pathBuf[0..<pathBuf.len()].asString(), sub[])
   at := 0
   for i in 0..<sub.len()
     if n > 0 and sub[i] == 10
-      e := sub[at + 2:i].asString() # (its name, after "f ")
-      if sub[at] == 102 and e.len() > 10 and e[e.len() - 10:e.len()] == ".theme.rio"
+      e := sub[at + 2..<i].asString() # (its name, after "f ")
+      if sub[at] == 102 and e.len() > 10 and e[e.len() - 10..<e.len()] == ".theme.rio"
         idBuf.clear()
-        fine = idBuf.pushAll(e[0:e.len() - 10])
+        fine = idBuf.pushAll(e[0..<e.len() - 10])
         file: Blob[..112]
         fine = file.print(folder, "/themes/", e)
         probe: Blob[..80] # (in a save space, a locked theme's name: its copy)
-        fine = probe.print(owner, "/", idBuf[0:idBuf.len()].asString())
-        plus := where == OWN and find(probe[0:probe.len()].asString()) >= 0
-        add(owner, idBuf[0:idBuf.len()].asString(), where, file[0:file.len()].asString(), plus)
+        fine = probe.print(owner, "/", idBuf[0..<idBuf.len()].asString())
+        plus := where == OWN and find(probe[0..<probe.len()].asString()) >= 0
+        add(owner, idBuf[0..<idBuf.len()].asString(), where, file[0..<file.len()].asString(), plus)
       end
       n -= 1
       at = i + 1
@@ -223,12 +223,12 @@ top: Blob[4096]
 ownerBuf: Blob[..40]
 folderBuf: Blob[..80]
 scanAll :: proc(root: String, where: Int)
-  n := pc.dir(root, top[:])
+  n := pc.dir(root, top[])
   at := 0
   for i in 0..<top.len()
     if n > 0 and top[i] == 10
       if top[at] == 100
-        e := top[at + 2:i].asString()
+        e := top[at + 2..<i].asString()
         ownerBuf.clear()
         fine = ownerBuf.pushAll(e)
         if where == PROJECTS
@@ -236,7 +236,7 @@ scanAll :: proc(root: String, where: Int)
         end
         folderBuf.clear()
         fine = folderBuf.print(root, "/", e)
-        scanThemes(folderBuf[0:folderBuf.len()].asString(), ownerBuf[0:ownerBuf.len()].asString(), where)
+        scanThemes(folderBuf[0..<folderBuf.len()].asString(), ownerBuf[0..<ownerBuf.len()].asString(), where)
       end
       n -= 1
       at = i + 1
@@ -253,13 +253,13 @@ findAll :: proc()
   scanAll("/rinc/projects", PROJECTS)
   scanAll("/rinc/save", OWN)
   current = -1
-  n := pc.settingRead("theme", setting[:])
+  n := pc.settingRead("theme", setting[])
   for n > 0 and (setting[n - 1] == 10 or setting[n - 1] == 13 or setting[n - 1] == 32)
     n -= 1
   end
   want := "rinc/rinc" # (no setting: Rinc's own colors)
   if n > 0 and n <= 80
-    want = setting[0:n].asString()
+    want = setting[0..<n].asString()
   end
   for t in 0..<count
     if nameOf(t) == want

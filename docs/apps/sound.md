@@ -8,7 +8,7 @@ wave: Blob[2048]
 for i in 0..<wave.len()
   wave[i] = (i / 16 % 2) * 60 - 30 # a square wave: 8-bit signed samples
 end
-pc.sound(0, wave[:], 8, 1, 22050)  # voice 0: 8 bits, 1 channel, 22050 samples a second
+pc.sound(0, wave[], 8, 1, 22050)  # voice 0: 8 bits, 1 channel, 22050 samples a second
 log(pc.soundPlaying(0))
 ```
 

@@ -22,13 +22,13 @@ expression logs its value:
 mem: Blob[65536]
 tables: Blob[40960]
 out: Blob[256]
-log(pc.rioStart(mem[:], tables[:]))
+log(pc.rioStart(mem[], tables[]))
 r := pc.rioEval("x := 6 * 7\nx + 1\n")
-n := pc.rioLog(out[:])
-log(r, out[:n].asString())
+n := pc.rioLog(out[])
+log(r, out[..<n].asString())
 log(pc.rioEval("y := nope\n"))
-n = pc.rioError(out[:])
-log(out[:n].asString())
+n = pc.rioError(out[])
+log(out[..<n].asString())
 ```
 
 ```output

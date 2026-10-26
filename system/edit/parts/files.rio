@@ -5,11 +5,11 @@
 last: Blob[..128] # the file it had last, and where: "path cursor top" (its save file "last")
 
 here :: proc() -> String
-  return path[0:path.len()].asString()
+  return path[0..<path.len()].asString()
 end
 
 startsWith :: proc(s: String, start: String) -> Bool
-  return s.len() >= start.len() and s[0:start.len()] == start
+  return s.len() >= start.len() and s[0..<start.len()] == start
 end
 
 # the app (chord) or project (chord+) a path is in, else ""
@@ -26,13 +26,13 @@ appOf :: proc(p: String) -> String
       for e < p.len() and p[e] != 47
         e += 1
       end
-      ok := appIn.pushAll(p[start.len():e])
+      ok := appIn.pushAll(p[start.len()..<e])
       if k == 1
         ok = appIn.push(43)
       end
     end
   end
-  return appIn[0:appIn.len()].asString()
+  return appIn[0..<appIn.len()].asString()
 end
 
 # read only: an installed app's files (saving makes its project), and anything outside /rinc
@@ -45,9 +45,9 @@ end
 # the active one, the whole Rinc's setting
 remember :: proc()
   last.clear()
-  ok := last.pushAll(path[0:path.len()])
+  ok := last.pushAll(path[0..<path.len()])
   last.print(" ", cursor, " ", top)
-  saved := pc.saveWrite("last", last[0:last.len()].asString())
+  saved := pc.saveWrite("last", last[0..<last.len()].asString())
   a := appOf(here())
   if a.len() > 0
     saved = pc.settingWrite("active", a)
@@ -69,7 +69,7 @@ end
 
 setPath :: proc(p: String)
   path.clear()
-  ok := path.pushAll(p[0:min(p.len(), 96)])
+  ok := path.pushAll(p[0..<min(p.len(), 96)])
 end
 
 # an app's or project's main file: /rinc/apps/chord/chord.rio, /rinc/projects/chord/chord.rio
@@ -79,7 +79,7 @@ mainPath :: proc(ref: String) -> String
   n := ref
   ok := mainBuf.pushAll("/rinc/apps/")
   if ref.len() > 1 and ref[ref.len() - 1] == 43
-    n = ref[0:ref.len() - 1]
+    n = ref[0..<ref.len() - 1]
     mainBuf.clear()
     ok = mainBuf.pushAll("/rinc/projects/")
   end
@@ -87,7 +87,7 @@ mainPath :: proc(ref: String) -> String
   ok = mainBuf.push(47)
   ok = mainBuf.pushAll(n)
   ok = mainBuf.pushAll(".rio")
-  return mainBuf[0:mainBuf.len()].asString()
+  return mainBuf[0..<mainBuf.len()].asString()
 end
 
 # what's in text, its lines ending with 10 alone (13s taken out)
@@ -105,11 +105,11 @@ end
 
 # the file at p: false if it can't be had (a new one, if it isn't there yet and it could be saved)
 load :: proc(p: String) -> Bool
-  n := pc.fileRead(p, one[0:0])
+  n := pc.fileRead(p, one[0..<0])
   a := appOf(p)
   bundled := false
   if n < 0 and a.len() > 0 and a[a.len() - 1] != 42 and p == mainPath(a) # (an app the Rinc has built in)
-    n = pc.appSource(a, one[0:0])
+    n = pc.appSource(a, one[0..<0])
     bundled = n >= 0
   end
   if n > CAP
@@ -127,9 +127,9 @@ load :: proc(p: String) -> Bool
     sayName("New: ", "", softColor)
   else
     if bundled
-      n = pc.appSource(a, text[0:CAP])
+      n = pc.appSource(a, text[0..<CAP])
     else
-      n = pc.fileRead(p, text[0:CAP])
+      n = pc.fileRead(p, text[0..<CAP])
     end
     settle(min(n, CAP))
     if not readOnly()
@@ -149,8 +149,8 @@ inProject: Blob[..96]
 projectPath :: proc(p: String) -> String
   inProject.clear()
   ok := inProject.pushAll("/rinc/projects/")
-  ok = inProject.pushAll(p[11:p.len()])
-  return inProject[0:inProject.len()].asString()
+  ok = inProject.pushAll(p[11..<p.len()])
+  return inProject[0..<inProject.len()].asString()
 end
 
 # Files, called to pick a file to open, or a place to save as: what it has kept in its stash meanwhile
@@ -158,11 +158,11 @@ end
 argsBuf: Blob[..128]
 leaving := false
 callFiles :: proc(how: String)
-  if pc.appSource("files", one[0:0]) < 0
+  if pc.appSource("files", one[0..<0]) < 0
     say("There's no Files app here", errorColor)
     return
   end
-  ok := pc.stashWrite("draft", text[0:textLen].asString())
+  ok := pc.stashWrite("draft", text[0..<textLen].asString())
   ok = pc.stashWrite("draftPath", here())
   ok = pc.stashWrite("calling", how)
   remember()
@@ -173,10 +173,10 @@ callFiles :: proc(how: String)
   p := here()
   if p.len() == 0
     a: Blob[34]
-    n := min(pc.settingRead("active", a[:]), 34)
+    n := min(pc.settingRead("active", a[]), 34)
     p = "/rinc/projects"
     if n > 0
-      p = mainPath(a[0:n].asString())
+      p = mainPath(a[0..<n].asString())
     end
   end
   slash := p.len() - 1
@@ -186,8 +186,8 @@ callFiles :: proc(how: String)
   if startsWith(p, "/rinc/projects") and slash < 14
     slash = p.len()
   end
-  pushed = argsBuf.pushAll(p[0:max(slash, 1)])
-  pc.call("files", argsBuf[0:argsBuf.len()].asString())
+  pushed = argsBuf.pushAll(p[0..<max(slash, 1)])
+  pc.call("files", argsBuf[0..<argsBuf.len()].asString())
 end
 
 saveAs :: proc()
@@ -199,7 +199,7 @@ naming := false   # (a new file: a project's name asked for, to save it as that 
 runAfter := false # (and then run it)
 save :: proc() -> Bool
   if path.len() == 0
-    if pc.appSource("files", one[0:0]) >= 0
+    if pc.appSource("files", one[0..<0]) >= 0
       saveAs()
     else
       naming = true
@@ -216,13 +216,13 @@ save :: proc() -> Bool
     refBuf.clear()
     ok := refBuf.pushAll(a)
     ok = refBuf.push(43)
-    if pc.appSource(refBuf[0:refBuf.len()].asString(), one[0:0]) < 0 and pc.appCopy(a, refBuf[0:refBuf.len()].asString()) != 0
+    if pc.appSource(refBuf[0..<refBuf.len()].asString(), one[0..<0]) < 0 and pc.appCopy(a, refBuf[0..<refBuf.len()].asString()) != 0
       say("Couldn't make its project", errorColor)
       return false
     end
     setPath(projectPath(here()))
   end
-  if pc.fileWrite(here(), text[0:textLen].asString()) < 0
+  if pc.fileWrite(here(), text[0..<textLen].asString()) < 0
     sayName("Couldn't save ", "", errorColor)
     return false
   end
@@ -251,5 +251,5 @@ run :: proc()
   end
   refBuf.clear()
   ok := refBuf.pushAll(appOf(here()))
-  pc.launch(refBuf[0:refBuf.len()].asString())
+  pc.launch(refBuf[0..<refBuf.len()].asString())
 end

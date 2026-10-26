@@ -86,7 +86,7 @@ update* :: proc()
     case c == 130 | 1024
       up()
     case c == 132 | 1024 # Alt+Home: all the contents
-      visit(doc[0:0], doc[0:0])
+      visit(doc[0..<0], doc[0..<0])
     case k == 130
       scroll(-1)
     case k == 131
@@ -110,7 +110,7 @@ update* :: proc()
     case k == 8 or k == 27
       move(-1)
     case k == 15 # Ctrl+O
-      visit(doc[0:0], doc[0:0])
+      visit(doc[0..<0], doc[0..<0])
     end
     c = pc.key()
   end

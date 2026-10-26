@@ -3,22 +3,22 @@
 # ---------------------------------------------------------------- the folder
 
 nameOf :: proc(k: Int) -> String
-  return listing[nameAt[k]:nameAt[k] + nameLen[k]].asString()
+  return listing[nameAt[k]..<nameAt[k] + nameLen[k]].asString()
 end
 
 # a path in this folder
 pathTo :: proc(name: String) -> String
   full.clear()
-  ok := full.pushAll(path[0:path.len()])
+  ok := full.pushAll(path[0..<path.len()])
   if path.len() > 1
     ok = full.push(47)
   end
   ok = full.pushAll(name)
-  return full[0:full.len()].asString()
+  return full[0..<full.len()].asString()
 end
 
 here :: proc() -> String
-  return path[0:path.len()].asString()
+  return path[0..<path.len()].asString()
 end
 
 say :: proc(s: String, color: Int)
@@ -79,7 +79,7 @@ end
 
 # the folder at p, listed: false if it can't be
 open :: proc(p: String) -> Bool
-  n := pc.dir(p, listing[:])
+  n := pc.dir(p, listing[])
   if n < 0
     say("Can't look in ", errorColor)
     ok := message.pushAll(p)
@@ -127,12 +127,12 @@ goUp :: proc()
     slash -= 1
   end
   came.clear()
-  ok := came.pushAll(path[slash + 1:path.len()])
+  ok := came.pushAll(path[slash + 1..<path.len()])
   upTo: Blob[..96]
-  ok = upTo.pushAll(path[0:max(slash, 1)])
-  if open(upTo[0:upTo.len()].asString())
+  ok = upTo.pushAll(path[0..<max(slash, 1)])
+  if open(upTo[0..<upTo.len()].asString())
     for i in 0..<nshown
-      if nameOf(shown[i]) == came[0:came.len()].asString()
+      if nameOf(shown[i]) == came[0..<came.len()].asString()
         pick = i
       end
     end
@@ -166,10 +166,10 @@ appRef :: proc(k: Int) -> String
       if prefix == 1
         start = "/rinc/projects/"
       end
-      if p.len() > start.len() and p[0:start.len()] == start
-        app := p[start.len():p.len()]
+      if p.len() > start.len() and p[0..<start.len()] == start
+        app := p[start.len()..<p.len()]
         n := nameOf(k)
-        if n.len() == app.len() + 4 and n[0:app.len()] == app and n[app.len():n.len()] == ".rio"
+        if n.len() == app.len() + 4 and n[0..<app.len()] == app and n[app.len()..<n.len()] == ".rio"
           ok := refBuf.pushAll(app)
           if prefix == 1
             ok = refBuf.push(43)
@@ -178,7 +178,7 @@ appRef :: proc(k: Int) -> String
       end
     end
   end
-  return refBuf[0:refBuf.len()].asString()
+  return refBuf[0..<refBuf.len()].asString()
 end
 
 isActive :: proc(k: Int) -> Bool
@@ -186,13 +186,13 @@ isActive :: proc(k: Int) -> Bool
     return false
   end
   r := appRef(k)
-  return r.len() > 0 and r == active[0:activeLen].asString()
+  return r.len() > 0 and r == active[0..<activeLen].asString()
 end
 
 # whether an entry can be changed: inside /rinc, but not /rinc's own folders
 canChange :: proc(k: Int) -> Bool
   p := here()
-  return kind[k] != UP and p.len() > 6 and p[0:6] == "/rinc/"
+  return kind[k] != UP and p.len() > 6 and p[0..<6] == "/rinc/"
 end
 
 edit :: proc(ref: String)
@@ -214,7 +214,7 @@ viewTop := 0
 VIEW_ROWS :: 22
 
 showFile :: proc(k: Int)
-  n := pc.fileRead(pathTo(nameOf(k)), view[:])
+  n := pc.fileRead(pathTo(nameOf(k)), view[])
   if n < 0
     say("Can't read it", errorColor)
     return

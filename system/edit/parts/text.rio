@@ -64,10 +64,10 @@ replaceRaw :: proc(a, b: Int, s: String) -> Bool
     return false
   end
   scratch.clear()
-  scratch.pushAll(text[b:textLen])
-  w: Blob[..] = text[a:]
+  scratch.pushAll(text[b..<textLen])
+  w: Blob[..] = text[a..]
   w.pushAll(s)
-  w.pushAll(scratch[0:scratch.len()])
+  w.pushAll(scratch[0..<scratch.len()])
   textLen += s.len() - (b - a)
   rebuildLines()
   return true
@@ -104,7 +104,7 @@ sayName :: proc(s: String, t: String, color: Int)
   for k > 0 and path[k - 1] != 47
     k -= 1
   end
-  for c in path[k:path.len()]
+  for c in path[k..<path.len()]
     if message.len() < 53
       message.push(c)
     end
@@ -135,7 +135,7 @@ savedTop := 0          # recTop when it was saved (-1: that's been forgotten)
 merging := 0           # what the last edit was, to group with: 1 typing, 2 Backspace, 3 Delete
 
 undoPush :: proc(s: String)
-  w: Blob[..] = undoText[undoLen:]
+  w: Blob[..] = undoText[undoLen..]
   w.pushAll(s)
   undoLen += s.len()
 end
@@ -143,9 +143,9 @@ end
 forgetOldest :: proc()
   n := recDel[0] + recIns[0]
   scratch.clear()
-  scratch.pushAll(undoText[n:undoLen])
-  w: Blob[..] = undoText[0:]
-  w.pushAll(scratch[0:scratch.len()])
+  scratch.pushAll(undoText[n..<undoLen])
+  w: Blob[..] = undoText[0..]
+  w.pushAll(scratch[0..<scratch.len()])
   undoLen -= n
   for i in 0..<recCount - 1
     recPos[i] = recPos[i + 1]
@@ -182,7 +182,7 @@ edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
     say("No room: 32 KB at most", errorColor)
     return false
   end
-  if lineCount - newlines(text[a:b].asString()) + newlines(s) > MAX_LINES
+  if lineCount - newlines(text[a..<b].asString()) + newlines(s) > MAX_LINES
     say("Too many lines: 4096 at most", errorColor)
     return false
   end
@@ -194,15 +194,15 @@ edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
     case kind == 2 and s.len() == 0 and recIns[r] == 0 and b == recPos[r] and recDel[r] < 64
       # (deleted bytes come before the ones already deleted: they go in front)
       scratch.clear()
-      scratch.pushAll(undoText[recAt[r]:undoLen])
+      scratch.pushAll(undoText[recAt[r]..<undoLen])
       undoLen = recAt[r]
-      undoPush(text[a:b].asString())
-      undoPush(scratch[0:scratch.len()].asString())
+      undoPush(text[a..<b].asString())
+      undoPush(scratch[0..<scratch.len()].asString())
       recPos[r] = a
       recDel[r] += b - a
       merged = true
     case kind == 3 and s.len() == 0 and recIns[r] == 0 and a == recPos[r]
-      undoPush(text[a:b].asString())
+      undoPush(text[a..<b].asString())
       recDel[r] += b - a
       merged = true
     end
@@ -233,7 +233,7 @@ edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
       recAt[r] = undoLen
       recBefore[r] = cursor
       recAnchor[r] = anchor
-      undoPush(text[a:b].asString())
+      undoPush(text[a..<b].asString())
       undoPush(s)
       recCount += 1
       recTop = recCount
@@ -256,7 +256,7 @@ undo :: proc()
     return
   end
   r := recTop - 1
-  ok := replaceRaw(recPos[r], recPos[r] + recIns[r], undoText[recAt[r]:recAt[r] + recDel[r]].asString())
+  ok := replaceRaw(recPos[r], recPos[r] + recIns[r], undoText[recAt[r]..<recAt[r] + recDel[r]].asString())
   cursor = recBefore[r]
   anchor = recAnchor[r]
   recTop -= 1
@@ -271,7 +271,7 @@ redo :: proc()
   end
   r := recTop
   at := recAt[r] + recDel[r]
-  ok := replaceRaw(recPos[r], recPos[r] + recDel[r], undoText[at:at + recIns[r]].asString())
+  ok := replaceRaw(recPos[r], recPos[r] + recDel[r], undoText[at..<at + recIns[r]].asString())
   cursor = recAfter[r]
   anchor = cursor
   recTop += 1

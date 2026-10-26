@@ -33,7 +33,7 @@ draw* :: proc()
       if s == LINK and pick >= 0 and k >= linkFrom[pick] and k < linkTo[pick]
         color = textColor
       end
-      pc.print(out[k:j].asString(), x + (k - a) * 6, y, color)
+      pc.print(out[k..<j].asString(), x + (k - a) * 6, y, color)
       if s == LINK or s == H1 or s == H2 # (underlined)
         pc.rect(x + (k - a) * 6, y + 8, (j - k) * 6 - 1, 1, color)
       end
@@ -46,18 +46,18 @@ draw* :: proc()
   if doc.len() == 0
     ok := title.pushAll("Help")
   else
-    ok := title.pushAll(doc[0:min(doc.len(), 40)])
+    ok := title.pushAll(doc[0..<min(doc.len(), 40)])
   end
-  pc.print(title[0:title.len()].asString(), 2, 1, textColor)
+  pc.print(title[0..<title.len()].asString(), 2, 1, textColor)
   if rowCount > ROWS
     title.clear()
     ok := title.print(min(100, (top + ROWS) * 100 / rowCount), "%")
-    pc.print(title[0:title.len()].asString(), 318 - title.len() * 6, 1, faintColor)
+    pc.print(title[0..<title.len()].asString(), 318 - title.len() * 6, 1, faintColor)
   end
   # the bottom bar: a message, else the keys
   pc.rect(0, 229, 320, 11, barColor)
   if message.len() > 0
-    pc.print(message[0:message.len()].asString(), 2, 231, headingColor)
+    pc.print(message[0..<message.len()].asString(), 2, 231, headingColor)
   else
     pc.print("Tab link  Enter open  Alt+arrows back fwd up", 2, 231, faintColor)
   end

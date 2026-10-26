@@ -43,7 +43,7 @@ listKey :: proc(c: Int)
       prompting = 2
       input.clear()
       id := idOf(pick)
-      fine = input.pushAll(id[0:id.len() - isCopy(pick).toInt()])
+      fine = input.pushAll(id[0..<id.len() - isCopy(pick).toInt()])
     end
   case DELETE_KEY
     if place[pick] == APPS

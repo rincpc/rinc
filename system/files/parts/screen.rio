@@ -30,7 +30,7 @@ drawList :: proc()
     pc.print("(empty)", 6, TOP + 11 * nshown, dimColor)
   end
   if filter.len() > 0
-    pc.print(filter[0:filter.len()].asString(), 316 - filter.len() * 6, 2, accentColor)
+    pc.print(filter[0..<filter.len()].asString(), 316 - filter.len() * 6, 2, accentColor)
   end
 end
 
@@ -54,7 +54,7 @@ drawView :: proc()
       end
       line[i] = b
     end
-    pc.print(line[0:n].asString(), 1, 14 + row * 9, textColor)
+    pc.print(line[0..<n].asString(), 1, 14 + row * 9, textColor)
   end
 end
 
@@ -76,7 +76,7 @@ drawBottom :: proc()
     if inputFresh # (selected)
       pc.rect(x - 1, 218, input.len() * 6 + 1, 9, selectColor)
     end
-    pc.print(input[0:input.len()].asString(), x, 219, textColor)
+    pc.print(input[0..<input.len()].asString(), x, 219, textColor)
     pc.rect(x + input.len() * 6, 218, 1, 9, accentColor)
     if mode == DELETE
       pc.print("All of it, for good. Enter: delete  Esc: no", 3, 230, errorColor)
@@ -86,7 +86,7 @@ drawBottom :: proc()
     return
   end
   if message.len() > 0
-    pc.print(message[0:message.len()].asString(), 3, 219, messageColor)
+    pc.print(message[0..<message.len()].asString(), 3, 219, messageColor)
   end
   if mode == VIEW
     pc.print("Esc back  Page Up/Down", 3, 230, faintColor)
@@ -95,7 +95,7 @@ drawBottom :: proc()
     end
   case saving
     pc.print("Save as: ", 3, 219, accentColor)
-    pc.print(saveName[0:saveName.len()].asString(), 3 + 9 * 6, 219, textColor)
+    pc.print(saveName[0..<saveName.len()].asString(), 3 + 9 * 6, 219, textColor)
     pc.rect(3 + (9 + saveName.len()) * 6, 218, 1, 9, accentColor)
     pc.print("Type a name, Enter save  Esc no", 3, 230, faintColor)
   case picking
@@ -110,7 +110,7 @@ drawMenu :: proc()
   h := 14 + itemCount * 11
   pc.rect(MENU_X - 2, MENU_Y - 2, 164, h + 4, barColor)
   pc.rect(MENU_X, MENU_Y, 160, h, selectColor)
-  pc.print(nameOf(target)[0:min(nameLen[target], 25)], MENU_X + 4, MENU_Y + 3, accentColor)
+  pc.print(nameOf(target)[0..<min(nameLen[target], 25)], MENU_X + 4, MENU_Y + 3, accentColor)
   for i in 0..<itemCount
     y := MENU_Y + 14 + i * 11
     color := textColor
@@ -121,7 +121,7 @@ drawMenu :: proc()
       pc.rect(MENU_X + 2, y - 1, 156, 10, pickColor)
     end
     letter[0] = KEYS[items[i]]
-    pc.print(letter[:].asString(), MENU_X + 5, y + 1, accentColor)
+    pc.print(letter[].asString(), MENU_X + 5, y + 1, accentColor)
     pc.print(LABELS[items[i]], MENU_X + 16, y + 1, color)
   end
 end
@@ -142,7 +142,7 @@ draw* :: proc()
   end
   room := 52 - title.len() - 1 - filter.len()
   if p.len() > room # (its end, if it's long)
-    p = p[p.len() - room:p.len()]
+    p = p[p.len() - room..<p.len()]
   end
   pc.print(p, 3 + (title.len() + 1) * 6, 2, softColor)
   if mode == VIEW

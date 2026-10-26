@@ -80,24 +80,24 @@ include "parts/screen.rio"
 
 # ---------------------------------------------------------------- starting
 
-activeLen = max(0, min(pc.settingRead("active", active[:]), 34))
+activeLen = max(0, min(pc.settingRead("active", active[]), 34))
 args: Blob[96]
-argsLen := min(pc.args(args[:]), 96)
+argsLen := min(pc.args(args[]), 96)
 start: Blob[..96]
-if argsLen >= 4 and (args[0:4].asString() == "pick" or args[0:4].asString() == "save") # (pick, or pick /a/folder; save, likewise)
+if argsLen >= 4 and (args[0..<4].asString() == "pick" or args[0..<4].asString() == "save") # (pick, or pick /a/folder; save, likewise)
   picking = true
-  saving = args[0:4].asString() == "save"
+  saving = args[0..<4].asString() == "save"
   if argsLen > 5
-    ok := start.pushAll(args[5:argsLen])
+    ok := start.pushAll(args[5..<argsLen])
   end
 end
 if start.len() == 0
-  placeLen := min(pc.stashRead("place", args[:]), 96)
+  placeLen := min(pc.stashRead("place", args[]), 96)
   if placeLen > 0
-    ok := start.pushAll(args[0:placeLen])
+    ok := start.pushAll(args[0..<placeLen])
   end
 end
 made := pc.dirMake("/rinc/projects") # (where projects go: there to be found, even before the first)
-if start.len() == 0 or not open(start[0:start.len()].asString())
+if start.len() == 0 or not open(start[0..<start.len()].asString())
   ok := open("/rinc")
 end

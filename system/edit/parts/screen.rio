@@ -85,7 +85,7 @@ drawLine :: proc(l: Int, y: Int)
     col := p - a - left
     visible := p < e and col >= 0 and col < COLS
     if runStart >= 0 and (not visible or color != runColor)
-      pc.print(text[runStart:p].asString(), TEXT_X + (runStart - a - left) * 6, y, runColor)
+      pc.print(text[runStart..<p].asString(), TEXT_X + (runStart - a - left) * 6, y, runColor)
       runStart = -1
     end
     if visible and runStart < 0
@@ -103,7 +103,7 @@ drawPalette :: proc()
   pc.rect(40, 24, 240, 40 + LIST_ROWS * 10, barColor)
   pc.print("Every command (type to narrow):", 46, 28, accentColor)
   pc.rect(44, 38, 232, 11, backColor)
-  pc.print(input[0:input.len()].asString(), 46, 40, textColor)
+  pc.print(input[0..<input.len()].asString(), 46, 40, textColor)
   pc.rect(46 + input.len() * 6, 39, 1, 9, accentColor)
   from := max(0, pick - LIST_ROWS + 1)
   for row in 0..<min(nlisted - from, LIST_ROWS)
@@ -130,12 +130,12 @@ draw* :: proc()
   pc.rect(0, 0, 320, 10, barColor)
   shown := 0
   if path.len() > 0 # (its path, /rinc/ left off; its end, if it's long)
-    t := path[0:path.len()].asString()
+    t := path[0..<path.len()].asString()
     if startsWith(t, "/rinc/")
-      t = t[6:t.len()]
+      t = t[6..<t.len()]
     end
     if t.len() > 36
-      t = t[t.len() - 36:t.len()]
+      t = t[t.len() - 36..<t.len()]
     end
     color := textColor
     if readOnly()
@@ -152,7 +152,7 @@ draw* :: proc()
   end
   num.clear()
   num.print("Ln ", cl + 1, ", Col ", cursor - lineAt[cl] + 1)
-  pc.print(num[0:num.len()].asString(), 318 - num.len() * 6, 1, softColor)
+  pc.print(num[0..<num.len()].asString(), 318 - num.len() * 6, 1, softColor)
   # the lines
   for row in 0..<ROWS
     l := top + row
@@ -166,7 +166,7 @@ draw* :: proc()
     if l == cl
       numColor = softColor
     end
-    pc.print(num[0:num.len()].asString(), TEXT_X - 6 - num.len() * 6, y, numColor)
+    pc.print(num[0..<num.len()].asString(), TEXT_X - 6 - num.len() * 6, y, numColor)
     drawLine(l, y)
   end
   # the cursor: lit while it moves, else blinking
@@ -186,14 +186,14 @@ draw* :: proc()
       label = "A new project, called: "
     end
     pc.print(label, 2, 231, accentColor)
-    t := input[0:input.len()]
+    t := input[0..<input.len()]
     if mode == FIND
-      t = query[0:query.len()]
+      t = query[0..<query.len()]
     end
     pc.print(t.asString(), 2 + label.len() * 6, 231, textColor)
     pc.rect(2 + (label.len() + t.len()) * 6, 230, 1, 9, accentColor)
   case message.len() > 0 and pc.time() - messageAt < 4.0
-    pc.print(message[0:message.len()].asString(), 2, 231, messageColor)
+    pc.print(message[0..<message.len()].asString(), 2, 231, messageColor)
   else
     pc.print("^O open  ^S save  ^R run  ^Shift+P all", 2, 231, faintColor)
   end

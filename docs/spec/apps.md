@@ -96,9 +96,9 @@ file's name is 1 to 32 letters, digits, `_`, `-` and `.`, not starting with a do
 ```rio
 log(pc.saveWrite("best.txt", "42"))
 out: Blob[16]
-n := pc.saveRead("best.txt", out[:])
-log(n, out[:n].asString(), pc.saveRead("nope.txt", out[:]))
-log(pc.saveDelete("best.txt"), pc.saveRead("best.txt", out[:]))
+n := pc.saveRead("best.txt", out[])
+log(n, out[..<n].asString(), pc.saveRead("nope.txt", out[]))
+log(pc.saveDelete("best.txt"), pc.saveRead("best.txt", out[]))
 ```
 
 ```output
@@ -160,8 +160,8 @@ Each gives 0, or -1, unless it says otherwise:
 ```rio
 log(pc.fileWrite("/rinc/save/demo/notes/a.txt", "hi"), pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"))
 out: Blob[64]
-n := pc.dir("/rinc/save/demo", out[:])
-log(n, out[0:14].asString())
+n := pc.dir("/rinc/save/demo", out[])
+log(n, out[0..<14].asString())
 log(pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"), pc.fileDelete("/rinc/save/demo"))
 ```
 
@@ -189,12 +189,12 @@ pic[0] = 2
 pic[2] = 2
 pic[4] = 8
 pic[7] = 12
-log(pc.pngWrite("/rinc/save/demo2/tiny.png", pic[:].asString(), "sprite 2"))
+log(pc.pngWrite("/rinc/save/demo2/tiny.png", pic[].asString(), "sprite 2"))
 back: Blob[16]
-log(pc.pngRead("/rinc/save/demo2/tiny.png", back[:]), back[0], back[2], back[4], back[5], back[7])
+log(pc.pngRead("/rinc/save/demo2/tiny.png", back[]), back[0], back[2], back[4], back[5], back[7])
 notes: Blob[16]
-n := pc.pngNotes("/rinc/save/demo2/tiny.png", notes[:])
-log(n, notes[0:max(n, 0)].asString())
+n := pc.pngNotes("/rinc/save/demo2/tiny.png", notes[])
+log(n, notes[0..<max(n, 0)].asString())
 log(pc.fileDelete("/rinc/save/demo2"))
 ```
 

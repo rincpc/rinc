@@ -68,18 +68,18 @@ include "parts/state.rio"
 findAll()
 pick = max(0, current)
 view: Blob[4]
-viewLen := pc.stashRead("view", view[:])
+viewLen := pc.stashRead("view", view[])
 editName: Blob[64]
-editLen := pc.stashRead("edit", editName[:])
+editLen := pc.stashRead("edit", editName[])
 picked: Blob[8]
-pickedLen := pc.result(picked[:])
+pickedLen := pc.result(picked[])
 if viewLen == 3
   screen = view[0]
   pick = min(view[1], max(count - 1, 0))
   role = min(view[2], ROLES - 1)
 end
 if editLen > 0 and editLen <= 64
-  editing = find(editName[0:editLen].asString())
+  editing = find(editName[0..<editLen].asString())
 end
 if screen == EDIT and editing < 0
   screen = LIST

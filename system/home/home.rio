@@ -36,10 +36,10 @@ refresh :: proc()
   bt := 0
   for i in 0..<count
     nameAt[i] = at
-    nameLen[i] = min(pc.appName(i, names[at:at + 33]), 33)
+    nameLen[i] = min(pc.appName(i, names[at..<at + 33]), 33)
     at += nameLen[i]
     infoAt[i] = bt
-    infoLen[i] = min(pc.appInfo(i, infos[bt:bt + 96]), 96)
+    infoLen[i] = min(pc.appInfo(i, infos[bt..<bt + 96]), 96)
     titleLen[i] = 0
     for k in 0..<min(infoLen[i], 24)
       if titleLen[i] == 0 and infos[bt + k] == 58 # (the colon)
@@ -75,9 +75,9 @@ end
 
 title :: proc(i: Int) -> Blob
   if titleLen[i] > 0
-    return infos[infoAt[i]:infoAt[i] + titleLen[i]]
+    return infos[infoAt[i]..<infoAt[i] + titleLen[i]]
   end
-  return names[nameAt[i]:nameAt[i] + nameLen[i]]
+  return names[nameAt[i]..<nameAt[i] + nameLen[i]]
 end
 
 # the apps in order of title, ignoring case
@@ -108,7 +108,7 @@ narrow :: proc()
   nshown = 0
   for k in 0..<count
     i := order[k]
-    if has(names[nameAt[i]:nameAt[i] + nameLen[i]]) or has(title(i))
+    if has(names[nameAt[i]..<nameAt[i] + nameLen[i]]) or has(title(i))
       shown[nshown] = i
       nshown += 1
     end
@@ -123,26 +123,26 @@ start :: proc()
   end
   k := shown[pick]
   if k >= 0
-    pc.launch(names[nameAt[k]:nameAt[k] + nameLen[k]].asString())
+    pc.launch(names[nameAt[k]..<nameAt[k] + nameLen[k]].asString())
   end
 end
 
 # the active app or project, the whole Rinc's setting (what the editor opens): Ctrl+Enter makes the
 # picked one active, and opens the editor
 active: Blob[34]
-activeLen := max(0, min(pc.settingRead("active", active[:]), 34))
+activeLen := max(0, min(pc.settingRead("active", active[]), 34))
 edit :: proc()
   if nshown == 0
     return
   end
   k := shown[pick]
-  n := names[nameAt[k]:nameAt[k] + nameLen[k]].asString()
+  n := names[nameAt[k]..<nameAt[k] + nameLen[k]].asString()
   if pc.settingWrite("active", n) == 0
     pc.launch("edit")
   end
 end
 isActive :: proc(k: Int) -> Bool
-  return activeLen > 0 and names[nameAt[k]:nameAt[k] + nameLen[k]].asString() == active[0:activeLen].asString()
+  return activeLen > 0 and names[nameAt[k]..<nameAt[k] + nameLen[k]].asString() == active[0..<activeLen].asString()
 end
 
 # the rows shown, so the pick is among them, and never past either end of the list
@@ -247,13 +247,13 @@ draw* :: proc()
   if count > 0
     n: Blob[..16]
     ok := n.print(count, " apps")
-    pc.print(n[0:n.len()].asString(), 308 - n.len() * 6, 12, dimColor)
+    pc.print(n[0..<n.len()].asString(), 308 - n.len() * 6, 12, dimColor)
   end
   pill(8, 30, 304, 15, barColor, backColor)
   if filter.len() == 0
     pc.print("Search", 14, 34, faintColor)
   end
-  pc.print(filter[0:filter.len()].asString(), 14, 34, textColor)
+  pc.print(filter[0..<filter.len()].asString(), 14, 34, textColor)
   pc.rect(13 + filter.len() * 6, 33, 1, 8, accentColor)
   if nshown > ROWS # (a bar at the right: how far down, and how much shows)
     h := max(6, 169 * ROWS / nshown)
@@ -284,7 +284,7 @@ draw* :: proc()
       for at < infoLen[k] and infos[infoAt[k] + at] == 32 # (the spaces after the colon)
         at += 1
       end
-      d := infos[infoAt[k] + at:infoAt[k] + min(infoLen[k], at + 35)]
+      d := infos[infoAt[k] + at..<infoAt[k] + min(infoLen[k], at + 35)]
       pc.print(d.asString(), 96, y, dim)
     end
   end

@@ -144,7 +144,7 @@ key :: proc(k: Int)
   case base == 6
     if cursor != anchor and selEnd() - selStart() <= 48 # (what's selected, to find)
       query.clear()
-      query.pushAll(text[selStart():selEnd()])
+      query.pushAll(text[selStart()..<selEnd()])
     end
     startPrompt(FIND)
   case base == 7

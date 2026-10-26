@@ -1,16 +1,16 @@
 # Helps: the help texts bundled, for a test (pc.helps, pc.helpRead)
 names: Blob[8192]
-n := pc.helps(names[:])
+n := pc.helps(names[])
 text: Blob[64]
 at := 0
 for k in 0..<names.len()
   if names[k] == 10
-    name := names[at:k].asString()
+    name := names[at..<k].asString()
     if name == "rinc/SUMMARY"
-      t := pc.helpRead(name, text[:])
-      log(name, t > 100, text[0:9].asString())
+      t := pc.helpRead(name, text[])
+      log(name, t > 100, text[0..<9].asString())
     end
     at = k + 1
   end
 end
-log(n > 10, pc.helpRead("rinc/nope", text[:]), pc.helpRead("../x", text[:]))
+log(n > 10, pc.helpRead("rinc/nope", text[]), pc.helpRead("../x", text[]))

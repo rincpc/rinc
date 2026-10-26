@@ -127,7 +127,7 @@ projectRef :: proc(s: String) -> String
   refTo.clear()
   ok := refTo.pushAll(s)
   ok = refTo.push(43)
-  return refTo[0:refTo.len()].asString()
+  return refTo[0..<refTo.len()].asString()
 end
 
 # this folder again, with name picked
@@ -144,7 +144,7 @@ end
 from: Blob[..160]
 promptDone :: proc()
   m := mode
-  s := input[0:input.len()].asString()
+  s := input[0..<input.len()].asString()
   k := target
   if m == NEW_FOLDER # (here)
     if not validName(s, true)
@@ -152,7 +152,7 @@ promptDone :: proc()
       return
     end
     mode = NONE
-    if here().len() <= 6 or here()[0:6] != "/rinc/" or pc.dirMake(pathTo(s)) != 0
+    if here().len() <= 6 or here()[0..<6] != "/rinc/" or pc.dirMake(pathTo(s)) != 0
       say("Couldn't make it here: is something called that already?", errorColor)
       return
     end
@@ -194,7 +194,7 @@ promptDone :: proc()
   res := 0
   if m == NEW
     to := projectRef(s)
-    if pc.appSource(to, input[0:0]) >= 0
+    if pc.appSource(to, input[0..<0]) >= 0
       say("There's a project of that name already", errorColor)
       return
     end
@@ -202,7 +202,7 @@ promptDone :: proc()
     ok := header.pushAll("# ")
     ok = header.pushAll(s)
     ok = header.pushAll(": what it does\n")
-    if pc.appSave(to, header[0:header.len()].asString()) == 0
+    if pc.appSave(to, header[0..<header.len()].asString()) == 0
       edit(to)
     else
       say("Couldn't make it", errorColor)
@@ -219,9 +219,9 @@ promptDone :: proc()
     from.clear()
     ok := from.pushAll(pathTo(nameOf(k)))
     if m == COPY
-      res = pc.fileCopy(from[0:from.len()].asString(), pathTo(s))
+      res = pc.fileCopy(from[0..<from.len()].asString(), pathTo(s))
     else
-      res = pc.fileRename(from[0:from.len()].asString(), pathTo(s))
+      res = pc.fileRename(from[0..<from.len()].asString(), pathTo(s))
     end
   end
   if res != 0

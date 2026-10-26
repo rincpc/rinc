@@ -96,12 +96,12 @@ saveKey :: proc(c: Int) -> Bool
   if k == 8 and saveName.len() > 0
     saveName.pop()
   case c == 13 and saveName.len() > 0
-    if not validName(saveName[0:saveName.len()].asString(), true)
+    if not validName(saveName[0..<saveName.len()].asString(), true)
       say("A name is letters, digits, _, - and .", errorColor)
-    case here().len() <= 6 or here()[0:6] != "/rinc/"
+    case here().len() <= 6 or here()[0..<6] != "/rinc/"
       say("Can't save here: only in /rinc's folders", errorColor)
     else
-      finish(pathTo(saveName[0:saveName.len()].asString()))
+      finish(pathTo(saveName[0..<saveName.len()].asString()))
     end
   case c > 32 and c < 127 and saveName.len() < 60
     ok := saveName.push(c)

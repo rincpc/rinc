@@ -44,7 +44,7 @@ pick := 0
 narrow :: proc()
   nlisted = 0
   for i in 0..<COMMANDS
-    if has(labels[i], input[0:input.len()])
+    if has(labels[i], input[0..<input.len()])
       listed[nlisted] = i
       nlisted += 1
     end
@@ -105,7 +105,7 @@ end
 # what the prompt does with Enter
 promptDone :: proc()
   m := mode
-  s := input[0:input.len()].asString()
+  s := input[0..<input.len()].asString()
   if m == PALETTE
     if nlisted > 0
       command(listed[pick])
@@ -122,12 +122,12 @@ promptDone :: proc()
     refBuf.clear()
     pushed := refBuf.pushAll(s)
     pushed = refBuf.push(43)
-    if pc.appSource(refBuf[0:refBuf.len()].asString(), one[0:0]) >= 0
+    if pc.appSource(refBuf[0..<refBuf.len()].asString(), one[0..<0]) >= 0
       say("There's a project of that name already", errorColor)
       return
     end
     mode = NONE
-    setPath(mainPath(refBuf[0:refBuf.len()].asString()))
+    setPath(mainPath(refBuf[0..<refBuf.len()].asString()))
     if save() and runAfter
       run()
     end

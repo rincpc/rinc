@@ -140,7 +140,7 @@ draw* :: proc()
       c = 11
     end
     pc.rect(x, y, 40, 12, c)
-    pc.print(names[i * 5:i * 5 + 5], x + 3, y + 2, 7)
+    pc.print(names[i * 5..<i * 5 + 5], x + 3, y + 2, 7)
   end
   dot(8, 58, pc.stick(0), pc.stick(1), 8)
   dot(76, 58, pc.stick(2), pc.stick(3), 12)
@@ -156,11 +156,11 @@ draw* :: proc()
   end
   pc.print("TYPE:", 8, 130, 6)
   pc.rect(40, 128, 272, 12, 0)
-  pc.print(text[0:text.len()].asString(), 43, 130, 7)
+  pc.print(text[0..<text.len()].asString(), 43, 130, 7)
   pc.print("LAST KEY:", 8, 148, 6)
   if last >= 0
     lk: Blob[..12]
     ok := lk.print(last)
-    pc.print(lk[0:lk.len()].asString(), 70, 148, 10)
+    pc.print(lk[0..<lk.len()].asString(), 70, 148, 10)
   end
 end

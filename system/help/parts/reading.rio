@@ -89,15 +89,15 @@ head: Blob[80]
 
 # the set's title: its README's first line, if that's a heading, else the set's name
 addTitle :: proc()
-  n := min(pc.helpRead(readme[0:readme.len()].asString(), head[:]), 80)
+  n := min(pc.helpRead(readme[0..<readme.len()].asString(), head[]), 80)
   if n > 2 and head[0] == 35 and head[1] == 32
     e := 2
     for e < n and head[e] != 10 and head[e] != 13
       e += 1
     end
-    addSrcBlob(head[2:e])
+    addSrcBlob(head[2..<e])
   else
-    addSrcBlob(setName[0:setName.len()])
+    addSrcBlob(setName[0..<setName.len()])
   end
 end
 
@@ -113,15 +113,15 @@ appName: Blob[32]
 listApps :: proc()
   appsNow.clear()
   for i in 0..<pc.apps()
-    n := min(pc.appName(i, appName[:]), 32)
-    ok := appsNow.pushAll(appName[0:n])
+    n := min(pc.appName(i, appName[]), 32)
+    ok := appsNow.pushAll(appName[0..<n])
     ok = appsNow.push(44)
   end
 end
 
 makeContents :: proc()
   srcLen = 0
-  found := pc.helps(names[:]) # (each name, then 10)
+  found := pc.helps(names[]) # (each name, then 10)
   nameCount = 0
   at := 0
   for k in 0..<names.len()
@@ -135,7 +135,7 @@ makeContents :: proc()
   addSrc("# Help\n\nThe help texts here: Tab picks a link, Enter follows it, and Backspace comes back.\n\n")
   i := 0
   for i < nameCount
-    n := names[nameAt[i]:nameAt[i] + nameLen[i]]
+    n := names[nameAt[i]..<nameAt[i] + nameLen[i]]
     slash := -1
     for k in 0..<n.len()
       if slash < 0 and n[k] == 47
@@ -151,30 +151,30 @@ makeContents :: proc()
       i += 1
     else
       setName.clear()
-      ok := setName.pushAll(n[0:slash])
+      ok := setName.pushAll(n[0..<slash])
       summary.clear()
-      ok = summary.pushAll(setName[0:setName.len()])
+      ok = summary.pushAll(setName[0..<setName.len()])
       ok = summary.pushAll("/SUMMARY")
       readme.clear()
-      ok = readme.pushAll(setName[0:setName.len()])
+      ok = readme.pushAll(setName[0..<setName.len()])
       ok = readme.pushAll("/README")
-      if hasName(summary[0:summary.len()].asString()) # (a set with a SUMMARY, or a README: by its title)
+      if hasName(summary[0..<summary.len()].asString()) # (a set with a SUMMARY, or a README: by its title)
         addSrc("- [")
         addTitle()
-        addSetStar(setName[0:setName.len()])
+        addSetStar(setName[0..<setName.len()])
         addSrc("](")
-        addSrcBlob(summary[0:summary.len()])
+        addSrcBlob(summary[0..<summary.len()])
         addSrc(")\n")
-      case hasName(readme[0:readme.len()].asString())
+      case hasName(readme[0..<readme.len()].asString())
         addSrc("- [")
         addTitle()
-        addSetStar(setName[0:setName.len()])
+        addSetStar(setName[0..<setName.len()])
         addSrc("](")
-        addSrcBlob(readme[0:readme.len()])
+        addSrcBlob(readme[0..<readme.len()])
         addSrc(")\n")
         for j in i..<nameCount
-          jn := names[nameAt[j]:nameAt[j] + nameLen[j]]
-          if inSet(j, setName[0:setName.len()]) and jn.asString() != readme[0:readme.len()].asString()
+          jn := names[nameAt[j]..<nameAt[j] + nameLen[j]]
+          if inSet(j, setName[0..<setName.len()]) and jn.asString() != readme[0..<readme.len()].asString()
             addSrc("  - [")
             addSrcBlob(jn)
             addSrc("](")
@@ -184,16 +184,16 @@ makeContents :: proc()
         end
       else
         for j in i..<nameCount
-          if inSet(j, setName[0:setName.len()])
+          if inSet(j, setName[0..<setName.len()])
             addSrc("- [")
-            addSrcBlob(names[nameAt[j]:nameAt[j] + nameLen[j]])
+            addSrcBlob(names[nameAt[j]..<nameAt[j] + nameLen[j]])
             addSrc("](")
-            addSrcBlob(names[nameAt[j]:nameAt[j] + nameLen[j]])
+            addSrcBlob(names[nameAt[j]..<nameAt[j] + nameLen[j]])
             addSrc(")\n")
           end
         end
       end
-      for i < nameCount and inSet(i, setName[0:setName.len()])
+      for i < nameCount and inSet(i, setName[0..<setName.len()])
         i += 1
       end
     end
@@ -210,12 +210,12 @@ contents :: proc()
   listApps()
   if kept.len() == 0 and keptBoot < 0 # (the first time: what was kept, if anything)
     keptBoot = 0
-    n := min(pc.stashRead("contents", keptText[0:0]), 4352)
+    n := min(pc.stashRead("contents", keptText[0..<0]), 4352)
     if n > 0
       for i in 0..<n
         ok := keptText.push(0)
       end
-      n = min(pc.stashRead("contents", keptText[0:n]), n)
+      n = min(pc.stashRead("contents", keptText[0..<n]), n)
       k := 0
       b := 0
       for k < n and keptText[k] != 10
@@ -229,31 +229,31 @@ contents :: proc()
       end
       k += 1
       if k < n
-        ok := kept.pushAll(keptText[k:n])
+        ok := kept.pushAll(keptText[k..<n])
         keptBoot = b
       end
     end
   end
-  if kept.len() > 0 and keptBoot == pc.boot() and keptApps[0:keptApps.len()].asString() == appsNow[0:appsNow.len()].asString()
+  if kept.len() > 0 and keptBoot == pc.boot() and keptApps[0..<keptApps.len()].asString() == appsNow[0..<appsNow.len()].asString()
     srcLen = 0
-    addSrcBlob(kept[0:kept.len()])
+    addSrcBlob(kept[0..<kept.len()])
     return
   end
   makeContents()
   kept.clear()
   if srcLen <= 3072
-    ok := kept.pushAll(src[0:srcLen])
+    ok := kept.pushAll(src[0..<srcLen])
   end
   keptApps.clear()
-  ok := keptApps.pushAll(appsNow[0:appsNow.len()])
+  ok := keptApps.pushAll(appsNow[0..<appsNow.len()])
   keptBoot = pc.boot()
   keptText.clear()
   ok = keptText.print(keptBoot)
   ok = keptText.push(10)
-  ok = keptText.pushAll(keptApps[0:keptApps.len()])
+  ok = keptText.pushAll(keptApps[0..<keptApps.len()])
   ok = keptText.push(10)
-  ok = keptText.pushAll(kept[0:kept.len()])
-  ok = pc.stashWrite("contents", keptText[0:keptText.len()].asString()) == 0
+  ok = keptText.pushAll(kept[0..<kept.len()])
+  ok = pc.stashWrite("contents", keptText[0..<keptText.len()].asString()) == 0
 end
 
 # help text name, shown from row 0 (or its heading anchor): false if there's none
@@ -261,7 +261,7 @@ open :: proc(name: Blob, anchor: Blob) -> Bool
   if name.len() == 0
     contents()
   else
-    n := pc.helpRead(name.asString(), src[0:SRC])
+    n := pc.helpRead(name.asString(), src[0..<SRC])
     if n < 0
       say("No help text there")
       return false
@@ -296,7 +296,7 @@ end
 goName: Blob[..64]
 goAnchor: Blob[..64]
 resolve :: proc(l: Int) -> Bool
-  t := targets[targetAt[l]:targetAt[l] + targetLen[l]]
+  t := targets[targetAt[l]..<targetAt[l] + targetLen[l]]
   goName.clear()
   goAnchor.clear()
   if t.len() >= 4 and t[0] == 104 and t[1] == 116 and t[2] == 116 and t[3] == 112 # (http: a web page)
@@ -310,11 +310,11 @@ resolve :: proc(l: Int) -> Bool
     end
   end
   if hash + 1 < t.len()
-    ok := goAnchor.pushAll(t[hash + 1:])
+    ok := goAnchor.pushAll(t[hash + 1..])
   end
-  path := t[0:hash]
+  path := t[0..<hash]
   if path.len() == 0 # (an anchor here)
-    ok := goName.pushAll(doc[0:doc.len()])
+    ok := goName.pushAll(doc[0..<doc.len()])
     return true
   end
   if doc.len() > 0 # (from the shown text's folder)
@@ -322,7 +322,7 @@ resolve :: proc(l: Int) -> Bool
     for d > 0 and doc[d - 1] != 47
       d -= 1
     end
-    ok := goName.pushAll(doc[0:d])
+    ok := goName.pushAll(doc[0..<d])
   end
   k := 0
   for k < path.len()
@@ -330,7 +330,7 @@ resolve :: proc(l: Int) -> Bool
     for e < path.len() and path[e] != 47
       e += 1
     end
-    part := path[k:e]
+    part := path[k..<e]
     if part.len() == 2 and part[0] == 46 and part[1] == 46 # (..: the folder up)
       if goName.len() > 0
         goName.pop()
@@ -368,13 +368,13 @@ visit :: proc(name: Blob, anchor: Blob)
   if histLen == 32 # (full: the oldest goes)
     for i in 0..<31
       histName[i].clear()
-      ok := histName[i].pushAll(histName[i + 1][0:histName[i + 1].len()])
+      ok := histName[i].pushAll(histName[i + 1][0..<histName[i + 1].len()])
       histTop[i] = histTop[i + 1]
     end
     histLen = 31
   end
   histName[histLen].clear()
-  ok := histName[histLen].pushAll(doc[0:doc.len()])
+  ok := histName[histLen].pushAll(doc[0..<doc.len()])
   histTop[histLen] = top
   histAt = histLen
   histLen += 1
@@ -384,7 +384,7 @@ end
 
 follow :: proc()
   if pick >= 0 and pick < linkCount and resolve(pick)
-    visit(goName[0:goName.len()], goAnchor[0:goAnchor.len()])
+    visit(goName[0..<goName.len()], goAnchor[0..<goAnchor.len()])
   end
 end
 
@@ -395,7 +395,7 @@ move :: proc(by: Int)
   end
   histTop[histAt] = top
   histAt += by
-  ok := open(histName[histAt][0:histName[histAt].len()], doc[0:0])
+  ok := open(histName[histAt][0..<histName[histAt].len()], doc[0..<0])
   top = histTop[histAt]
   placeDirty = true
   placeWait = 0
@@ -411,16 +411,16 @@ savePlace :: proc()
   ok = place.push(10)
   for i in 0..<histLen
     ok = place.print(histTop[i], " ")
-    ok = place.pushAll(histName[i][0:histName[i].len()])
+    ok = place.pushAll(histName[i][0..<histName[i].len()])
     ok = place.push(10)
   end
-  ok = pc.stashWrite("place", place[0:place.len()].asString()) == 0
+  ok = pc.stashWrite("place", place[0..<place.len()].asString()) == 0
   placeDirty = false
 end
 
 # where it was last, from its save file: false if there's none to go back to
 restorePlace :: proc() -> Bool
-  n := min(pc.stashRead("place", place[0:0]), 6144)
+  n := min(pc.stashRead("place", place[0..<0]), 6144)
   if n <= 0
     return false
   end
@@ -428,7 +428,7 @@ restorePlace :: proc() -> Bool
   for i in 0..<n
     ok := place.push(0)
   end
-  n = min(pc.stashRead("place", place[0:n]), n)
+  n = min(pc.stashRead("place", place[0..<n]), n)
   at := 0
   k := 0
   for k < n and place[k] != 10
@@ -458,7 +458,7 @@ restorePlace :: proc() -> Bool
     return false
   end
   histAt = at
-  if not open(histName[histAt][0:histName[histAt].len()], doc[0:0])
+  if not open(histName[histAt][0..<histName[histAt].len()], doc[0..<0])
     histLen = 0
     return false
   end
@@ -481,11 +481,11 @@ up :: proc()
   end
   upName.clear()
   if slash > 0
-    ok := upName.pushAll(doc[0:slash])
+    ok := upName.pushAll(doc[0..<slash])
     ok = upName.pushAll("/SUMMARY")
-    if (upName.len() == doc.len() and upName[0:upName.len()].asString() == doc[0:doc.len()].asString()) or pc.helpRead(upName[0:upName.len()].asString(), one[:]) < 0
+    if (upName.len() == doc.len() and upName[0..<upName.len()].asString() == doc[0..<doc.len()].asString()) or pc.helpRead(upName[0..<upName.len()].asString(), one[]) < 0
       upName.clear()
     end
   end
-  visit(upName[0:upName.len()], doc[0:0])
+  visit(upName[0..<upName.len()], doc[0..<0])
 end

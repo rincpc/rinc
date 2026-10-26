@@ -17,13 +17,13 @@ colorName :: proc(c: Int) -> String
   else
     fine = colorText.print("gray ", grayLevels[c - 248])
   end
-  return colorText[0:colorText.len()].asString()
+  return colorText[0..<colorText.len()].asString()
 end
 
 out: Blob[..2048]
 save :: proc(t: Int) -> Bool
   out.clear()
-  fine = out.print("# ", titles[titleAt[t]:titleAt[t] + titleLen[t]].asString(), "\n")
+  fine = out.print("# ", titles[titleAt[t]..<titleAt[t] + titleLen[t]].asString(), "\n")
   for r in 0..<ROLES
     fine = out.print(roleNames[r], "*")
     for k in roleNames[r].len() + 1..<8 # (lined up: comment*, the longest, is 8)
@@ -36,7 +36,7 @@ save :: proc(t: Int) -> Bool
     end
     fine = out.print("# ", colorName(c), "\n")
   end
-  return pc.fileWrite(pathOf(t), out[0:out.len()].asString()) == 0
+  return pc.fileWrite(pathOf(t), out[0..<out.len()].asString()) == 0
 end
 
 # a new theme in owner's save space, from theme t: a locked one's copy (owner/id+, its title as is), or
@@ -48,7 +48,7 @@ make :: proc(t: Int, owner: String, id: String, plus: Bool, keep: Bool) -> Int
   if plus
     fine = idBuf.push(43)
   end
-  if count >= MOST or find(idBuf[0:idBuf.len()].asString()) >= 0
+  if count >= MOST or find(idBuf[0..<idBuf.len()].asString()) >= 0
     return -1
   end
   n := count
@@ -61,9 +61,9 @@ make :: proc(t: Int, owner: String, id: String, plus: Bool, keep: Bool) -> Int
   place[n] = OWN
   titleAt[n] = titlesUsed
   colorText.clear()
-  old := titles[titleAt[t]:titleAt[t] + titleLen[t]].asString()
+  old := titles[titleAt[t]..<titleAt[t] + titleLen[t]].asString()
   if plus
-    fine = colorText.pushAll(old[0:min(old.len(), 24)])
+    fine = colorText.pushAll(old[0..<min(old.len(), 24)])
   case keep
     fine = colorText.pushAll(id)
     rest := titleName(t).len()

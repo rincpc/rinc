@@ -4,7 +4,7 @@
 chord: Blob[5590]
 chord_n := 0
 chord_n += pc.fromHex(
-  chord[chord_n:chord.len()],
+  chord[chord_n..<chord.len()],
   "00000000777777770000000000089888a9a9bacbbaacbbcbbababbcbbbbbbdcbcbbcdbbbbcbccbbbcbbaba9a09206344
   "34353444424232334333233323221188aaccbcccbbadcbbabbacbbbbcbbabbbccbcbcbcbbccbcbcbbbbccaaaaa9a8910
   "534434353543432433343324233322120280a9bcccbcbccbcbbbcbbabbacabbbcbcababccbbcdbbbcccababbbcbabbaa
@@ -39,7 +39,7 @@ chord_n += pc.fromHex(
   "5254433453324332322222018188aacbdbcbbccccbdbbbbdcbbbbcabbba988315444343453323332231181a8cacbcbbb",
 )
 chord_n += pc.fromHex(
-  chord[chord_n:chord.len()],
+  chord[chord_n..<chord.len()],
   "6f082900aa9a081032432201caddbccdbbbcbbbb9a08424435533333241200a9dbcccbcbcbbaaaaba998001122433234
   "33354434353535533334343233231280b9dcdbcbbcbbbccbbbbbbccbcbbbbdcbbbbcacbaa90930544434353453323324
   "2322110198aadbcbcbbbbcbbbcbbcbcbbbbcbcbbbcacbbaa9a8911533435443224333332333323433334343424337747
@@ -74,7 +74,7 @@ chord_n += pc.fromHex(
   "221181a9dbbcbcbbacaa9a9aa9bbccbcccbaaa08515444343443333222028099cbcbcbcbbbdbbbbdcbbbbcbaab891042",
 )
 chord_n += pc.fromHex(
-  chord[chord_n:chord.len()],
+  chord[chord_n..<chord.len()],
   "88ed2800453334323212010110314335432302b8ddccbcbcab9b084254533324231180badccbbcbbcbbababaaa9a9a08
   "324754534353323333230198cacccbcbbabbacbbbccbcbcbbbac9a89305434354432333212028099bacbbbbbbcbbbddb
   "bbccaa9b8a1043454343221281a9cbbcbcaa9a88111181daddbdccbbacaa0931453534342333120199badbbbacabbaab
@@ -109,7 +109,7 @@ chord_n += pc.fromHex(
   "bbbcbcbcbccbbaa90842544443343334232322118088aacadbbbbdccbbbccbabab990831444333230298ebdbbbbcabaa",
 )
 chord_n += pc.fromHex(
-  chord[chord_n:chord.len()],
+  chord[chord_n..<chord.len()],
   "a5f91e0018313334320180991864555453332533332201a8dbdbcbacbbbbacbbbbbcbbbbab8941453535443233220280
   "aabdbccbbbaaaaa9a9bacdcccbacab9b09524435443343333212118099bbccbbbdccbbbdcbacbbab9b89214434354332
   "22110098aaaa9a0931432411b9decccbbbab8a3146443443231311a8cbdcbbccbabbbbcbaaabaa9a1852454553433334

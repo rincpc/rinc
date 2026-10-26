@@ -50,7 +50,7 @@ choose :: proc()
   if calledFor
     text.clear()
     pushNumber(picked())
-    finish(text[:].asString())
+    finish(text[].asString())
   end
 end
 
@@ -71,7 +71,7 @@ remember :: proc()   # (once it's rested a moment: not each step of a drag or a 
     stashed[1] = axis
     stashed[2] = area
     stashed[3] = view
-    ok := pc.stashWrite("pick", stashed[:].asString())
+    ok := pc.stashWrite("pick", stashed[].asString())
   end
 end
 

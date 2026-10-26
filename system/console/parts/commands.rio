@@ -11,30 +11,30 @@ ls :: proc()
   names: Blob[..2048]
   name: Blob[32]
   for i in 0..<n
-    k := min(pc.appName(i, name[:]), 32)
-    names.pushAll(name[:k].asString())
+    k := min(pc.appName(i, name[]), 32)
+    names.pushAll(name[..<k].asString())
     names.pushAll("  ")
   end
-  say(names[:].asString(), textColor)
+  say(names[].asString(), textColor)
 end
 
 load :: proc(name: String)
   msg: Blob[..80]
-  n := pc.appSource(name, file[:])
+  n := pc.appSource(name, file[])
   if n < 0
     msg.print("can't open ", name)
-    say(msg[:].asString(), errorColor)
+    say(msg[].asString(), errorColor)
     return
   end
   if n > file.len()
     msg.print(name, " is too big to load here (", n, " bytes)")
-    say(msg[:].asString(), errorColor)
+    say(msg[].asString(), errorColor)
     return
   end
   if not fresh()
     return
   end
-  r := pc.rioEval(file[:n].asString())
+  r := pc.rioEval(file[..<n].asString())
   showLog()
   if r < 0
     showError()
@@ -42,7 +42,7 @@ load :: proc(name: String)
     say("(it ends unfinished)", errorColor)
   else
     msg.print("loaded ", name)
-    say(msg[:].asString(), softColor)
+    say(msg[].asString(), softColor)
   end
 end
 
@@ -67,29 +67,29 @@ saveTo :: proc() -> Int
     end
   end
   if slash < 0
-    return pc.appSave(saveName[:].asString(), file[:fileLen].asString())
+    return pc.appSave(saveName[].asString(), file[..<fileLen].asString())
   end
   if slash == 0
     return -1
   end
   path: Blob[..128]
   if saveName[slash - 1] == '+'
-    path.print("/rinc/projects/", saveName[0:slash - 1], saveName[slash:])
+    path.print("/rinc/projects/", saveName[0..<slash - 1], saveName[slash..])
   else
-    path.print("/rinc/apps/", saveName[:])
+    path.print("/rinc/apps/", saveName[])
   end
-  return pc.fileWrite(path[:].asString(), file[:fileLen].asString())
+  return pc.fileWrite(path[].asString(), file[..<fileLen].asString())
 end
 
 finishSave :: proc()
   msg: Blob[..80]
   mode = .typing
   if saveTo() != 0
-    msg.print("couldn't save ", saveName[:])
-    say(msg[:].asString(), errorColor)
+    msg.print("couldn't save ", saveName[])
+    say(msg[].asString(), errorColor)
   else
     msg.print("saved ", fileLen, " bytes")
-    say(msg[:].asString(), softColor)
+    say(msg[].asString(), softColor)
   end
 end
 
@@ -108,10 +108,10 @@ command :: proc(t: String) -> Bool
     return true
   case "active"                          # the active app or project, the whole Rinc's setting
     v: Blob[34]
-    n := pc.settingRead("active", v[:])
+    n := pc.settingRead("active", v[])
     if n > 0
-      msg.print("active: ", v[0:min(n, 34)])
-      say(msg[:].asString(), softColor)
+      msg.print("active: ", v[0..<min(n, 34)])
+      say(msg[].asString(), softColor)
     else
       say("nothing active: active name makes one active (name+ for a project)", softColor)
     end
@@ -124,8 +124,8 @@ command :: proc(t: String) -> Bool
   if w == t.len()
     return false
   end
-  word := t[:w]
-  name := trim(t[w:])
+  word := t[..<w]
+  name := trim(t[w..])
   switch word # (a word, then a name)
   case "load"
     load(name)
@@ -134,28 +134,28 @@ command :: proc(t: String) -> Bool
   case "save"
     startSave(name)
   case "active"                          # app or project (name+) name, active: the editor opens it next
-    if pc.appSource(name, msg[0:0]) >= 0 and pc.settingWrite("active", name) == 0
+    if pc.appSource(name, msg[0..<0]) >= 0 and pc.settingWrite("active", name) == 0
       msg.print("active: ", name)
-      say(msg[:].asString(), softColor)
+      say(msg[].asString(), softColor)
     else
       msg.print("no app or project ", name)
-      say(msg[:].asString(), errorColor)
+      say(msg[].asString(), errorColor)
     end
   case "install"                         # project name+ as the app name
     if pc.appInstall(name) == 0
       msg.print("installed ", name)
-      say(msg[:].asString(), softColor)
+      say(msg[].asString(), softColor)
     else
       msg.print("can't install ", name, " (from its project, ", name, "*)")
-      say(msg[:].asString(), errorColor)
+      say(msg[].asString(), errorColor)
     end
   case "delete"
     if pc.appDelete(name) == 0
       msg.print("deleted ", name)
-      say(msg[:].asString(), softColor)
+      say(msg[].asString(), softColor)
     else
       msg.print("can't delete ", name)
-      say(msg[:].asString(), errorColor)
+      say(msg[].asString(), errorColor)
     end
   else
     return false
@@ -164,7 +164,7 @@ command :: proc(t: String) -> Bool
 end
 
 startsWith :: proc(t: String, word: String) -> Bool
-  return t.len() >= word.len() and t[:word.len()] == word
+  return t.len() >= word.len() and t[..<word.len()] == word
 end
 
 # the next line's indent, as it's given: spaces typed at its start take its place first (so pasted,
@@ -173,13 +173,13 @@ autoIndent := 0
 
 enter :: proc()
   shown: Blob[..256]
-  t := trim(line[:].asString())
+  t := trim(line[].asString())
   indent := 0
   for indent < line.len() and line[indent] == 32
     indent += 1
   end
   # (a step back out, if the indent is still all there: not when Backspace already took it)
-  if acc.len() > 0 and indent >= 2 and indent >= pc.rioIndent(acc[:].asString()) * 2 and
+  if acc.len() > 0 and indent >= 2 and indent >= pc.rioIndent(acc[].asString()) * 2 and
       (startsWith(t, "end") or startsWith(t, "else") or startsWith(t, "case"))
     line.remove(0)
     line.remove(0)
@@ -189,9 +189,9 @@ enter :: proc()
   else
     shown.pushAll(". ")
   end
-  shown.pushAll(line[:].asString())
-  say(shown[:].asString(), CODE_ROW)
-  text := line[:].asString()
+  shown.pushAll(line[].asString())
+  say(shown[].asString(), CODE_ROW)
+  text := line[].asString()
   remember(text)
   back = 0
   if blank(text)
@@ -205,11 +205,11 @@ enter :: proc()
     say("(input too long)", errorColor)
     acc.clear()
   else
-    r := pc.rioEval(acc[:].asString())
+    r := pc.rioEval(acc[].asString())
     showLog()
     if r == 1
       setLine("")
-      for i in 0..<pc.rioIndent(acc[:].asString()) * 2
+      for i in 0..<pc.rioIndent(acc[].asString()) * 2
         line.push(32)
       end
       cur = line.len()
@@ -232,7 +232,7 @@ typing :: proc(c: Int)
   case 13
     enter()
   case 8 # (in the indent, at its end: a whole step, back to the one before)
-    if cur > 0 and cur == line.len() and blank(line[:].asString()) and cur >= 2
+    if cur > 0 and cur == line.len() and blank(line[].asString()) and cur >= 2
       for k in 0..<2 - cur % 2
         line.remove(cur - 1)
         cur -= 1
@@ -265,7 +265,7 @@ typing :: proc(c: Int)
     insert(32)
     insert(32)
   case 32
-    if autoIndent > 0 and cur == line.len() and blank(line[:].asString())
+    if autoIndent > 0 and cur == line.len() and blank(line[].asString())
       autoIndent -= 1
     else
       autoIndent = 0
@@ -281,7 +281,7 @@ end
 saving :: proc(c: Int)
   if c == 4                              # Ctrl-D: done
     if line.len() > 0
-      say(line[:].asString(), softColor)
+      say(line[].asString(), softColor)
     end
     setLine("")
     finishSave()
@@ -298,7 +298,7 @@ saving :: proc(c: Int)
     end
     if c == 13
       file[fileLen] = 10
-      say(line[:].asString(), softColor)
+      say(line[].asString(), softColor)
       setLine("")
     else
       file[fileLen] = c

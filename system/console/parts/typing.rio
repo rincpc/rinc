@@ -4,21 +4,21 @@
 
 showLog :: proc()
   for
-    n := pc.rioLog(logBuf[:])
+    n := pc.rioLog(logBuf[])
     if n <= 0
       break
     end
-    say(logBuf[:n].asString(), softColor)
+    say(logBuf[..<n].asString(), softColor)
   end
 end
 
 showError :: proc()
-  n := pc.rioError(logBuf[:])
-  say(logBuf[:n].asString(), errorColor)
+  n := pc.rioError(logBuf[])
+  say(logBuf[..<n].asString(), errorColor)
 end
 
 fresh :: proc() -> Bool
-  if pc.rioStart(sessionMem[:], sessionTables[:]) != 0
+  if pc.rioStart(sessionMem[], sessionTables[]) != 0
     showError()
     return false
   end
@@ -60,7 +60,7 @@ trim :: proc(t: String) -> String
   for b > a and t[b - 1] == 32
     b -= 1
   end
-  return t[a:b]
+  return t[a..<b]
 end
 
 setLine :: proc(t: String)
@@ -95,7 +95,7 @@ recall :: proc(step: Int)
   if b == 0
     setLine("")
   else
-    setLine(hist[histCount - b].text[:].asString())
+    setLine(hist[histCount - b].text[].asString())
   end
 end
 
