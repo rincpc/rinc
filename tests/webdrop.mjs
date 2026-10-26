@@ -16,7 +16,9 @@ const localStorage = {
   removeItem: k => store.delete(k),
 };
 const on = {}, noop = () => {};
-const element = { addEventListener: noop, getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData: noop }), getBoundingClientRect: () => ({ left: 0, top: 0, width: 320, height: 240 }) };
+let lit = 0; // (the pixels drawn last that aren't the top left one's color: whether there's anything on the screen)
+const shown = img => { const d = new Uint32Array(img.data.buffer); lit = d.filter(c => c !== d[0]).length; };
+const element = { addEventListener: noop, getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData: shown }), getBoundingClientRect: () => ({ left: 0, top: 0, width: 320, height: 240 }) };
 let tick = null, logged = "";
 const errEl = { hidden: true, textContent: "" }, resetEl = { hidden: true, on: {}, addEventListener(type, f) { this.on[type] = f; } };
 let reloaded = false;
@@ -33,8 +35,11 @@ vm.runInNewContext(script, context);
 for (let i = 0; i < 200 && !tick; i++) await new Promise(r => setTimeout(r, 10));
 if (!tick) { console.log("FAIL: the page didn't start: " + errEl.textContent); process.exit(1); }
 let t = 0;
-const frames = n => { for (let i = 0; i < n; i++) { const f = tick; tick = null; t += 1000 / 60; f(t); } };
+// (a frame's time on from the page's clock, performance.now(), which it started its frames by: on a slow
+// machine, that's well past 0 by now)
+const frames = n => { for (let i = 0; i < n; i++) { const f = tick; tick = null; t = Math.max(t + 1000 / 60, performance.now()); f(t); } };
 frames(5);
+logged += lit ? "something on the screen\n" : "nothing on the screen\n";
 const bytes = readFileSync(zip);
 await on.drop({ preventDefault: noop, dataTransfer: { files: [{ name: zip.split(/[\\/]/).pop(), arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length) }] } });
 frames(30);

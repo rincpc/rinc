@@ -53,5 +53,6 @@ if 'runs its own apps' not in out or 'apps/console' in out.split('keys:')[1]: fa
 out = drop(empty, good, 'reset')
 keys = out.split('keys:')[1].split()
 if 'No apps here yet' not in out or 'Drop a bundle' not in out or 'the dropped home runs' not in out: fail('an empty page:\n' + out)
+if 'something on the screen' not in out: fail("an empty page doesn't show that nothing's installed:\n" + out)
 if 'reset, reloaded' not in out or keys: fail('an empty page reset:\n' + out)
 print('web drops came through')

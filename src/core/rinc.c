@@ -1130,6 +1130,7 @@ int rinc_hasHome(void) { return rinc_readApp(rinc_appFor("home"), 0, 0) != -1 ||
 void rinc_noHomeShow(void (*put)(const char *s, int n), const char *how) {
   char text[600];
   rinc_game = 0; rinc_showLog = 1; rinc_put = put;
+  rinc_initPalette(); /* (with no app started yet, it's all black) */
   rinc_themeLoad();
   rinc_consoleClear(rinc_themeColor(0));
   rinc_noHome(text, sizeof text, how);
