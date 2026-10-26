@@ -5,29 +5,29 @@
 
 # ---------------------------------------------------------------- the screen: 320x240, palette indexes
 
-cls* :: @host proc(c: Int)                           # fill the screen with color c
-pset* :: @host proc(x, y, c: Int)                    # one pixel
-pget* :: @host proc(x, y: Int) -> Int
-rect* :: @host proc(x, y, w, h, c: Int)              # a filled rectangle
+cls* :: host proc(c: Int)                           # fill the screen with color c
+pset* :: host proc(x, y, c: Int)                    # one pixel
+pget* :: host proc(x, y: Int) -> Int
+rect* :: host proc(x, y, w, h, c: Int)              # a filled rectangle
 # part of a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it),
 # w by h from sx, sy, drawn at x, y, each pixel scale by scale; color 0 is see-through
-blit* :: @host proc(picture: String, sx, sy, w, h, x, y, scale: Int)
-print* :: @host proc(s: String, x, y, c: Int)        # text, in the 5x8 font, 6 pixels a character
+blit* :: host proc(picture: String, sx, sy, w, h, x, y, scale: Int)
+print* :: host proc(s: String, x, y, c: Int)        # text, in the 5x8 font, 6 pixels a character
 
 # ---------------------------------------------------------------- input
 
 # 1 while button i is held: 0 left, 1 right, 2 up, 3 down (arrows), then the face buttons, as on an Xbox
 # controller: 4 A (V key), 5 B (C), 6 X (X), 7 Y (Z); then a controller's 8 LB, 9 RB, 10 and 11 the
 # sticks pressed in, 12 Start, 13 Back
-btn* :: @host proc(i: Int) -> Int
+btn* :: host proc(i: Int) -> Int
 # the next key typed, or -1: 32-126 as typed, 13 Enter, 8 Backspace, 9 Tab, 27 Esc, Ctrl+letter as 1-26,
 # and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down;
 # a key that isn't a character with the modifiers held added on: 256 Shift, 512 Ctrl, 1024 Alt
-key* :: @host proc() -> Int
+key* :: host proc() -> Int
 # a controller's sticks: 0 left x, 1 left y, 2 right x, 3 right y; -1 to 1, + right and down
-stick* :: @host proc(i: Int) -> Float
-trigger* :: @host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1
-time* :: @host proc() -> Float                       # seconds since start
+stick* :: host proc(i: Int) -> Float
+trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1
+time* :: host proc() -> Float                       # seconds since start
 # the pointer, which Rinc draws while it's shown: a mouse moving it or pressing a button shows it; typing,
 # the arrows (the d-pad's too) and a controller's center buttons hide it. What it's for, pointer(mode):
 Pointer* :: enum
@@ -35,105 +35,105 @@ Pointer* :: enum
   ui    # a controller's too: its left stick moves it, its right one scrolls, A and B are its buttons
   none  # never shown
 end
-pointer* :: @host proc(mode: Pointer)
-pointerX* :: @host proc() -> Int                     # where it points, in screen pixels
-pointerY* :: @host proc() -> Int
-pointerDown* :: @host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle
-pointerShown* :: @host proc() -> Int
+pointer* :: host proc(mode: Pointer)
+pointerX* :: host proc() -> Int                     # where it points, in screen pixels
+pointerY* :: host proc() -> Int
+pointerDown* :: host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle
+pointerShown* :: host proc() -> Int
 # the whole steps scrolled since it was last asked: 0 across, + right; 1 up and down, + up
-scroll* :: @host proc(i: Int) -> Int
+scroll* :: host proc(i: Int) -> Int
 
 # ---------------------------------------------------------------- data
 
 # bytes from hex digits into out (anything else in the text is skipped), until it's full: how many
-fromHex* :: @host proc(out: Blob, text: String) -> Int
+fromHex* :: host proc(out: Blob, text: String) -> Int
 
 # ---------------------------------------------------------------- sound: 8 voices, 0 to 7
 
 # play data on voice v, once, at rate frames a second: bits 16 or 8 (signed), or 4 for IMA ADPCM;
 # 1 or 2 channels
-sound* :: @host proc(v: Int, data: Blob, bits, channels: Int, rate: Float)
-soundWav* :: @host proc(v: Int, data: Blob) -> Int   # a WAV file's sound, at its own rate: 1 if it could
-soundRate* :: @host proc(v: Int, rate: Float)
-soundVolume* :: @host proc(v: Int, volume: Float)    # 0 to 1
-soundPan* :: @host proc(v: Int, pan: Float)          # -1 to 1
-soundLoop* :: @host proc(v, start, stop: Int)        # from frame stop, back to start (stop 0: no loop)
-soundStop* :: @host proc(v: Int)
-soundPlaying* :: @host proc(v: Int) -> Int
+sound* :: host proc(v: Int, data: Blob, bits, channels: Int, rate: Float)
+soundWav* :: host proc(v: Int, data: Blob) -> Int   # a WAV file's sound, at its own rate: 1 if it could
+soundRate* :: host proc(v: Int, rate: Float)
+soundVolume* :: host proc(v: Int, volume: Float)    # 0 to 1
+soundPan* :: host proc(v: Int, pan: Float)          # -1 to 1
+soundLoop* :: host proc(v, start, stop: Int)        # from frame stop, back to start (stop 0: no loop)
+soundStop* :: host proc(v: Int)
+soundPlaying* :: host proc(v: Int) -> Int
 
 # ---------------------------------------------------------------- apps, for home and the console
 
 # A name is an installed app's (chord), or with a + after it, its project's (chord+): the app in work,
 # with a save space of its own
-apps* :: @host proc() -> Int                         # the apps and projects (sorted, each project after its app): how many
-appName* :: @host proc(i: Int, out: Blob) -> Int     # app i's name (a project's with its +), into out: how long
-appInfo* :: @host proc(i: Int, out: Blob) -> Int     # its first line: "Title: what it does"
-launch* :: @host proc(name: String)                  # switch to an app or project (or "home", "console") after this frame
+apps* :: host proc() -> Int                         # the apps and projects (sorted, each project after its app): how many
+appName* :: host proc(i: Int, out: Blob) -> Int     # app i's name (a project's with its +), into out: how long
+appInfo* :: host proc(i: Int, out: Blob) -> Int     # its first line: "Title: what it does"
+launch* :: host proc(name: String)                  # switch to an app or project (or "home", "console") after this frame
 # one app calling another: call starts it with args (after this frame), which it reads with args; done goes
 # back to the caller (this app forgotten, as the system key's Q does), which, starting again, reads result
-call* :: @host proc(name: String, args: String)
-args* :: @host proc(out: Blob) -> Int                # the args this app was called with: how long (0: none)
-done* :: @host proc(result: String)                  # back to the caller, with a result (or to the app before)
-result* :: @host proc(out: Blob) -> Int              # the result of the app this one called: how long, or -1 (taken)
+call* :: host proc(name: String, args: String)
+args* :: host proc(out: Blob) -> Int                # the args this app was called with: how long (0: none)
+done* :: host proc(result: String)                  # back to the caller, with a result (or to the app before)
+result* :: host proc(out: Blob) -> Int              # the result of the app this one called: how long, or -1 (taken)
 # an app's source into out, as much as fits: its whole length, or -1 if there's no such app
-appSource* :: @host proc(name: String, out: Blob) -> Int
-appSave* :: @host proc(name: String, text: String) -> Int   # 0, or -1
-appDelete* :: @host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1
-appInstall* :: @host proc(name: String) -> Int              # project name* installed as app name: 0, or -1
-appCopy* :: @host proc(from: String, to: String) -> Int     # app or project from, as new project to (to*): 0, or -1
-appRename* :: @host proc(from: String, to: String) -> Int   # project from (from*) as new project to (to*): 0, or -1
+appSource* :: host proc(name: String, out: Blob) -> Int
+appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1
+appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1
+appInstall* :: host proc(name: String) -> Int              # project name* installed as app name: 0, or -1
+appCopy* :: host proc(from: String, to: String) -> Int     # app or project from, as new project to (to*): 0, or -1
+appRename* :: host proc(from: String, to: String) -> Int   # project from (from*) as new project to (to*): 0, or -1
 
 # ---------------------------------------------------------------- files, by path, for a file browser
 
 # A path is absolute (/rinc/save/chord/best), in /rinc, the root: looking goes anywhere in it, changing
 # only inside it
-dir* :: @host proc(path: String, out: Blob) -> Int          # its entries, folders first, a line each ("d name", "f name"): how many, or -1
-fileRead* :: @host proc(path: String, out: Blob) -> Int     # as much as fits: its whole length, or -1
-fileWrite* :: @host proc(path: String, data: String) -> Int # 0, or -1
-fileDelete* :: @host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1
-fileCopy* :: @host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1
-fileRename* :: @host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1
-dirMake* :: @host proc(path: String) -> Int                 # a folder, at a path not taken: 0, or -1
+dir* :: host proc(path: String, out: Blob) -> Int          # its entries, folders first, a line each ("d name", "f name"): how many, or -1
+fileRead* :: host proc(path: String, out: Blob) -> Int     # as much as fits: its whole length, or -1
+fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1
+fileDelete* :: host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1
+fileCopy* :: host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1
+fileRename* :: host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1
+dirMake* :: host proc(path: String) -> Int                 # a folder, at a path not taken: 0, or -1
 # pictures as PNG files: a picture is its width and height (2 bytes each, low first), then its pixels, a
 # byte each, row by row (0: see-through). pngRead reads one into out, each color the palette's nearest
 # (exactly, for one written by pngWrite): its size, or -1 (out needs room for the PNG's rows as they come
 # too: w * h + 2 * h + 4 bytes for one of the palette's). pngWrite writes one as an indexed PNG, with the
 # app's notes about it (text, up to 512 bytes, kept in the PNG: a sprite sheet's sprite size, say; "":
 # none), and pngNotes reads them back
-pngRead* :: @host proc(path: String, out: Blob) -> Int
-pngWrite* :: @host proc(path: String, picture: String, notes: String) -> Int # 0, or -1
-pngNotes* :: @host proc(path: String, out: Blob) -> Int      # the notes, into out: how many bytes, or -1 (none)
+pngRead* :: host proc(path: String, out: Blob) -> Int
+pngWrite* :: host proc(path: String, picture: String, notes: String) -> Int # 0, or -1
+pngNotes* :: host proc(path: String, out: Blob) -> Int      # the notes, into out: how many bytes, or -1 (none)
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 
 # the help texts (Markdown): their names (paths, .md left off: rinc/spec/apps; a project's, chord+/...),
 # in order, into out, each with a 10 after it, as many as fit: how many
-helps* :: @host proc(out: Blob) -> Int
+helps* :: host proc(out: Blob) -> Int
 # a help text into out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none
-helpRead* :: @host proc(name: String, out: Blob) -> Int
+helpRead* :: host proc(name: String, out: Blob) -> Int
 # the help app, after this frame, at a help text (and maybe a heading): help("rio/spec/statements#if")
-help* :: @host proc(topic: String)
-helpTopic* :: @host proc(out: Blob) -> Int             # for the help app: the topic it was opened at, taken (0: none)
+help* :: host proc(topic: String)
+helpTopic* :: host proc(out: Blob) -> Int             # for the help app: the topic it was opened at, taken (0: none)
 
 # ---------------------------------------------------------------- this app's own files: /rinc/save/<app>
 
 # a file's contents into out, as much as fits: its whole length, or -1 if there's no such file. Names are
 # 1 to 32 letters, digits, _, - and . (not first)
-saveRead* :: @host proc(file: String, out: Blob) -> Int
-saveWrite* :: @host proc(file: String, data: String) -> Int  # 0, or -1
-saveDelete* :: @host proc(file: String) -> Int               # 0, or -1
+saveRead* :: host proc(file: String, out: Blob) -> Int
+saveWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1
+saveDelete* :: host proc(file: String) -> Int               # 0, or -1
 
 # ---------------------------------------------------------------- this app's stash: /rinc/stash/<app>/<key>
 
 # what an app keeps of where it was, for its next start, under keys of its own (named as save files are),
 # written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space
-stashWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
-stashRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1 for none
-stashDelete* :: @host proc(key: String) -> Int               # 0, or -1
+stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
+stashRead* :: host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1 for none
+stashDelete* :: host proc(key: String) -> Int               # 0, or -1
 # the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): "active" is the app or project
 # being worked on (chord, or chord+); keys are named as save files are
-settingRead* :: @host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1
-settingWrite* :: @host proc(key: String, data: String) -> Int  # 0, or -1
+settingRead* :: host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1
+settingWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
 
 # the theme: a color for each role, which the system apps draw with, so they look alike and a theme (the
 # theme setting: owner/id, a file owner/themes/id.theme.rio) changes them all. Read at each app's start
@@ -161,17 +161,17 @@ Role* :: enum
   string   # code: "text"
   comment  # code: # comments
 end
-theme* :: @host proc(role: Role) -> Int
-boot* :: @host proc() -> Int                                 # how many times this Rinc has started (0: no storage)
+theme* :: host proc(role: Role) -> Int
+boot* :: host proc() -> Int                                 # how many times this Rinc has started (0: no storage)
 
 # ---------------------------------------------------------------- Rio inside an app: a session
 
 # a fresh session, for a console or an editor: its code and data in mem, its compiler's tables in
 # tables, both the app's own memory, handed over: 0, or -1
-rioStart* :: @host proc(mem, tables: Blob) -> Int
-rioEval* :: @host proc(text: String) -> Int          # run a piece: 0 done, 1 unfinished (needs more), -1 error
-rioFrame* :: @host proc() -> Int                     # its update then draw: 0, 1 if it has neither, -1 error
-rioType* :: @host proc(key: Int)                     # a key for its pc.key()
-rioError* :: @host proc(out: Blob) -> Int            # the last error, as text: how long
-rioLog* :: @host proc(out: Blob) -> Int              # what it logged since, taken: how long (lines end with 10)
-rioIndent* :: @host proc(text: String) -> Int        # the indent steps an unfinished input's next line takes
+rioStart* :: host proc(mem, tables: Blob) -> Int
+rioEval* :: host proc(text: String) -> Int          # run a piece: 0 done, 1 unfinished (needs more), -1 error
+rioFrame* :: host proc() -> Int                     # its update then draw: 0, 1 if it has neither, -1 error
+rioType* :: host proc(key: Int)                     # a key for its pc.key()
+rioError* :: host proc(out: Blob) -> Int            # the last error, as text: how long
+rioLog* :: host proc(out: Blob) -> Int              # what it logged since, taken: how long (lines end with 10)
+rioIndent* :: host proc(text: String) -> Int        # the indent steps an unfinished input's next line takes
