@@ -118,9 +118,13 @@ lineHas :: proc(l: Int, s: String) -> Bool
   return false
 end
 
-# a line that opens a block: the next is indented one more step (not a switch: its cases line up with it)
+# a line that opens a block: the next is indented one more step (not a switch: its cases line up with it,
+# and not a one-line block: `if done do return`)
 opensBlock :: proc(l: Int) -> Bool
-  return startsWord(l, "if") or startsWord(l, "else") or startsWord(l, "for") or
+  if lineHas(l, " do ")
+    return false
+  end
+  return startsWord(l, "if") or startsWord(l, "else") or startsWord(l, "for") or startsWord(l, "do") or
          startsWord(l, "case") or lineHas(l, ":: proc") or lineHas(l, ":: struct") or lineHas(l, ":: enum") or
          lineHas(l, ":: union")
 end

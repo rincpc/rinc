@@ -2,7 +2,7 @@
 
 # ---------------------------------------------------------------- the screen
 
-KEYWORDS :: " proc struct if else for in end return break continue import include enum union switch case is nil and or not true false "
+KEYWORDS :: " proc struct if else for in end return break continue import include enum union switch case is nil and or not do true false "
 
 isKeyword :: proc(a, b: Int) -> Bool
   n := b - a

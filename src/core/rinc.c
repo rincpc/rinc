@@ -1907,7 +1907,7 @@ static int rinc_wordChar(int c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && 
 /* a word's color, or 0 for none (types too: plain) */
 static const char *rinc_wordPaint(const char *w, int n) {
   static const char *const keywords[] = {"proc", "struct", "if", "else", "for", "in", "end", "return", "break", "continue",
-    "import", "include", "enum", "union", "switch", "case", "is", "nil", "and", "or", "not", "true", "false"};
+    "import", "include", "enum", "union", "switch", "case", "is", "nil", "and", "or", "not", "do", "true", "false"};
   size_t i;
   if (n > 0 && w[0] >= '0' && w[0] <= '9') return rinc_PAINT_NUMBER;
   for (i = 0; i < sizeof keywords / sizeof keywords[0]; i++) if ((int)strlen(keywords[i]) == n && !memcmp(keywords[i], w, (size_t)n)) return rinc_PAINT_KEYWORD;

@@ -33,6 +33,7 @@ loops compiled to machine code as they load.
   memory, and apps.
 - [The guide](docs/guide/building.md): building and using this Rinc on the Fruit Jam, the desktop and the
   web.
+- [Roadmap](ROADMAP.md): what's planned on the way to a Rinc 1.0 that stays put.
 
 ## Try it
 

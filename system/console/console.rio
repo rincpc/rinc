@@ -31,7 +31,7 @@ logBuf: Blob[2048]
 
 # code, colored as the editor colors it: comments, strings, numbers, keywords, names with a capital
 # (types), names called, other names, and the rest (operators and punctuation)
-KEYWORDS :: " proc struct if else for in end return break continue import include enum union switch case is nil and or not true false "
+KEYWORDS :: " proc struct if else for in end return break continue import include enum union switch case is nil and or not do true false "
 isWordChar :: proc(c: Int) -> Bool
   return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_'
 end
