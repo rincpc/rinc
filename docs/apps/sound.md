@@ -54,6 +54,28 @@ slide, vibrato, drop, fade in, fade out and two arpeggios (1 to 7): see [the syn
 `pc.synthMake(out, notes, speed)` makes the same sound into a `Blob`, 16-bit at 16,000 samples a second,
 for a WAV file or to change before playing it.
 
+Each voice has settings of its own, which change what it's playing as they're set:
+
+```rio
+saw: Blob[4]
+saw[0] = 36                    # C3
+saw[1] = 2                     # saw
+saw[2] = 7
+pc.synth(0, saw[], 30)
+pc.synthRate(0, 48000.0)       # samples made a second: cleaner high notes, for 3 times the work
+pc.synthSmooth(0, 1)           # the saw, square and pulse rounded off where they jump: cleaner, cheaply
+pc.synthBend(0, 0.5)           # every pitch up a quarter tone
+pc.synthEnvelope(0, 0.2, 1.0)  # notes rise slowly (0.2 seconds) and fall more slowly still
+log(pc.soundPlaying(0))
+```
+
+```output
+1
+```
+
+Voice -1's settings are the ones `synthMake` uses. Waves 8 to 15 are the app's own: `pc.synthWave(8,
+cycle[])` makes wave 8 one cycle of 16-bit samples, which any voice plays at any pitch.
+
 ## Recorded sound
 
 IMA ADPCM keeps sound in a quarter of the space of 16-bit, and sounds close to it: a second of 22 kHz

@@ -12,8 +12,8 @@
    and close to it in sound.
 
    Or a voice is the synth's (pc.synth): it plays notes from the app's memory, 4 bytes each (pitch,
-   wave, volume, effect: Sound's notes), making the samples as it goes at 16 kHz, Sound's rate, and
-   interpolated up like any sound's. */
+   wave, volume, effect: Sound's notes), making the samples as it goes at its own rate (16 kHz, Sound's,
+   unless set), and interpolated up like any sound's. */
 #include <math.h>
 #include <string.h>
 #include "rinc.h"
@@ -35,13 +35,16 @@ typedef struct {
      the wave's place in its cycle (t, and phaser's second wave's t2) and how far a sample (dt, for
      pitch), the volume as heard (eased toward the note's, so changes don't click), seconds since it
      began (for vibrato and arpeggios), the noise's state, samples left to fade out in once it ends,
-     and the samples it's between */
-  const uint8_t *notes; uint32_t note, k, len, eighth, noise, tail;
-  float t, t2, dt, pitch, level, sec;
-  int32_t sa, sb; uint8_t synth;
+     and the samples it's between. From its settings (rinc_SynthSet): its rate and soundRate's speed-up
+     (play), a second's part of a sample (inv), its speed, how far the volume eases a sample, rising and
+     falling (up, down), the fade's length, and its bend and smoothing. The gains as heard (cgl, cgr),
+     eased toward gl and gr over a chunk, so volume and pan don't click */
+  const uint8_t *notes; uint32_t note, k, len, eighth, noise, tail, speed, fade;
+  float t, t2, dt, pitch, level, sec, rate, play, inv, up, down, bend;
+  int32_t sa, sb, cgl, cgr; uint8_t synth, smooth, set;
 } rinc_Voice;
 
-static rinc_Voice rinc_voices[rinc_VOICES];
+static rinc_Voice rinc_voices[rinc_VOICES], rinc_maker; /* (rinc_maker: synthMake's) */
 static volatile int32_t rinc_master = 32768; /* the system's volume, over all of it (1.15) */
 static int rinc_level = rinc_VOLUME_STEPS, rinc_muted;
 void (*rinc_audioLock)(int on);
@@ -111,16 +114,39 @@ static uint32_t rinc_adpcmFrames(uint32_t n, uint32_t block, int stereo) {
 #define rinc_CHUNK 64
 static int32_t rinc_sums[rinc_CHUNK * 2];
 
-/* the synth: notes made into samples (docs/spec/sound.md#the-synth), at Sound's rate and as it plays
-   them: each note speed 120ths of a second (133 samples a speed), C0 (65.4 Hz) at pitch 0 */
+/* the synth: notes made into samples (docs/spec/sound.md#the-synth), as it plays them: each note speed
+   120ths of a second (133 samples a speed at 16 kHz, Sound's rate), C0 (65.4 Hz) at pitch 0 */
 #define rinc_SYNTH_RATE 16000
 #define rinc_SYNTH_TICK 133
-#define rinc_SYNTH_TAIL 800 /* samples to fade out in after the last note (50 ms), so it doesn't click */
+#define rinc_SYNTH_EASE 0.0062187f /* seconds the volume takes to ease about 2/3 of the way: 1% a sample at 16 kHz */
+/* a voice's settings, kept from one pc.synth to the next (and synthMake's, after the voices): the rate
+   it makes samples at, a bend in semitones, the volume's easing (rising, falling), smoothing on or off */
+typedef struct { float rate, bend, attack, release; uint8_t smooth; } rinc_SynthSet;
+static rinc_SynthSet rinc_synthSets[rinc_VOICES + 1];
+/* waves 8 to 15: a cycle each, of 16-bit samples in the app's memory (none: silent) */
+static struct { const uint8_t *data; uint32_t n; } rinc_waves[8];
+static rinc_SynthSet *rinc_synthSet(int i) {
+  rinc_SynthSet *s = &rinc_synthSets[i];
+  if (!s->rate) { s->rate = rinc_SYNTH_RATE; s->attack = s->release = rinc_SYNTH_EASE; }
+  return s;
+}
 static float rinc_tri(float x) { return fabsf(x * 4 - 2) - 1; } /* (x from 0 to 1, a cycle) */
 static float rinc_fracf(float x) { return x - floorf(x); }
+/* PolyBLEP: what rounds off a jump up of 2 at the cycle's start (x), over a sample's step (dt) either
+   side of it, so the jump's overtones past what the rate can hold mostly don't fold back as false tones */
+static float rinc_HOT rinc_blep(float x, float dt) {
+  if (x < dt) { x /= dt; return x + x - x * x - 1; }
+  if (x > 1 - dt) { x = (x - 1) / dt; return x * x + x + x + 1; }
+  return 0;
+}
 static float rinc_HOT rinc_wave(rinc_Voice *v, int w) {
-  float x = v->t;
-  switch (w & 7) {
+  float x = v->t, d = v->dt < 0.5f ? v->dt : 0.5f;
+  if (v->smooth) switch (w & 15) { /* (the waves that jump, smoothed) */
+  case 2: return (x * 2 - 1 - rinc_blep(x, d)) * 0.7f;
+  case 3: return (x < 0.5f ? 0.5f : -0.5f) + 0.5f * (rinc_blep(x, d) - rinc_blep(rinc_fracf(x + 0.5f), d));
+  case 4: return (x < 0.25f ? 0.5f : -0.5f) + 0.5f * (rinc_blep(x, d) - rinc_blep(rinc_fracf(x + 0.75f), d));
+  }
+  switch (w & 15) {
   case 1: return x < 0.875f ? x / 0.875f * 2 - 1 : (1 - x) / 0.125f * 2 - 1; /* tilted */
   case 2: return (x * 2 - 1) * 0.7f;                                         /* saw */
   case 3: return x < 0.5f ? 0.5f : -0.5f;                                    /* square */
@@ -132,15 +158,27 @@ static float rinc_HOT rinc_wave(rinc_Voice *v, int w) {
     return (float)(int32_t)v->noise / 2147483648.0f;
   }
   case 7: return (rinc_tri(x) + rinc_tri(v->t2)) * 0.5f;                     /* phaser: two a little apart */
-  default: return rinc_tri(x);                                               /* triangle */
+  case 0: return rinc_tri(x);                                                /* triangle */
+  default: {                                                                 /* the app's own */
+    const uint8_t *p = rinc_waves[(w & 15) - 8].data; uint32_t n = rinc_waves[(w & 15) - 8].n, i, j;
+    float at, a, b;
+    if (!p) return 0;
+    at = x * (float)n; i = (uint32_t)at; if (i >= n) i = n - 1;
+    j = i + 1 < n ? i + 1 : 0;
+    a = (float)(int16_t)(p[i * 2] | p[i * 2 + 1] << 8); b = (float)(int16_t)(p[j * 2] | p[j * 2 + 1] << 8);
+    return (a + (b - a) * (at - (float)i)) / 32768.0f;
+  }
   }
 }
 static float rinc_pitchOf(const uint8_t *n) { return n[0] > 95 ? 95.0f : (float)n[0]; }
-/* how far the wave goes in a sample at pitch p (0 to 95): from a table of the semitones, in a straight
-   line between them (within a cent of 2^(p / 12), for much less than working that out each sample) */
+/* the frequency at pitch p (0 to 95; past them, the nearer): from a table of the semitones, in a
+   straight line between them (within a cent of 2^(p / 12), for much less than working that out each
+   sample) */
 static float rinc_semitones[97];
-static float rinc_HOT rinc_dtOf(float p) {
-  int i = (int)p;
+static float rinc_HOT rinc_hzOf(float p) {
+  int i;
+  if (!(p > 0)) return rinc_semitones[0];
+  i = (int)p;
   if (i >= 95) return rinc_semitones[95];
   return rinc_semitones[i] + (rinc_semitones[i + 1] - rinc_semitones[i]) * (p - (float)i);
 }
@@ -152,7 +190,7 @@ static int32_t rinc_HOT rinc_synthNext(rinc_Voice *v) {
   if (v->k >= v->len && !v->tail) { /* the next note, or back to the loop's start, or the end: fading out */
     if (v->loop1 > v->loop0 && v->note + 1 >= v->loop1) v->note = v->loop0, v->k = 0;
     else if (v->note + 1 < v->frames) v->note++, v->k = 0;
-    else v->tail = rinc_SYNTH_TAIL;
+    else v->tail = v->fade;
   }
   if (v->tail && !--v->tail) { v->on = 0; return 0; }
   n = v->notes + v->note * 4;
@@ -176,33 +214,53 @@ static int32_t rinc_HOT rinc_synthNext(rinc_Voice *v) {
   }
   }
   if (v->tail) target = 0;
-  if (p != v->pitch) { v->pitch = p; v->dt = rinc_dtOf(p < 0 ? 0 : p); }
+  p += v->bend;
+  if (p != v->pitch) { v->pitch = p; v->dt = rinc_hzOf(p) * v->inv; }
   v->t += v->dt; v->t -= (float)(int)v->t;
   v->t2 += v->dt * 1.007f; v->t2 -= (float)(int)v->t2;
   s = rinc_wave(v, n[1]);
-  v->level += (target - v->level) * 0.01f;
+  v->level += (target - v->level) * (target > v->level ? v->up : v->down);
   v->k++;
-  if ((v->sec += 1.0f / rinc_SYNTH_RATE) >= 4) v->sec -= 4; /* (every effect's period divides 4 seconds) */
+  if ((v->sec += v->inv) >= 4) v->sec -= 4; /* (every effect's period divides 4 seconds) */
   return (int32_t)(s * v->level * 25600);
 }
-/* a voice starting on notes (count of them) at speed */
-static void rinc_synthStart(rinc_Voice *v, const uint8_t *notes, uint32_t count, int speed) {
+/* how far the volume eases a sample, to get about 2/3 of the way in secs at rate (0: all the way) */
+static float rinc_ease(float secs, float rate) { return secs > 0 ? 1 - expf(-1 / (secs * rate)) : 1; }
+/* a synth voice's settings, into it (a note partway along stays as far along at a new rate) */
+static void rinc_synthApply(rinc_Voice *v) {
+  const rinc_SynthSet *s = rinc_synthSet(v->set);
+  float r = s->rate, f = r / 20, ff = 5 * s->release * r;
+  uint32_t len = (uint32_t)((float)(v->speed * rinc_SYNTH_TICK) * r / rinc_SYNTH_RATE + 0.5f);
+  if (!len) len = 1;
+  if (v->len && len != v->len) v->k = (uint32_t)((uint64_t)v->k * len / v->len);
+  v->len = len;
+  v->rate = r; v->inv = 1 / r; v->pitch = -1000; /* (no pitch: its step worked out again) */
+  v->up = rinc_ease(s->attack, r); v->down = rinc_ease(s->release, r);
+  v->fade = (uint32_t)(ff > f ? ff : f); /* (at least 50 ms, and long enough for the release) */
+  if (v->tail > v->fade) v->tail = v->fade;
+  v->bend = s->bend; v->smooth = s->smooth;
+  rinc_stepFor(v, r * v->play);
+}
+/* a voice starting on notes (count of them) at speed, with settings set (a voice, or synthMake's) */
+static void rinc_synthStart(rinc_Voice *v, const uint8_t *notes, uint32_t count, int speed, int set) {
   int k;
-  if (!rinc_semitones[1]) for (k = 0; k < 97; k++) rinc_semitones[k] = 65.406f * exp2f((float)k / 12) / rinc_SYNTH_RATE;
+  if (!rinc_semitones[1]) for (k = 0; k < 97; k++) rinc_semitones[k] = 65.406f * exp2f((float)k / 12);
   memset(v, 0, sizeof *v);
-  v->synth = 1; v->notes = notes; v->frames = count;
-  v->len = (uint32_t)(speed < 1 ? 1 : speed > 255 ? 255 : speed) * rinc_SYNTH_TICK;
-  v->pitch = -1; v->noise = 1;
-  rinc_stepFor(v, rinc_SYNTH_RATE); v->vol = 1; rinc_gains(v);
+  v->synth = 1; v->notes = notes; v->frames = count; v->set = (uint8_t)set;
+  v->speed = (uint32_t)(speed < 1 ? 1 : speed > 255 ? 255 : speed);
+  v->noise = 1; v->play = 1;
+  rinc_synthApply(v);
+  v->vol = 1; rinc_gains(v); v->cgl = v->gl; v->cgr = v->gr;
   v->on = 1;
   v->sb = rinc_synthNext(v);
 }
-/* a synth voice into the sums: the samples made as they're reached, interpolated between */
+/* a synth voice into the sums: the samples made as they're reached, interpolated between; its gains
+   eased across the chunk to where they're set */
 static void rinc_HOT rinc_mixSynth(rinc_Voice *v, int n) {
   uint32_t fr = v->frac, fstep = v->fstep, step = v->step;
-  int32_t gl = v->gl, gr = v->gr, *out = rinc_sums, a = v->sa, b = v->sb;
+  int32_t gl = v->cgl, gr = v->cgr, dl = (v->gl - gl) / n, dr = (v->gr - gr) / n, *out = rinc_sums, a = v->sa, b = v->sb;
   int f;
-  for (f = 0; f < n && v->on; f++, out += 2) {
+  for (f = 0; f < n && v->on; f++, out += 2, gl += dl, gr += dr) {
     int32_t x = a + ((b - a) * (int32_t)(fr >> 17) >> 15);
     uint32_t go;
     out[0] += x * gl >> 15; out[1] += x * gr >> 15;
@@ -210,6 +268,7 @@ static void rinc_HOT rinc_mixSynth(rinc_Voice *v, int n) {
     for (go = step + (fr < fstep); go && v->on; go--) { a = b; b = rinc_synthNext(v); }
   }
   v->frac = fr; v->sa = a; v->sb = b;
+  v->cgl = f == n ? v->gl : gl; v->cgr = f == n ? v->gr : gr;
 }
 
 /* one voice into the sums for n frames, as it goes: where it is, its loop, its next frame (to
@@ -341,7 +400,11 @@ void rinc_audioVolume(int step) {
 }
 int rinc_audioLevel(void) { return rinc_muted ? -1 : rinc_level; }
 
-void rinc_audioReset(void) { rinc_lock(1); memset(rinc_voices, 0, sizeof rinc_voices); rinc_lock(0); }
+void rinc_audioReset(void) {
+  rinc_lock(1);
+  memset(rinc_voices, 0, sizeof rinc_voices); memset(rinc_synthSets, 0, sizeof rinc_synthSets); memset(rinc_waves, 0, sizeof rinc_waves); memset(&rinc_maker, 0, sizeof rinc_maker);
+  rinc_lock(0);
+}
 
 /* host procs. sound(voice, data, bits, channels, rate): play data (8 or 16 bits, or 4 for ADPCM in
    blocks of rinc_ADPCM_BLOCK bytes a channel; 1 or 2 channels) at rate frames a second, full volume,
@@ -390,7 +453,15 @@ static void rinc_hostWav(rio_Vm *vm, rio_Val *a) {
     }
   a[0].i = ok;
 }
-static void rinc_hostRate(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; if (v) { rinc_lock(1); rinc_stepFor(v, a[1].f); rinc_lock(0); } }
+/* soundRate(voice, rate): on the synth, a speed-up of the whole (16000: none) */
+static void rinc_hostRate(rio_Vm *vm, rio_Val *a) {
+  rinc_Voice *v = rinc_voice(a); (void)vm;
+  if (!v) return;
+  rinc_lock(1);
+  if (v->synth) { v->play = rinc_clampf(a[1].f, 0, rinc_RATE * 16.0f) / rinc_SYNTH_RATE; rinc_stepFor(v, v->rate * v->play); }
+  else rinc_stepFor(v, a[1].f);
+  rinc_lock(0);
+}
 static void rinc_hostVolume(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; if (v) { rinc_lock(1); v->vol = rinc_clampf(a[1].f, 0, 1); rinc_gains(v); rinc_lock(0); } }
 static void rinc_hostPan(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; if (v) { rinc_lock(1); v->pan = rinc_clampf(a[1].f, -1, 1); rinc_gains(v); rinc_lock(0); } }
 /* soundLoop(voice, start, end): from end, go back to start (frames); end 0 or less: no loop */
@@ -409,29 +480,92 @@ static void rinc_hostSynth(rio_Vm *vm, rio_Val *a) {
   rinc_Voice *v = rinc_voice(a); const uint8_t *p = (const uint8_t *)rio_sliceBytes(vm, a + 1);
   if (!v) return;
   rinc_lock(1);
-  if (p && a[2].u >= 4) rinc_synthStart(v, p, a[2].u / 4, a[3].i);
+  if (p && a[2].u >= 4) rinc_synthStart(v, p, a[2].u / 4, a[3].i, (int)(v - rinc_voices));
   else v->on = 0;
   rinc_lock(0);
 }
 /* synthMake(out, notes, speed): the notes made into out instead, as 16-bit samples (little-endian) at
-   16 kHz, to its end or out's: how many */
+   the rate set for voice -1 (16 kHz unless set), to its end or out's: how many. Speed 0: on from where
+   the last one stopped (its next sample, in the notes given now) */
 static void rinc_hostSynthMake(rio_Vm *vm, rio_Val *a) {
   uint8_t *out = (uint8_t *)rio_sliceBytes(vm, a); const uint8_t *notes = (const uint8_t *)rio_sliceBytes(vm, a + 2);
-  uint32_t cap = a[1].u / 2, k = 0;
-  rinc_Voice v;
-  if (out && notes && a[3].u >= 4)
-    for (rinc_synthStart(&v, notes, a[3].u / 4, a[4].i); k < cap && v.on; k++, v.sb = rinc_synthNext(&v)) {
-      int32_t x = v.sb < -32768 ? -32768 : v.sb > 32767 ? 32767 : v.sb;
-      out[k * 2] = (uint8_t)(x & 255); out[k * 2 + 1] = (uint8_t)(x >> 8 & 255);
-    }
+  uint32_t cap = a[1].u / 2, k = 0, count = a[3].u / 4;
+  rinc_Voice *v = &rinc_maker;
+  a[0].u = 0;
+  if (!out || !notes || !count) return;
+  if (a[4].i) rinc_synthStart(v, notes, count, a[4].i, rinc_VOICES);
+  else {
+    if (!v->on) return;
+    v->notes = notes; v->frames = count;
+    if (v->note >= count) { v->note = count - 1; if (!v->tail) v->tail = v->fade; } /* (fewer notes now: past them, the end) */
+    rinc_synthApply(v);
+  }
+  for (; k < cap && v->on; k++, v->sb = rinc_synthNext(v)) {
+    int32_t x = v->sb < -32768 ? -32768 : v->sb > 32767 ? 32767 : v->sb;
+    out[k * 2] = (uint8_t)(x & 255); out[k * 2 + 1] = (uint8_t)(x >> 8 & 255);
+  }
   a[0].u = k;
 }
-static void rinc_hostStop(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; if (v) { rinc_lock(1); v->on = 0; rinc_lock(0); } }
+/* the synth's settings for voice a[0] (-1: synthMake's), changed by change, and into the voice if it's
+   the synth's now */
+static void rinc_synthChange(rio_Val *a, void (*change)(rinc_SynthSet *s, rio_Val *a)) {
+  int i = a[0].i == -1 ? rinc_VOICES : a[0].i;
+  if (i < 0 || i > rinc_VOICES) return;
+  rinc_lock(1);
+  change(rinc_synthSet(i), a);
+  if (i < rinc_VOICES && rinc_voices[i].synth) rinc_synthApply(&rinc_voices[i]);
+  rinc_lock(0);
+}
+static void rinc_setRate(rinc_SynthSet *s, rio_Val *a) { s->rate = rinc_clampf(a[1].f, 8000, rinc_RATE); }
+static void rinc_setBend(rinc_SynthSet *s, rio_Val *a) { s->bend = rinc_clampf(a[1].f, -96, 96); }
+static void rinc_setEnvelope(rinc_SynthSet *s, rio_Val *a) { s->attack = rinc_clampf(a[1].f, 0, 10); s->release = rinc_clampf(a[2].f, 0, 10); }
+static void rinc_setSmooth(rinc_SynthSet *s, rio_Val *a) { s->smooth = a[1].i != 0; }
+/* synthRate(voice, rate): samples made a second, 8000 to 48000 */
+static void rinc_hostSynthRate(rio_Vm *vm, rio_Val *a) { (void)vm; rinc_synthChange(a, rinc_setRate); }
+/* synthBend(voice, semitones): every pitch moved by that much, -96 to 96 */
+static void rinc_hostSynthBend(rio_Vm *vm, rio_Val *a) { (void)vm; rinc_synthChange(a, rinc_setBend); }
+/* synthEnvelope(voice, attack, release): seconds the volume takes to rise and to fall about 2/3 of the
+   way to a note's (0 to 10; 0: at once) */
+static void rinc_hostSynthEnvelope(rio_Vm *vm, rio_Val *a) { (void)vm; rinc_synthChange(a, rinc_setEnvelope); }
+/* synthSmooth(voice, on): the waves that jump (saw, square, pulse) smoothed where they jump */
+static void rinc_hostSynthSmooth(rio_Vm *vm, rio_Val *a) { (void)vm; rinc_synthChange(a, rinc_setSmooth); }
+/* synthWave(w, cycle): wave w (8 to 15) a cycle of 16-bit samples (little-endian), read as it plays;
+   fewer than 2 samples: silent */
+static void rinc_hostSynthWave(rio_Vm *vm, rio_Val *a) {
+  const uint8_t *p = (const uint8_t *)rio_sliceBytes(vm, a + 1);
+  uint32_t w = a[0].u - 8;
+  if (w >= 8) return;
+  rinc_lock(1);
+  rinc_waves[w].data = p && a[2].u >= 4 ? p : 0; rinc_waves[w].n = rinc_waves[w].data ? a[2].u / 2 : 0;
+  rinc_lock(0);
+}
+/* soundStop(voice): at once, or on the synth, fading out as after its last note (so it doesn't click) */
+static void rinc_hostStop(rio_Vm *vm, rio_Val *a) {
+  rinc_Voice *v = rinc_voice(a); (void)vm;
+  if (!v) return;
+  rinc_lock(1);
+  if (v->synth && v->on) { v->loop0 = v->loop1 = 0; if (!v->tail) v->tail = v->fade; }
+  else v->on = 0;
+  rinc_lock(0);
+}
+/* soundSeek(voice, at): on from frame at (on the synth, note at; past the end, the last) */
+static void rinc_hostSeek(rio_Vm *vm, rio_Val *a) {
+  rinc_Voice *v = rinc_voice(a); uint32_t at = a[1].i > 0 ? a[1].u : 0; (void)vm;
+  if (!v || !v->on || !v->frames) return;
+  rinc_lock(1);
+  if (at >= v->frames) at = v->frames - 1;
+  if (v->synth) { v->note = at; v->k = 0; v->tail = 0; }
+  else { v->pos = at; v->frac = 0; if (v->bits == 4) v->dec.at = 0xFFFFFFFFu; }
+  rinc_lock(0);
+}
 static void rinc_hostPlaying(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; a[0].i = v && v->on; }
 
 int rinc_audioProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.sound", "ibiif", rinc_hostSound) || rio_addFfi(vm, "pc.soundRate", "if", rinc_hostRate) || rio_addFfi(vm, "pc.soundVolume", "if", rinc_hostVolume) ||
          rio_addFfi(vm, "pc.soundPan", "if", rinc_hostPan) || rio_addFfi(vm, "pc.soundLoop", "iii", rinc_hostLoop) || rio_addFfi(vm, "pc.soundStop", "i", rinc_hostStop) ||
          rio_addFfi(vm, "pc.soundPlaying", "i>i", rinc_hostPlaying) || rio_addFfi(vm, "pc.soundWav", "ib>i", rinc_hostWav) ||
-         rio_addFfi(vm, "pc.synth", "ibi", rinc_hostSynth) || rio_addFfi(vm, "pc.synthMake", "bbi>i", rinc_hostSynthMake);
+         rio_addFfi(vm, "pc.synth", "ibi", rinc_hostSynth) || rio_addFfi(vm, "pc.synthMake", "bbi>i", rinc_hostSynthMake) ||
+         rio_addFfi(vm, "pc.synthRate", "if", rinc_hostSynthRate) || rio_addFfi(vm, "pc.synthBend", "if", rinc_hostSynthBend) ||
+         rio_addFfi(vm, "pc.synthEnvelope", "iff", rinc_hostSynthEnvelope) || rio_addFfi(vm, "pc.synthSmooth", "ii", rinc_hostSynthSmooth) ||
+         rio_addFfi(vm, "pc.synthWave", "ib", rinc_hostSynthWave) || rio_addFfi(vm, "pc.soundSeek", "ii", rinc_hostSeek);
 }

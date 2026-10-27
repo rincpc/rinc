@@ -75,9 +75,129 @@ for e in 0..<8
   assert(n > 3 * 532 and loudest(0, n) <= 25600, "an effect")
 end
 
-# and played: a loop of the first note, for -wav (tests/synth.py checks what's heard)
+# synthMake's settings (voice -1): at 48000 a second, the same note takes 3 times the samples, at the
+# same pitch and loudness
+note(0, 33, 3, 7)
+pc.synthRate(-1, 48000.0)
+n = pc.synthMake(out[], notes[0..<4], 10)
+assert(n > 3990 and n < 3990 + 2700, "a note at 48000, then a short fade")
+c = crossings(1000, 3990)
+assert(c >= 51 and c <= 57, "440 Hz at 48000") # (2 * 440 * 2990 / 48000)
+assert(loudest(1000, 3990) > 12000 and loudest(1000, 3990) <= 12800, "as loud at 48000")
+pc.synthRate(-1, 16000.0)
+
+# bent an octave up, then back
+pc.synthBend(-1, 12.0)
+n = pc.synthMake(out[], notes[0..<4], 30)
+c = crossings(1000, 3990)
+assert(c >= 325 and c <= 335, "bent to 880 Hz")
+pc.synthBend(-1, 0.0)
+
+# an attack of 0 is full at once; a slow one is still quiet; a long release fades for longer
+pc.synthEnvelope(-1, 0.0, 0.0062)
+n = pc.synthMake(out[], notes[0..<4], 30)
+assert(loudest(0, 40) > 12000, "attack 0: full at once")
+pc.synthEnvelope(-1, 0.5, 0.0062)
+n = pc.synthMake(out[], notes[0..<4], 30)
+assert(loudest(0, 160) < 1000, "a slow attack: quiet at first")
+pc.synthEnvelope(-1, 0.0062, 0.1)
+n = pc.synthMake(out[], notes[0..<4], 30)
+assert(n > 3990 + 7000, "a long release: a long fade")
+pc.synthEnvelope(-1, 0.0062, 0.0062)
+
+# smoothed, a square has samples between its high and low where it jumps, and none past them
+crossed :: proc(a, b: Int) -> Int # (samples between, well away from either)
+  k := 0
+  for i in a..<b
+    if abs(sample(i)) < 9000
+      k += 1
+    end
+  end
+  return k
+end
+note(0, 60, 3, 7)
+n = pc.synthMake(out[], notes[0..<4], 30)
+plain := crossed(1000, 3990)
+pc.synthSmooth(-1, 1)
+n = pc.synthMake(out[], notes[0..<4], 30)
+assert(crossed(1000, 3990) > plain + 100, "smoothed where it jumps")
+assert(loudest(1000, 3990) <= 12800, "smoothed, no louder")
+pc.synthSmooth(-1, 0)
+
+# an app's own wave: a cycle of 4 samples, read in straight lines between them (a triangle)
+cycle: Blob[8]
+cycle.setInt(2, 16, 32767)
+cycle.setInt(6, 16, -32767)
+pc.synthWave(8, cycle[])
+note(0, 33, 8, 7)
+n = pc.synthMake(out[], notes[0..<4], 30)
+c = crossings(1000, 3990)
+assert(c >= 160 and c <= 170, "an app's wave at 440 Hz")
+assert(loudest(1000, 3990) > 24000 and loudest(1000, 3990) <= 25600, "an app's wave at full")
+note(0, 33, 9, 7)
+n = pc.synthMake(out[], notes[0..<4], 30)
+assert(loudest(0, n) == 0, "a wave not set: silent")
+
+# made a piece at a time (speed 0: on from where it stopped), the same as made at once
+note(0, 33, 2, 7)
+note(1, 40, 3, 5)
+notes[7] = 1 # (a slide)
+n = pc.synthMake(out[], notes[0..<8], 20)
+part: Blob[2000]
+k := pc.synthMake(part[], notes[0..<8], 20)
+at := 0
+for k > 0
+  for i in 0..<k * 2
+    assert(part[i] == out[at * 2 + i], "pieces the same as at once")
+  end
+  at += k
+  k = pc.synthMake(part[], notes[0..<8], 0)
+end
+assert(at == n, "pieces as long as at once")
+assert(pc.synthMake(part[], notes[0..<8], 0) == 0, "at the end, no more")
+notes[7] = 0
+
+# and played: a loop of the first note, for -wav (tests/synth.py checks what's heard), changed to
+# 48000 a second and smoothed as it plays
 note(0, 33, 3, 7)
 pc.synth(0, notes[0..<4], 30)
 pc.soundLoop(0, 0, 1)
+pc.synthRate(0, 48000.0)
+pc.synthSmooth(0, 1)
 assert(pc.soundPlaying(0) == 1, "playing")
 log("synth tests passed")
+
+# frame by frame (rinc -frames 40, for tests/synth.py): seeking, on the synth and not, and stopping
+# the synth, which fades out
+two: Blob[8]
+two[0] = 33
+two[2] = 7
+two[4] = 45
+two[6] = 7
+pc.synth(1, two[], 30)       # two notes of a quarter second: half a second, but on from the second
+pc.soundSeek(1, 1)
+pc.synth(2, two[0..<4], 30)
+pc.soundLoop(2, 0, 1)
+pcm: Blob[16000]             # a second of 8-bit, but on from 15000 (1/16 of a second left)
+for i in 0..<16000
+  pcm[i] = i % 32 * 4
+end
+pc.sound(3, pcm[], 8, 1, 16000.0)
+pc.soundSeek(3, 15000)
+frame := 0
+update* :: proc()
+  frame += 1
+  if frame == 2
+    pc.soundStop(2)
+    assert(pc.soundPlaying(2) == 1, "the synth stopped: fading")
+  end
+  if frame == 12
+    assert(pc.soundPlaying(2) == 0, "faded out")
+    assert(pc.soundPlaying(3) == 0, "on from near the end: done")
+    assert(pc.soundPlaying(1) == 1, "the second note")
+  end
+  if frame == 25
+    assert(pc.soundPlaying(1) == 0, "seeked to the second note: done before both would be")
+    log("seek tests passed")
+  end
+end

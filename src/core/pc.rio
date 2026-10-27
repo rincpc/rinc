@@ -58,15 +58,29 @@ soundRate* :: host proc(v: Int, rate: Float)
 soundVolume* :: host proc(v: Int, volume: Float)    # 0 to 1
 soundPan* :: host proc(v: Int, pan: Float)          # -1 to 1
 soundLoop* :: host proc(v, start, stop: Int)        # from frame stop, back to start (stop 0: no loop)
-soundStop* :: host proc(v: Int)
+soundStop* :: host proc(v: Int)                     # (on the synth, fading out, as after its last note)
 soundPlaying* :: host proc(v: Int) -> Int
 # the synth: play notes on voice v, 4 bytes each: pitch (0 is C0, 65.4 Hz; a semitone a step), wave (0
-# triangle, tilted, saw, square, pulse, organ, noise, 7 phaser), volume (0 to 7) and effect (0 none,
-# slide, vibrato, drop, fade in, fade out, fast arpeggio, 7 slow), each speed 120ths of a second. The
-# sound procs above work on it too: its loop's start and stop are notes
+# triangle, tilted, saw, square, pulse, organ, noise, 7 phaser; 8 to 15 the app's, from synthWave),
+# volume (0 to 7) and effect (0 none, slide, vibrato, drop, fade in, fade out, fast arpeggio, 7 slow),
+# each speed 120ths of a second. The sound procs above work on it too: its loop's start and stop are
+# notes
 synth* :: host proc(v: Int, notes: Blob, speed: Int)
-# the notes made into out instead, as 16-bit samples at 16000 a second (to their end or out's): how many
+# the notes made into out instead, as 16-bit samples at voice -1's rate (16000 a second unless set), to
+# their end or out's: how many (speed 0: on from where the last one stopped, for more than out holds)
 synthMake* :: host proc(out: Blob, notes: Blob, speed: Int) -> Int
+# a voice's synth settings, kept from one synth to the next, and heard at once if it's playing (voice
+# -1: synthMake's): samples made a second (8000 to 48000; 16000 to start), every pitch moved (in
+# semitones), seconds the volume takes to rise and fall about 2/3 of the way to a note's (0.0062 to
+# start), and the saw, square and pulse smoothed where they jump (1) or not (0, to start)
+synthRate* :: host proc(v: Int, rate: Float)
+synthBend* :: host proc(v: Int, semitones: Float)
+synthEnvelope* :: host proc(v: Int, attack, release: Float)
+synthSmooth* :: host proc(v, on: Int)
+# wave w (8 to 15) for every voice: a cycle of 16-bit samples, read as it plays (so keep it in globals)
+synthWave* :: host proc(w: Int, cycle: Blob)
+# on from frame at (on the synth, note at), as it plays
+soundSeek* :: host proc(v, at: Int)
 
 # ---------------------------------------------------------------- apps, for home and the console
 
