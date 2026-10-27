@@ -1,7 +1,7 @@
 # Builds and tests on every push and pull request:
 #   web      the web players (rinc.wasm, VM-only, and rinc-full.wasm, with the compiler), with zig: only
 #            CI needs zig
-#   desktop  rinc for Windows, macOS (universal) and Linux (x86-64 and arm64), with the web players
+#   desktop  rinc for Windows, macOS (Apple silicon) and Linux (x86-64 and arm64), with the web players
 #            built in, so rinc -web and rinc -export work without anything else installed; tests run
 #            every app headless
 #   board    rinc.uf2 for the Fruit Jam, with the Pico SDK and Arm's toolchain
@@ -77,10 +77,10 @@ jobs:
           - os: windows-latest
             name: windows-x86_64
             exe: build/Release/rinc.exe
-          - os: macos-latest
-            name: macos-universal
+          - os: macos-latest # (Apple silicon only: for an Intel Mac too, "arm64;x86_64", and name it macos-universal)
+            name: macos-arm64
             exe: build/rinc
-            flags: '"-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"'
+            flags: -DCMAKE_OSX_ARCHITECTURES=arm64
           - os: ubuntu-22.04 # (an older glibc: the binary runs on more Linux systems)
             name: linux-x86_64
             exe: build/rinc

@@ -6,7 +6,7 @@ cmake --build build-desktop --config Release
 ```
 
 The result is one program, with SDL3 (and, with MSVC, the C runtime) linked in. `-DRINC_SDL=OFF` builds
-it without a window. A release is that one program, zipped on Windows and a `.tar.gz` on macOS and Linux (x86-64, and
+it without a window. A release is that one program, zipped on Windows and a `.tar.gz` on macOS (Apple silicon) and Linux (x86-64, and
 arm64 for a Raspberry Pi 4 or 5 with 64-bit Raspberry Pi OS), so `rinc -help` and `rinc -license`
 carry what would otherwise be files beside it.
 
