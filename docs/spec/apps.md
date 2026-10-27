@@ -128,7 +128,7 @@ Only its saves are its own. A project being worked on can do anything to them, a
 app's saves are copied in, so it starts from real data. Deleting its `save` folder starts it over from
 the app's again. Nothing goes back the other way.
 
-`pc.launch("chord+")` runs the project, and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
+`pc.launch("chord+")` runs the project (and `pc.launch("chord/test")` its tests: see an app's tests), and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
 project's name too (`pc.appDelete` removes all of its folder: a project's own saves too, but never the
 app's, in `/rinc/save`). The rest, each 0 or -1:
 
@@ -435,6 +435,15 @@ carries all of its folder. The system apps are made this way, each a main file a
 /rinc/projects/game/shapes/shapes.rio
 /rinc/lib/tween.rio
 ```
+
+### An app's tests
+
+An app's tests go in `test.rio`, beside its main file. It includes the parts it tests, and any setup
+part they need, then calls their procs and checks what they do with `assert`, so a failure stops it
+at its line. `pc.launch("game/test")`, or `run game/test` in the console, runs it as the app does, on
+every Rinc: its files from the app's folder and its saves the app's. Being the app's own files, an
+app's tests are left out of installing, bundles and exports (and out of `files.txt`). The editor's
+are an example: `system/edit/test.rio`, with `parts/setup.rio` its sizes and colors.
 
 ## The editor
 

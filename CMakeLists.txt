@@ -188,6 +188,12 @@ else()
   add_test(NAME app_edit COMMAND rinc -data ${data} -app edit -frames 200
     -type "\\e\\x0elog(1)\\x1alog(6 * 7 + 1000)\\x12t1\\n")
   set_tests_properties(app_edit PROPERTIES DEPENDS install PASS_REGULAR_EXPRESSION "(^|[\r\n])1042[\r\n]")
+  # the editor's parts on their own, without the app: its test.rio includes them, run beside edit.rio
+  # as edit/test, as on the board (run edit/test in the console)
+  add_test(NAME edit_parts_setup COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_LIST_DIR}/system/edit/test.rio ${data}/apps/edit/test.rio)
+  set_tests_properties(edit_parts_setup PROPERTIES DEPENDS install)
+  add_test(NAME edit_parts COMMAND rinc -data ${data} -app edit/test -frames 1)
+  set_tests_properties(edit_parts PROPERTIES DEPENDS edit_parts_setup PASS_REGULAR_EXPRESSION "all edit tests passed")
   # help texts: bundled with -docs, listed and read by an app (pc.helps, helpName, helpRead); and the help app runs
   set(helps ${CMAKE_CURRENT_BINARY_DIR}/helps-game${CMAKE_EXECUTABLE_SUFFIX})
   add_test(NAME export_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/helps.rio -docs rinc=${CMAKE_CURRENT_LIST_DIR}/docs -export ${helps})

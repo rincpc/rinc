@@ -76,6 +76,11 @@ Apps only see their Rinc's folder, never the rest of the computer.
 exactly what rinc does, runs home, the console and the editor (typing at them), checks `pc.rio`, and runs the examples
 in these docs.
 
+An app's parts can be tested without running the app: see [an app's tests](../spec/apps.md#an-apps-tests).
+`rinc mygame/test.rio -frames 1` runs them from the folder, and `rinc -app mygame/test` from storage,
+as every Rinc does. On the Fruit Jam, `uv run tools/send.py mygame --test` sends the app and its tests,
+then runs them and prints what they say.
+
 ## Exported games
 
 `-export` writes a copy of rinc with a bundle of the apps after it (see

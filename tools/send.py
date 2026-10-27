@@ -8,6 +8,8 @@
   uv run tools/send.py apps/*.rio --save                     several at once
   uv run tools/send.py system/files [COM3]                   an app of a folder: saved, every file
                                                              its files.txt lists (else its .rio files)
+  uv run tools/send.py system/edit --test                    and its test.rio too, then run as edit/test:
+                                                             what it says, and a failed assert's line
 
 Ctrl-C over serial opens the console, in place of whatever's running, so this also replaces a game
 that's playing. Prints what the board says back: errors show up with their lines. A saved app runs
@@ -24,6 +26,8 @@ apps = [c for a in args if a != port for c in (glob.glob(a) or [a])]
 run = '--no-run' not in sys.argv
 save = '--save' in sys.argv
 project = '--project' in sys.argv
+test = '--test' in sys.argv
+failed = 0
 
 def talk(s, data):
   """send, then read until the board has been quiet for a moment"""
@@ -39,6 +43,18 @@ def text(path):
   src = open(path, encoding='utf-8').read().replace('\r\n', '\n')
   return src.replace('\n', '\r').encode('ascii', errors='ignore') + (b'\r' if not src.endswith('\n') else b'')
 
+def runTest(s, ref):
+  """run ref/test (an app's test.rio, beside its main file): what it says until it's done or fails"""
+  global failed
+  s.write(b'run ' + ref.encode() + b'/test\r')
+  out, t = b'', time.time()
+  while time.time() - t < 30 and not any(w in out for w in (b'passed', b'error', b'no file', b'(done)')):
+    out += s.read(4096)
+  out += s.read(4096)
+  lines = [l for l in out.decode(errors='replace').replace('\r', '').split('\n') if l.strip() and not l.startswith(('> run', 'run '))]
+  print('\n'.join(lines) if lines else ref + '/test: no answer')
+  if not any('passed' in l for l in lines): failed = 1
+
 def saveAs(s, target, path):
   """save the file at path on the board, as save's target: an app (name) or a file of one (name/a/b)"""
   said = talk(s, b'save ' + target.encode() + b'\r' + text(path) + b'\x04')
@@ -46,14 +62,15 @@ def saveAs(s, target, path):
   print('%s: %s' % (target, saved[-1] if saved else 'no answer'))
 
 def folderFiles(folder, name):
-  """an app folder's files, relative to it: its files.txt's, else its .rio files; the main one first"""
+  """an app folder's files, relative to it: its files.txt's, else its .rio files (but its tests,
+  test.rio); the main one first"""
   listed = os.path.join(folder, 'files.txt')
   if os.path.exists(listed):
     files = [l.strip() for l in open(listed, encoding='utf-8') if l.strip() and not l.startswith('#')]
   else:
     files = sorted(os.path.relpath(p, folder).replace('\\', '/') for p in glob.glob(os.path.join(folder, '**', '*.rio'), recursive=True))
   main = name + '.rio'
-  return [main] + [f for f in files if f != main]
+  return [main] + [f for f in files if f not in (main, 'test.rio')]
 
 with serial.Serial(port, 115200, timeout=0.2) as s:
   s.dtr = True
@@ -66,6 +83,9 @@ with serial.Serial(port, 115200, timeout=0.2) as s:
       ref = name + ('+' if project else '')
       for f in folderFiles(folder, name):
         saveAs(s, ref if f == name + '.rio' else ref + '/' + f, os.path.join(folder, f))
+      if test and os.path.exists(os.path.join(folder, 'test.rio')):
+        saveAs(s, ref + '/test.rio', os.path.join(folder, 'test.rio'))
+        runTest(s, ref)
     elif save:
       saveAs(s, os.path.splitext(os.path.basename(app))[0], app)
     else:
@@ -73,3 +93,4 @@ with serial.Serial(port, 115200, timeout=0.2) as s:
       said = talk(s, text(app) + (b'run\r' if run else b''))
       errors = [l for l in said.split('\n') if 'error' in l or (l[:1].isdigit() and ':' in l and ': ' in l)]
       print('\n'.join(errors) if errors else 'sent %d lines%s' % (src.count('\n'), ', running' if run else ''))
+sys.exit(failed)

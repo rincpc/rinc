@@ -183,7 +183,7 @@ int rinc_walkFolder(const char *folder, void (*each)(const char *path, void *ud)
 typedef struct { rinc_File *files; char (*paths)[96]; int *nf; uint32_t *used; char prefix[80]; const char *top, *skip; int bad, any; } rinc_DocWalk;
 static void rinc_docFound(const char *path, void *ud) {
   rinc_DocWalk *w = (rinc_DocWalk *)ud; size_t n = strlen(path); char full[1024]; FILE *f; size_t got;
-  if (w->bad || (w->any ? (w->skip && !strcmp(path, w->skip)) || !strcmp(path, "files.txt") : n < 4 || strcmp(path + n - 3, ".md"))) return; /* (files.txt: what -install fetches, no use in a bundle) */
+  if (w->bad || (w->any ? (w->skip && !strcmp(path, w->skip)) || !strcmp(path, "files.txt") || !strcmp(path, "test.rio") : n < 4 || strcmp(path + n - 3, ".md"))) return; /* (files.txt: what -install fetches, no use in a bundle; test.rio: its tests) */
   if (*w->nf >= rinc_BUNDLE_MOST) { fprintf(stderr, "rinc: a bundle has %d files at most\n", rinc_BUNDLE_MOST); w->bad = 1; return; }
   if (snprintf(w->paths[*w->nf], 96, "%s/%s", w->prefix, path) >= 96) { fprintf(stderr, "rinc: %s: its name is too long for a bundle\n", path); w->bad = 1; return; }
   snprintf(full, sizeof full, "%s/%s", w->top, path);
@@ -430,6 +430,10 @@ static void rinc_switch(void) { rinc_launch = 0; rinc_openApp(rinc_launchName); 
 
 /* an installed app's help texts: each .md file under its help folder, copied into its folder in storage */
 typedef struct { const char *from, *name; int bad; } rinc_HelpCopy;
+static void rinc_helpCopied(const char *path, void *ud);
+static void rinc_appFileCopied(const char *path, void *ud) { /* (all of an app's folder: but its tests, test.rio) */
+  if (strcmp(path, "test.rio")) rinc_helpCopied(path, ud);
+}
 static void rinc_helpCopied(const char *path, void *ud) { /* (each file of an app's folder) */
   rinc_HelpCopy *h = (rinc_HelpCopy *)ud; char full[1100], to[256]; size_t got; FILE *f;
   snprintf(full, sizeof full, "%s/%s", h->from, path);
@@ -526,7 +530,7 @@ static int rinc_install(const char *what0, const char *root) {
           if (strstr(line, "..") || line[0] == '/' || m > 200) { rinc_tell(1, "rinc: %s's files.txt names %s\n", name, line); return 1; }
           rinc_helpCopied(line, &h);
         }
-      } else rinc_walkFolder(folder, rinc_helpCopied, &h);
+      } else rinc_walkFolder(folder, rinc_appFileCopied, &h);
     }
     if (h.bad) { rinc_tell(1, "rinc: can't copy all of %s\n", name); return 1; }
   }

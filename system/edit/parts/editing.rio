@@ -159,8 +159,8 @@ dedent :: proc()
     for k > 0 and indentEnd(k) == lineEnd(k) # (blank lines)
       k -= 1
     end
-    if indentEnd(k) - lineAt[k] < p - lineAt[l]
-      return # (already dedented)
+    if indentEnd(k) - lineAt[k] < p - lineAt[l] and not opensBlock(k)
+      return # (already dedented, unless the block is empty: if x, then end)
     end
   end
   c := cursor

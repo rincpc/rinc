@@ -39,6 +39,7 @@ def appFiles(name):
       else:
         files = sorted(rel(p, folder) for p in glob.glob(os.path.join(folder, '**', '*.rio'), recursive=True) +
                        glob.glob(os.path.join(folder, 'help', '**', '*.md'), recursive=True))
+        files = [f for f in files if f != 'test.rio'] # (its tests: not installed)
       return [('apps/%s/%s' % (name, f), os.path.join(folder, f)) for f in files]
   single = os.path.join(ROOT, 'apps', name + '.rio')
   if os.path.exists(single):

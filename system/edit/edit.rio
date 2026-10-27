@@ -13,54 +13,9 @@
 # KB of text. With a mouse: a click puts the cursor there, dragging selects, and the wheel scrolls. An
 # ordinary app (the Fruit Jam's firmware has it built in).
 
-CAP :: 32768          # the most text
-MAX_LINES :: 4096
-UNDOS :: 256          # edits remembered
-UNDO_BYTES :: 16384   # the text they changed
-CLIP :: 16384
-BUILT :: 8192         # lines being remade (indenting, moving)
-ROWS :: 24            # text rows, 9 pixels each
-COLS :: 48            # characters in a row, after the line numbers
-TOP_Y :: 12
-TEXT_X :: 30
-LIST_ROWS :: 16       # commands shown in the list
-
-SHIFT :: 256          # pc.key()'s modifier bits
-CTRL :: 512
-ALT :: 1024
-LEFT :: 128
-RIGHT :: 129
-UP :: 130
-DOWN :: 131
-HOME :: 132
-KEY_END :: 133
-DELETE :: 134
-PAGE_UP :: 135
-PAGE_DOWN :: 136
-
-# colors: the theme's, for each role (pc.Role), so the editor looks like the other apps
-backColor := pc.theme(pc.Role.bg)
-barColor := pc.theme(pc.Role.bar)
-textColor := pc.theme(pc.Role.text)
-softColor := pc.theme(pc.Role.soft)
-dimColor := pc.theme(pc.Role.dim)
-faintColor := pc.theme(pc.Role.faint)
-accentColor := pc.theme(pc.Role.accent)
-warnColor := pc.theme(pc.Role.heading)
-selectColor := pc.theme(pc.Role.select)
-errorColor := pc.theme(pc.Role.error)
-okColor := pc.theme(pc.Role.ok)
-codeColor := pc.theme(pc.Role.code)
-punctColor := pc.theme(pc.Role.punct)
-keywordColor := pc.theme(pc.Role.keyword)
-typeColor := pc.theme(pc.Role.type)
-callColor := pc.theme(pc.Role.call)
-numberColor := pc.theme(pc.Role.number)
-stringColor := pc.theme(pc.Role.string)
-commentColor := pc.theme(pc.Role.comment)
-
 # ---------------------------------------------------------------- its parts
 
+include "parts/setup.rio"
 include "parts/text.rio"
 include "parts/editing.rio"
 include "parts/files.rio"

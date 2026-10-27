@@ -5,4 +5,5 @@ parts/files.rio
 parts/keys.rio
 parts/prompts.rio
 parts/screen.rio
+parts/setup.rio
 parts/text.rio

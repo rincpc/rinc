@@ -1,0 +1,44 @@
+# Editor tests: its parts on their own, without the app. Run as edit/test (run edit/test in the console,
+# where it's beside edit.rio), or on the desktop, rinc system/edit/test.rio. A failed assert stops it at
+# its line. Not one of the app's files (files.txt), so it's not installed with it.
+
+include "parts/setup.rio"
+include "parts/text.rio"
+include "parts/editing.rio"
+
+# the text is s, the cursor at its end
+start :: proc(s: String)
+  ok := edit(0, textLen, s, 0)
+  cursor = textLen
+  anchor = cursor
+end
+
+# Enter at the end of line s: the next line's indent
+indentAfter :: proc(s: String) -> Int
+  start(s)
+  enter()
+  return textLen - lineAt[lineCount - 1]
+end
+
+assert(indentAfter("if x") == 2, "if opens a block")
+assert(indentAfter("  for i in 0..<3") == 4, "for, indented")
+assert(indentAfter("x :: proc()") == 2, "a proc")
+assert(indentAfter("do") == 2, "do alone opens a block")
+assert(indentAfter("if done do return") == 0, "a one-line if")
+assert(indentAfter("for i in 0..<3 do log(i)") == 0, "a one-line for")
+assert(indentAfter("  case .a do f()") == 2, "a one-line case")
+assert(indentAfter("switch x") == 0, "a switch's cases line up with it")
+assert(indentAfter("x := 1") == 0, "a plain line")
+
+# typing the last letter of end or else, alone on its line, steps it back out (keys.rio: then dedent)
+typed :: proc(s: String, c: Int) -> String
+  start(s)
+  typeChar(c)
+  dedent()
+  return text[0..<textLen].asString()
+end
+assert(typed("if x\n  y()\n  en", 100) == "if x\n  y()\nend", "end dedents")
+assert(typed("if x\n  en", 100) == "if x\nend", "end dedents an empty block")
+assert(typed("if x\n  y()\n  els", 101) == "if x\n  y()\nelse", "else dedents")
+assert(typed("if x\n  y()\nen", 100) == "if x\n  y()\nend", "already dedented")
+log("all edit tests passed")

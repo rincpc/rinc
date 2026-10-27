@@ -228,6 +228,7 @@ void rinc_setAppName(const char *name) {
   size_t n = strlen(name);
   if (n >= sizeof rinc_appRef) n = sizeof rinc_appRef - 1;
   memcpy(rinc_appRef, name, n); rinc_appRef[n] = 0;
+  if (strchr(rinc_appRef, '/')) n = (size_t)(strchr(rinc_appRef, '/') - rinc_appRef); /* (another of its files, run as it: edit/test is edit) */
   rinc_appProject = n > 1 && name[n - 1] == rinc_PROJECT;
   if (rinc_appProject) n--;
   if (n >= sizeof rinc_appNow) n = sizeof rinc_appNow - 1;
@@ -355,9 +356,20 @@ static int rinc_appPath(const char *name, char *path, size_t cap) {
   if (project) n--;
   return snprintf(path, cap, "/rinc/%s/%.*s/%.*s.rio", project ? "projects" : "apps", n, name, n, name) < (int)cap;
 }
+/* what name runs: an app's main file, or app/file, another file in its folder run as the app (edit/test:
+   /rinc/apps/edit/test.rio, its tests, its own files included from beside it); app: the app's name */
+static int rinc_runPath(const char *name, char *app, size_t appCap, char *path, size_t cap) {
+  const char *slash = strchr(name, '/'); int n, project;
+  if (!slash) return snprintf(app, appCap, "%s", name) < (int)appCap && rinc_appPath(name, path, cap);
+  n = (int)(slash - name);
+  if (!rinc_refOk(name, n) || !rinc_nameOk(slash + 1, (int)strlen(slash + 1), 0) || n >= (int)appCap) return 0;
+  memcpy(app, name, (size_t)n); app[n] = 0;
+  project = name[n - 1] == rinc_PROJECT;
+  return snprintf(path, cap, "/rinc/%s/%.*s/%s.rio", project ? "projects" : "apps", project ? n - 1 : n, name, slash + 1) < (int)cap;
+}
 int rinc_readApp(const char *name, char *buf, uint32_t cap) {
-  char path[96]; uint32_t total;
-  if (!rinc_appPath(name, path, sizeof path) || rinc_readFile(path, buf, cap, &total)) return -1;
+  char path[96], app[rinc_REF]; uint32_t total;
+  if (!rinc_runPath(name, app, sizeof app, path, sizeof path) || rinc_readFile(path, buf, cap, &total)) return -1;
   return total > cap ? -2 : (int)total;
 }
 void rinc_cacheDrop(const char *name); /* (compiled apps: below) */
@@ -1330,6 +1342,7 @@ static void rinc_recentDrop(int i) {
 }
 static void rinc_recentAdd(const char *name) {
   int i;
+  if (strchr(name, '/')) return; /* (an app's other file, its tests say: not one to go back to) */
   for (i = 0; i < rinc_recentCount && strcmp(rinc_recent[i], name); i++) {}
   if (i < rinc_recentCount) rinc_recentDrop(i);
   else if (rinc_recentCount == rinc_RECENT) rinc_recentCount--;
@@ -1807,10 +1820,14 @@ static void rinc_checkedAdd(const char *name, uint32_t len, const uint32_t *hash
 int rinc_appStart(rio_Vm *vm, void *space, uint32_t size, const char *name) {
   char path[96]; const char *src = 0; const rinc_App *b = 0;
   uint32_t hash[2], len = 0; int i, res, stored = 0;
-  snprintf(rinc_loadApp, sizeof rinc_loadApp, "%s", name); /* (its own files: in its folder) */
 #ifndef rio_NO_COMPILER
   rinc_hostFolder[0] = 0; /* (an app from storage or the bundle: its files from there, not the host's, after an app from the host's) */
+  if (strchr(name, '/')) { /* (app/file: its app's files beside it; compiled each time, not cached) */
+    if (!rinc_runPath(name, rinc_loadApp, sizeof rinc_loadApp, path, sizeof path) || rinc_readFile(path, 0, 0, &len)) { rinc_appFail(name, ": no file of this name in its app"); return -1; }
+    return rinc_appLoad(vm, space, size, name, 0, 0, 0, path, 0) || rinc_appGo(vm, name);
+  }
 #endif
+  snprintf(rinc_loadApp, sizeof rinc_loadApp, "%s", name); /* (its own files: in its folder) */
   if (rinc_cacheTrust)
     for (i = 0; i < rinc_checkedCount; i++)
       if (!strcmp(rinc_checked[i].name, name)) {
