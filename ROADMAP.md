@@ -14,7 +14,10 @@ app is a Rio program.
 
 ## Next
 
-- A native synth: 8 voices of oscillators, envelopes and effects in C, driven by notes from Rio.
+- The synth (`pc.synth`, `pc.synthMake`: Sound's notes, made in C as they play) is in. Still to do:
+  Sound playing and exporting through it; a small library that plays Sound's files in games; Rio waves
+  through tables (a proc fills one cycle into a Blob, played at any pitch); music (patterns of sounds
+  across voices), in Rio on top or in the core.
 - Editing code on the board: `rio fmt`, jumping to compile errors, completion.
 - Help search.
 - Fonts: several fonts and sizes, 5x8 the default.

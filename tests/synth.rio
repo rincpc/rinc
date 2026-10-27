@@ -1,0 +1,83 @@
+# The synth (pc.synth, pc.synthMake): notes made into samples, checked for pitch and loudness
+# (rinc tests/synth.rio -frames 1; or with -wav, what pc.synth plays)
+out: Blob[32000]
+notes: Blob[16]
+
+note :: proc(n, pitch, wave, volume: Int)
+  notes[n * 4] = pitch
+  notes[n * 4 + 1] = wave
+  notes[n * 4 + 2] = volume
+  notes[n * 4 + 3] = 0
+end
+sample :: proc(k: Int) -> Int # (sample k of out: 16-bit, little-endian)
+  x := out[k * 2] + out[k * 2 + 1] * 256
+  if x >= 32768
+    x -= 65536
+  end
+  return x
+end
+# sign changes from sample a to b, and the loudest sample there
+crossings :: proc(a, b: Int) -> Int
+  n := 0
+  for k in a + 1..<b
+    if (sample(k) >= 0) != (sample(k - 1) >= 0)
+      n += 1
+    end
+  end
+  return n
+end
+loudest :: proc(a, b: Int) -> Int
+  m := 0
+  for k in a..<b
+    m = max(m, abs(sample(k)))
+  end
+  return m
+end
+
+# A4 (pitch 33: C0 and 33 semitones, 440 Hz), square, full volume, a note of speed 30 (3990 samples)
+note(0, 33, 3, 7)
+n := pc.synthMake(out[], notes[0..<4], 30)
+assert(n > 3990 and n < 3990 + 900, "a note, then a short fade")
+c := crossings(1000, 3990) # (after the volume has eased in: about 0.19 s, so 2 * 440 * 2990 / 16000)
+assert(c >= 160 and c <= 170, "440 Hz")
+assert(loudest(1000, 3990) > 12000 and loudest(1000, 3990) <= 12800, "a square at full volume: half of 25600")
+assert(loudest(n - 10, n) < 200, "faded out at its end")
+
+# an octave up is twice as many; volume 0 is silence; every wave sounds, and none goes past full
+note(0, 45, 3, 7)
+n = pc.synthMake(out[], notes[0..<4], 30)
+c = crossings(1000, 3990)
+assert(c >= 325 and c <= 335, "880 Hz")
+note(0, 33, 0, 0)
+n = pc.synthMake(out[], notes[0..<4], 30)
+assert(loudest(0, n) == 0, "volume 0")
+for w in 0..<8
+  note(0, 33, w, 7)
+  n = pc.synthMake(out[], notes[0..<4], 30)
+  assert(loudest(1000, 3990) > 3000 and loudest(1000, 3990) < 26000, "each wave")
+end
+
+# notes in turn, each its own; out's end is where it stops; no notes, nothing
+note(0, 33, 3, 7)
+note(1, 45, 3, 7)
+n = pc.synthMake(out[], notes[0..<8], 30)
+assert(crossings(5000, 7980) > 300, "the second note, an octave up")
+assert(pc.synthMake(out[0..<200], notes[0..<8], 30) == 100, "out's end")
+assert(pc.synthMake(out[], notes[0..<0], 30) == 0, "no notes")
+
+# every effect, on notes of every pitch, stays in range (an arpeggio's group past the notes too)
+for e in 0..<8
+  for k in 0..<3
+    note(k, 20 * k + 3, e, 7)
+    notes[k * 4 + 3] = e
+  end
+  n = pc.synthMake(out[], notes[0..<12], 4)
+  assert(n > 3 * 532 and loudest(0, n) <= 25600, "an effect")
+end
+
+# and played: a loop of the first note, for -wav (tests/synth.py checks what's heard)
+note(0, 33, 3, 7)
+pc.synth(0, notes[0..<4], 30)
+pc.soundLoop(0, 0, 1)
+assert(pc.soundPlaying(0) == 1, "playing")
+log("synth tests passed")

@@ -204,6 +204,9 @@ else()
   add_test(NAME app_colors COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/colors/colors.rio -frames 60
     -data ${CMAKE_CURRENT_BINARY_DIR}/colors-data -type "\\x1b[A\\x1b[B\\x1b[B\\x1b[B\\x1b[C\\t\\t \\x1b[Z\\n")
   # -hold: buttons held in the frames it names
+  # the synth: notes made into samples (their pitch and loudness), then played (what's mixed)
+  add_test(NAME synth COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/synth.rio -frames 1)
+  set_tests_properties(synth PROPERTIES PASS_REGULAR_EXPRESSION "synth tests passed")
   add_test(NAME hold COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/hold.rio -frames 6 -hold "b 2-3, x 4-4")
   set_tests_properties(hold PROPERTIES PASS_REGULAR_EXPRESSION "frame 1 b 0 x 0[^f]*frame 2 b 1 x 0[^f]*frame 3 b 1 x 0[^f]*frame 4 b 0 x 1[^f]*frame 5 b 0 x 0")
   add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio -frames 30 -type "\\t\\n")
@@ -270,6 +273,8 @@ else()
     set_tests_properties(docs PROPERTIES PASS_REGULAR_EXPRESSION "all [0-9]+ doc examples passed")
   endif()
   if(Python3_FOUND) # apps' compiled images, cached
+    add_test(NAME synth_played COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/synth.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/synth-out)
+    set_tests_properties(synth_played PROPERTIES PASS_REGULAR_EXPRESSION "the synth came through")
     add_test(NAME app_cache COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/cache.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/cache-data)
     set_tests_properties(app_cache PROPERTIES PASS_REGULAR_EXPRESSION "the cache came through")
     add_test(NAME projects COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/projects.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/projects-data)
