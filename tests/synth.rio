@@ -168,25 +168,28 @@ assert(pc.soundPlaying(0) == 1, "playing")
 log("synth tests passed")
 
 # frame by frame (rinc -frames 40, for tests/synth.py): seeking, on the synth and not, and stopping
-# the synth, which fades out
+# the synth, which fades out. Started in the first frame, so the checks' frames count from there (on
+# the board, the top-level code above takes a while)
 two: Blob[8]
 two[0] = 33
 two[2] = 7
 two[4] = 45
 two[6] = 7
-pc.synth(1, two[], 30)       # two notes of a quarter second: half a second, but on from the second
-pc.soundSeek(1, 1)
-pc.synth(2, two[0..<4], 30)
-pc.soundLoop(2, 0, 1)
 pcm: Blob[16000]             # a second of 8-bit, but on from 15000 (1/16 of a second left)
 for i in 0..<16000
   pcm[i] = i % 32 * 4
 end
-pc.sound(3, pcm[], 8, 1, 16000.0)
-pc.soundSeek(3, 15000)
 frame := 0
 update* :: proc()
   frame += 1
+  if frame == 1
+    pc.synth(1, two[], 30)   # two notes of a quarter second: half a second, but on from the second
+    pc.soundSeek(1, 1)
+    pc.synth(2, two[0..<4], 30)
+    pc.soundLoop(2, 0, 1)
+    pc.sound(3, pcm[], 8, 1, 16000.0)
+    pc.soundSeek(3, 15000)
+  end
   if frame == 2
     pc.soundStop(2)
     assert(pc.soundPlaying(2) == 1, "the synth stopped: fading")

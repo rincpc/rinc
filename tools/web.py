@@ -15,9 +15,9 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 rio = opts.get('rio', os.path.join(root, 'lib', 'rio'))
 
 def build_wasm(path, full):
-  # rio's core: every source but its CLI (main.c), its C backend (aot.c) and the ARM-only jit.c (with
-  # rio_NO_COMPILER, the compiler's files compile to nothing)
-  rio_core = sorted(f for f in os.listdir(os.path.join(rio, 'src')) if f.endswith('.c') and f not in ('main.c', 'aot.c', 'jit.c'))
+  # rio's core: every source but its CLI's (main.c, its C backend aot.c, its C header writer header.c)
+  # and the ARM-only jit.c (with rio_NO_COMPILER, the compiler's files compile to nothing)
+  rio_core = sorted(f for f in os.listdir(os.path.join(rio, 'src')) if f.endswith('.c') and f not in ('main.c', 'aot.c', 'header.c', 'jit.c'))
   # the build's id (rinc_buildId, as tools/buildid.cmake makes it): another build's cached app images go
   build_id = os.path.join(tempfile.mkdtemp(), 'build_id.c')
   with open(build_id, 'w') as f: f.write('const char rinc_buildId[] = "%s";\n' % time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))

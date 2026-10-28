@@ -3,7 +3,8 @@
 # ///
 """Send an app to Rinc's console over USB serial and start it, or save it to the board's SD card.
 
-  uv run tools/send.py apps/bounce.rio [COM3] [--no-run]     (uv fetches pyserial)
+  uv run tools/send.py apps/bounce.rio [COM3] [--no-run]     (uv fetches pyserial) saved as the app sent
+                                                             (/rinc/apps/sent/, replaced each time) and run
   uv run tools/send.py apps/bounce.rio [COM3] --save         to /rinc/apps/bounce/bounce.rio
   uv run tools/send.py apps/*.rio --save                     several at once
   uv run tools/send.py system/files [COM3]                   an app of a folder: saved, every file
@@ -88,9 +89,15 @@ with serial.Serial(port, 115200, timeout=0.2) as s:
         runTest(s, ref)
     elif save:
       saveAs(s, os.path.splitext(os.path.basename(app))[0], app)
-    else:
-      src = open(app, encoding='utf-8').read().replace('\r\n', '\n')
-      said = talk(s, text(app) + (b'run\r' if run else b''))
-      errors = [l for l in said.split('\n') if 'error' in l or (l[:1].isdigit() and ':' in l and ': ' in l)]
-      print('\n'.join(errors) if errors else 'sent %d lines%s' % (src.count('\n'), ', running' if run else ''))
+    else:                               # saved as the app sent, then run: compiled whole, so it starts when it's all there
+      saveAs(s, 'sent', app)            # and its errors have the file's lines
+      if run:
+        s.write(b'run sent\r')
+        out, t, quiet = b'', time.time(), 0
+        while time.time() - t < 20 and quiet < 10 and b'error' not in out: # (what it says, till it's quiet for 2 s)
+          chunk = s.read(4096)
+          out += chunk; quiet = 0 if chunk else quiet + 1
+        out += s.read(4096)
+        lines = [l for l in out.decode(errors='replace').replace('\r', '').split('\n') if l.strip() and not l.startswith(('> run', 'run ', '[usb]'))]
+        print('\n'.join(lines) if lines else 'running')
 sys.exit(failed)
