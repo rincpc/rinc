@@ -12,13 +12,18 @@ app is a Rio program.
   its end), once its long calls are settled: `blit` takes a `pc.Blit` now, and the rest are weighed in
   notes/pc-long-calls.md.
 - `pc.print` reads UTF-8, for fonts beyond ASCII.
+- Points and rects, to discuss: a `pc.Point` (a struct of x and y, or `[2]Float`) and a `pc.Rect` (two
+  points, or a point and a size) used across `pc` (rect, blit's source, clipping, hit tests) and kept by
+  apps as values, if they're not much slower, since they could make drawing code easier to write and
+  read. `blit` would take them too (notes/pc-long-calls.md).
 
 ## Next
 
 - The synth (`pc.synth`, `pc.synthMake`: Sound's notes, made in C as they play) is in, with each
   voice's rate, bend, envelope and smoothing changeable as it plays, and waves of an app's own. Still
-  to do: deciding by ear which rate and smoothing to start at; a small library that plays Sound's files
-  in games; music (patterns of sounds across voices), in Rio on top or in the core.
+  to do: deciding by ear which rate and smoothing to start at, and the synth's loudness beside
+  recorded sound (8 dB down for now: notes/native-synth.md); a small library that plays Sound's
+  files in games; music (patterns of sounds across voices), in Rio on top or in the core.
 - Editing code on the board: `rio fmt`, jumping to compile errors, completion.
 - Help search.
 - Fonts: several fonts and sizes, 5x8 the default.

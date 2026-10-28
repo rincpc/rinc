@@ -74,11 +74,12 @@ On the synth, a voice plays notes: 4 bytes each, the same as Sound's (`studio/so
 It makes `rate` samples a second (`synthRate`), as it plays, and they're mixed as any sound's at that
 rate. A note lasts `speed * 133 * rate / 16000` samples, so the same time at any rate (a note partway
 along when the rate changes stays as far along). Each sample is the wave at the note's pitch plus the
-bend, at the volume heard, times 25,600. The volume heard moves toward the note's by
+bend, at the volume heard, times 10,240: a synth wave's peak is near its average, so this is about as
+loud as recorded sound peaking at full scale. The volume heard moves toward the note's by
 `1 - e^(-1 / (seconds * rate))` of the way each sample, `seconds` being the attack while it rises and
 the release while it falls (`synthEnvelope`; to start, 1% a sample at 16,000), so changes don't
-click. At full volume, the triangle and the saw reach 25,600 and 17,920, the square and the pulse
-12,800, and an app's wave its own samples times 25,600 / 32,768. After the last note, it fades out
+click. At full volume, the triangle and the saw reach 10,240 and 7,168, the square and the pulse
+5,120, and an app's wave its own samples times 10,240 / 32,768. After the last note, it fades out
 over 50 ms or 5 releases, whichever is longer, and stops.
 
 An app's wave is read where the cycle is, in a straight line between its two nearest samples (after

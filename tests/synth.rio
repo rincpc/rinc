@@ -40,7 +40,7 @@ n := pc.synthMake(out[], notes[0..<4], 30)
 assert(n > 3990 and n < 3990 + 900, "a note, then a short fade")
 c := crossings(1000, 3990) # (after the volume has eased in: about 0.19 s, so 2 * 440 * 2990 / 16000)
 assert(c >= 160 and c <= 170, "440 Hz")
-assert(loudest(1000, 3990) > 12000 and loudest(1000, 3990) <= 12800, "a square at full volume: half of 25600")
+assert(loudest(1000, 3990) > 4800 and loudest(1000, 3990) <= 5120, "a square at full volume: half of 10240")
 assert(loudest(n - 10, n) < 200, "faded out at its end")
 
 # an octave up is twice as many; volume 0 is silence; every wave sounds, and none goes past full
@@ -54,7 +54,7 @@ assert(loudest(0, n) == 0, "volume 0")
 for w in 0..<8
   note(0, 33, w, 7)
   n = pc.synthMake(out[], notes[0..<4], 30)
-  assert(loudest(1000, 3990) > 3000 and loudest(1000, 3990) < 26000, "each wave")
+  assert(loudest(1000, 3990) > 1200 and loudest(1000, 3990) < 10400, "each wave")
 end
 
 # notes in turn, each its own; out's end is where it stops; no notes, nothing
@@ -72,7 +72,7 @@ for e in 0..<8
     notes[k * 4 + 3] = e
   end
   n = pc.synthMake(out[], notes[0..<12], 4)
-  assert(n > 3 * 532 and loudest(0, n) <= 25600, "an effect")
+  assert(n > 3 * 532 and loudest(0, n) <= 10240, "an effect")
 end
 
 # synthMake's settings (voice -1): at 48000 a second, the same note takes 3 times the samples, at the
@@ -83,7 +83,7 @@ n = pc.synthMake(out[], notes[0..<4], 10)
 assert(n > 3990 and n < 3990 + 2700, "a note at 48000, then a short fade")
 c = crossings(1000, 3990)
 assert(c >= 51 and c <= 57, "440 Hz at 48000") # (2 * 440 * 2990 / 48000)
-assert(loudest(1000, 3990) > 12000 and loudest(1000, 3990) <= 12800, "as loud at 48000")
+assert(loudest(1000, 3990) > 4800 and loudest(1000, 3990) <= 5120, "as loud at 48000")
 pc.synthRate(-1, 16000.0)
 
 # bent an octave up, then back
@@ -96,10 +96,10 @@ pc.synthBend(-1, 0.0)
 # an attack of 0 is full at once; a slow one is still quiet; a long release fades for longer
 pc.synthEnvelope(-1, 0.0, 0.0062)
 n = pc.synthMake(out[], notes[0..<4], 30)
-assert(loudest(0, 40) > 12000, "attack 0: full at once")
+assert(loudest(0, 40) > 4800, "attack 0: full at once")
 pc.synthEnvelope(-1, 0.5, 0.0062)
 n = pc.synthMake(out[], notes[0..<4], 30)
-assert(loudest(0, 160) < 1000, "a slow attack: quiet at first")
+assert(loudest(0, 160) < 400, "a slow attack: quiet at first")
 pc.synthEnvelope(-1, 0.0062, 0.1)
 n = pc.synthMake(out[], notes[0..<4], 30)
 assert(n > 3990 + 7000, "a long release: a long fade")
@@ -109,7 +109,7 @@ pc.synthEnvelope(-1, 0.0062, 0.0062)
 crossed :: proc(a, b: Int) -> Int # (samples between, well away from either)
   k := 0
   for i in a..<b
-    if abs(sample(i)) < 9000
+    if abs(sample(i)) < 3600
       k += 1
     end
   end
@@ -121,7 +121,7 @@ plain := crossed(1000, 3990)
 pc.synthSmooth(-1, 1)
 n = pc.synthMake(out[], notes[0..<4], 30)
 assert(crossed(1000, 3990) > plain + 100, "smoothed where it jumps")
-assert(loudest(1000, 3990) <= 12800, "smoothed, no louder")
+assert(loudest(1000, 3990) <= 5120, "smoothed, no louder")
 pc.synthSmooth(-1, 0)
 
 # an app's own wave: a cycle of 4 samples, read in straight lines between them (a triangle)
@@ -133,7 +133,7 @@ note(0, 33, 8, 7)
 n = pc.synthMake(out[], notes[0..<4], 30)
 c = crossings(1000, 3990)
 assert(c >= 160 and c <= 170, "an app's wave at 440 Hz")
-assert(loudest(1000, 3990) > 24000 and loudest(1000, 3990) <= 25600, "an app's wave at full")
+assert(loudest(1000, 3990) > 9600 and loudest(1000, 3990) <= 10240, "an app's wave at full")
 note(0, 33, 9, 7)
 n = pc.synthMake(out[], notes[0..<4], 30)
 assert(loudest(0, n) == 0, "a wave not set: silent")

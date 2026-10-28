@@ -120,6 +120,8 @@ static int32_t rinc_sums[rinc_CHUNK * 2];
 #define rinc_SYNTH_RATE 16000
 #define rinc_SYNTH_TICK 133
 #define rinc_SYNTH_EASE 0.0062187f /* seconds the volume takes to ease about 2/3 of the way: 1% a sample at 16 kHz */
+#define rinc_SYNTH_PEAK 10240.0f /* a full-volume wave's peak: 8 dB under 25600, since a synth wave's peak is near its
+                                    average, so it's as loud as recorded sound at the same volume (notes/native-synth.md) */
 /* a voice's settings, kept from one pc.synth to the next (and synthMake's, after the voices): the rate
    it makes samples at, a bend in semitones, the volume's easing (rising, falling), smoothing on or off */
 typedef struct { float rate, bend, attack, release; uint8_t smooth; } rinc_SynthSet;
@@ -223,7 +225,7 @@ static int32_t rinc_HOT rinc_synthNext(rinc_Voice *v) {
   v->level += (target - v->level) * (target > v->level ? v->up : v->down);
   v->k++;
   if ((v->sec += v->inv) >= 4) v->sec -= 4; /* (every effect's period divides 4 seconds) */
-  return (int32_t)(s * v->level * 25600);
+  return (int32_t)(s * v->level * rinc_SYNTH_PEAK);
 }
 /* how far the volume eases a sample, to get about 2/3 of the way in secs at rate (0: all the way) */
 static float rinc_ease(float secs, float rate) { return secs > 0 ? 1 - expf(-1 / (secs * rate)) : 1; }
