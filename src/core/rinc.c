@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "rinc.h"
+#include "pc_host.h" /* (C for pc.rio's structs and sigs: rio -H src/core/pc_host.h src/core/pc.rio) */
 
 _Alignas(4) uint8_t rinc_screen[rinc_H][rinc_W]; /* (aligned for DMA) */
 uint16_t rinc_palette[256];
@@ -46,15 +47,20 @@ static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   (void)v;
   a[0].i = x < rinc_W && y < rinc_H ? rinc_screen[y][x] : 0;
 }
-/* blit(picture, sx, sy, w, h, x, y, scale): part of a picture (its width and height, 2 bytes each, then
-   its pixels, as pc.pngRead gives it), w by h from sx, sy, drawn at x, y, each pixel scale by scale
-   (at least 1); color 0 is see-through */
+/* blit(picture, b: Blit): a picture (its width and height, 2 bytes each, then its pixels, as pc.pngRead
+   gives it), or b.w by b.h of it from b.sx, b.sy (a w or h of 0: the rest of it), drawn at b.x, b.y, each
+   pixel b.scale by b.scale (at least 1); color 0 is see-through */
 static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   const uint8_t *p = (const uint8_t *)rio_sliceBytes(v, a); uint32_t n = a[1].u;
-  int pw, ph, sx = a[2].i, sy = a[3].i, w = a[4].i, h = a[5].i, x0 = a[6].i, y0 = a[7].i, k = a[8].i < 1 ? 1 : a[8].i, i, j;
+  pc_Blit b;
+  int pw, ph, sx, sy, w, h, x0, y0, k, i, j;
+  rio_getStruct(v, a + 2, &b, sizeof b);
+  sx = b.sx; sy = b.sy; w = b.w; h = b.h; x0 = b.x; y0 = b.y; k = b.scale < 1 ? 1 : b.scale;
   if (!p || n < 4) return;
   pw = p[0] | p[1] << 8; ph = p[2] | p[3] << 8;
   if ((uint32_t)pw * (uint32_t)ph > n - 4) return;
+  if (w <= 0) w = pw - (sx > 0 ? sx : 0); /* (0: the rest of the picture) */
+  if (h <= 0) h = ph - (sy > 0 ? sy : 0);
   if (sx < 0) { w += sx; x0 -= sx * k; sx = 0; } /* (the part that's in the picture) */
   if (sy < 0) { h += sy; y0 -= sy * k; sy = 0; }
   if (w > pw - sx) w = pw - sx;
@@ -1592,7 +1598,7 @@ static void rinc_hostScroll(rio_Vm *v, rio_Val *a) {
 
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", "i", rinc_hostCls) || rio_addFfi(vm, "pc.pset", "iii", rinc_hostPset) || rio_addFfi(vm, "pc.pget", "ii>i", rinc_hostPget) ||
-         rio_addFfi(vm, "pc.rect", "iiiii", rinc_hostRect) || rio_addFfi(vm, "pc.blit", "siiiiiii", rinc_hostBlit) || rio_addFfi(vm, "pc.print", "siii", rinc_hostPrint) || rio_addFfi(vm, "pc.btn", "i>i", rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", ">f", rinc_hostTime) ||
+         rio_addFfi(vm, "pc.rect", "iiiii", rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", "siii", rinc_hostPrint) || rio_addFfi(vm, "pc.btn", "i>i", rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", ">f", rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", "bs>i", rinc_hostFromhex) || rio_addFfi(vm, "pc.stick", "i>f", rinc_hostStick) || rio_addFfi(vm, "pc.trigger", "i>f", rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", ">i", rinc_hostKey) || rio_addFfi(vm, "pc.apps", ">i", rinc_hostApps) || rio_addFfi(vm, "pc.appName", "ib>i", rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", "ib>i", rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", "s", rinc_hostLaunch) ||

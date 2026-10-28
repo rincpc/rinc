@@ -5,7 +5,7 @@
 # tail ADPCM 40 dB and 8-bit 28 (8-bit's noise stays put as the sound fades; ADPCM's shrinks with it).
 # ADPCM at 22 kHz is its grainy end: it gets better with the rate, about 9 dB each time it doubles.
 include "parts/sound.rio" # (chord: the sound, 5590 bytes of ADPCM)
-# play it: pc.sound(0, chord, 4, 1, 22050.0)
+# play it: pc.sound(0, chord, {bits = 4, rate = 22050.0})
 fine: [11025]Float
 pluck :: proc(f: Float, start: Int)
   for i in start..<11025
@@ -47,17 +47,17 @@ update* :: proc()
     pan = min(pan + 0.02, 1.0)
   end
   if pressed & 1 == 1 and held & 1 == 0
-    pc.sound(next, chord, 4, 1, 22050.0 * pitch)
+    pc.sound(next, chord, {bits = 4, rate = 22050.0 * pitch})
     next = (next + 1) % 8
     last = "ADPCM"
   end
   if pressed & 2 == 2 and held & 2 == 0
-    pc.sound(next, chord16, 16, 1, 22050.0 * pitch)
+    pc.sound(next, chord16, {rate = 22050.0 * pitch})
     next = (next + 1) % 8
     last = "16-BIT"
   end
   if pressed & 4 == 4 and held & 4 == 0
-    pc.sound(next, chord8, 8, 1, 22050.0 * pitch)
+    pc.sound(next, chord8, {bits = 8, rate = 22050.0 * pitch})
     next = (next + 1) % 8
     last = "8-BIT"
   end

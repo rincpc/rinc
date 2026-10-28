@@ -9,9 +9,16 @@ cls* :: host proc(c: Int)                           # fill the screen with color
 pset* :: host proc(x, y, c: Int)                    # one pixel
 pget* :: host proc(x, y: Int) -> Int
 rect* :: host proc(x, y, w, h, c: Int)              # a filled rectangle
-# part of a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it),
-# w by h from sx, sy, drawn at x, y, each pixel scale by scale; color 0 is see-through
-blit* :: host proc(picture: String, sx, sy, w, h, x, y, scale: Int)
+# where blit draws a picture, and which part of it; left out, the whole picture at its size
+Blit* :: struct
+  x, y: Int     # where its top left goes
+  sx, sy: Int   # the part's top left, in the picture
+  w, h: Int     # the part's size (0: the rest of the picture)
+  scale: Int    # each pixel scale by scale (0: 1)
+end
+# a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it), or
+# part of it, as b says; color 0 is see-through
+blit* :: host proc(picture: String, b: Blit)
 print* :: host proc(s: String, x, y, c: Int)        # text, in the 5x8 font, 6 pixels a character
 
 # ---------------------------------------------------------------- input
@@ -50,9 +57,13 @@ fromHex* :: host proc(out: Blob, text: String) -> Int
 
 # ---------------------------------------------------------------- sound: 8 voices, 0 to 7
 
-# play data on voice v, once, at rate frames a second: bits 16 or 8 (signed), or 4 for IMA ADPCM;
-# 1 or 2 channels
-sound* :: host proc(v: Int, data: Blob, bits, channels: Int, rate: Float)
+# how sound reads its data; left out, 16-bit mono at 16000 frames a second
+Sound* :: struct
+  bits: Int       # 16 or 8 (signed), or 4 for IMA ADPCM (0: 16)
+  channels: Int   # 1 or 2 (0: 1)
+  rate: Float     # frames a second (0: 16000)
+end
+sound* :: host proc(v: Int, data: Blob, s: Sound) # play data on voice v, once, as s says
 soundWav* :: host proc(v: Int, data: Blob) -> Int   # a WAV file's sound, at its own rate: 1 if it could
 soundRate* :: host proc(v: Int, rate: Float)
 soundVolume* :: host proc(v: Int, volume: Float)    # 0 to 1

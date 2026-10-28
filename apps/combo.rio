@@ -66,13 +66,13 @@ update* :: proc()
   for i in 0..<4
     if (bits >> (4 + i)) & 1 == 1 and (held >> (4 + i)) & 1 == 0
       base[i] = 22050.0 * ratio(i)
-      pc.sound(i, pluck, 16, 1, base[i] * bend)
+      pc.sound(i, pluck, {rate = base[i] * bend})
     end
   end
   for i in 0..<2
     if (bits >> (8 + i)) & 1 == 1 and (held >> (8 + i)) & 1 == 0
       base[4 + i] = 11025.0 * (1.0 + i.toFloat())
-      pc.sound(4 + i, noise, 8, 1, base[4 + i] * bend)
+      pc.sound(4 + i, noise, {bits = 8, rate = base[4 + i] * bend})
     end
   end
   for i in 0..<2 # the triggers: 7 the hum (right), 6 the buzz (left)
@@ -82,9 +82,9 @@ update* :: proc()
       if pc.soundPlaying(v) == 0
         base[v] = 22050.0 / (1.0 + i.toFloat())
         if i == 0
-          pc.sound(v, hum, 16, 1, base[v])
+          pc.sound(v, hum, {rate = base[v]})
         else
-          pc.sound(v, buzz, 16, 1, base[v])
+          pc.sound(v, buzz, {rate = base[v]})
         end
         pc.soundLoop(v, 0, 98)
       end

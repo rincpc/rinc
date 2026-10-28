@@ -8,7 +8,7 @@ wave: Blob[2048]
 for i in 0..<wave.len()
   wave[i] = (i / 16 % 2) * 60 - 30 # a square wave: 8-bit signed samples
 end
-pc.sound(0, wave[], 8, 1, 22050)  # voice 0: 8 bits, 1 channel, 22050 samples a second
+pc.sound(0, wave[], {bits = 8, rate = 22050.0})  # voice 0: 8-bit samples, 22050 a second
 log(pc.soundPlaying(0))
 ```
 
@@ -16,9 +16,10 @@ log(pc.soundPlaying(0))
 1
 ```
 
-`pc.sound(voice, data, bits, channels, rate)` starts `data` playing on that voice, once, from the start,
-at full volume and centered. `bits` is 16 or 8 (signed samples) or 4 (IMA ADPCM, below), and `channels`
-1 or 2. While it plays:
+`pc.sound(voice, data, s)` starts `data` playing on that voice, once, from the start, at full volume and
+centered. `s`, a `pc.Sound`, says how to read it: `bits` 16 or 8 (signed samples) or 4 (IMA ADPCM,
+below), `channels` 1 or 2, and `rate`, frames a second. What's left out is 0, which means 16 bits, 1
+channel and 16000 a second, so `pc.sound(0, data, {})` plays 16-bit mono at 16000. While it plays:
 
 - `pc.soundRate(v, rate)` changes its speed, and so its pitch.
 - `pc.soundVolume(v, volume)` from 0 to 1, and `pc.soundPan(v, pan)` from -1 (left) to 1 (right).

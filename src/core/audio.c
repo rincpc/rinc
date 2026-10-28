@@ -17,6 +17,7 @@
 #include <math.h>
 #include <string.h>
 #include "rinc.h"
+#include "pc_host.h" /* (pc.rio's structs and sigs, as C: rio -H src/core/pc_host.h src/core/pc.rio) */
 
 /* ADPCM decoding, one frame at a time: at frame at, each channel's value there (a) and at the next
    frame (b); blk and k: where the next frame is (its block, and which frame of it); pred and index:
@@ -425,8 +426,12 @@ static void rinc_play(rinc_Voice *v, const uint8_t *p, uint32_t bytes, int bits,
 }
 static void rinc_hostSound(rio_Vm *vm, rio_Val *a) {
   rinc_Voice *v = rinc_voice(a); const uint8_t *p = (const uint8_t *)rio_sliceBytes(vm, a + 1);
-  if (!v || !p || (a[3].i != 4 && a[3].i != 8 && a[3].i != 16) || (a[4].i != 1 && a[4].i != 2)) return;
-  rinc_play(v, p, a[2].u, a[3].i, a[4].i, a[5].f, rinc_ADPCM_BLOCK * a[4].u);
+  pc_Sound s;
+  int bits, ch;
+  rio_getStruct(vm, a + 3, &s, sizeof s);
+  bits = s.bits ? s.bits : 16; ch = s.channels ? s.channels : 1; /* (zeros: the defaults) */
+  if (!v || !p || (bits != 4 && bits != 8 && bits != 16) || (ch != 1 && ch != 2)) return;
+  rinc_play(v, p, a[2].u, bits, ch, s.rate != 0 ? s.rate : 16000.0f, rinc_ADPCM_BLOCK * (uint32_t)ch);
 }
 /* soundWav(voice, data): play a WAV file's sound (8- or 16-bit PCM, or IMA ADPCM; mono or stereo) at
    its own rate. Returns whether it could */
@@ -561,7 +566,7 @@ static void rinc_hostSeek(rio_Vm *vm, rio_Val *a) {
 static void rinc_hostPlaying(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; a[0].i = v && v->on; }
 
 int rinc_audioProcs(rio_Vm *vm) {
-  return rio_addFfi(vm, "pc.sound", "ibiif", rinc_hostSound) || rio_addFfi(vm, "pc.soundRate", "if", rinc_hostRate) || rio_addFfi(vm, "pc.soundVolume", "if", rinc_hostVolume) ||
+  return rio_addFfi(vm, "pc.sound", pc_sound_SIG, rinc_hostSound) || rio_addFfi(vm, "pc.soundRate", "if", rinc_hostRate) || rio_addFfi(vm, "pc.soundVolume", "if", rinc_hostVolume) ||
          rio_addFfi(vm, "pc.soundPan", "if", rinc_hostPan) || rio_addFfi(vm, "pc.soundLoop", "iii", rinc_hostLoop) || rio_addFfi(vm, "pc.soundStop", "i", rinc_hostStop) ||
          rio_addFfi(vm, "pc.soundPlaying", "i>i", rinc_hostPlaying) || rio_addFfi(vm, "pc.soundWav", "ib>i", rinc_hostWav) ||
          rio_addFfi(vm, "pc.synth", "ibi", rinc_hostSynth) || rio_addFfi(vm, "pc.synthMake", "bbi>i", rinc_hostSynthMake) ||

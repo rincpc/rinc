@@ -9,7 +9,7 @@ Each proc takes a voice number first; a number outside 0 to 7 does nothing (and 
 
 | proc | |
 |---|---|
-| `pc.sound(v, data, bits, channels, rate)` | play `data` from its start, once, at `rate` frames a second, full volume, centered, with no loop, in place of whatever `v` was playing; `bits` 16, 8 or 4 and `channels` 1 or 2, else nothing happens |
+| `pc.sound(v, data, s)` | play `data` from its start, once, full volume, centered, with no loop, in place of whatever `v` was playing, as `s`, a `pc.Sound`, says: `bits` 16, 8 or 4 (0: 16), `channels` 1 or 2 (0: 1), else nothing happens, and `rate` frames a second (0: 16000) |
 | `pc.soundWav(v, data) -> Int` | play a WAV file's sound data at the file's own rate, as `sound` would; 1 if it could, 0 if the file isn't one it plays |
 | `pc.soundRate(v, rate)` | frames a second from now on, from 0 (paused) to 768,000 |
 | `pc.soundVolume(v, volume)` | from 0 to 1 (outside: the nearest) |

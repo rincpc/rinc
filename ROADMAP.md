@@ -8,8 +8,9 @@ app is a Rio program.
 ## Decide first: changes that would break apps
 
 - Adjust apps and `pc` to each breaking Rio 1.0 change as it's decided.
-- Freeze `pc`: names, arguments, and host proc order (compiled images depend on it), once Rio settles
-  long argument lists.
+- Freeze `pc`: names and arguments (images bind host procs by name, and a struct or a proc may grow at
+  its end), once its long calls are settled: `blit` takes a `pc.Blit` now, and the rest are weighed in
+  notes/pc-long-calls.md.
 - `pc.print` reads UTF-8, for fonts beyond ASCII.
 
 ## Next
