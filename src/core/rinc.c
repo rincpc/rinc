@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "rinc.h"
-#include "pc_host.h" /* (C for pc.rio's structs and sigs: rio -H src/core/pc_host.h src/core/pc.rio) */
+#include "pc_host.h" /* (pc.rio as C, its source, structs and sigs: rinc -H src/core/pc_host.h src/core/pc.rio) */
 
 _Alignas(4) uint8_t rinc_screen[rinc_H][rinc_W]; /* (aligned for DMA) */
 uint16_t rinc_palette[256];
@@ -1158,8 +1158,8 @@ static void rinc_logLine(void *ud, const char *s, int n) { (void)ud; rinc_out(s,
 /* the way home: on the screen (it's for whoever's looking at it), not in what's printed */
 static void rinc_back(void) { static const char s[] = "\r\n(Sys+Esc: back home)\r\n"; if (rinc_showLog) rinc_consolePut(s, (int)sizeof s - 1); }
 
-/* the modules and files Rinc has for apps (docs/spec/apps.md#more-files): pc, from pc.rio, built in (its
-   host procs, as declared, and its types); an app's own files, in its folder, for include "parts/a.rio"
+/* the modules and files Rinc has for apps (docs/spec/apps.md#more-files): (pc is pc.rio, registered with
+   the host procs: rinc_hostProcs) an app's own files, in its folder, for include "parts/a.rio"
    and import .shapes; and the library's, /rinc/lib, for import tween. Storage's first, else the bundle's
    (apps/<app>/..., lib/...). Those from storage (and the host's) are read a part at a time, as the
    compiler wants them, and each from storage is noted, for the app's cached image */
@@ -1175,8 +1175,6 @@ static int rinc_srcCount, rinc_srcLost; /* (lost: more than were noted) */
 #ifdef rio_NO_COMPILER
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) { (void)ud; (void)path; (void)kind; (void)out; return 1; } /* (images only) */
 #else
-extern const char rinc_pcSource[];
-extern const int rinc_pcSource_len;
 int (*rinc_hostRead)(const char *path, char *buf, uint32_t at, uint32_t n);
 char rinc_hostFolder[512];
 static int rinc_readAt(void *ud, char *buf, uint32_t at, uint32_t n) {
@@ -1231,10 +1229,6 @@ static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
   char base[64], bundleBase[64], tryPath[104], name[640]; const char *last; const rinc_File *f; int n = (int)strlen(rinc_loadApp), project, k, res;
   int host = !(kind & rio_LoadKind_package) && rinc_hostFolder[0]; /* (an app run from the host's files: its own, from there) */
   (void)ud;
-  if ((kind & rio_LoadKind_package) && !strcmp(path, "pc")) {
-    out->src = rinc_pcSource; out->len = (uint32_t)rinc_pcSource_len; out->isDir = 0; out->name = "pc.rio";
-    return 0;
-  }
   if (!rinc_srcOn || strstr(path, "..") || strlen(path) > 48) return 1;
   project = n > 1 && rinc_loadApp[n - 1] == rinc_PROJECT;
   if (kind & rio_LoadKind_package) { snprintf(base, sizeof base, "/rinc/lib/"); snprintf(bundleBase, sizeof bundleBase, "lib/"); }
@@ -1596,34 +1590,44 @@ static void rinc_hostScroll(rio_Vm *v, rio_Val *a) {
   a[0].i = k;
 }
 
+/* pc's source, pc.rio, as pc_host.h has it (rio -H: with the sigs above), for compiling apps against */
+static int rinc_pcSource(rio_Vm *vm) {
+#ifdef rio_NO_COMPILER
+  (void)vm;
+  return 0;
+#else
+  return rio_addSource(vm, "pc", pc_SOURCE, sizeof pc_SOURCE - 1);
+#endif
+}
 int rinc_hostProcs(rio_Vm *vm) {
-  return rio_addFfi(vm, "pc.cls", "i", rinc_hostCls) || rio_addFfi(vm, "pc.pset", "iii", rinc_hostPset) || rio_addFfi(vm, "pc.pget", "ii>i", rinc_hostPget) ||
-         rio_addFfi(vm, "pc.rect", "iiiii", rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", "siii", rinc_hostPrint) || rio_addFfi(vm, "pc.btn", "i>i", rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", ">f", rinc_hostTime) ||
-         rio_addFfi(vm, "pc.fromHex", "bs>i", rinc_hostFromhex) || rio_addFfi(vm, "pc.stick", "i>f", rinc_hostStick) || rio_addFfi(vm, "pc.trigger", "i>f", rinc_hostTrigger) ||
-         rio_addFfi(vm, "pc.key", ">i", rinc_hostKey) || rio_addFfi(vm, "pc.apps", ">i", rinc_hostApps) || rio_addFfi(vm, "pc.appName", "ib>i", rinc_hostAppName) ||
-         rio_addFfi(vm, "pc.appInfo", "ib>i", rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", "s", rinc_hostLaunch) ||
-         rio_addFfi(vm, "pc.appSource", "sb>i", rinc_hostAppSource) || rio_addFfi(vm, "pc.appSave", "ss>i", rinc_hostAppSave) ||
-         rio_addFfi(vm, "pc.appDelete", "s>i", rinc_hostAppDelete) ||
-         rio_addFfi(vm, "pc.helps", "b>i", rinc_hostHelps) ||
-         rio_addFfi(vm, "pc.helpRead", "sb>i", rinc_hostHelpRead) || rio_addFfi(vm, "pc.help", "s", rinc_hostHelp) ||
-         rio_addFfi(vm, "pc.helpTopic", "b>i", rinc_hostHelpTopic) ||
-         rio_addFfi(vm, "pc.stashWrite", "ss>i", rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", "sb>i", rinc_hostStashRead) ||
-         rio_addFfi(vm, "pc.stashDelete", "s>i", rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", ">i", rinc_hostBoot) ||
-         rio_addFfi(vm, "pc.settingRead", "sb>i", rinc_hostSettingRead) || rio_addFfi(vm, "pc.settingWrite", "ss>i", rinc_hostSettingWrite) || rio_addFfi(vm, "pc.theme", "i>i", rinc_hostTheme) ||
-         rio_addFfi(vm, "pc.pointer", "i", rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", "s>i", rinc_hostAppInstall) ||
-         rio_addFfi(vm, "pc.appCopy", "ss>i", rinc_hostAppCopy) ||
-         rio_addFfi(vm, "pc.call", "ss", rinc_hostCall) || rio_addFfi(vm, "pc.args", "b>i", rinc_hostArgs) ||
-         rio_addFfi(vm, "pc.done", "s", rinc_hostDone) || rio_addFfi(vm, "pc.result", "b>i", rinc_hostResult) ||
-         rio_addFfi(vm, "pc.dir", "sb>i", rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", "sb>i", rinc_hostFileRead) ||
-         rio_addFfi(vm, "pc.fileWrite", "ss>i", rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", "s>i", rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", "sb>i", rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", "sss>i", rinc_hostPngWrite) || rio_addFfi(vm, "pc.pngNotes", "sb>i", rinc_hostPngNotes) ||
-         rio_addFfi(vm, "pc.fileCopy", "ss>i", rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", "s>i", rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", "ss>i", rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", "ss>i", rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", ">i", rinc_hostPointerX) ||
-         rio_addFfi(vm, "pc.pointerY", ">i", rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", "i>i", rinc_hostPointerDown) ||
-         rio_addFfi(vm, "pc.pointerShown", ">i", rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", "i>i", rinc_hostScroll) ||
-         rio_addFfi(vm, "pc.saveRead", "sb>i", rinc_hostSaveRead) || rio_addFfi(vm, "pc.saveWrite", "ss>i", rinc_hostSaveWrite) ||
-         rio_addFfi(vm, "pc.saveDelete", "s>i", rinc_hostSaveDelete) || rio_addFfi(vm, "pc.rioStart", "bb>i", rinc_hostRioStart) ||
-         rio_addFfi(vm, "pc.rioEval", "s>i", rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", ">i", rinc_hostRioFrame) ||
-         rio_addFfi(vm, "pc.rioType", "i", rinc_hostRioType) || rio_addFfi(vm, "pc.rioError", "b>i", rinc_hostRioError) ||
-         rio_addFfi(vm, "pc.rioLog", "b>i", rinc_hostRioLog) || rio_addFfi(vm, "pc.rioIndent", "s>i", rinc_hostRioIndent);
+  return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) ||
+         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
+         rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
+         rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
+         rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
+         rio_addFfi(vm, "pc.appSource", pc_appSource_SIG, rinc_hostAppSource) || rio_addFfi(vm, "pc.appSave", pc_appSave_SIG, rinc_hostAppSave) ||
+         rio_addFfi(vm, "pc.appDelete", pc_appDelete_SIG, rinc_hostAppDelete) ||
+         rio_addFfi(vm, "pc.helps", pc_helps_SIG, rinc_hostHelps) ||
+         rio_addFfi(vm, "pc.helpRead", pc_helpRead_SIG, rinc_hostHelpRead) || rio_addFfi(vm, "pc.help", pc_help_SIG, rinc_hostHelp) ||
+         rio_addFfi(vm, "pc.helpTopic", pc_helpTopic_SIG, rinc_hostHelpTopic) ||
+         rio_addFfi(vm, "pc.stashWrite", pc_stashWrite_SIG, rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", pc_stashRead_SIG, rinc_hostStashRead) ||
+         rio_addFfi(vm, "pc.stashDelete", pc_stashDelete_SIG, rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", pc_boot_SIG, rinc_hostBoot) ||
+         rio_addFfi(vm, "pc.settingRead", pc_settingRead_SIG, rinc_hostSettingRead) || rio_addFfi(vm, "pc.settingWrite", pc_settingWrite_SIG, rinc_hostSettingWrite) || rio_addFfi(vm, "pc.theme", pc_theme_SIG, rinc_hostTheme) ||
+         rio_addFfi(vm, "pc.pointer", pc_pointer_SIG, rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", pc_appInstall_SIG, rinc_hostAppInstall) ||
+         rio_addFfi(vm, "pc.appCopy", pc_appCopy_SIG, rinc_hostAppCopy) ||
+         rio_addFfi(vm, "pc.call", pc_call_SIG, rinc_hostCall) || rio_addFfi(vm, "pc.args", pc_args_SIG, rinc_hostArgs) ||
+         rio_addFfi(vm, "pc.done", pc_done_SIG, rinc_hostDone) || rio_addFfi(vm, "pc.result", pc_result_SIG, rinc_hostResult) ||
+         rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
+         rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", pc_pngRead_SIG, rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", pc_pngWrite_SIG, rinc_hostPngWrite) || rio_addFfi(vm, "pc.pngNotes", pc_pngNotes_SIG, rinc_hostPngNotes) ||
+         rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) ||
+         rio_addFfi(vm, "pc.pointerY", pc_pointerY_SIG, rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", pc_pointerDown_SIG, rinc_hostPointerDown) ||
+         rio_addFfi(vm, "pc.pointerShown", pc_pointerShown_SIG, rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", pc_scroll_SIG, rinc_hostScroll) ||
+         rio_addFfi(vm, "pc.saveRead", pc_saveRead_SIG, rinc_hostSaveRead) || rio_addFfi(vm, "pc.saveWrite", pc_saveWrite_SIG, rinc_hostSaveWrite) ||
+         rio_addFfi(vm, "pc.saveDelete", pc_saveDelete_SIG, rinc_hostSaveDelete) || rio_addFfi(vm, "pc.rioStart", pc_rioStart_SIG, rinc_hostRioStart) ||
+         rio_addFfi(vm, "pc.rioEval", pc_rioEval_SIG, rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", pc_rioFrame_SIG, rinc_hostRioFrame) ||
+         rio_addFfi(vm, "pc.rioType", pc_rioType_SIG, rinc_hostRioType) || rio_addFfi(vm, "pc.rioError", pc_rioError_SIG, rinc_hostRioError) ||
+         rio_addFfi(vm, "pc.rioLog", pc_rioLog_SIG, rinc_hostRioLog) || rio_addFfi(vm, "pc.rioIndent", pc_rioIndent_SIG, rinc_hostRioIndent) ||
+         rinc_pcSource(vm);
 }
 
 /* a game's frame: update then draw */

@@ -17,7 +17,7 @@
 #include <math.h>
 #include <string.h>
 #include "rinc.h"
-#include "pc_host.h" /* (pc.rio's structs and sigs, as C: rio -H src/core/pc_host.h src/core/pc.rio) */
+#include "pc_host.h" /* (pc.rio as C, its source, structs and sigs: rinc -H src/core/pc_host.h src/core/pc.rio) */
 
 /* ADPCM decoding, one frame at a time: at frame at, each channel's value there (a) and at the next
    frame (b); blk and k: where the next frame is (its block, and which frame of it); pred and index:
@@ -568,11 +568,11 @@ static void rinc_hostSeek(rio_Vm *vm, rio_Val *a) {
 static void rinc_hostPlaying(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; a[0].i = v && v->on; }
 
 int rinc_audioProcs(rio_Vm *vm) {
-  return rio_addFfi(vm, "pc.sound", pc_sound_SIG, rinc_hostSound) || rio_addFfi(vm, "pc.soundRate", "if", rinc_hostRate) || rio_addFfi(vm, "pc.soundVolume", "if", rinc_hostVolume) ||
-         rio_addFfi(vm, "pc.soundPan", "if", rinc_hostPan) || rio_addFfi(vm, "pc.soundLoop", "iii", rinc_hostLoop) || rio_addFfi(vm, "pc.soundStop", "i", rinc_hostStop) ||
-         rio_addFfi(vm, "pc.soundPlaying", "i>i", rinc_hostPlaying) || rio_addFfi(vm, "pc.soundWav", "ib>i", rinc_hostWav) ||
-         rio_addFfi(vm, "pc.synth", "ibi", rinc_hostSynth) || rio_addFfi(vm, "pc.synthMake", "bbi>i", rinc_hostSynthMake) ||
-         rio_addFfi(vm, "pc.synthRate", "if", rinc_hostSynthRate) || rio_addFfi(vm, "pc.synthBend", "if", rinc_hostSynthBend) ||
-         rio_addFfi(vm, "pc.synthEnvelope", "iff", rinc_hostSynthEnvelope) || rio_addFfi(vm, "pc.synthSmooth", "ii", rinc_hostSynthSmooth) ||
-         rio_addFfi(vm, "pc.synthWave", "ib", rinc_hostSynthWave) || rio_addFfi(vm, "pc.soundSeek", "ii", rinc_hostSeek);
+  return rio_addFfi(vm, "pc.sound", pc_sound_SIG, rinc_hostSound) || rio_addFfi(vm, "pc.soundRate", pc_soundRate_SIG, rinc_hostRate) || rio_addFfi(vm, "pc.soundVolume", pc_soundVolume_SIG, rinc_hostVolume) ||
+         rio_addFfi(vm, "pc.soundPan", pc_soundPan_SIG, rinc_hostPan) || rio_addFfi(vm, "pc.soundLoop", pc_soundLoop_SIG, rinc_hostLoop) || rio_addFfi(vm, "pc.soundStop", pc_soundStop_SIG, rinc_hostStop) ||
+         rio_addFfi(vm, "pc.soundPlaying", pc_soundPlaying_SIG, rinc_hostPlaying) || rio_addFfi(vm, "pc.soundWav", pc_soundWav_SIG, rinc_hostWav) ||
+         rio_addFfi(vm, "pc.synth", pc_synth_SIG, rinc_hostSynth) || rio_addFfi(vm, "pc.synthMake", pc_synthMake_SIG, rinc_hostSynthMake) ||
+         rio_addFfi(vm, "pc.synthRate", pc_synthRate_SIG, rinc_hostSynthRate) || rio_addFfi(vm, "pc.synthBend", pc_synthBend_SIG, rinc_hostSynthBend) ||
+         rio_addFfi(vm, "pc.synthEnvelope", pc_synthEnvelope_SIG, rinc_hostSynthEnvelope) || rio_addFfi(vm, "pc.synthSmooth", pc_synthSmooth_SIG, rinc_hostSynthSmooth) ||
+         rio_addFfi(vm, "pc.synthWave", pc_synthWave_SIG, rinc_hostSynthWave) || rio_addFfi(vm, "pc.soundSeek", pc_soundSeek_SIG, rinc_hostSeek);
 }

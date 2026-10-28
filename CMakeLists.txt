@@ -49,12 +49,8 @@ set(RINC_BUILD_ID ${CMAKE_BINARY_DIR}/build_id.c)
 execute_process(COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake)
 add_custom_target(rinc_build_id COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake
                   BYPRODUCTS ${RINC_BUILD_ID})
-# pc.rio, built in: the pc module every app sees (its host procs, and its types)
-set(RINC_PC_SOURCE ${CMAKE_BINARY_DIR}/pc_source.c)
-add_custom_command(OUTPUT ${RINC_PC_SOURCE}
-  COMMAND ${CMAKE_COMMAND} -DIN=${CMAKE_CURRENT_LIST_DIR}/src/core/pc.rio -DOUT=${RINC_PC_SOURCE} -DNAME=rinc_pcSource -P ${CMAKE_CURRENT_LIST_DIR}/tools/embed_text.cmake
-  DEPENDS src/core/pc.rio tools/embed_text.cmake)
-add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c src/core/png.c src/core/zip.c ${RINC_BUILD_ID} ${RINC_PC_SOURCE})
+# (pc.rio, the pc module every app sees, is built in through src/core/pc_host.h, which rinc -H makes)
+add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c src/core/png.c src/core/zip.c ${RINC_BUILD_ID})
 add_dependencies(rinccore rinc_build_id)
 target_include_directories(rinccore PUBLIC src/core)
 target_link_libraries(rinccore PUBLIC riocore)
@@ -117,7 +113,7 @@ if(RINC_PLATFORM STREQUAL rp2350)
     add_custom_target(flash COMMAND picotool load -f -x $<TARGET_FILE:rinc> DEPENDS rinc USES_TERMINAL)
   endif()
 else()
-  add_executable(rinc src/desktop/main.c src/desktop/files.c src/desktop/about.c)
+  add_executable(rinc src/desktop/main.c src/desktop/files.c src/desktop/about.c ${RIO_DIR}/src/header.c) # (header.c: rinc -H)
   target_link_libraries(rinc PRIVATE rinccore)
   # the window: SDL3, built from source here and linked in statically, for a single binary
   option(RINC_SDL "a window, through SDL3 (off: headless only)" ON)
@@ -293,11 +289,11 @@ else()
     add_test(NAME colors_views COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/colors.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system/colors ${CMAKE_CURRENT_BINARY_DIR}/colors-views-data)
     set_tests_properties(colors_views PROPERTIES PASS_REGULAR_EXPRESSION "colors came through")
   endif()
-  # pc.rio, the host procs written out, matches what rinc registers
-  add_executable(rinc_pc_test tests/pc.c)
+  # pc.rio, the host procs written out, is what pc_host.h has, and matches what rinc registers
+  add_executable(rinc_pc_test tests/pc.c ${RIO_DIR}/src/header.c)
   target_link_libraries(rinc_pc_test PRIVATE rinccore)
   target_compile_definitions(rinc_pc_test PRIVATE rinc_MAX_FFI=${RINC_MAX_FFI})
-  add_test(NAME pc_declared COMMAND rinc_pc_test ${CMAKE_CURRENT_LIST_DIR}/src/core/pc.rio)
+  add_test(NAME pc_declared COMMAND rinc_pc_test ${CMAKE_CURRENT_LIST_DIR}/src/core/pc.rio ${CMAKE_CURRENT_LIST_DIR}/src/core/pc_host.h)
   set_tests_properties(pc_declared PROPERTIES PASS_REGULAR_EXPRESSION "pc.rio declares all [0-9]+ host procs")
   # typed keys, as a terminal sends them, with their modifiers
   add_executable(rinc_keys_test tests/keys.c)

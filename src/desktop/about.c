@@ -23,6 +23,7 @@ const char rinc_help[] =
   "                             left right up down a b x y lb rb ls rs start back; sticks pushed:\n"
   "                             lsleft lsright lsup lsdown rsleft rsright rsup rsdown)\n"
   "  rinc app.rio -i app.rioi    compile to an image, and list the host procs its code calls\n"
+  "  rinc -H out.h module.rio    C for a host of its host procs (src/core/pc_host.h is pc.rio's)\n"
   "  rinc a.rio b.rio -export game\n"
   "                             a program to hand out (game.exe on Windows): rinc with the apps in it\n"
   "    -home a                  the one it starts at (by default the only one, or one named home)\n"

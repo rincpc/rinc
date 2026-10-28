@@ -710,6 +710,26 @@ static int rinc_window(const char *title) {
 }
 #endif
 
+/* -H out.h module.rio: the C for a host of the module's host procs (rio_hostHeader, named for the file: pc.rio's
+   pc_Blit, pc_blit_SIG), as src/core/pc_host.h is made from pc.rio */
+static int rinc_writeHeader(const char *out, const char *in) {
+  static unsigned char mem[1 << 20], scratch[2 << 20];
+  static char src[64 << 10], text[256 << 10], prefix[64];
+  static rio_Vm vm;
+  const char *base = in + strlen(in);
+  FILE *f = fopen(in, "rb");
+  size_t len = 0, k = 0;
+  uint32_t n;
+  if (f) { len = fread(src, 1, sizeof src, f); fclose(f); }
+  if (!f || len >= sizeof src) { fprintf(stderr, "rinc: can't read %s\n", in); return 2; }
+  while (base > in && base[-1] != '/' && base[-1] != '\\') base--;
+  while (base[k] && base[k] != '.' && k < sizeof prefix - 1) prefix[k] = base[k], k++;
+  rio_init(&vm, mem, sizeof mem, 0, 0);
+  if (!(n = rio_hostHeader(&vm, src, (uint32_t)len, scratch, sizeof scratch, prefix, text, sizeof text))) { fprintf(stderr, "%s:%s\n", in, rio_error(&vm)); return 1; }
+  if (!(f = fopen(out, "wb")) || fwrite(text, 1, n, f) != n || fclose(f)) { fprintf(stderr, "rinc: can't write %s\n", out); return 2; }
+  return 0;
+}
+
 extern const char rinc_help[], rinc_license[]; /* (about.c) */
 int main(int argc, char **argv) {
   const char *apps[rinc_BUNDLE_MOST], *out = 0, *img = 0, *wavout = 0, *exp = 0, *web = 0, *runner = 0, *named = 0, *data = 0, *root = 0, *home = 0, *storage = 0, *app = 0, *drop = 0;
@@ -718,6 +738,7 @@ int main(int argc, char **argv) {
   for (i = 1; i < argc; i++) { /* (these on their own) */
     if (!strcmp(argv[i], "-help") || !strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) return fputs(rinc_help, stdout) < 0;
     if (!strcmp(argv[i], "-license") || !strcmp(argv[i], "--license")) return fputs(rinc_license, stdout) < 0;
+    if (!strcmp(argv[i], "-H") && i + 2 < argc) return rinc_writeHeader(argv[i + 1], argv[i + 2]);
   }
   for (i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "-o") && i + 1 < argc) out = argv[++i];
@@ -745,6 +766,7 @@ int main(int argc, char **argv) {
                       "       rinc app.rio... -web page.html [-home name]\n"
                       "       rinc -install name|app.rio...      (and -data folder with any of these: storage there)\n"
                       "       rinc -repl\n"
+                      "       rinc -H out.h module.rio            (C for its host procs: src/core/pc_host.h from pc.rio)\n"
                       "       rinc -help | -license\n");
       return 2;
     }

@@ -26,14 +26,15 @@ lib/Pico-PIO-USB/  USB host over PIO, for keyboards on the Fruit Jam
 lib/fatfs/         FatFs, the SD card's filesystem (vendored)
 src/core/          shared by every platform: the screen, palette, font and console, host procs
                    (rinc.c, audio.c), bundles, the terminal REPL, and pc.rio (the host procs,
-                   written out in Rio)
+                   written out in Rio) with pc_host.h, its C (rinc -H src/core/pc_host.h
+                   src/core/pc.rio, after changing pc.rio: its source, structs and sigs)
 src/rp2350/        the Fruit Jam: HDMI out (video.c), USB keyboards (keyboard.c) and controllers
                    (gamepad.c), sound (audio.c), the SD card (sd.c), the main loop
 src/desktop/       a window (SDL3, built in) or headless
 src/web/           wasm for a web page, and the page around it (page.html)
 system/            the built-in apps, ordinary apps: home.rio and console.rio
 apps/              demo apps
-tests/             pc.c: pc.rio matches what Rinc registers
+tests/             pc.c: pc_host.h is pc.rio's, and pc.rio matches what Rinc registers
 tools/             font.py (the font table), web.py (the web players' wasm), send.py (an app to
                    the board), install.py (Rinc's apps and docs onto the board's SD card),
                    embed.cmake (the web players, built into the desktop rinc), bundle.cmake (a
