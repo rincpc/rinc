@@ -275,9 +275,14 @@ draw* :: proc()
     if isActive(k) # (the active one: a mark at its left)
       pc.rect(3, y - 1, 2, 9, accentColor)
     end
-    pc.print(t.asString(), 16, y, textColor)
-    if names[nameAt[k] + nameLen[k] - 1] == 43 # (a project: its +)
-      pc.print("+", 16 + min(t.len(), 12) * 6, y, accentColor)
+    project := names[nameAt[k] + nameLen[k] - 1] == 43
+    room := 12 # (the title's column, a space short of the description: a project's + takes one of it)
+    if project
+      room = 11
+    end
+    pc.print(t[0..<min(t.len(), room)].asString(), 16, y, textColor)
+    if project # (its +)
+      pc.print("+", 16 + min(t.len(), room) * 6, y, accentColor)
     end
     if titleLen[k] > 0
       at := titleLen[k] + 1

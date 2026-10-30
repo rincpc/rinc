@@ -27,7 +27,8 @@ app is a Rio program.
 - Editing code on the board: `rio fmt`, completion. (Coming back to the editor after a run that stopped
   with an error, compile or runtime, puts the cursor on it, in whichever part it was.)
 - Help search.
-- Fonts: several fonts and sizes, 5x8 the default.
+- Fonts: several fonts and sizes, 5x8 the default, and text measured, so apps lay text out by its
+  size rather than counting 6-pixel characters (home's columns, the editor's, Paint's panels).
   - Diacritics at 5x8.
   - A 12-pixel font, for Chinese.
   - The 8x12 English font already drawn.
