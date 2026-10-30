@@ -366,15 +366,27 @@ static int rinc_saveWav(const char *path, uint32_t frames) {
 }
 
 /* -type: what to type, as fast as the app takes it (\n Enter, \e Esc, \t Tab, \\ a backslash, and \xHH
-   a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right) */
+   a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right); and \s with t, e, q or r, the system
+   key with Tab, Esc, Q or R (held a frame, then let go: the typing waits for what it does) */
 static const char *rinc_typing;
+static int rinc_typedSys, rinc_sysFrames; /* (\s: its keys, and the frames left of it: 2 held, 1 let go) */
 static int rinc_hex(int c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; }
 static void rinc_typeMore(void) {
-  while (rinc_typing && *rinc_typing && rinc_textRoom() > 0) {
-    int c = (unsigned char)*rinc_typing++;
+  static int room = -1; /* (with nothing waiting: \s waits for what's typed before it to be taken) */
+  if (room < 0) room = rinc_textRoom();
+  while (rinc_typing && *rinc_typing && rinc_textRoom() > 0 && !rinc_sysFrames && !rinc_launch) {
+    int c;
+    if (rinc_typing[0] == '\\' && rinc_typing[1] == 's' && rinc_textRoom() < room) return;
+    c = (unsigned char)*rinc_typing++;
     if (c == '\\' && *rinc_typing) {
       c = (unsigned char)*rinc_typing++;
       if (c == 'e') { rinc_textEsc(); continue; }
+      if (c == 's' && *rinc_typing) {
+        c = (unsigned char)*rinc_typing++;
+        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : 0;
+        rinc_sysFrames = 2;
+        return;
+      }
       if (c == 'x' && rinc_hex(rinc_typing[0]) >= 0 && rinc_hex(rinc_typing[1]) >= 0) {
         c = rinc_hex(rinc_typing[0]) * 16 + rinc_hex(rinc_typing[1]);
         rinc_typing += 2;
@@ -859,6 +871,10 @@ int main(int argc, char **argv) {
       rinc_buttons = i < 3 && !rinc_typing && !rinc_holding && rinc_lettersAsButtons() ? rinc_Button_a : 0; /* (not when typing: the typing is what drives it; nor a pointer app's, where A is Enter) */
       rinc_buttons |= rinc_held(i);
       rinc_typeMore();
+      if (rinc_sysFrames) { /* (-type's \s: the system key with its key, then let go) */
+        int held = rinc_sysFrames-- == 2;
+        if (rinc_systemKey(held, 0, 0, held ? rinc_typedSys : 0)) rinc_launch = 1;
+      }
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();
       if (wavout && i < 60 * 60) rinc_audioMix(rinc_wav + i * (rinc_RATE / 60) * 2, rinc_RATE / 60); /* (a frame's worth of sound) */

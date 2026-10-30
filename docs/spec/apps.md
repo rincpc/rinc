@@ -219,16 +219,34 @@ Enter on a file gives its path back (Esc at the top, nothing: an empty result):
 
 ```rio fragment
 out: Blob[96]
-n := pc.result(out[:])
+n := pc.result(out[])
 if n < 0
   pc.call("files", "pick")      # (the first time)
 else
-  log("picked", out[0:n].asString())
+  log("picked", out[0..<n].asString())
 end
 ```
 
 The editor saves to projects: a new app is a project, and an installed app opens read only, like a
 page's source in a browser, until saving it makes its project.
+
+## Errors
+
+An app that stops with an error, one that didn't compile or a runtime error, shows it on the screen,
+and Rinc keeps where it was for an editor: `pc.appError(path, message) -> pc.AppError` gives its line
+(0 when there's none), column and width (0 when they're not known, as for a runtime error's), and
+whether it was a runtime error, with the file's path (the app's main file, or the part it was in) and
+what was wrong written into `path` and `message`. It's taken: a second call gives none. The editor
+takes it as it starts, so coming back to it after Ctrl+R puts the cursor on the error.
+
+```rio fragment
+path: Blob[128]
+message: Blob[96]
+e := pc.appError(path[], message[])
+if e.line > 0
+  log(path[0..<min(e.pathLen, 128)].asString(), e.line, e.col, message[0..<min(e.messageLen, 96)].asString())
+end
+```
 
 ## Settings
 

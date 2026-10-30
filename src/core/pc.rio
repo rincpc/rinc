@@ -107,6 +107,17 @@ call* :: host proc(name: String, args: String)
 args* :: host proc(out: Blob) -> Int                # the args this app was called with: how long (0: none)
 done* :: host proc(result: String)                  # back to the caller, with a result (or to the app before)
 result* :: host proc(out: Blob) -> Int              # the result of the app this one called: how long, or -1 (taken)
+# where the last app to stop with an error stopped, for an editor to go to: its file's path into path,
+# and what was wrong into message (as much as fits). Taken: a second call gives none
+AppError* :: struct
+  line: Int             # from 1 (0: there's none)
+  col: Int              # from 1 (0: not known, as for a runtime error)
+  len: Int              # how wide what's wrong is (0: not known)
+  runtime: Bool         # a runtime error (else it didn't compile)
+  pathLen: Int          # how long the path and the message are
+  messageLen: Int
+end
+appError* :: host proc(path: Blob, message: Blob) -> AppError
 # an app's source into out, as much as fits: its whole length, or -1 if there's no such app
 appSource* :: host proc(name: String, out: Blob) -> Int
 appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1

@@ -1300,9 +1300,38 @@ int rinc_compileFile(rio_Vm *vm, void *space, uint32_t size, const char *path, i
 
 /* where an app's error is: the file it included or imported, if it was in one (else 0: the app's own) */
 const char *rinc_errorPart(rio_Vm *vm) { return rio_errorInfo(vm).file; }
-/* an app's error, after where it is */
+/* where the last app to stop with an error stopped, until an editor takes it (pc.appError): its file
+   (the app's main file, else a part's, under /rinc unless it's the host's), and what was wrong */
+static struct { char path[128], message[rio_ERROR_BUF_SIZE]; int line, col, len, runtime; } rinc_lastError;
+static void rinc_keepError(rio_Vm *vm, const char *name) {
+  rio_Error e = rio_errorInfo(vm);
+  char app[rinc_REF];
+  rinc_lastError.line = 0;
+  if (e.kind == rio_ErrorKind_none || e.line <= 0) return;
+  if (!e.file) { if (!rinc_runPath(name, app, sizeof app, rinc_lastError.path, sizeof rinc_lastError.path)) return; }
+  else if (!strncmp(e.file, "apps/", 5) || !strncmp(e.file, "projects/", 9) || !strncmp(e.file, "lib/", 4))
+    snprintf(rinc_lastError.path, sizeof rinc_lastError.path, "/rinc/%s", e.file);
+  else snprintf(rinc_lastError.path, sizeof rinc_lastError.path, "%s", e.file);
+  snprintf(rinc_lastError.message, sizeof rinc_lastError.message, "%s", e.msg ? e.msg : rio_error(vm));
+  rinc_lastError.line = e.line; rinc_lastError.col = e.col; rinc_lastError.len = e.len;
+  rinc_lastError.runtime = e.kind == rio_ErrorKind_runtime;
+}
+static void rinc_hostAppError(rio_Vm *v, rio_Val *a) { /* (-> pc.AppError: where it goes in a[0], a[1]; path, message after) */
+  pc_AppError r;
+  memset(&r, 0, sizeof r);
+  if (rinc_lastError.line > 0) {
+    r.line = rinc_lastError.line; r.col = rinc_lastError.col; r.len = rinc_lastError.len; r.runtime = rinc_lastError.runtime;
+    r.pathLen = rinc_copyOut(v, a + 2, rinc_lastError.path, (int)strlen(rinc_lastError.path));
+    r.messageLen = rinc_copyOut(v, a + 4, rinc_lastError.message, (int)strlen(rinc_lastError.message));
+  }
+  rinc_lastError.line = 0;
+  rio_putStruct(v, a, &r, sizeof r);
+}
+
+/* an app's error, after where it is (and kept, for an editor) */
 static void rinc_sayError(rio_Vm *vm, const char *name, int image) {
   const char *part = image ? 0 : rinc_errorPart(vm);
+  rinc_keepError(vm, name);
   if (part) { rinc_say(part); rinc_say(":"); }
   else { rinc_say(name); rinc_say(image ? ": " : ".rio:"); }
   rinc_say(rio_error(vm));
@@ -1617,6 +1646,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.appCopy", pc_appCopy_SIG, rinc_hostAppCopy) ||
          rio_addFfi(vm, "pc.call", pc_call_SIG, rinc_hostCall) || rio_addFfi(vm, "pc.args", pc_args_SIG, rinc_hostArgs) ||
          rio_addFfi(vm, "pc.done", pc_done_SIG, rinc_hostDone) || rio_addFfi(vm, "pc.result", pc_result_SIG, rinc_hostResult) ||
+         rio_addFfi(vm, "pc.appError", pc_appError_SIG, rinc_hostAppError) ||
          rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
          rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", pc_pngRead_SIG, rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", pc_pngWrite_SIG, rinc_hostPngWrite) || rio_addFfi(vm, "pc.pngNotes", pc_pngNotes_SIG, rinc_hostPngNotes) ||
          rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) ||
@@ -1880,6 +1910,7 @@ int rinc_gameFrame(rio_Vm *vm) {
   rinc_perfNote(rinc_time ? (rinc_time() - t0) * 1000.0f : 0); /* (for the performance strip) */
   if (res != 0) { /* an error, or no update or draw any more */
     rinc_game = 0; rinc_showLog = 1; rinc_audioReset(); rinc_consoleClear(rinc_themeColor(0));
+    if (res < 0) rinc_keepError(vm, rinc_appRef);
     rinc_say(res < 0 ? rio_error(vm) : "nothing to run: define update* or draw*");
     rinc_back();
   }

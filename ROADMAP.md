@@ -24,7 +24,8 @@ app is a Rio program.
   to do: deciding by ear which rate and smoothing to start at, and the synth's loudness beside
   recorded sound (8 dB down for now: notes/native-synth.md); a small library that plays Sound's
   files in games; music (patterns of sounds across voices), in Rio on top or in the core.
-- Editing code on the board: `rio fmt`, jumping to compile errors, completion.
+- Editing code on the board: `rio fmt`, completion. (Coming back to the editor after a run that stopped
+  with an error, compile or runtime, puts the cursor on it, in whichever part it was.)
 - Help search.
 - Fonts: several fonts and sizes, 5x8 the default.
   - Diacritics at 5x8.
@@ -54,5 +55,8 @@ app is a Rio program.
 ## Known bugs
 
 - Ctrl-B after the console app runs an app hangs the board's USB serial.
+- Desktop tests now and then fail under heavy parallel runs on Windows (`ctest -j 12`): `stash_first`
+  twice, `projects` once, each passing alone and in reruns. Maybe a file still held just after rinc
+  exits, so a test's clean start (`rm -rf` of its data folder) misses it.
 - Fixed, not yet checked on the board or the web: Files' prompt and "New folder here", fullscreen mouse
   confinement, the web's Keyboard Lock.

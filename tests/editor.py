@@ -5,7 +5,7 @@ list (Ctrl+Shift+P). docs/spec/apps.md#the-editor"""
 import os, shutil, subprocess, sys
 
 rinc, system, data = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2]), sys.argv[3]
-SAVE, OPEN, SAVE_AS, ALL = '\\x13', '\\x0f', '\\x1b[27;6;115~', '\\x1b[27;6;112~'
+SAVE, OPEN, SAVE_AS, ALL, RUN = '\\x13', '\\x0f', '\\x1b[27;6;115~', '\\x1b[27;6;112~', '\\x12'
 DOWN = '\\x1b[B'
 
 def put(path, text):
@@ -40,6 +40,18 @@ typing('w' + SAVE)
 check(get('apps/live/live.rio') == 'log(2)\n' and get('projects/live/live.rio') == 'wlog(2)\n', "an installed app's file, saved in its project")
 typing('v' + ALL + 'save\\n')
 check(get('projects/live/live.rio') == 'wvlog(2)\n', 'a command from the list')
+# Ctrl+R runs an app that doesn't compile, and the system key with Tab comes back: the editor at the
+# error, in the part it was in, what's wrong selected (so typing replaces it)
+put('projects/oops/oops.rio', 'include "parts/b.rio"\nlog(x)\n')
+put('projects/oops/parts/b.rio', 'x := 1\ny := missing + 1\n')
+put('settings/active', 'oops+')
+typing(RUN + '\\st' + 'x' + SAVE, 180)
+check(get('projects/oops/parts/b.rio') == 'x := 1\ny := x + 1\n', 'back at the error, in its part: %r' % get('projects/oops/parts/b.rio'))
+typing(RUN + '\\st' + 'q' + SAVE, 180) # (it runs now: no error to go to, so where it was)
+check(get('projects/oops/parts/b.rio') == 'x := 1\ny := xq + 1\n', 'no error: back where it was: %r' % get('projects/oops/parts/b.rio'))
+put('projects/oops/parts/b.rio', 'x := 1\ni := 5\nif true\n  zs: [2]Int\n  log(zs[i])\nend\n') # (a runtime error: its line, from its indent)
+typing(RUN + '\\st' + '#' + SAVE, 180)
+check(get('projects/oops/parts/b.rio') == 'x := 1\ni := 5\nif true\n  zs: [2]Int\n  #log(zs[i])\nend\n', 'back at a runtime error: %r' % get('projects/oops/parts/b.rio'))
 # scrolled sideways (the right stick, as a wheel tilted): a long line's far part comes into view, and
 # no further than the longest line shown
 def screen(hold):

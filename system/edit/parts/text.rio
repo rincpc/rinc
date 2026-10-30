@@ -58,7 +58,7 @@ newlines :: proc(s: String) -> Int
   return n
 end
 
-# text[a:b] becomes s (which isn't part of text): false if there's no room
+# text[a..<b] becomes s (which isn't part of text): false if there's no room
 replaceRaw :: proc(a, b: Int, s: String) -> Bool
   if textLen - (b - a) + s.len() > CAP
     return false
@@ -118,7 +118,7 @@ end
 
 # ---------------------------------------------------------------- undo
 
-# each edit: text[pos:pos + del] became ins bytes; its deleted bytes then its inserted ones are in
+# each edit: text[pos..<pos + del] became ins bytes; its deleted bytes then its inserted ones are in
 # undoText from at; the cursor and anchor before, and the cursor after
 recPos: [256]Int
 recDel: [256]Int
@@ -174,7 +174,7 @@ modified :: proc() -> Bool
   return recTop != savedTop
 end
 
-# text[a:b] becomes s, remembered for undo (kind: what it is, to group with the edit before)
+# text[a..<b] becomes s, remembered for undo (kind: what it is, to group with the edit before)
 edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
   merged := false
   r := recTop - 1

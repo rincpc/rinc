@@ -5,8 +5,8 @@ rinc apps/breakout.rio -web breakout.html
 ```
 
 makes one self-contained page: a bundle of the app compiled to an image, Rinc's VM as wasm (gzipped,
-and unzipped by the browser), and a small JS host (`src/web/page.html`). Breakout comes to 54 KB: a
-31 KB player and a 3.5 KB bundle, in base64. Open it from disk or any server. The arrows and V, C, X and
+and unzipped by the browser), and a small JS host (`src/web/page.html`). Breakout comes to 94 KB, most of
+it the 54 KB player, in base64. Open it from disk or any server. The arrows and V, C, X and
 Z are the buttons (in a game: in a pointer app the letters type), and any controller the browser maps to the standard layout is player 1. Sound starts
 with the first key or click, as browsers require.
 
@@ -42,8 +42,8 @@ storage under its own.
 
 The desktop rinc carries two web players and gives a page the smaller one it can:
 
-- **VM-only** (31 KB gzipped): runs compiled apps, the common case.
-- **With the compiler** (68 KB gzipped): for a page with an app that runs Rio itself
+- **VM-only** (54 KB gzipped): runs compiled apps, the common case.
+- **With the compiler** (114 KB gzipped): for a page with an app that runs Rio itself
   ([`pc.rio*`](../spec/rio.md), as the console does) or writes apps (`pc.appSave`, as the editor does).
   It also runs apps saved to storage, from source, and such a page carries its apps as source, so the
   editor can open them.

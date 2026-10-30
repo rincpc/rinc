@@ -43,10 +43,10 @@ number back as text; Esc gives nothing, an empty result:
 
 ```rio fragment
 out: Blob[8]
-n := pc.result(out[:])
+n := pc.result(out[])
 if n < 0
   pc.call("colors", "pick")     # (the first time)
 case n > 0
-  log("picked", out[0:n].asString())
+  log("picked", out[0..<n].asString())
 end
 ```

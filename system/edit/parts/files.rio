@@ -78,8 +78,8 @@ mainPath :: proc(ref: String) -> String
   mainBuf.clear()
   n := ref
   ok := mainBuf.pushAll("/rinc/apps/")
-  if ref.len() > 1 and ref[ref.len() - 1] == 43
-    n = ref[0..<ref.len() - 1]
+  if ref.len() > 1 and ref[end] == 43
+    n = ref[0..<end]
     mainBuf.clear()
     ok = mainBuf.pushAll("/rinc/projects/")
   end
@@ -108,7 +108,7 @@ load :: proc(p: String) -> Bool
   n := pc.fileRead(p, one[0..<0])
   a := appOf(p)
   bundled := false
-  if n < 0 and a.len() > 0 and a[a.len() - 1] != 42 and p == mainPath(a) # (an app the Rinc has built in)
+  if n < 0 and a.len() > 0 and a[end] != 42 and p == mainPath(a) # (an app the Rinc has built in)
     n = pc.appSource(a, one[0..<0])
     bundled = n >= 0
   end
@@ -141,6 +141,27 @@ load :: proc(p: String) -> Bool
     end
   end
   remember()
+  return true
+end
+
+# where the last app to stop with an error stopped (taken, so once): its file, opened, with what's
+# wrong selected (a runtime error's line, from its indent), and what it said. False if there's none
+errorPath: Blob[128]
+errorText: Blob[96]
+goToError :: proc() -> Bool
+  e := pc.appError(errorPath[], errorText[])
+  if e.line < 1 or e.pathLen > 128 or not load(errorPath[0..<e.pathLen].asString())
+    return false
+  end
+  l := min(e.line, lineCount) - 1
+  a := indentEnd(l)
+  if e.col > 0
+    a = lineAt[l] + min(e.col - 1, lineEnd(l) - lineAt[l])
+  end
+  moveTo(a, false)
+  moveTo(min(a + e.len, lineEnd(l)), true)
+  wantCol = -1
+  say(errorText[0..<min(e.messageLen, 96)].asString(), errorColor)
   return true
 end
 
@@ -249,6 +270,7 @@ run :: proc()
   if modified() and not save()
     return
   end
+  remember() # (where it is, for coming back: saving keeps it, but an unchanged file isn't saved)
   refBuf.clear()
   ok := refBuf.pushAll(appOf(here()))
   pc.launch(refBuf[0..<refBuf.len()].asString())

@@ -25,6 +25,17 @@ typedef struct {
 typedef char pc_Sound_size[sizeof(pc_Sound) == 12 ? 1 : -1]; /* (Rio's size) */
 #define pc_Sound_LAYOUT "{bits:Int,channels:Int,rate:Float}"
 
+typedef struct {
+  int32_t line;
+  int32_t col;
+  int32_t len;
+  int32_t runtime;
+  int32_t pathLen;
+  int32_t messageLen;
+} pc_AppError;
+typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's size) */
+#define pc_AppError_LAYOUT "{line:Int,col:Int,len:Int,runtime:Int,pathLen:Int,messageLen:Int}"
+
 #define pc_cls_SIG "i"
 #define pc_pset_SIG "iii"
 #define pc_pget_SIG "ii>i"
@@ -67,6 +78,7 @@ typedef char pc_Sound_size[sizeof(pc_Sound) == 12 ? 1 : -1]; /* (Rio's size) */
 #define pc_args_SIG "b>i"
 #define pc_done_SIG "s"
 #define pc_result_SIG "b>i"
+#define pc_appError_SIG "bb>" pc_AppError_LAYOUT
 #define pc_appSource_SIG "sb>i"
 #define pc_appSave_SIG "ss>i"
 #define pc_appDelete_SIG "s>i"
@@ -148,6 +160,7 @@ typedef char pc_Sound_size[sizeof(pc_Sound) == 12 ? 1 : -1]; /* (Rio's size) */
   X(args, pc_args_SIG) \
   X(done, pc_done_SIG) \
   X(result, pc_result_SIG) \
+  X(appError, pc_appError_SIG) \
   X(appSource, pc_appSource_SIG) \
   X(appSave, pc_appSave_SIG) \
   X(appDelete, pc_appDelete_SIG) \
@@ -186,7 +199,7 @@ typedef char pc_Sound_size[sizeof(pc_Sound) == 12 ? 1 : -1]; /* (Rio's size) */
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x21b43327u /* (rio_hashText of the source) */
+#define pc_HASH 0x68a79117u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -297,6 +310,17 @@ typedef char pc_Sound_size[sizeof(pc_Sound) == 12 ? 1 : -1]; /* (Rio's size) */
   "args* :: host proc(out: Blob) -> Int                # the args this app was called with: how long (0: none)\n" \
   "done* :: host proc(result: String)                  # back to the caller, with a result (or to the app before)\n" \
   "result* :: host proc(out: Blob) -> Int              # the result of the app this one called: how long, or -1 (taken)\n" \
+  "# where the last app to stop with an error stopped, for an editor to go to: its file's path into path,\n" \
+  "# and what was wrong into message (as much as fits). Taken: a second call gives none\n" \
+  "AppError* :: struct\n" \
+  "  line: Int             # from 1 (0: there's none)\n" \
+  "  col: Int              # from 1 (0: not known, as for a runtime error)\n" \
+  "  len: Int              # how wide what's wrong is (0: not known)\n" \
+  "  runtime: Bool         # a runtime error (else it didn't compile)\n" \
+  "  pathLen: Int          # how long the path and the message are\n" \
+  "  messageLen: Int\n" \
+  "end\n" \
+  "appError* :: host proc(path: Blob, message: Blob) -> AppError\n" \
   "# an app's source into out, as much as fits: its whole length, or -1 if there's no such app\n" \
   "appSource* :: host proc(name: String, out: Blob) -> Int\n" \
   "appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1\n" \

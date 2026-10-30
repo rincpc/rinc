@@ -60,7 +60,7 @@ blank :: proc()
   newLine(0, 0)
 end
 
-# the position of byte c in src[a:b], or -1
+# the position of byte c in src[a..<b], or -1
 find :: proc(c: Int, a: Int, b: Int) -> Int
   for i in a..<b
     if src[i] == c
@@ -70,7 +70,7 @@ find :: proc(c: Int, a: Int, b: Int) -> Int
   return -1
 end
 
-# src[a:b] starts with s?
+# src[a..<b] starts with s?
 startsWith :: proc(a: Int, b: Int, s: String) -> Bool
   if b - a < s.len()
     return false
@@ -83,7 +83,7 @@ startsWith :: proc(a: Int, b: Int, s: String) -> Bool
   return true
 end
 
-# src[a:b] rendered inline, in base style: `code`, **bold**, *emphasis*, [links](to), \escapes
+# src[a..<b] rendered inline, in base style: `code`, **bold**, *emphasis*, [links](to), \escapes
 inline :: proc(a: Int, b: Int, base: Int)
   i := a
   for i < b
@@ -277,7 +277,7 @@ wrap :: proc()
   end
 end
 
-# src[0:srcLen] as Markdown, into out
+# src[0..<srcLen] as Markdown, into out
 render :: proc()
   outLen = 0
   logCount = 0

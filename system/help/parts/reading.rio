@@ -48,7 +48,7 @@ end
 
 # after a set's title, a project's +
 addSetStar :: proc(set: Blob)
-  if set.len() > 0 and set[set.len() - 1] == 43
+  if set.len() > 0 and set[end] == 43
     addSrc(" +") # (a link's text is as it is: no emphasis)
   end
 end
@@ -335,7 +335,7 @@ resolve :: proc(l: Int) -> Bool
       if goName.len() > 0
         goName.pop()
       end
-      for goName.len() > 0 and goName[goName.len() - 1] != 47
+      for goName.len() > 0 and goName[end] != 47
         goName.pop()
       end
     case not (part.len() == 1 and part[0] == 46) and part.len() > 0
@@ -346,7 +346,7 @@ resolve :: proc(l: Int) -> Bool
     end
     k = e + 1
   end
-  if goName.len() > 3 and goName[goName.len() - 3] == 46 and goName[goName.len() - 2] == 109 and goName[goName.len() - 1] == 100
+  if goName.len() > 3 and goName[end - 2] == 46 and goName[end - 1] == 109 and goName[end] == 100
     goName.pop() # (.md left off)
     goName.pop()
     goName.pop()

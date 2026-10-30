@@ -4,7 +4,9 @@ The editor (`system/edit/edit.rio`, a system app) edits a file at a time, by
 path (an app's source, its other files, its help, its saves), up to 32 KB, with the keys of most
 editors. Ctrl+O opens one through Files, and Ctrl+Shift+S saves as another, through Files too, which
 asks where. Ctrl+R saves it and runs the app or project it's in, and the system key with Tab comes back
-to the editor. Ctrl+Shift+P lists every command, with its keys.
+to the editor. If the app stopped with an error, a compile error or a runtime one, the editor comes
+back at it: in the file it was in (one of the app's parts, say), the cursor on it, and what was wrong
+at the bottom. Ctrl+Shift+P lists every command, with its keys.
 
 Projects are where apps are worked on: `chord+` is app `chord` in work, in `/rinc/projects`, with saves
 of its own (a copy of the app's), so trying things can't spoil the app's. An installed app's files are
