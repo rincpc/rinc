@@ -32,6 +32,7 @@ with what's active (another app can pick one for it), else the file it had last,
 | Alt+Up, Alt+Down, Ctrl+Shift+K | move the lines up or down, delete them |
 | Ctrl+Shift+J | join the next line onto this one (or the selected lines) |
 | Ctrl+Space | complete the word (after a module's dot, the list opens by itself) |
+| Ctrl+/ | comment the lines (the selected ones, or the cursor's), or uncomment them |
 | Ctrl+Backspace, Ctrl+Delete | delete a word |
 | Ctrl+F, Ctrl+G | find (Enter finds the next), go to a line |
 | Esc | let go of the selection, or close the bar at the bottom |

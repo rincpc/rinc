@@ -27,6 +27,8 @@ key :: proc(k: Int)
     end
   case k == (32 | CTRL) # Ctrl+Space
     complete(0)
+  case k == (47 | CTRL) # Ctrl+/
+    toggleComment()
   case base == 13
     enter()
   case base == 8

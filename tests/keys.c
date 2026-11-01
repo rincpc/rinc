@@ -1,6 +1,6 @@
 /* typed keys, as a terminal sends them, become pc.key()'s codes (docs/spec/input.md#typed-text): editing
    keys, their modifiers (xterm's ESC [ 1 ; m X, ESC [ n ; m ~ and ESC [ 27 ; m ; k ~), Shift+Tab, a
-   lone Esc, Ctrl+letter, Ctrl+Space (and a NUL, as terminals send it) and plain characters */
+   lone Esc, Ctrl+letter, Ctrl+Space and Ctrl+/ (and a NUL and 31, as terminals send them) and plain characters */
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <string.h>
@@ -28,10 +28,12 @@ int main(void) {
     "\033[27;5;8~"  /* Ctrl+Backspace: 8 + 512 */
     "\033[27;6;122~" /* Ctrl+Shift+Z: 26 + 256 */
     "\033[27;5;32~" /* Ctrl+Space: 32 + 512 */
+    "\033[27;5;47~" /* Ctrl+/: 47 + 512 */
+    "\037"          /* Ctrl+/, as a terminal sends it (Ctrl+_): 47 + 512 */
     "\032"          /* Ctrl+Z: 26 */
     "a\r";          /* a, Enter */
   static const char app[] = "c := pc.key()\nfor c >= 0\n  log(c)\n  c = pc.key()\nend\n";
-  static const char want[] = "129\n641\n384\n902\n265\n520\n282\n544\n26\n97\n13\n544\n";
+  static const char want[] = "129\n641\n384\n902\n265\n520\n282\n544\n559\n559\n26\n97\n13\n544\n";
   const char *p;
   if (rinc_start(&vm, space, sizeof space, put) || rinc_compile(&vm, space, sizeof space, app, sizeof app - 1)) {
     printf("FAIL: %s\n", rio_error(&vm));

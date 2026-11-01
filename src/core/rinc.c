@@ -131,8 +131,9 @@ int rinc_textMods(int shift, int ctrl, int alt) { return (shift ? rinc_Mod_shift
 /* a terminal's bytes: ESC [ (or ESC O) and a letter, or numbers and ~, is an editing key. Numbers are
    separated by ; and a key's modifiers are its second (1 + 1 Shift, 2 Alt, 4 Ctrl), as xterm sends
    them: ESC [ 1 ; 5 C is Ctrl+right, ESC [ 3 ; 2 ~ Shift+Delete, and ESC [ 27 ; m ; k ~ key k (Tab,
-   Enter, Backspace, a letter for Ctrl+letter, a space for Ctrl+Space) with modifiers m. ESC [ Z is
-   Shift+Tab. A NUL byte (a terminal's Ctrl+Space) is Ctrl+Space: 32 with rinc_Mod_ctrl */
+   Enter, Backspace, a letter for Ctrl+letter, a space or / for Ctrl+Space or Ctrl+/) with modifiers m.
+   ESC [ Z is Shift+Tab. A NUL byte (a terminal's Ctrl+Space) is Ctrl+Space, 32 with rinc_Mod_ctrl, and
+   31 (its Ctrl+/, as Ctrl+_) is Ctrl+/, 47 with it */
 void rinc_textPush(int c) {
   rinc_Text *t = &rinc_typed;
   if (t->esc == 1) {
@@ -145,8 +146,8 @@ void rinc_textPush(int c) {
     t->esc = 0;
     if (c == '~' && n == 27) { /* (xterm's modifyOtherKeys) */
       if (k >= 'A' && k <= 'Z') k += 32;
-      c = k == 9 || k == 13 || k == 32 ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
-      if (c == 32 && !(mods & rinc_Mod_ctrl)) c = 0; /* (Ctrl+Space, 32 with Ctrl's bit: nothing else of a space) */
+      c = k == 9 || k == 13 || k == 32 || k == '/' ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
+      if ((c == 32 || c == '/') && !(mods & rinc_Mod_ctrl)) c = 0; /* (Ctrl+Space and Ctrl+/: 32 or 47 with Ctrl's bit, nothing else) */
       if (c >= 1 && c <= 26 && c != 8 && c != 9 && c != 13) mods &= ~rinc_Mod_ctrl; /* (Ctrl+letter says Ctrl itself) */
     } else
       c = c == 'A' ? rinc_Key_up : c == 'B' ? rinc_Key_down : c == 'C' ? rinc_Key_right : c == 'D' ? rinc_Key_left :
@@ -160,7 +161,8 @@ void rinc_textPush(int c) {
   if (c == '\n') c = 13;
   if (c == 127) c = 8;
   if (c == 0) c = 32 | rinc_Mod_ctrl; /* (a terminal's Ctrl+Space) */
-  if ((c >= 1 && c <= 26) || (c >= 32 && c < 127) || c == (32 | rinc_Mod_ctrl)) rinc_queue(t, c);
+  if (c == 31) c = '/' | rinc_Mod_ctrl; /* (and its Ctrl+/, as Ctrl+_) */
+  if ((c >= 1 && c <= 26) || (c >= 32 && c < 127) || c == (32 | rinc_Mod_ctrl) || c == ('/' | rinc_Mod_ctrl)) rinc_queue(t, c);
 }
 void rinc_textKey(int key) { rinc_typed.esc = 0; if (key > 0 && key < 2048) rinc_queue(&rinc_typed, key); }
 int rinc_textRoom(void) { return rinc_TEXT_CAP - 1 - (rinc_typed.head - rinc_typed.tail + rinc_TEXT_CAP) % rinc_TEXT_CAP; }

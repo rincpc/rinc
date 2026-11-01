@@ -71,6 +71,20 @@ assert(joined("x := a\n  .b()", 0, 0) == "x := a.b()", "before a dot: no space")
 assert(joined("  # one\n  # two", 0, 0) == "  # one two", "a comment going on: one comment")
 assert(joined("x := 1", 0, 0) == "x := 1", "the last line: nothing to join")
 
+# Ctrl+/ comments the lines (at the least indent), or uncomments them if they're all comments
+commented :: proc(s: String, a, b: Int) -> String
+  start(s)
+  anchor = a
+  cursor = b
+  toggleComment()
+  return text[0..<textLen].asString()
+end
+assert(commented("if x\n  y()\nend", 0, 14) == "# if x\n#   y()\n# end", "lines commented, at the least indent")
+assert(commented("  a()\n\n    b()", 0, 14) == "  # a()\n\n  #   b()", "a blank line left as it is")
+assert(commented("  # a()\n  #b()", 0, 14) == "  a()\n  b()", "all comments: uncommented")
+assert(commented("  # a()\n  b()", 0, 13) == "  # # a()\n  # b()", "not all comments: commented again")
+assert(commented("  x := 1", 5, 5) == "  # x := 1" and cursor == 7, "the cursor's line, the cursor on its code")
+
 # laid out as rio fmt does, the cursor kept on the same code
 laid :: proc(s: String, at: Int) -> Int
   start(s)

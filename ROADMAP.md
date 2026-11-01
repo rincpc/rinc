@@ -30,6 +30,10 @@ app is a Rio program.
   does; Ctrl+Shift+J joins lines; Enter goes on with a comment; coming back to the editor after a run
   that stopped with an error, compile or runtime, puts the cursor on it, in whichever part it was.)
 - A diff view in the editor (inline, maybe): what changed since the file was saved, or between two.
+- Key handling, an audit and a pass to refine it (for review): how each platform's keys become
+  `pc.key()`'s codes (Ctrl with letters, and now Ctrl+Space and Ctrl+/ added one at a time), other
+  keyboard layouts (where / or a letter's key is elsewhere, AltGr's characters), and typing text in
+  other languages (i18n: dead keys, characters past ASCII).
 - The themes, another pass: roles that are the same color where one is drawn on the other (select and
   bar in slate and green, faint and bar in green: a list's pick, and its dim text, didn't show; the
   editor works around them for now).

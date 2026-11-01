@@ -284,6 +284,71 @@ indentLines :: proc(dir: Int)
   end
 end
 
+# Ctrl+/: the selected lines (or the cursor's) made comments, "# " at the least indent of them, or if
+# they're all comments already, code again (each one's # and a space after it taken off). Blank lines
+# stay as they are
+toggleComment :: proc()
+  selectedLines()
+  least := -1
+  all := true
+  for l in first..=last
+    p := indentEnd(l)
+    if p < lineEnd(l)
+      if least < 0 or p - lineAt[l] < least
+        least = p - lineAt[l]
+      end
+      all = all and text[p] == 35
+    end
+  end
+  if least < 0
+    return
+  end
+  a := lineAt[first]
+  b := lineEnd(last)
+  had := cursor != anchor
+  c := cursor
+  built.clear()
+  for l in first..=last
+    p := lineAt[l]
+    e := lineEnd(l)
+    if built.len() + (e - p) + 3 > BUILT
+      say("Too much to comment at once", errorColor)
+      return
+    end
+    q := indentEnd(l)
+    if q == e
+      _ = built.pushAll(text[p..<e])
+    case all
+      _ = built.pushAll(text[p..<q])
+      q += 1
+      if q < e and text[q] == 32
+        q += 1
+      end
+      _ = built.pushAll(text[q..<e])
+    else
+      _ = built.pushAll(text[p..<p + least])
+      _ = built.pushAll("# ")
+      _ = built.pushAll(text[p + least..<e])
+    end
+    if l < last
+      _ = built.push(10)
+    end
+  end
+  delta := built.len() - (b - a)
+  merging = 0
+  ok := edit(a, b, built[0..<built.len()].asString(), 0)
+  if had or first != last
+    anchor = a
+    cursor = a + built.len()
+  case c < a + least # (in the indent: stays)
+    cursor = c
+    anchor = c
+  else
+    cursor = max(a + least, c + delta)
+    anchor = cursor
+  end
+end
+
 tab :: proc(shift: Bool)
   if shift or lineOf(selStart()) != lineOf(selEnd())
     if shift

@@ -599,7 +599,7 @@ static uint16_t rinc_readPad(void) {
   return b;
 }
 
-static int rinc_ctrlSpace; /* (Ctrl+Space just pressed: the space SDL may type with it isn't typed) */
+static int rinc_ctrlText; /* (Ctrl+Space or Ctrl+/ just pressed: the space or / SDL may type with it isn't typed) */
 /* editing keys, Tab, Enter, Backspace, Ctrl+letter and Ctrl+Space, with the modifiers held, for key() (typing
    arrives as text). (Enter and Backspace don't take Shift: it's too easily held while typing) */
 static void rinc_sdlKey(const SDL_KeyboardEvent *k) {
@@ -610,8 +610,8 @@ static void rinc_sdlKey(const SDL_KeyboardEvent *k) {
              c == SDLK_PAGEUP ? rinc_Key_pageUp : c == SDLK_PAGEDOWN ? rinc_Key_pageDown : c == SDLK_TAB ? 9 : 0;
   if (c == SDLK_RETURN || c == SDLK_KP_ENTER || c == SDLK_BACKSPACE) { code = c == SDLK_BACKSPACE ? 8 : 13; shift = 0; }
   if (!code && ctrl && c >= SDLK_A && c <= SDLK_Z) { code = (int)(c - SDLK_A) + 1; ctrl = 0; }
-  if (!code && ctrl && c == SDLK_SPACE) code = 32; /* (Ctrl+Space: 32 with Ctrl's bit; its text, a space, isn't typed) */
-  rinc_ctrlSpace = code == 32;
+  if (!code && ctrl && (c == SDLK_SPACE || c == SDLK_SLASH)) code = c == SDLK_SPACE ? 32 : '/'; /* (Ctrl+Space, Ctrl+/: 32 or 47 with Ctrl's bit; their text isn't typed) */
+  rinc_ctrlText = code == 32 || code == '/' ? code : 0;
   if (code) rinc_textKey(code | rinc_textMods(shift, ctrl, alt));
 }
 
@@ -648,8 +648,8 @@ static int rinc_window(const char *title) {
       if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_F11 && !e.key.repeat) { rinc_fullscreen = !rinc_fullscreen; continue; } /* (the window's own: apps get no F keys) */
       if (rinc_systemHeld() && (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_TEXT_INPUT)) continue; /* (a system combination: not the app's) */
       if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) rinc_textEsc(); /* (Esc is the app's: closing the window quits) */
-      if (e.type == SDL_EVENT_TEXT_INPUT && !(rinc_ctrlSpace && !strcmp(e.text.text, " "))) { const char *t = e.text.text; while (*t) rinc_textPush((unsigned char)*t++); } /* (key(): typing) */
-      if (e.type == SDL_EVENT_TEXT_INPUT) rinc_ctrlSpace = 0;
+      if (e.type == SDL_EVENT_TEXT_INPUT && !(rinc_ctrlText && e.text.text[0] == rinc_ctrlText && !e.text.text[1])) { const char *t = e.text.text; while (*t) rinc_textPush((unsigned char)*t++); } /* (key(): typing) */
+      if (e.type == SDL_EVENT_TEXT_INPUT) rinc_ctrlText = 0;
       if (e.type == SDL_EVENT_KEY_DOWN) rinc_sdlKey(&e.key);
       if (e.type == SDL_EVENT_MOUSE_MOTION || e.type == SDL_EVENT_MOUSE_WHEEL || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_UP) {
         int held; /* the mouse: in screen pixels (Rinc draws the pointer, not the desktop) */
