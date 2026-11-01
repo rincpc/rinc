@@ -213,6 +213,7 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
       if (e.key !== "Delete" || mods) e.preventDefault();
       return;
     }
+    if (e.ctrlKey && !e.metaKey && e.key === " ") { ex.key(32 | mods); e.preventDefault(); return; } // (Ctrl+Space: completion, in the editor)
     if (e.ctrlKey && !e.metaKey && /^[a-z]$/i.test(e.key)) { ex.key(e.key.toLowerCase().charCodeAt(0) - 96 | (mods & ~512)); e.preventDefault(); return; }
     const c = e.key.length === 1 ? e.key.charCodeAt(0) : 0;
     if (c && c < 127 && !e.ctrlKey && !e.metaKey) ex.typed(c);

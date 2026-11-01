@@ -98,6 +98,86 @@ drawLine :: proc(l: Int, y: Int)
   end
 end
 
+# the pick in a list on the bar's color: the selection's, unless the theme has them the same (slate,
+# green), then the text's background
+pickColor :: proc() -> Int
+  if selectColor == barColor
+    return backColor
+  end
+  return selectColor
+end
+
+# the completion list, under the cursor's line (or over it, where there's more room), as wide as its
+# names and what they are need (moved left to fit): the part typed lit, the pick on the selection's
+# color, and a bar at its right edge when there are more than it shows
+drawOffers :: proc()
+  cl := lineOf(cursor)
+  row := cl - top
+  if row < 0 or row >= ROWS
+    return
+  end
+  below := min(ROWS - row - 1, (229 - TOP_Y - (row + 1) * 9) / 9)
+  above := row
+  rows := min(shownCount, SHOWN_ROWS)
+  y := TOP_Y + (row + 1) * 9
+  if below < rows and above > below
+    rows = min(rows, above)
+    y = TOP_Y + (row - rows) * 9
+  else
+    rows = max(1, min(rows, below))
+  end
+  offerTop = max(0, min(offerTop, shownCount - rows))
+  if offerPick < offerTop
+    offerTop = offerPick
+  case offerPick >= offerTop + rows
+    offerTop = offerPick - rows + 1
+  end
+  names := 0 # (the widest name and what it is, of all of them: the list stays as wide as it scrolls)
+  sigs := 0
+  for i in 0..<shownCount
+    names = max(names, offerLen[shown[i]])
+    if offerKind[shown[i]] == 1
+      sigs = max(sigs, offerSigLen[shown[i]])
+    end
+  end
+  names = min(names, 24)
+  w := names * 6 + 6
+  if sigs > 0
+    w = min(316, w + 12 + sigs * 6)
+  end
+  x := TEXT_X + (wordFrom - lineAt[cl] - left) * 6 - 3
+  x = max(2, min(x, 318 - w))
+  pc.rect({x - 1, y - 1}, {w + 2, rows * 9 + 2}, faintColor)
+  pc.rect({x, y}, {w, rows * 9}, barColor)
+  typed := cursor - wordFrom
+  for r in 0..<rows
+    i := shown[offerTop + r]
+    yy := y + r * 9
+    if offerTop + r == offerPick
+      pc.rect({x, yy}, {w, 9}, pickColor())
+    end
+    s := offerText(i)
+    if s.len() > 24
+      s = s[0..<24]
+    end
+    pc.print(s, {x + 3, yy + 1}, textColor)
+    pc.print(s[0..<min(typed, s.len())], {x + 3, yy + 1}, accentColor)
+    if offerKind[i] == 1 and offerSigLen[i] > 0
+      g := offerSig(i)
+      room := (x + w - 6 - (x + 3 + names * 6 + 12)) / 6
+      if g.len() > room
+        g = g[0..<max(0, room)]
+      end
+      pc.print(g, {x + 3 + names * 6 + 12, yy + 1}, dimColor) # (dim: unlike faint, never the bar's own color)
+    end
+  end
+  if shownCount > rows # (the bar: where the rows shown are, of all of them)
+    h := max(3, rows * 9 * rows / shownCount)
+    pc.rect({x + w - 2, y + (rows * 9 - h) * offerTop / max(1, shownCount - rows)}, {2, h}, softColor)
+  end
+  listBox = {x, y, w, rows}
+end
+
 # Ctrl+Shift+P's list of commands, narrowed by what's typed
 drawPalette :: proc()
   pc.rect({40, 24}, {240, 40 + LIST_ROWS * 10}, barColor)
@@ -112,11 +192,11 @@ drawPalette :: proc()
     y := 54 + row * 10
     color := softColor
     if i == pick
-      pc.rect({44, y - 2}, {232, 10}, selectColor)
+      pc.rect({44, y - 2}, {232, 10}, pickColor())
       color = textColor
     end
     pc.print(labels[k], {48, y}, color)
-    pc.print(keyNames[k], {272 - keyNames[k].len() * 6, y}, faintColor)
+    pc.print(keyNames[k], {272 - keyNames[k].len() * 6, y}, dimColor)
   end
   if nlisted == 0
     pc.print("No such command", {48, 54}, faintColor)
@@ -196,6 +276,9 @@ draw* :: proc()
     pc.print(message[0..<message.len()].asString(), {2, 231}, messageColor)
   else
     pc.print("^O open  ^S save  ^R run  ^Shift+P all", {2, 231}, faintColor)
+  end
+  if completing and mode == NONE
+    drawOffers()
   end
   if mode == PALETTE
     drawPalette()

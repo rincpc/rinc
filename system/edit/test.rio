@@ -5,6 +5,9 @@
 include "parts/setup.rio"
 include "parts/text.rio"
 include "parts/editing.rio"
+include "parts/files.rio"
+include "parts/prompts.rio"
+include "parts/complete.rio"
 
 # the text is s, the cursor at its end
 start :: proc(s: String)
@@ -84,4 +87,39 @@ assert(text[0..<textLen].asString() == "if a\n  x := 1\nend", "indented")
 assert(text[c] == 120, "the cursor still on x")
 undo()
 assert(text[0..<textLen].asString() == "if a\n      x:=1\nend", "and undone")
+
+# completion: the file's words (the nearest first), a module's names after its dot, core's methods
+offered :: proc(i: Int) -> String
+  return offerText(shown[i])
+end
+start("alpha := 1\nalphabet := 2\nx := al")
+complete(0)
+assert(completing and shownCount == 2 and offered(0) == "alphabet" and offered(1) == "alpha", "the file's words, the nearest first")
+completing = false
+start("width := 1\nx := wid")
+complete(0)
+assert(text[0..<textLen].asString() == "width := 1\nx := width" and not completing, "just one: put in")
+start("pc.rec")
+complete(0)
+assert(shownCount >= 1 and offered(0) == "rect" and offerSigLen[shown[0]] > 0, "pc's names, with what each is")
+completing = false
+start("pc.Rect.")
+complete(1)
+have := 0
+for i in 0..<shownCount
+  if offered(i) == "of" or offered(i) == "pos" or offered(i) == "size"
+    have += 1
+  end
+end
+assert(completing and have == 3, "a struct's methods and fields, after a dot, by itself")
+completing = false
+start("xs.pushA")
+complete(0)
+assert(text[0..<textLen].asString() == "xs.pushAll", "core's methods, after another dot")
+start("foo.")
+complete(1)
+assert(not completing, "after a dot that isn't a module's: nothing, by itself")
+start("x := ret")
+complete(0)
+assert(text[0..<textLen].asString() == "x := return", "Rio's words")
 log("all edit tests passed")

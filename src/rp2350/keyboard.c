@@ -30,7 +30,7 @@ static void rinc_push(int c) {
 /* editing keys, as xterm sends them, with the modifiers held (m: 1 + 1 Shift, 2 Alt, 4 Ctrl): ESC [ and a
    letter (arrows, Home, End: ESC [ 1 ; m C with modifiers), or n ~ (Delete, Page Up and Down: n ; m ~).
    And the keys a terminal sends no differently with modifiers: Shift+Tab as ESC [ Z, and Tab, Enter,
-   Backspace and Ctrl+letter with other modifiers as ESC [ 27 ; m ; key ~ */
+   Backspace and Ctrl+letter with other modifiers, and Ctrl+Space, as ESC [ 27 ; m ; key ~ */
 static int rinc_editing(uint8_t key, uint8_t mods) {
   int shift = (mods & (KEYBOARD_MODIFIER_LEFTSHIFT | KEYBOARD_MODIFIER_RIGHTSHIFT)) != 0;
   int ctrl = (mods & (KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTCTRL)) != 0;
@@ -47,6 +47,7 @@ static int rinc_editing(uint8_t key, uint8_t mods) {
   else if ((key == HID_KEY_ENTER || key == HID_KEY_KEYPAD_ENTER) && (ctrl || alt)) k = 13;
   else if (key == HID_KEY_BACKSPACE && (ctrl || alt)) k = 8;
   else if (key >= HID_KEY_A && key <= HID_KEY_Z && ctrl && (shift || alt)) k = 'a' + key - HID_KEY_A;
+  else if (key == HID_KEY_SPACE && ctrl) k = 32;
   if (letter == 'Z') snprintf(seq, sizeof seq, "[Z");
   else if (letter && m > 1) snprintf(seq, sizeof seq, "[1;%d%c", m, letter);
   else if (letter) snprintf(seq, sizeof seq, "[%c", letter);

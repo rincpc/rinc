@@ -11,6 +11,9 @@ key :: proc(k: Int)
     promptKey(k)
     return
   end
+  if completing and completeKey(k)
+    return
+  end
   if base != 14 and base != 15
     confirm = 0 # (a warning stands only until the next key)
   end
@@ -19,6 +22,11 @@ key :: proc(k: Int)
     if base == 100 or base == 101
       dedent()
     end
+    if base == 46 # (after a module's name: its names)
+      complete(1)
+    end
+  case k == (32 | CTRL) # Ctrl+Space
+    complete(0)
   case base == 13
     enter()
   case base == 8
@@ -198,6 +206,20 @@ pointer :: proc()
   down := pc.pointerDown(0)
   px := pc.pointerX()
   py := pc.pointerY()
+  inList := completing and px >= listBox[0] and px < listBox[0] + listBox[2] and py >= listBox[1] and py < listBox[1] + listBox[3] * 9
+  if down == 1 and clicked == 0 and inList # (the completion list: a click puts that one in)
+    offerPick = offerTop + (py - listBox[1]) / 9
+    takeOffer()
+    clicked = down
+    return
+  end
+  if down == 1 and clicked == 0 and completing # (elsewhere: it closes)
+    completing = false
+  end
+  if inList # (the wheel over it: it scrolls)
+    s := pc.scroll(1)
+    offerPick = max(0, min(offerPick - 3 * s, shownCount - 1))
+  end
   if down == 1 and clicked == 0
     if mode == PALETTE
       from := max(0, pick - LIST_ROWS + 1)

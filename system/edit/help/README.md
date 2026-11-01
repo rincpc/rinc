@@ -31,6 +31,7 @@ with what's active (another app can pick one for it), else the file it had last,
 | Tab, Shift+Tab | indent, outdent (the selected lines) |
 | Alt+Up, Alt+Down, Ctrl+Shift+K | move the lines up or down, delete them |
 | Ctrl+Shift+J | join the next line onto this one (or the selected lines) |
+| Ctrl+Space | complete the word (after a module's dot, the list opens by itself) |
 | Ctrl+Backspace, Ctrl+Delete | delete a word |
 | Ctrl+F, Ctrl+G | find (Enter finds the next), go to a line |
 | Esc | let go of the selection, or close the bar at the bottom |
@@ -48,6 +49,14 @@ a proc and so on); `end`, `else` and `case` step back out as they're typed. In a
 goes on with the comment (its `#` again), and on an empty one, ends it. Tab and Backspace move by
 whole steps of two spaces in the indent. Rio's keywords, strings, numbers and comments each have a
 color of their own.
+
+Ctrl+Space offers what could finish the word at the cursor: the file's own words (the nearest
+first), core's names and Rio's words; with just one, it's put in. After a module's name and a dot
+(`pc.`, `core.`, or a module the file or its app's main file imports), the list opens by itself with
+the module's names, and what each one is (a proc's parameters, a field's type): `pc.Rect.` offers
+Rect's methods and fields. After another dot, Ctrl+Space offers the file's words and core's methods
+(`len`, `push`). Typing narrows the list; Up and Down (and Page Up and Down) pick, Tab or Enter puts
+the pick in, a click puts one in, and Esc or any other key closes it.
 
 Saving a `.rio` file lays it out the one way, as `rio fmt` does: only spaces and line breaks change
 (and a trailing comma may be added), and the cursor stays on the same code, where it was on the

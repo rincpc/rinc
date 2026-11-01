@@ -2,6 +2,7 @@
 #include <string.h>
 #include "rinc.h"
 #include "pc_host.h" /* (pc.rio as C, its source, structs and sigs: rinc -H src/core/pc_host.h src/core/pc.rio) */
+#include "core_host.h" /* (Rio's core.rio, its source, for pc.moduleSource: rinc -H src/core/core_host.h lib/rio/src/core.rio) */
 
 _Alignas(4) uint8_t rinc_screen[rinc_H][rinc_W]; /* (aligned for DMA) */
 uint16_t rinc_palette[256];
@@ -130,7 +131,8 @@ int rinc_textMods(int shift, int ctrl, int alt) { return (shift ? rinc_Mod_shift
 /* a terminal's bytes: ESC [ (or ESC O) and a letter, or numbers and ~, is an editing key. Numbers are
    separated by ; and a key's modifiers are its second (1 + 1 Shift, 2 Alt, 4 Ctrl), as xterm sends
    them: ESC [ 1 ; 5 C is Ctrl+right, ESC [ 3 ; 2 ~ Shift+Delete, and ESC [ 27 ; m ; k ~ key k (Tab,
-   Enter, Backspace, a letter for Ctrl+letter) with modifiers m. ESC [ Z is Shift+Tab */
+   Enter, Backspace, a letter for Ctrl+letter, a space for Ctrl+Space) with modifiers m. ESC [ Z is
+   Shift+Tab. A NUL byte (a terminal's Ctrl+Space) is Ctrl+Space: 32 with rinc_Mod_ctrl */
 void rinc_textPush(int c) {
   rinc_Text *t = &rinc_typed;
   if (t->esc == 1) {
@@ -143,7 +145,8 @@ void rinc_textPush(int c) {
     t->esc = 0;
     if (c == '~' && n == 27) { /* (xterm's modifyOtherKeys) */
       if (k >= 'A' && k <= 'Z') k += 32;
-      c = k == 9 || k == 13 ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
+      c = k == 9 || k == 13 || k == 32 ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
+      if (c == 32 && !(mods & rinc_Mod_ctrl)) c = 0; /* (Ctrl+Space, 32 with Ctrl's bit: nothing else of a space) */
       if (c >= 1 && c <= 26 && c != 8 && c != 9 && c != 13) mods &= ~rinc_Mod_ctrl; /* (Ctrl+letter says Ctrl itself) */
     } else
       c = c == 'A' ? rinc_Key_up : c == 'B' ? rinc_Key_down : c == 'C' ? rinc_Key_right : c == 'D' ? rinc_Key_left :
@@ -156,7 +159,8 @@ void rinc_textPush(int c) {
   if (c == 27) { t->esc = 1; return; }
   if (c == '\n') c = 13;
   if (c == 127) c = 8;
-  if ((c >= 1 && c <= 26) || (c >= 32 && c < 127)) rinc_queue(t, c);
+  if (c == 0) c = 32 | rinc_Mod_ctrl; /* (a terminal's Ctrl+Space) */
+  if ((c >= 1 && c <= 26) || (c >= 32 && c < 127) || c == (32 | rinc_Mod_ctrl)) rinc_queue(t, c);
 }
 void rinc_textKey(int key) { rinc_typed.esc = 0; if (key > 0 && key < 2048) rinc_queue(&rinc_typed, key); }
 int rinc_textRoom(void) { return rinc_TEXT_CAP - 1 - (rinc_typed.head - rinc_typed.tail + rinc_TEXT_CAP) % rinc_TEXT_CAP; }
@@ -1126,6 +1130,15 @@ static void rinc_hostFromhex(rio_Vm *v, rio_Val *a) {
   }
   a[0].u = k;
 }
+/* moduleSource(name, out): pc's or core's source, as much as fits, and its whole length (-1: neither) */
+static void rinc_hostModulesource(rio_Vm *v, rio_Val *a) {
+  const char *name = (const char *)rio_sliceBytes(v, a), *s = 0; char *out = (char *)rio_sliceBytes(v, a + 2);
+  uint32_t n = 0;
+  if (name && a[1].u == 2 && !memcmp(name, "pc", 2)) s = pc_SOURCE, n = sizeof pc_SOURCE - 1;
+  if (name && a[1].u == 4 && !memcmp(name, "core", 4)) s = core_SOURCE, n = sizeof core_SOURCE - 1;
+  if (s && out) memcpy(out, s, n < a[3].u ? n : a[3].u);
+  a[0].i = s ? (int32_t)n : -1;
+}
 /* formatRio(out, code): rio_format's (rio fmt's) */
 static void rinc_hostFormatrio(rio_Vm *v, rio_Val *a) {
   char *out = (char *)rio_sliceBytes(v, a); const char *code = (const char *)rio_sliceBytes(v, a + 2);
@@ -1637,7 +1650,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) ||
          rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
-         rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
+         rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
          rio_addFfi(vm, "pc.appSource", pc_appSource_SIG, rinc_hostAppSource) || rio_addFfi(vm, "pc.appSave", pc_appSave_SIG, rinc_hostAppSave) ||

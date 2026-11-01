@@ -1,5 +1,6 @@
 edit.rio
 help/README.md
+parts/complete.rio
 parts/editing.rio
 parts/files.rio
 parts/keys.rio

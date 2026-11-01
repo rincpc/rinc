@@ -295,6 +295,10 @@ else()
   target_compile_definitions(rinc_pc_test PRIVATE rinc_MAX_FFI=${RINC_MAX_FFI})
   add_test(NAME pc_declared COMMAND rinc_pc_test ${CMAKE_CURRENT_LIST_DIR}/src/core/pc.rio ${CMAKE_CURRENT_LIST_DIR}/src/core/pc_host.h)
   set_tests_properties(pc_declared PROPERTIES PASS_REGULAR_EXPRESSION "pc.rio declares all [0-9]+ host procs")
+  # core_host.h has Rio's core.rio as it is now (for pc.moduleSource): made again, the same
+  add_test(NAME core_header_make COMMAND rinc -H ${CMAKE_CURRENT_BINARY_DIR}/core_host_now.h ${RIO_DIR}/src/core.rio)
+  add_test(NAME core_header COMMAND ${CMAKE_COMMAND} -E compare_files ${CMAKE_CURRENT_BINARY_DIR}/core_host_now.h ${CMAKE_CURRENT_LIST_DIR}/src/core/core_host.h)
+  set_tests_properties(core_header PROPERTIES DEPENDS core_header_make)
   # typed keys, as a terminal sends them, with their modifiers
   add_executable(rinc_keys_test tests/keys.c)
   target_link_libraries(rinc_keys_test PRIVATE rinccore)

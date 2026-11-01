@@ -1,0 +1,523 @@
+# Editor: completion (part of edit.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- completion
+#
+# Ctrl+Space offers what could finish the word at the cursor: the file's own words (the nearest first),
+# then core's names (the builtins) and Rio's words (if, return, ...); with just one, it's put in. After
+# a module's name and a dot (pc., core., or a module the file or its app's main file imports), the
+# module's names instead, with what each is, and the list opens by itself as the dot's typed: pc.Rect.
+# offers Rect's (its methods and fields), pc.Role. its values. After any other dot, the file's words
+# and core's methods. Typing narrows the list, Up and Down (and Page Up and Down) pick, Tab or Enter
+# puts the pick in, and Esc or any other key closes it. A module's source is read into formatted
+# (saving's: the list closes before a save).
+
+OFFERED :: 256           # names offered at once (the nearest, of the file's words)
+SHOWN_ROWS :: 10         # the most rows the list shows
+RIO_WORDS :: " if else for in end return break continue proc struct enum union switch case is nil and or not do true false import include "
+
+completing := false
+wordFrom := 0            # where the word being finished starts
+offerKind: [256]Int      # each name offered: 0 in pool (the file's words), 1 in formatted (a module's), 2 in RIO_WORDS
+offerAt: [256]Int
+offerLen: [256]Int
+offerSigAt: [256]Int     # what it is (a proc's parameters, a field's type), in formatted (offerSigLen 0: nothing)
+offerSigLen: [256]Int
+offerRank: [256]Int      # the order: a word's distance from the cursor, then core's, then Rio's words
+offers := 0
+pool: Blob[..8192]       # the file's words offered
+sourceLen := 0           # a module's source, in formatted
+shown: [256]Int          # the offers that start with what's typed, in order
+shownCount := 0
+offerPick := 0
+offerTop := 0
+listBox := [4]Int{0, 0, 0, 0} # where the list was drawn: x, y, width, rows (for the pointer)
+
+offerText :: proc(i: Int) -> String
+  a := offerAt[i]
+  if offerKind[i] == 0
+    return pool[a..<a + offerLen[i]].asString()
+  case offerKind[i] == 1
+    return formatted[a..<a + offerLen[i]].asString()
+  end
+  return RIO_WORDS[a..<a + offerLen[i]]
+end
+
+offerSig :: proc(i: Int) -> String
+  return formatted[offerSigAt[i]..<offerSigAt[i] + offerSigLen[i]].asString()
+end
+
+# s starts with what's typed (any case)
+startsTyped :: proc(s: String) -> Bool
+  n := cursor - wordFrom
+  if s.len() < n
+    return false
+  end
+  for k in 0..<n
+    if lower(s[k]) != lower(text[wordFrom + k])
+      return false
+    end
+  end
+  return true
+end
+
+# a name offered, s (kind 0: one of the text's words, kept in pool), if it starts with what's typed and
+# isn't offered already (the nearer rank stays). Full, the farthest gives way to a nearer one
+offer :: proc(kind, at, n, sigAt, sigLen, rank: Int, s: String)
+  if not startsTyped(s)
+    return
+  end
+  for i in 0..<offers
+    if offerLen[i] == n and offerText(i) == s
+      offerRank[i] = min(offerRank[i], rank)
+      return
+    end
+  end
+  slot := offers
+  if offers == OFFERED
+    slot = 0
+    for i in 1..<offers
+      if offerRank[i] > offerRank[slot]
+        slot = i
+      end
+    end
+    if rank >= offerRank[slot]
+      return
+    end
+  end
+  where := at
+  if kind == 0
+    where = pool.len()
+    if not pool.pushAll(s)
+      return
+    end
+  end
+  offerKind[slot] = kind
+  offerAt[slot] = where
+  offerLen[slot] = n
+  offerSigAt[slot] = sigAt
+  offerSigLen[slot] = sigLen
+  offerRank[slot] = rank
+  if slot == offers
+    offers += 1
+  end
+end
+
+# the file's words (not in comments or strings), each ranked by how far it is from the cursor
+offerWords :: proc()
+  pool.clear()
+  p := 0
+  for p < textLen
+    c := text[p]
+    if c == 35 # (a comment, to its line's end)
+      for p < textLen and text[p] != 10
+        p += 1
+      end
+    case c == 34 or c == 39 # (a string or character)
+      p += 1
+      for p < textLen and text[p] != c and text[p] != 10
+        if text[p] == 92
+          p += 1
+        end
+        p += 1
+      end
+      p += 1
+    case isWord(c)
+      q := p
+      for q < textLen and isWord(text[q])
+        q += 1
+      end
+      if q - p >= 2 and p != wordFrom and (c < 48 or c > 57)
+        offer(0, 0, q - p, 0, 0, abs(p - cursor), text[p..<q].asString())
+      end
+      p = q
+    else
+      p += 1
+    end
+  end
+end
+
+# from p, past the spaces
+pastSpaces :: proc(p, e: Int) -> Int
+  q := p
+  for q < e and formatted[q] == 32
+    q += 1
+  end
+  return q
+end
+
+# formatted[a..<e] starts with word w (then not a word's character)
+sourceHas :: proc(a, e: Int, w: String) -> Bool
+  if e - a < w.len() or formatted[a..<a + w.len()].asString() != w
+    return false
+  end
+  return a + w.len() == e or not isWord(formatted[a + w.len()])
+end
+
+# a module's names (its source in formatted), under chain: "" its own, "Rect." Rect's (methods, fields,
+# values); each with what it is: the rest of its declaration (host and proc left off), or a field's type
+offerModule :: proc(chain: String, rank: Int)
+  p := 0
+  block := 0 # (a struct, enum or union's lines: its name's start and length)
+  blockLen := 0
+  for p < sourceLen
+    e := p
+    for e < sourceLen and formatted[e] != 10
+      e += 1
+    end
+    q := pastSpaces(p, e)
+    if q < e and formatted[q] != 35
+      if q > p # (in a block: a field or value)
+        w := q
+        for w < e and isWord(formatted[w])
+          w += 1
+        end
+        if blockLen > 0 and w > q and blockLen + 1 == chain.len() and formatted[block..<block + blockLen].asString() == chain[0..<blockLen]
+          a := q # (names, a, b: their type, for each)
+          s := w
+          for s < e and (formatted[s] == 44 or formatted[s] == 32 or isWord(formatted[s]))
+            s += 1
+          end
+          t := e
+          for t > s and formatted[t - 1] == 32
+            t -= 1
+          end
+          for a < s
+            b := a
+            for b < s and isWord(formatted[b])
+              b += 1
+            end
+            if b > a
+              offer(1, a, b - a, s, t - s, rank, formatted[a..<b].asString())
+            end
+            a = b + 1
+          end
+        end
+      else
+        blockLen = 0
+        w := q
+        for w < e and (isWord(formatted[w]) or formatted[w] == 46)
+          w += 1
+        end
+        if w > q and w + 3 < e and formatted[w] == 42
+          s := pastSpaces(w + 1, e)
+          if sourceHas(s, e, "::")
+            s = pastSpaces(s + 2, e)
+          end
+          if sourceHas(s, e, "struct") or sourceHas(s, e, "enum") or sourceHas(s, e, "union")
+            block = q
+            blockLen = w - q
+          end
+          t := s # (what it is: to a comment, a one-line body's do, or the line's end)
+          for t < e and formatted[t] != 35 and not (t + 4 <= e and formatted[t..<t + 4].asString() == " do ")
+            t += 1
+          end
+          for t > s and formatted[t - 1] == 32
+            t -= 1
+          end
+          if sourceHas(s, t, "host")
+            s = pastSpaces(s + 4, t)
+          end
+          if t - s > 4 and formatted[s..<s + 4].asString() == "proc" and (formatted[s + 4] == 40 or formatted[s + 4] == 91)
+            s += 4
+          end
+          n := w - q - chain.len()
+          if n > 0 and formatted[q..<q + chain.len()].asString() == chain
+            dot := false
+            for k in q + chain.len()..<w
+              dot = dot or formatted[k] == 46
+            end
+            if not dot
+              offer(1, q + chain.len(), n, s, t - s, rank, formatted[q + chain.len()..<w].asString())
+            end
+          end
+        end
+      end
+    end
+    p = e + 1
+  end
+end
+
+# core's methods (after a dot: String.len, (Blob[..]).push: len, push), what each is
+offerMethods :: proc()
+  p := 0
+  for p < sourceLen
+    e := p
+    for e < sourceLen and formatted[e] != 10
+      e += 1
+    end
+    if e > p and formatted[p] != 32 and formatted[p] != 35
+      star := p
+      for star + 3 < e and not (formatted[star] == 42 and formatted[star + 1] == 32 and formatted[star + 2] == 58)
+        star += 1
+      end
+      w := star
+      for w > p and isWord(formatted[w - 1])
+        w -= 1
+      end
+      if star + 3 < e and w > p and w < star and formatted[w - 1] == 46
+        s := pastSpaces(star + 3, e)
+        t := s
+        for t < e and formatted[t] != 35
+          t += 1
+        end
+        for t > s and formatted[t - 1] == 32
+          t -= 1
+        end
+        if sourceHas(s, t, "host")
+          s = pastSpaces(s + 4, t)
+        end
+        offer(1, w, star - w, s, t - s, 1000000, formatted[w..<star].asString())
+      end
+    end
+    p = e + 1
+  end
+end
+
+# Rio's words
+offerRioWords :: proc()
+  p := 1
+  for p < RIO_WORDS.len()
+    q := p
+    for q < RIO_WORDS.len() and RIO_WORDS[q] != 32
+      q += 1
+    end
+    if q > p
+      offer(2, p, q - p, 0, 0, 2000000, RIO_WORDS[p..<q])
+    end
+    p = q + 1
+  end
+end
+
+# ---------------------------------------------------------------- modules
+
+modPath: Blob[..128]
+
+# the folder imports are found from: the app's (its main file's), else the file's
+importBase :: proc()
+  modPath.clear()
+  a := appOf(here())
+  p := here()
+  if a.len() > 0
+    p = mainPath(a)
+  end
+  k := p.len()
+  for k > 0 and p[k - 1] != 47
+    k -= 1
+  end
+  _ = modPath.pushAll(p[0..<k])
+end
+
+# in src, an import of a module called name (its path's last part): its file's path, into modPath
+importOf :: proc(src: String, name: String) -> Bool
+  p := 0
+  for p < src.len()
+    e := p
+    for e < src.len() and src[e] != 10
+      e += 1
+    end
+    if e - p > 7 and src[p..<p + 7] == "import "
+      q := p + 7
+      for q < e and src[q] == 32
+        q += 1
+      end
+      local := q < e and src[q] == 46
+      if local
+        q += 1
+      end
+      r := q
+      for r < e and (isWord(src[r]) or src[r] == 46)
+        r += 1
+      end
+      last := r
+      for last > q and src[last - 1] != 46
+        last -= 1
+      end
+      if r > q and src[last..<r] == name
+        if local
+          importBase()
+        else
+          modPath.clear()
+          _ = modPath.pushAll("/rinc/lib/")
+        end
+        for c in src[q..<r]
+          if c == 46
+            _ = modPath.push(47)
+          else
+            _ = modPath.push(c)
+          end
+        end
+        return true
+      end
+    end
+    p = e + 1
+  end
+  return false
+end
+
+# the module name stands for (pc, core, or one the file or its app's main file imports), its source
+# read into formatted: whether there is one
+loadModule :: proc(name: String) -> Bool
+  sourceLen = 0
+  if name == "pc" or name == "core"
+    sourceLen = min(pc.moduleSource(name, formatted[0..<CAP]), CAP)
+    return sourceLen > 0
+  end
+  found := importOf(text[0..<textLen].asString(), name)
+  a := appOf(here())
+  if not found and a.len() > 0 and mainPath(a) != here()
+    n := min(pc.fileRead(mainPath(a), formatted[0..<CAP]), CAP)
+    found = n > 0 and importOf(formatted[0..<n].asString(), name)
+  end
+  if not found
+    return false
+  end
+  _ = modPath.pushAll(".rio") # (path.rio, else its folder's own: path/name.rio)
+  n := pc.fileRead(modPath[0..<modPath.len()].asString(), formatted[0..<CAP])
+  if n < 0
+    for _ in 0..<4
+      _ = modPath.pop()
+    end
+    _ = modPath.push(47)
+    _ = modPath.pushAll(name)
+    _ = modPath.pushAll(".rio")
+    n = pc.fileRead(modPath[0..<modPath.len()].asString(), formatted[0..<CAP])
+  end
+  sourceLen = max(0, min(n, CAP))
+  return sourceLen > 0
+end
+
+# ---------------------------------------------------------------- the list
+
+# s starts with what's typed, in its case too
+typedExactly :: proc(s: String) -> Bool
+  n := cursor - wordFrom
+  return s.len() >= n and s[0..<n] == text[wordFrom..<cursor].asString()
+end
+
+# offer a goes after offer b: by rank, then the ones typed in their case, then by name
+after :: proc(a, b: Int) -> Bool
+  if offerRank[a] != offerRank[b]
+    return offerRank[a] > offerRank[b]
+  end
+  ea := typedExactly(offerText(a))
+  if ea != typedExactly(offerText(b))
+    return not ea
+  end
+  return offerText(a) > offerText(b)
+end
+
+# the offers that start with what's typed, in order (after)
+narrowOffers :: proc()
+  shownCount = 0
+  for i in 0..<offers
+    if startsTyped(offerText(i))
+      j := shownCount # (in place: the ones after it, along)
+      for j > 0 and after(shown[j - 1], i)
+        shown[j] = shown[j - 1]
+        j -= 1
+      end
+      shown[j] = i
+      shownCount += 1
+    end
+  end
+  offerPick = max(0, min(offerPick, shownCount - 1))
+end
+
+# the pick, in place of the word typed
+takeOffer :: proc()
+  completing = false
+  built.clear()
+  _ = built.pushAll(offerText(shown[offerPick]))
+  merging = 0
+  ok := edit(wordFrom, cursor, built[0..<built.len()].asString(), 0)
+end
+
+# the list, for the word at the cursor. how: 0 asked for (Ctrl+Space: one, put in; none, said), 1 a
+# dot just typed (a module's names only, and quietly), 2 again as it's typed (quietly)
+complete :: proc(how: Int)
+  completing = false
+  p := cursor
+  for p > 0 and isWord(text[p - 1])
+    p -= 1
+  end
+  wordFrom = p
+  offers = 0
+  if p > 0 and text[p - 1] == 46 # (after a dot: the names and dots before it)
+    s := p - 1
+    for s > 0 and (isWord(text[s - 1]) or text[s - 1] == 46)
+      s -= 1
+    end
+    d := s
+    for d < p - 1 and text[d] != 46
+      d += 1
+    end
+    if d > s and loadModule(text[s..<d].asString())
+      offerModule(text[d + 1..<p].asString(), 0)
+    case how == 1
+      return
+    else
+      offerWords()
+      sourceLen = max(0, min(pc.moduleSource("core", formatted[0..<CAP]), CAP))
+      offerMethods()
+    end
+  case how == 1
+    return
+  else
+    offerWords()
+    sourceLen = max(0, min(pc.moduleSource("core", formatted[0..<CAP]), CAP))
+    offerModule("", 1000000)
+    offerRioWords()
+  end
+  narrowOffers()
+  if shownCount == 0
+    if how == 0
+      say("Nothing to complete it with", softColor)
+    end
+    return
+  end
+  if how == 0 and shownCount == 1
+    offerPick = 0
+    takeOffer()
+    return
+  end
+  completing = true
+  offerPick = 0
+  offerTop = 0
+end
+
+# a key while the list is open: true if it was the list's (else it closes, and the key does what it does)
+completeKey :: proc(k: Int) -> Bool
+  move := k & ~SHIFT # (Shift held, or locked, too)
+  if move == UP or move == DOWN or move == PAGE_UP or move == PAGE_DOWN
+    step := 1
+    if move == PAGE_UP or move == PAGE_DOWN
+      step = SHOWN_ROWS - 1
+    end
+    if move == UP or move == PAGE_UP
+      step = -step
+    end
+    offerPick = max(0, min(offerPick + step, shownCount - 1))
+    return true
+  case k == 9 or k == 13
+    takeOffer()
+    return true
+  case k == 27 or k == (32 | CTRL)
+    completing = false
+    return true
+  case k < 128 and isWord(k)
+    typeChar(k)
+    narrowOffers()
+    completing = shownCount > 0
+    return true
+  case k == 8
+    backspace(false)
+    if cursor <= wordFrom and (cursor == 0 or text[cursor - 1] != 46)
+      completing = false
+    else
+      complete(2)
+    end
+    return true
+  end
+  completing = false
+  return false
+end
