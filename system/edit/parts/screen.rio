@@ -195,8 +195,8 @@ drawPalette :: proc()
       pc.rect({44, y - 2}, {232, 10}, pickColor())
       color = textColor
     end
-    pc.print(labels[k], {48, y}, color)
-    pc.print(keyNames[k], {272 - keyNames[k].len() * 6, y}, dimColor)
+    pc.print(commands[k].label, {48, y}, color)
+    pc.print(commands[k].keys, {272 - commands[k].keys.len() * 6, y}, dimColor)
   end
   if nlisted == 0
     pc.print("No such command", {48, 54}, faintColor)

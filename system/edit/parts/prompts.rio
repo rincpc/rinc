@@ -32,11 +32,39 @@ has :: proc(s: String, f: Blob) -> Bool
   return false
 end
 
-# every command, for the list Ctrl+Shift+P shows: what it does, its keys, and the key it is
+# every command, for the list Ctrl+Shift+P shows
 COMMANDS :: 24
-labels := [COMMANDS]String{"Open a file", "Save", "Save as", "Run its app", "New file", "Find", "Go to line", "Undo", "Redo", "Select all", "Select the line", "Cut", "Copy", "Paste", "Delete the lines", "Join the lines", "Complete the word", "Comment the lines", "Move the lines up", "Move the lines down", "Indent", "Outdent", "Help", "Home"}
-keyNames := [COMMANDS]String{"^O", "^S", "^Shift+S", "^R", "^N", "^F", "^G", "^Z", "^Y", "^A", "^L", "^X", "^C", "^V", "^Shift+K", "^Shift+J", "^Space", "^/", "Alt+Up", "Alt+Down", "Tab", "Shift+Tab", "", "Sys+Esc"}
-keys := [COMMANDS]Int{15, 19, 19 | 256, 18, 14, 6, 7, 26, 25, 1, 12, 24, 3, 22, 11 | 256, 10 | 256, 32 | 512, 47 | 512, 130 | 1024, 131 | 1024, 9, 9 | 256, -1, -2}
+Command :: struct
+  label: String   # what it does
+  keys: String    # its keys, as shown
+  key: Int        # the key it is, as typed (-1: help, -2: home)
+end
+commands := [COMMANDS]Command{
+  {label = "Open a file", keys = "^O", key = 15},
+  {label = "Save", keys = "^S", key = 19},
+  {label = "Save as", keys = "^Shift+S", key = 19 | SHIFT},
+  {label = "Run its app", keys = "^R", key = 18},
+  {label = "New file", keys = "^N", key = 14},
+  {label = "Find", keys = "^F", key = 6},
+  {label = "Go to line", keys = "^G", key = 7},
+  {label = "Undo", keys = "^Z", key = 26},
+  {label = "Redo", keys = "^Y", key = 25},
+  {label = "Select all", keys = "^A", key = 1},
+  {label = "Select the line", keys = "^L", key = 12},
+  {label = "Cut", keys = "^X", key = 24},
+  {label = "Copy", keys = "^C", key = 3},
+  {label = "Paste", keys = "^V", key = 22},
+  {label = "Delete the lines", keys = "^Shift+K", key = 11 | SHIFT},
+  {label = "Join the lines", keys = "^Shift+J", key = 10 | SHIFT},
+  {label = "Complete the word", keys = "^Space", key = 32 | CTRL},
+  {label = "Comment the lines", keys = "^/", key = 47 | CTRL},
+  {label = "Move the lines up", keys = "Alt+Up", key = UP | ALT},
+  {label = "Move the lines down", keys = "Alt+Down", key = DOWN | ALT},
+  {label = "Indent", keys = "Tab", key = 9},
+  {label = "Outdent", keys = "Shift+Tab", key = 9 | SHIFT},
+  {label = "Help", keys = "", key = -1},
+  {label = "Home", keys = "Sys+Esc", key = -2},
+}
 listed: [COMMANDS]Int
 nlisted := 0
 pick := 0
@@ -44,7 +72,7 @@ pick := 0
 narrow :: proc()
   nlisted = 0
   for i in 0..<COMMANDS
-    if has(labels[i], input[0..<input.len()])
+    if has(commands[i].label, input[0..<input.len()])
       listed[nlisted] = i
       nlisted += 1
     end
@@ -65,12 +93,12 @@ end
 queued := 0
 command :: proc(i: Int)
   mode = NONE
-  if keys[i] == -1
+  if commands[i].key == -1
     pc.help("edit/README")
-  case keys[i] == -2
+  case commands[i].key == -2
     pc.launch("home")
   else
-    queued = keys[i] # (as typed: update does it)
+    queued = commands[i].key # (as typed: update does it)
   end
 end
 
