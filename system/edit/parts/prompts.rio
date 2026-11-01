@@ -163,19 +163,19 @@ promptKey :: proc(k: Int)
   if mode == FIND
     if k == 8
       if query.len() > 0
-        query.pop()
+        _ = query.pop()
       end
     case k >= 32 and k < 127 and query.len() < 48
-      query.push(k)
+      _ = query.push(k)
     end
     return
   end
   if k == 8
     if input.len() > 0
-      input.pop()
+      _ = input.pop()
     end
   case k >= 32 and k < 127 and input.len() < 32
-    input.push(k)
+    _ = input.push(k)
   case mode == PALETTE and (k & 255) == UP
     pick = max(0, pick - 1)
   case mode == PALETTE and (k & 255) == DOWN

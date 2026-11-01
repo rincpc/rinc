@@ -42,7 +42,7 @@ promptKey :: proc(c: Int)
     if inputFresh
       input.clear()
     case input.len() > 0
-      input.pop()
+      _ = input.pop()
     end
     inputFresh = false
   case c >= 32 and c < 127
@@ -94,7 +94,7 @@ end
 saveKey :: proc(c: Int) -> Bool
   k := c & 255
   if k == 8 and saveName.len() > 0
-    saveName.pop()
+    _ = saveName.pop()
   case c == 13 and saveName.len() > 0
     if not validName(saveName[0..<saveName.len()].asString(), true)
       say("A name is letters, digits, _, - and .", errorColor)
@@ -129,7 +129,7 @@ listKey :: proc(c: Int)
     startPrompt(NEW)
   case k == 8
     if filter.len() > 0
-      filter.pop()
+      _ = filter.pop()
       narrow()
     else
       goUp()

@@ -66,7 +66,7 @@ end
 setLine :: proc(t: String)
   line.clear()
   for c in t
-    line.push(c)
+    _ = line.push(c)
   end
   cur = line.len()
 end
@@ -82,7 +82,7 @@ remember :: proc(t: String)
     histCount -= 1
   end
   hist[histCount].text.clear()
-  hist[histCount].text.pushAll(t)
+  _ = hist[histCount].text.pushAll(t)
   histCount += 1
 end
 

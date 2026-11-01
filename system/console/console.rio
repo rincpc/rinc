@@ -106,7 +106,7 @@ addRow :: proc(text: String, color: Int)
   r := &rows[rowCount]
   r.text.clear()
   for c in text
-    r.text.push(c)
+    _ = r.text.push(c)
   end
   r.color = color
   rowCount += 1
@@ -191,13 +191,13 @@ draw* :: proc()
   shown: Blob[..256]
   if mode == .typing
     if acc.len() == 0
-      shown.pushAll("> ")
+      _ = shown.pushAll("> ")
     else
-      shown.pushAll(". ")
+      _ = shown.pushAll(". ")
     end
   end
   at := shown.len() + cur                # the cursor, in what's shown
-  shown.pushAll(line[].asString())
+  _ = shown.pushAll(line[].asString())
   inputRows := shown.len() / COLS + 1
   first := max(rowCount + inputRows - ROWS, 0)
   y := 0

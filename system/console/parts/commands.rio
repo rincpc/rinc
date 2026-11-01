@@ -12,8 +12,8 @@ ls :: proc()
   name: Blob[32]
   for i in 0..<n
     k := min(pc.appName(i, name[]), 32)
-    names.pushAll(name[..<k].asString())
-    names.pushAll("  ")
+    _ = names.pushAll(name[..<k].asString())
+    _ = names.pushAll("  ")
   end
   say(names[].asString(), textColor)
 end
@@ -22,12 +22,12 @@ load :: proc(name: String)
   msg: Blob[..80]
   n := pc.appSource(name, file[])
   if n < 0
-    msg.print("can't open ", name)
+    _ = msg.print("can't open ", name)
     say(msg[].asString(), errorColor)
     return
   end
   if n > file.len()
-    msg.print(name, " is too big to load here (", n, " bytes)")
+    _ = msg.print(name, " is too big to load here (", n, " bytes)")
     say(msg[].asString(), errorColor)
     return
   end
@@ -41,7 +41,7 @@ load :: proc(name: String)
   case r == 1
     say("(it ends unfinished)", errorColor)
   else
-    msg.print("loaded ", name)
+    _ = msg.print("loaded ", name)
     say(msg[].asString(), softColor)
   end
 end
@@ -74,9 +74,9 @@ saveTo :: proc() -> Int
   end
   path: Blob[..128]
   if saveName[slash - 1] == '+'
-    path.print("/rinc/projects/", saveName[0..<slash - 1], saveName[slash..])
+    _ = path.print("/rinc/projects/", saveName[0..<slash - 1], saveName[slash..])
   else
-    path.print("/rinc/apps/", saveName[])
+    _ = path.print("/rinc/apps/", saveName[])
   end
   return pc.fileWrite(path[].asString(), file[..<fileLen].asString())
 end
@@ -85,10 +85,10 @@ finishSave :: proc()
   msg: Blob[..80]
   mode = .typing
   if saveTo() != 0
-    msg.print("couldn't save ", saveName[])
+    _ = msg.print("couldn't save ", saveName[])
     say(msg[].asString(), errorColor)
   else
-    msg.print("saved ", fileLen, " bytes")
+    _ = msg.print("saved ", fileLen, " bytes")
     say(msg[].asString(), softColor)
   end
 end
@@ -110,7 +110,7 @@ command :: proc(t: String) -> Bool
     v: Blob[34]
     n := pc.settingRead("active", v[])
     if n > 0
-      msg.print("active: ", v[0..<min(n, 34)])
+      _ = msg.print("active: ", v[0..<min(n, 34)])
       say(msg[].asString(), softColor)
     else
       say("nothing active: active name makes one active (name+ for a project)", softColor)
@@ -135,26 +135,26 @@ command :: proc(t: String) -> Bool
     startSave(name)
   case "active"                          # app or project (name+) name, active: the editor opens it next
     if pc.appSource(name, msg[0..<0]) >= 0 and pc.settingWrite("active", name) == 0
-      msg.print("active: ", name)
+      _ = msg.print("active: ", name)
       say(msg[].asString(), softColor)
     else
-      msg.print("no app or project ", name)
+      _ = msg.print("no app or project ", name)
       say(msg[].asString(), errorColor)
     end
   case "install"                         # project name+ as the app name
     if pc.appInstall(name) == 0
-      msg.print("installed ", name)
+      _ = msg.print("installed ", name)
       say(msg[].asString(), softColor)
     else
-      msg.print("can't install ", name, " (from its project, ", name, "*)")
+      _ = msg.print("can't install ", name, " (from its project, ", name, "*)")
       say(msg[].asString(), errorColor)
     end
   case "delete"
     if pc.appDelete(name) == 0
-      msg.print("deleted ", name)
+      _ = msg.print("deleted ", name)
       say(msg[].asString(), softColor)
     else
-      msg.print("can't delete ", name)
+      _ = msg.print("can't delete ", name)
       say(msg[].asString(), errorColor)
     end
   else
@@ -185,11 +185,11 @@ enter :: proc()
     line.remove(0)
   end
   if acc.len() == 0
-    shown.pushAll("> ")
+    _ = shown.pushAll("> ")
   else
-    shown.pushAll(". ")
+    _ = shown.pushAll(". ")
   end
-  shown.pushAll(line[].asString())
+  _ = shown.pushAll(line[].asString())
   say(shown[].asString(), CODE_ROW)
   text := line[].asString()
   remember(text)
@@ -210,7 +210,7 @@ enter :: proc()
     if r == 1
       setLine("")
       for i in 0..<pc.rioIndent(acc[].asString()) * 2
-        line.push(32)
+        _ = line.push(32)
       end
       cur = line.len()
       autoIndent = cur
@@ -302,7 +302,7 @@ saving :: proc(c: Int)
       setLine("")
     else
       file[fileLen] = c
-      line.push(c)
+      _ = line.push(c)
     end
     fileLen += 1
   end

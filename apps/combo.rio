@@ -107,7 +107,7 @@ update* :: proc()
     else
       if c == 8
         if text.len() > 0
-          text.pop()
+          _ = text.pop()
         end
       else
         ok := text.push(c)

@@ -136,9 +136,9 @@ enter :: proc()
     indent += 2
   end
   built.clear()
-  built.push(10)
+  _ = built.push(10)
   for i in 0..<indent
-    built.push(32)
+    _ = built.push(32)
   end
   merging = 0
   ok := edit(selStart(), selEnd(), built[0..<built.len()].asString(), 0)
@@ -226,8 +226,8 @@ indentLines :: proc(dir: Int)
     p := lineAt[l]
     e := lineEnd(l)
     if dir > 0 and e > p
-      built.push(32)
-      built.push(32)
+      _ = built.push(32)
+      _ = built.push(32)
     case dir < 0
       k := 0
       for k < 2 and p < e and text[p] == 32
@@ -239,9 +239,9 @@ indentLines :: proc(dir: Int)
       say("Too much to indent at once", errorColor)
       return
     end
-    built.pushAll(text[p..<e])
+    _ = built.pushAll(text[p..<e])
     if l < last
-      built.push(10)
+      _ = built.push(10)
     end
   end
   delta := built.len() - (b - a)
@@ -295,17 +295,17 @@ moveLines :: proc(dir: Int)
   n := anchor
   built.clear()
   if dir < 0
-    built.pushAll(text[a..<b])
-    built.push(10)
-    built.pushAll(text[oa..<oe])
+    _ = built.pushAll(text[a..<b])
+    _ = built.push(10)
+    _ = built.pushAll(text[oa..<oe])
     merging = 0
     ok := edit(oa, b, built[0..<built.len()].asString(), 0)
     cursor = c - (oe - oa) - 1
     anchor = n - (oe - oa) - 1
   else
-    built.pushAll(text[oa..<oe])
-    built.push(10)
-    built.pushAll(text[a..<b])
+    _ = built.pushAll(text[oa..<oe])
+    _ = built.push(10)
+    _ = built.pushAll(text[a..<b])
     merging = 0
     ok := edit(a, oe, built[0..<built.len()].asString(), 0)
     cursor = c + (oe - oa) + 1
@@ -352,9 +352,9 @@ copy :: proc(cut: Bool)
     return
   end
   clip.clear()
-  clip.pushAll(text[a..<b])
+  _ = clip.pushAll(text[a..<b])
   if clipIsLine and (b == a or text[b - 1] != 10)
-    clip.push(10)
+    _ = clip.push(10)
   end
   if cut
     merging = 0

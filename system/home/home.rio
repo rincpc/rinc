@@ -178,7 +178,7 @@ update* :: proc()
     else
       if c == 8
         if filter.len() > 0
-          filter.pop()
+          _ = filter.pop()
         end
       else
         if c == 27

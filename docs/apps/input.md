@@ -49,9 +49,9 @@ update* :: proc()
       break
     end
     if c == 8 and name.len() > 0
-      name.pop()
+      _ = name.pop()
     case c >= 32
-      name.push(c)
+      _ = name.push(c)
     end
   end
 end

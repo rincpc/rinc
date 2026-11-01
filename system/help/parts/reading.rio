@@ -333,10 +333,10 @@ resolve :: proc(l: Int) -> Bool
     part := path[k..<e]
     if part.len() == 2 and part[0] == 46 and part[1] == 46 # (..: the folder up)
       if goName.len() > 0
-        goName.pop()
+        _ = goName.pop()
       end
       for goName.len() > 0 and goName[end] != 47
-        goName.pop()
+        _ = goName.pop()
       end
     case not (part.len() == 1 and part[0] == 46) and part.len() > 0
       ok := goName.pushAll(part)
@@ -347,9 +347,9 @@ resolve :: proc(l: Int) -> Bool
     k = e + 1
   end
   if goName.len() > 3 and goName[end - 2] == 46 and goName[end - 1] == 109 and goName[end] == 100
-    goName.pop() # (.md left off)
-    goName.pop()
-    goName.pop()
+    _ = goName.pop() # (.md left off)
+    _ = goName.pop()
+    _ = goName.pop()
   end
   return true
 end

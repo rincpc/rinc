@@ -64,10 +64,10 @@ replaceRaw :: proc(a, b: Int, s: String) -> Bool
     return false
   end
   scratch.clear()
-  scratch.pushAll(text[b..<textLen])
+  _ = scratch.pushAll(text[b..<textLen])
   w: Blob[..] = text[a..]
-  w.pushAll(s)
-  w.pushAll(scratch[0..<scratch.len()])
+  _ = w.pushAll(s)
+  _ = w.pushAll(scratch[0..<scratch.len()])
   textLen += s.len() - (b - a)
   rebuildLines()
   return true
@@ -90,7 +90,7 @@ say :: proc(s: String, color: Int)
   message.clear()
   for c in s
     if message.len() < 53
-      message.push(c)
+      _ = message.push(c)
     end
   end
   messageColor = color
@@ -106,12 +106,12 @@ sayName :: proc(s: String, t: String, color: Int)
   end
   for c in path[k..<path.len()]
     if message.len() < 53
-      message.push(c)
+      _ = message.push(c)
     end
   end
   for c in t
     if message.len() < 53
-      message.push(c)
+      _ = message.push(c)
     end
   end
 end
@@ -136,16 +136,16 @@ merging := 0           # what the last edit was, to group with: 1 typing, 2 Back
 
 undoPush :: proc(s: String)
   w: Blob[..] = undoText[undoLen..]
-  w.pushAll(s)
+  _ = w.pushAll(s)
   undoLen += s.len()
 end
 
 forgetOldest :: proc()
   n := recDel[0] + recIns[0]
   scratch.clear()
-  scratch.pushAll(undoText[n..<undoLen])
+  _ = scratch.pushAll(undoText[n..<undoLen])
   w: Blob[..] = undoText[0..]
-  w.pushAll(scratch[0..<scratch.len()])
+  _ = w.pushAll(scratch[0..<scratch.len()])
   undoLen -= n
   for i in 0..<recCount - 1
     recPos[i] = recPos[i + 1]
@@ -194,7 +194,7 @@ edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
     case kind == 2 and s.len() == 0 and recIns[r] == 0 and b == recPos[r] and recDel[r] < 64
       # (deleted bytes come before the ones already deleted: they go in front)
       scratch.clear()
-      scratch.pushAll(undoText[recAt[r]..<undoLen])
+      _ = scratch.pushAll(undoText[recAt[r]..<undoLen])
       undoLen = recAt[r]
       undoPush(text[a..<b].asString())
       undoPush(scratch[0..<scratch.len()].asString())

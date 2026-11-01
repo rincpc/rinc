@@ -16,7 +16,7 @@ promptKey :: proc(c: Int)
     say("", 0)
   case BACKSPACE
     if input.len() > 0
-      input.pop()
+      _ = input.pop()
     end
   else
     if c >= 32 and c < 127 and input.len() < 20
