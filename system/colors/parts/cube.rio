@@ -12,7 +12,7 @@ picked :: proc() -> Int
   end
   switch area
   case PICO
-    return row * 16 + col
+    return onPico.y * 16 + onPico.x
   case GRAYS
     return grays[gray]
   end
@@ -43,8 +43,7 @@ end
 pickColor :: proc(c: Int, cubeFirst: Bool)
   if not cubeFirst and c < 32
     area = PICO
-    row = c / 16
-    col = c % 16
+    onPico = {c % 16, c / 16}
     return
   end
   for i in 0..<14
@@ -65,73 +64,76 @@ end
 
 # ---------------------------------------------------------------- where things are
 
-grayX :: proc(i: Int) -> Int
-  return PICO_X + i * SPAN / 14
+# gray i, as a box: 14 across, each as wide as its share of the span
+grayRect :: proc(i: Int) -> pc.Rect
+  at := grayPos.x + i * SPAN / 14
+  return pc.Rect.of({at, grayPos.y}, {grayPos.x + (i + 1) * SPAN / 14 - at, 12})
 end
 # the nearest of each, under a point across: for moving up and down between them
 picoAt :: proc(x: Int) -> Int
-  return max(0, min((x - PICO_X) / 19, 15))
+  return clamp((x - picoPos.x) / picoCell.x, 0, 15)
 end
 grayAt :: proc(x: Int) -> Int
-  return max(0, min((x - PICO_X) * 14 / SPAN, 13))
+  return clamp((x - grayPos.x) * 14 / SPAN, 0, 13)
 end
 faceAt :: proc(x: Int) -> Int
-  return max(0, min((x - FACE_X) / CELL, 5))
+  return clamp((x - facePos.x) / CELL, 0, 5)
 end
 # the middle, across, of what's picked
 pickedX :: proc() -> Int
   switch area
   case PICO
-    return PICO_X + col * 19 + 9
+    return picoPos.x + onPico.x * picoCell.x + 9
   case GRAYS
-    return (grayX(gray) + grayX(gray + 1)) / 2
+    r := grayRect(gray)
+    return r.pos.x + r.size.x / 2
   end
-  return FACE_X + pos[across()] * CELL + CELL / 2
+  return facePos.x + pos[across()] * CELL + CELL / 2
 end
 
 # ---------------------------------------------------------------- moving
 
 clampStep :: proc(v: Int) -> Int
-  return max(0, min(v, 5))
+  return clamp(v, 0, 5)
 end
 
-moveInCube :: proc(dx: Int, dy: Int)
-  if dx != 0
+# a step d (across, down): within an area, and up and down between them
+moveInCube :: proc(d: [2]Int)
+  if d.x != 0
     switch area
     case PICO
-      col = max(0, min(col + dx, 15))
+      onPico.x = clamp(onPico.x + d.x, 0, 15)
     case GRAYS
-      gray = max(0, min(gray + dx, 13))
+      gray = clamp(gray + d.x, 0, 13)
     else
-      pos[across()] = clampStep(pos[across()] + dx)
+      pos[across()] = clampStep(pos[across()] + d.x)
     end
   end
-  if dy != 0
+  if d.y != 0
     x := pickedX()
     switch area
     case PICO
-      if dy > 0 and row == 1
+      if d.y > 0 and onPico.y == 1
         area = GRAYS
         gray = grayAt(x)
       else
-        row = max(0, min(row + dy, 1))
+        onPico.y = clamp(onPico.y + d.y, 0, 1)
       end
     case GRAYS
-      if dy < 0
+      if d.y < 0
         area = PICO
-        row = 1
-        col = picoAt(x)
+        onPico = {picoAt(x), 1}
       else
         area = CUBE
         pos[across()] = faceAt(x)
         pos[down()] = 0
       end
     else
-      if dy < 0 and pos[down()] == 0
+      if d.y < 0 and pos[down()] == 0
         area = GRAYS
         gray = grayAt(x)
       else
-        pos[down()] = clampStep(pos[down()] + dy)
+        pos[down()] = clampStep(pos[down()] + d.y)
       end
     end
   end

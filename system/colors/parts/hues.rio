@@ -11,19 +11,21 @@ for c in 0..<256
   colorAt[hueCells[c]] = c
 end
 
-# the nearest color that way: the first step out with one in reach (as far to the side as it's gone
+# color c's cell in the grid: {column, row}
+hueCell :: proc(c: Int) -> [2]Int do return {hueCells[c] % COLS, hueCells[c] / COLS}
+grid := pc.Rect.of({0, 0}, {COLS, ROWS}) # (in cells)
+
+# the nearest color that way, d: the first step out with one in reach (as far to the side as it's gone
 # along), the one least to the side
-moveInHues :: proc(dx: Int, dy: Int)
-  x := hueCells[hue] % COLS
-  y := hueCells[hue] / COLS
+moveInHues :: proc(d: [2]Int)
+  at := hueCell(hue)
   for k in 1..<COLS
     best := -1
     side := 0
     for o in -k..=k
-      cx := x + dx * k + dy * o
-      cy := y + dy * k + dx * o
-      if cx >= 0 and cx < COLS and cy >= 0 and cy < ROWS and colorAt[cy * COLS + cx] >= 0 and (best < 0 or abs(o) < abs(side))
-        best = colorAt[cy * COLS + cx]
+      c := at + d * k + d.yx * o # (k along d, o to the side)
+      if grid.has(c) and colorAt[c.y * COLS + c.x] >= 0 and (best < 0 or abs(o) < abs(side))
+        best = colorAt[c.y * COLS + c.x]
         side = o
       end
     end
@@ -34,14 +36,13 @@ moveInHues :: proc(dx: Int, dy: Int)
   end
 end
 
-# the color under a point, picked (true: there was one)
-pointAtHue :: proc(x: Int, y: Int) -> Bool
-  cx := (x - HUE_X) / HUE_CELL
-  cy := (y - HUE_Y) / HUE_CELL
-  if x < HUE_X or y < HUE_Y or cx >= COLS or cy >= ROWS or colorAt[cy * COLS + cx] < 0
+# the color under point p, picked (true: there was one)
+pointAtHue :: proc(p: [2]Int) -> Bool
+  c := (p - huePos) / HUE_CELL
+  if not hueBox.has(p) or colorAt[c.y * COLS + c.x] < 0
     return false
   end
-  hue = colorAt[cy * COLS + cx]
+  hue = colorAt[c.y * COLS + c.x]
   return true
 end
 

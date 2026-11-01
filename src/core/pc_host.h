@@ -201,7 +201,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x6af73c44u /* (rio_hashText of the source) */
+#define pc_HASH 0xaa92198du /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -219,6 +219,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "Rect* :: struct\n" \
   "  pos, size: [2]Int\n" \
   "end\n" \
+  "Rect.of* :: static proc(pos, size: [2]Int) -> Rect do return {pos, size}   # Rect.of(at, {8, 8})\n" \
   "Rect.corner* :: proc() -> [2]Int do return self.pos + self.size   # just past its bottom right\n" \
   "Rect.has* :: proc(p: [2]Int) -> Bool                 # is p inside it\n" \
   "  q := p - self.pos\n" \

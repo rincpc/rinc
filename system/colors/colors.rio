@@ -11,22 +11,28 @@
 # on the color picked) gives its number back as text (pc.done), Esc nothing.
 
 BG :: 249             # a dark gray, behind the colors: every color shows against it, the black too
-PICO_X :: 8           # PICO-8's colors: 2 rows of 16, 19x14
-PICO_Y :: 6
-GRAY_Y :: 40          # the grays: 14 across the same width, 12 high
-SPAN :: 304
-FACE_X :: 8           # the cube's face: 6x6, 26 each
-FACE_Y :: 60
-CELL :: 26
-DEPTH_X :: 172        # the column through it, 18 wide
-PANEL_X :: 198        # the color, big, what it is, and the slices
-SLICES_Y :: 198
-HUE_X :: 8            # by hue: the grid, COLS x ROWS of HUE_CELL (tools/huegrid.py)
-HUE_Y :: 6
-HUE_CELL :: 11
+SPAN :: 304           # PICO-8's colors and the grays, across
+CELL :: 26            # the cube's face: 6x6 of these
+HUE_CELL :: 11        # by hue: the grid, COLS x ROWS of these (tools/huegrid.py)
 COLS :: 26
 ROWS :: 14
-INFO_Y :: 170         # under it, the color, big, and what it is
+# where things are, each its top left
+picoPos := {8, 6}       # PICO-8's colors: 2 rows of 16, each picoCell
+picoCell := {19, 14}
+grayPos := {8, 40}      # the grays: 14 across the same width, 12 high
+facePos := {8, 60}      # the cube's face
+depthPos := {172, 60}   # the column through it, 18 wide
+panelPos := {198, 60}   # the color, big, what it is
+slicesPos := {198, 198} # and the slices
+huePos := {8, 6}        # by hue: the grid
+infoPos := {8, 170}     # under it, the color, big, and what it is
+# what a click can land on
+picoBox := pc.Rect.of(picoPos, {SPAN, 28})
+grayBox := pc.Rect.of(grayPos, {SPAN, 12})
+faceBox := pc.Rect.of(facePos, {6 * CELL, 6 * CELL})
+depthBox := pc.Rect.of(depthPos, {18, 6 * CELL})
+slicesBox := pc.Rect.of(slicesPos, {6 * 19, 18})
+hueBox := pc.Rect.of(huePos, {COLS, ROWS} * HUE_CELL)
 CUBE_VIEW :: 0        # the views
 HUE_VIEW :: 1
 PICO :: 0             # where the pick is, in the cube's view
@@ -70,8 +76,7 @@ hueCells := [256]Int{
 
 view := CUBE_VIEW
 area := CUBE
-col := 0              # PICO-8's: which pair, and which row
-row := 0
+onPico := {0, 0}      # PICO-8's: which pair, and which row
 gray := 0
 pos := [3]Int{5, 1, 3} # the cube's: red, green and blue steps, 0 to 5
 axis := 0             # which of them is the depth: the face is the other two

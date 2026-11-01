@@ -14,6 +14,7 @@ rect* :: host proc(pos, size: [2]Int, c: Int)       # a filled rectangle: its to
 Rect* :: struct
   pos, size: [2]Int
 end
+Rect.of* :: static proc(pos, size: [2]Int) -> Rect do return {pos, size}   # Rect.of(at, {8, 8})
 Rect.corner* :: proc() -> [2]Int do return self.pos + self.size   # just past its bottom right
 Rect.has* :: proc(p: [2]Int) -> Bool                 # is p inside it
   q := p - self.pos
