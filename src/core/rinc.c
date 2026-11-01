@@ -1141,10 +1141,16 @@ static void rinc_hostModulesource(rio_Vm *v, rio_Val *a) {
   if (s && out) memcpy(out, s, n < a[3].u ? n : a[3].u);
   a[0].i = s ? (int32_t)n : -1;
 }
-/* formatRio(out, code): rio_format's (rio fmt's) */
+/* formatRio(out, code): rio_format's (rio fmt's); -2 (left as it is) in a build without the compiler,
+   which has no rio_format */
 static void rinc_hostFormatrio(rio_Vm *v, rio_Val *a) {
+#ifdef rio_NO_COMPILER
+  (void)v;
+  a[0].i = -2;
+#else
   char *out = (char *)rio_sliceBytes(v, a); const char *code = (const char *)rio_sliceBytes(v, a + 2);
   a[0].i = out && a[1].u ? rio_format(code ? code : "", code ? a[3].u : 0, out, a[1].u) : -1;
+#endif
 }
 
 int rinc_game, rinc_showLog;
