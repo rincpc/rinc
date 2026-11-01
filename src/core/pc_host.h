@@ -48,6 +48,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
 #define pc_trigger_SIG "i>f"
 #define pc_time_SIG ">f"
 #define pc_pointer_SIG "Enum{game,ui,none}"
+#define pc_pointerAt_SIG ">ii"
 #define pc_pointerX_SIG ">i"
 #define pc_pointerY_SIG ">i"
 #define pc_pointerDown_SIG "i>i"
@@ -130,6 +131,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(trigger, pc_trigger_SIG) \
   X(time, pc_time_SIG) \
   X(pointer, pc_pointer_SIG) \
+  X(pointerAt, pc_pointerAt_SIG) \
   X(pointerX, pc_pointerX_SIG) \
   X(pointerY, pc_pointerY_SIG) \
   X(pointerDown, pc_pointerDown_SIG) \
@@ -199,7 +201,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x68a79117u /* (rio_hashText of the source) */
+#define pc_HASH 0x6af73c44u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -209,9 +211,27 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "# ---------------------------------------------------------------- the screen: 320x240, palette indexes\n" \
   "\n" \
   "cls* :: host proc(c: Int)                           # fill the screen with color c\n" \
-  "pset* :: host proc(x, y, c: Int)                    # one pixel\n" \
-  "pget* :: host proc(x, y: Int) -> Int\n" \
-  "rect* :: host proc(x, y, w, h, c: Int)              # a filled rectangle\n" \
+  "pset* :: host proc(pos: [2]Int, c: Int)             # one pixel\n" \
+  "pget* :: host proc(pos: [2]Int) -> Int\n" \
+  "rect* :: host proc(pos, size: [2]Int, c: Int)       # a filled rectangle: its top left, and its size\n" \
+  "\n" \
+  "# a rectangle on the screen: its top left and its size, in pixels\n" \
+  "Rect* :: struct\n" \
+  "  pos, size: [2]Int\n" \
+  "end\n" \
+  "Rect.corner* :: proc() -> [2]Int do return self.pos + self.size   # just past its bottom right\n" \
+  "Rect.has* :: proc(p: [2]Int) -> Bool                 # is p inside it\n" \
+  "  q := p - self.pos\n" \
+  "  return q.x >= 0 and q.y >= 0 and q.x < self.size.x and q.y < self.size.y\n" \
+  "end\n" \
+  "Rect.clip* :: proc(r: Rect) -> Rect                  # where the two overlap (an empty size if they don't)\n" \
+  "  at := max(self.pos, r.pos)\n" \
+  "  return Rect{pos = at, size = max(min(self.corner(), r.corner()) - at, 0)}\n" \
+  "end\n" \
+  "Rect.between* :: static proc(a, b: [2]Int) -> Rect   # from two corners, either way round, both inside it\n" \
+  "  at := min(a, b)\n" \
+  "  return Rect{pos = at, size = max(a, b) - at + 1}\n" \
+  "end\n" \
   "# where blit draws a picture, and which part of it; left out, the whole picture at its size\n" \
   "Blit* :: struct\n" \
   "  x, y: Int     # where its top left goes\n" \
@@ -222,7 +242,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "# a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it), or\n" \
   "# part of it, as b says; color 0 is see-through\n" \
   "blit* :: host proc(picture: String, b: Blit)\n" \
-  "print* :: host proc(s: String, x, y, c: Int)        # text, in the 5x8 font, 6 pixels a character\n" \
+  "print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in the 5x8 font, 6 pixels a character\n" \
   "\n" \
   "# ---------------------------------------------------------------- input\n" \
   "\n" \
@@ -246,7 +266,8 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "  none  # never shown\n" \
   "end\n" \
   "pointer* :: host proc(mode: Pointer)\n" \
-  "pointerX* :: host proc() -> Int                     # where it points, in screen pixels\n" \
+  "pointerAt* :: host proc() -> [2]Int                 # where it points, in screen pixels: {x, y}\n" \
+  "pointerX* :: host proc() -> Int                     # (its x, and its y, alone)\n" \
   "pointerY* :: host proc() -> Int\n" \
   "pointerDown* :: host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle\n" \
   "pointerShown* :: host proc() -> Int\n" \

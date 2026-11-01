@@ -24,7 +24,7 @@ CODE_ROW :: -1 # a row's color, for a row of typed code: colored as code
 
 # the session's memory, handed over to it: the typed program's code and data, and its compiler's tables
 sessionMem: Blob[147456]
-sessionTables: Blob[40960]
+sessionTables: Blob[45056]
 file: Blob[24576]  # an app's source, loading or saving
 fileLen := 0
 logBuf: Blob[2048]
@@ -83,7 +83,7 @@ printCode :: proc(t: String, x: Int, y: Int)
         color = codeColor
       end
     end
-    pc.print(t[i..<j], x + i * 6, y, color)
+    pc.print(t[i..<j], {x + i * 6, y}, color)
     i = j
   end
 end
@@ -205,7 +205,7 @@ draw* :: proc()
     if rows[i].color == CODE_ROW
       printCode(rows[i].text[].asString(), 0, y * 9)
     else
-      pc.print(rows[i].text[].asString(), 0, y * 9, rows[i].color)
+      pc.print(rows[i].text[].asString(), {0, y * 9}, rows[i].color)
     end
     y += 1
   end
@@ -214,10 +214,10 @@ draw* :: proc()
     if mode == .typing
       printCode(shown[a..<min(a + COLS, shown.len())].asString(), 0, (y + k) * 9)
     else
-      pc.print(shown[a..<min(a + COLS, shown.len())].asString(), 0, (y + k) * 9, textColor)
+      pc.print(shown[a..<min(a + COLS, shown.len())].asString(), {0, (y + k) * 9}, textColor)
     end
   end
   if (pc.time() * 2.0).toInt() % 2 == 0
-    pc.rect(at % COLS * 6, (y + at / COLS) * 9 + 8, 5, 1, accentColor)
+    pc.rect({at % COLS * 6, (y + at / COLS) * 9 + 8}, {5, 1}, accentColor)
   end
 end

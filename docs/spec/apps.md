@@ -290,7 +290,7 @@ them (see its help).
 
 ```rio
 pc.cls(pc.theme(pc.Role.bg))
-pc.print("hello", 8, 8, pc.theme(pc.Role.text))
+pc.print("hello", {8, 8}, pc.theme(pc.Role.text))
 ```
 
 A theme's file is Rio constants, but Rinc only reads them, never runs it: lines of `name :: number` (a

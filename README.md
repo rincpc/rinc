@@ -16,8 +16,8 @@ update* :: proc()
 end
 draw* :: proc()
   pc.cls(1)
-  pc.rect(150 + x, 110, 20, 20, 8)
-  pc.print("HELLO", 10, 10, 7)
+  pc.rect({150 + x, 110}, {20, 20}, 8)
+  pc.print("HELLO", {10, 10}, 7)
 end
 ```
 

@@ -1607,6 +1607,7 @@ static void rinc_pointerFrame(void) {
    up and down, + up), taken */
 static void rinc_hostPointer(rio_Vm *v, rio_Val *a) { (void)v; rinc_pointerMode = a[0].i < 0 || a[0].i > 2 ? 0 : a[0].i; rinc_pointerShow(rinc_pointerOn); }
 static void rinc_hostPointerX(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX; }
+static void rinc_hostPointerAt(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX; a[1].i = (int)rinc_pointerY; } /* ({x, y}) */
 static void rinc_hostPointerY(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerY; }
 static void rinc_hostPointerDown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 3 ? rinc_pointerHeld >> a[0].i & 1 : 0; }
 static void rinc_hostPointerShown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_pointerOnScreen; }
@@ -1649,7 +1650,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.appError", pc_appError_SIG, rinc_hostAppError) ||
          rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
          rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", pc_pngRead_SIG, rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", pc_pngWrite_SIG, rinc_hostPngWrite) || rio_addFfi(vm, "pc.pngNotes", pc_pngNotes_SIG, rinc_hostPngNotes) ||
-         rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) ||
+         rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) || rio_addFfi(vm, "pc.pointerAt", pc_pointerAt_SIG, rinc_hostPointerAt) ||
          rio_addFfi(vm, "pc.pointerY", pc_pointerY_SIG, rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", pc_pointerDown_SIG, rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", pc_pointerShown_SIG, rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", pc_scroll_SIG, rinc_hostScroll) ||
          rio_addFfi(vm, "pc.saveRead", pc_saveRead_SIG, rinc_hostSaveRead) || rio_addFfi(vm, "pc.saveWrite", pc_saveWrite_SIG, rinc_hostSaveWrite) ||

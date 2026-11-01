@@ -137,23 +137,23 @@ end
 
 draw* :: proc()
   pc.cls(1)
-  pc.print("CHORD: ADPCM 5590 B, 16-BIT 22050, 8-BIT 11025", 8, 8, 7)
-  pc.print("V: ADPCM   C: 16-BIT   X: 8-BIT   Z: SYNTH", 8, 24, 6)
-  pc.print("LEFT/RIGHT: PITCH   UP/DOWN: PAN", 8, 34, 6)
-  pc.print("Q: SYNTH QUALITY", 8, 130, 6)
-  pc.print(qualityNames[quality], 116, 130, 10)
-  pc.print("W: SYNTH WAVE", 8, 140, 6)
-  pc.print(waveNames[wave], 116, 140, 10)
-  pc.print(last, 8, 110, 10)
+  pc.print("CHORD: ADPCM 5590 B, 16-BIT 22050, 8-BIT 11025", {8, 8}, 7)
+  pc.print("V: ADPCM   C: 16-BIT   X: 8-BIT   Z: SYNTH", {8, 24}, 6)
+  pc.print("LEFT/RIGHT: PITCH   UP/DOWN: PAN", {8, 34}, 6)
+  pc.print("Q: SYNTH QUALITY", {8, 130}, 6)
+  pc.print(qualityNames[quality], {116, 130}, 10)
+  pc.print("W: SYNTH WAVE", {8, 140}, 6)
+  pc.print(waveNames[wave], {116, 140}, 10)
+  pc.print(last, {8, 110}, 10)
   for k in 0..<8
     if pc.soundPlaying(k) == 1
-      pc.rect(8 + k * 14, 60, 10, 10, 8 + k)
+      pc.rect({8 + k * 14, 60}, {10, 10}, 8 + k)
     else
-      pc.rect(8 + k * 14, 60, 10, 10, 5)
+      pc.rect({8 + k * 14, 60}, {10, 10}, 5)
     end
   end
-  pc.rect(8, 80, 120, 4, 5)
-  pc.rect(8 + ((pitch - 0.25) / 3.75 * 116.0).toInt(), 78, 4, 8, 10)
-  pc.rect(8, 96, 120, 4, 5)
-  pc.rect(66 + (pan * 58.0).toInt(), 94, 4, 8, 12)
+  pc.rect({8, 80}, {120, 4}, 5)
+  pc.rect({8 + ((pitch - 0.25) / 3.75 * 116.0).toInt(), 78}, {4, 8}, 10)
+  pc.rect({8, 96}, {120, 4}, 5)
+  pc.rect({66 + (pan * 58.0).toInt(), 94}, {4, 8}, 12)
 end

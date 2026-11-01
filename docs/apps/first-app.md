@@ -11,8 +11,8 @@ update* :: proc()
 end
 draw* :: proc()
   pc.cls(1)                       # dark blue
-  pc.rect(x % 320, 100, 20, 20, 8)  # a red square, moving right
-  pc.print("HELLO", 10, 10, 7)
+  pc.rect({x % 320, 100}, {20, 20}, 8)  # a red square, moving right
+  pc.print("HELLO", {10, 10}, 7)
 end
 ```
 

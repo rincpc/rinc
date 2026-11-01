@@ -117,7 +117,7 @@ draw* :: proc()
     if i == picked
       c = 7
     end
-    pc.print(items[i], 140, 100 + i * 10, c)
+    pc.print(items[i], {140, 100 + i * 10}, c)
   end
 end
 ```

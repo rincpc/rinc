@@ -6,9 +6,27 @@
 # ---------------------------------------------------------------- the screen: 320x240, palette indexes
 
 cls* :: host proc(c: Int)                           # fill the screen with color c
-pset* :: host proc(x, y, c: Int)                    # one pixel
-pget* :: host proc(x, y: Int) -> Int
-rect* :: host proc(x, y, w, h, c: Int)              # a filled rectangle
+pset* :: host proc(pos: [2]Int, c: Int)             # one pixel
+pget* :: host proc(pos: [2]Int) -> Int
+rect* :: host proc(pos, size: [2]Int, c: Int)       # a filled rectangle: its top left, and its size
+
+# a rectangle on the screen: its top left and its size, in pixels
+Rect* :: struct
+  pos, size: [2]Int
+end
+Rect.corner* :: proc() -> [2]Int do return self.pos + self.size   # just past its bottom right
+Rect.has* :: proc(p: [2]Int) -> Bool                 # is p inside it
+  q := p - self.pos
+  return q.x >= 0 and q.y >= 0 and q.x < self.size.x and q.y < self.size.y
+end
+Rect.clip* :: proc(r: Rect) -> Rect                  # where the two overlap (an empty size if they don't)
+  at := max(self.pos, r.pos)
+  return Rect{pos = at, size = max(min(self.corner(), r.corner()) - at, 0)}
+end
+Rect.between* :: static proc(a, b: [2]Int) -> Rect   # from two corners, either way round, both inside it
+  at := min(a, b)
+  return Rect{pos = at, size = max(a, b) - at + 1}
+end
 # where blit draws a picture, and which part of it; left out, the whole picture at its size
 Blit* :: struct
   x, y: Int     # where its top left goes
@@ -19,7 +37,7 @@ end
 # a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it), or
 # part of it, as b says; color 0 is see-through
 blit* :: host proc(picture: String, b: Blit)
-print* :: host proc(s: String, x, y, c: Int)        # text, in the 5x8 font, 6 pixels a character
+print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in the 5x8 font, 6 pixels a character
 
 # ---------------------------------------------------------------- input
 
@@ -43,7 +61,8 @@ Pointer* :: enum
   none  # never shown
 end
 pointer* :: host proc(mode: Pointer)
-pointerX* :: host proc() -> Int                     # where it points, in screen pixels
+pointerAt* :: host proc() -> [2]Int                 # where it points, in screen pixels: {x, y}
+pointerX* :: host proc() -> Int                     # (its x, and its y, alone)
 pointerY* :: host proc() -> Int
 pointerDown* :: host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle
 pointerShown* :: host proc() -> Int

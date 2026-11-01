@@ -24,7 +24,7 @@ update* :: proc()
 end
 draw* :: proc()
   pc.cls(0)
-  pc.rect(x, 200, 16, 8, 7)
+  pc.rect({x, 200}, {16, 8}, 7)
 end
 ```
 
@@ -57,7 +57,7 @@ update* :: proc()
 end
 draw* :: proc()
   pc.cls(1)
-  pc.print(name[].asString(), 10, 10, 7)
+  pc.print(name[].asString(), {10, 10}, 7)
 end
 ```
 

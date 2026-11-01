@@ -10,19 +10,19 @@ where what it logs shows until it draws, and where Rinc shows what went wrong if
 | proc | |
 |---|---|
 | `pc.cls(c)` | every pixel becomes `c` |
-| `pc.pset(x, y, c)` | pixel `x, y` becomes `c`; nothing happens off the screen |
-| `pc.pget(x, y) -> Int` | pixel `x, y`, or 0 off the screen |
-| `pc.rect(x, y, w, h, c)` | pixels from `x` up to `x + w`, and `y` up to `y + h`, become `c`; cut off at the screen's edges; nothing when `w` or `h` is 0 or less |
-| `pc.print(s, x, y, c)` | the text's characters, one every 6 pixels from `x`, drawn at `y` in color `c` |
+| `pc.pset({x, y}, c)` | pixel `x, y` becomes `c`; nothing happens off the screen |
+| `pc.pget({x, y}) -> Int` | pixel `x, y`, or 0 off the screen |
+| `pc.rect({x, y}, {w, h}, c)` | pixels from `x` up to `x + w`, and `y` up to `y + h`, become `c`; cut off at the screen's edges; nothing when `w` or `h` is 0 or less |
+| `pc.print(s, {x, y}, c)` | the text's characters, one every 6 pixels from `x`, drawn at `y` in color `c` |
 | `pc.blit(picture, b)` | a picture, drawn at `b.x`, `b.y`, or `b.w` by `b.h` of it from `b.sx`, `b.sy` (a `w` or `h` of 0: the rest of it), each pixel `b.scale` by `b.scale` (0: 1); its 0s are see-through. `b` is a `pc.Blit`, so what's left out of `{...}` is 0: `pc.blit(pic, {x = 10, y = 20})` draws all of it at its size. A picture is its width and height (2 bytes each, low first), then its pixels, a byte each, row by row: as `pc.pngRead` gives one (see [apps](apps.md#files)) |
 
 A color is the low 8 bits of the number given: `pc.cls(257)` is `pc.cls(1)`.
 
 ```rio
 pc.cls(300)
-pc.rect(-5, -5, 10, 10, 7)
-pc.rect(10, 10, 0, 5, 9)
-log(pc.pget(0, 0), pc.pget(4, 4), pc.pget(5, 5), pc.pget(10, 10))
+pc.rect({-5, -5}, {10, 10}, 7)
+pc.rect({10, 10}, {0, 5}, 9)
+log(pc.pget({0, 0}), pc.pget({4, 4}), pc.pget({5, 5}), pc.pget({10, 10}))
 ```
 
 ```output
@@ -41,9 +41,9 @@ pic[5] = 0
 pic[6] = 9
 pic[7] = 10
 pc.blit(pic[].asString(), {x = 10, y = 10, scale = 2})
-log(pc.pget(10, 10), pc.pget(11, 11), pc.pget(12, 10), pc.pget(13, 13), pc.pget(14, 14))
+log(pc.pget({10, 10}), pc.pget({11, 11}), pc.pget({12, 10}), pc.pget({13, 13}), pc.pget({14, 14}))
 pc.blit(pic[].asString(), {x = 30, y = 30, sy = 1, h = 1})
-log(pc.pget(30, 30), pc.pget(31, 30), pc.pget(30, 31))
+log(pc.pget({30, 30}), pc.pget({31, 30}), pc.pget({30, 31}))
 ```
 
 ```output

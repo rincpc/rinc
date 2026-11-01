@@ -7,10 +7,10 @@ then a cube of 216 colors, then 8 grays. The screen keeps what's drawn until som
 
 ```rio
 pc.cls(0)                        # fill the screen: black
-pc.pset(5, 5, 8)                 # one red pixel
-pc.rect(10, 20, 30, 10, 12)      # x, y, width, height, color: blue
-pc.print("SCORE 12", 0, 40, 7)   # text, 6 pixels a character
-log(pc.pget(5, 5), pc.pget(15, 25), pc.pget(400, 0))
+pc.pset({5, 5}, 8)                 # one red pixel
+pc.rect({10, 20}, {30, 10}, 12)      # x, y, width, height, color: blue
+pc.print("SCORE 12", {0, 40}, 7)   # text, 6 pixels a character
+log(pc.pget({5, 5}), pc.pget({15, 25}), pc.pget({400, 0}))
 ```
 
 ```output
@@ -33,7 +33,7 @@ cube :: proc(r, g, b: Int) -> Int
   return 32 + 36 * r + 6 * g + b
 end
 for x in 0..<6
-  pc.rect(x * 20, 0, 20, 20, cube(5, x, 0))   # red through orange to yellow
+  pc.rect({x * 20, 0}, {20, 20}, cube(5, x, 0))   # red through orange to yellow
 end
 log(cube(5, 5, 5))
 ```
@@ -57,12 +57,12 @@ heart := hexBlob(
 drawPic :: proc(pic: Blob, w, x, y: Int)
   for c, i in pic
     if c != 0                    # 0: see-through
-      pc.pset(x + i % w, y + i / w, c)
+      pc.pset({x + i % w, y + i / w}, c)
     end
   end
 end
 drawPic(heart, 5, 100, 100)
-log(pc.pget(101, 100), pc.pget(100, 100))
+log(pc.pget({101, 100}), pc.pget({100, 100}))
 ```
 
 ```output

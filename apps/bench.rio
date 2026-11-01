@@ -46,7 +46,7 @@ bench :: proc()
   t = pc.time()
   for y in 0..<240
     for x in 0..<320
-      pc.pset(x, y, (x + y) % 16)
+      pc.pset({x, y}, (x + y) % 16)
     end
   end
   log("pset 76.8k:", pc.time() - t, n)

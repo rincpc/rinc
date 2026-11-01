@@ -233,31 +233,31 @@ end
 
 # a box with its corners a pixel in: softer than a plain rectangle
 pill :: proc(x: Int, y: Int, w: Int, h: Int, c: Int, under: Int)
-  pc.rect(x, y, w, h, c)
-  pc.pset(x, y, under)
-  pc.pset(x + w - 1, y, under)
-  pc.pset(x, y + h - 1, under)
-  pc.pset(x + w - 1, y + h - 1, under)
+  pc.rect({x, y}, {w, h}, c)
+  pc.pset({x, y}, under)
+  pc.pset({x + w - 1, y}, under)
+  pc.pset({x, y + h - 1}, under)
+  pc.pset({x + w - 1, y + h - 1}, under)
 end
 
 draw* :: proc()
   pc.cls(backColor)
-  pc.print("Rinc", 12, 12, textColor)
-  pc.rect(12, 21, 23, 1, accentColor) # (an accent under the name)
+  pc.print("Rinc", {12, 12}, textColor)
+  pc.rect({12, 21}, {23, 1}, accentColor) # (an accent under the name)
   if count > 0
     n: Blob[..16]
     ok := n.print(count, " apps")
-    pc.print(n[0..<n.len()].asString(), 308 - n.len() * 6, 12, dimColor)
+    pc.print(n[0..<n.len()].asString(), {308 - n.len() * 6, 12}, dimColor)
   end
   pill(8, 30, 304, 15, barColor, backColor)
   if filter.len() == 0
-    pc.print("Search", 14, 34, faintColor)
+    pc.print("Search", {14, 34}, faintColor)
   end
-  pc.print(filter[0..<filter.len()].asString(), 14, 34, textColor)
-  pc.rect(13 + filter.len() * 6, 33, 1, 8, accentColor)
+  pc.print(filter[0..<filter.len()].asString(), {14, 34}, textColor)
+  pc.rect({13 + filter.len() * 6, 33}, {1, 8}, accentColor)
   if nshown > ROWS # (a bar at the right: how far down, and how much shows)
     h := max(6, 169 * ROWS / nshown)
-    pc.rect(314, 51 + (169 - h) * top / (nshown - ROWS), 2, h, dimColor)
+    pc.rect({314, 51 + (169 - h) * top / (nshown - ROWS)}, {2, h}, dimColor)
   end
   for row in 0..<min(nshown - top, ROWS)
     i := top + row
@@ -273,16 +273,16 @@ draw* :: proc()
     end
     t := title(k)
     if isActive(k) # (the active one: a mark at its left)
-      pc.rect(3, y - 1, 2, 9, accentColor)
+      pc.rect({3, y - 1}, {2, 9}, accentColor)
     end
     project := names[nameAt[k] + nameLen[k] - 1] == 43
     room := 12 # (the title's column, a space short of the description: a project's + takes one of it)
     if project
       room = 11
     end
-    pc.print(t[0..<min(t.len(), room)].asString(), 16, y, textColor)
+    pc.print(t[0..<min(t.len(), room)].asString(), {16, y}, textColor)
     if project # (its +)
-      pc.print("+", 16 + min(t.len(), room) * 6, y, accentColor)
+      pc.print("+", {16 + min(t.len(), room) * 6, y}, accentColor)
     end
     if titleLen[k] > 0
       at := titleLen[k] + 1
@@ -290,14 +290,14 @@ draw* :: proc()
         at += 1
       end
       d := infos[infoAt[k] + at..<infoAt[k] + min(infoLen[k], at + 35)]
-      pc.print(d.asString(), 96, y, dim)
+      pc.print(d.asString(), {96, y}, dim)
     end
   end
   if nshown == 0
-    pc.print("Nothing matches", 16, 54, dimColor)
+    pc.print("Nothing matches", {16, 54}, dimColor)
   end
   if count == 0
-    pc.print("No apps yet", 12, 216, dimColor)
+    pc.print("No apps yet", {12, 216}, dimColor)
   end
-  pc.print("Enter open  Ctrl+Enter edit  Esc clear", 12, 228, faintColor)
+  pc.print("Enter open  Ctrl+Enter edit  Esc clear", {12, 228}, faintColor)
 end
