@@ -2,7 +2,7 @@
 micro :: proc()
   n := 0
   t := pc.time()
-  for i in 0..<1000000
+  for _ in 0..<1000000
   end
   e := pc.time() - t
   t = pc.time()

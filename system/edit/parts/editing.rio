@@ -137,7 +137,7 @@ enter :: proc()
   end
   built.clear()
   _ = built.push(10)
-  for i in 0..<indent
+  for _ in 0..<indent
     _ = built.push(32)
   end
   merging = 0

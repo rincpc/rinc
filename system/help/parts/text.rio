@@ -375,7 +375,7 @@ render :: proc()
         blank()
       end
       newLine(lead + 2, 0)
-      for k in 0..<lead
+      for _ in 0..<lead
         emit(32, PLAIN)
       end
       emit(45, DIM)
@@ -408,7 +408,7 @@ render :: proc()
     case startsWith(s, e, "---") and ruleRow(s, e)
       blank()
       newLine(0, 0)
-      for k in 0..<COLS
+      for _ in 0..<COLS
         emit(45, DIM)
       end
       blank()

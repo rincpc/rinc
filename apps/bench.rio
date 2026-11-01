@@ -27,7 +27,7 @@ bench :: proc()
     p.vy = -0.5
   end
   t = pc.time()
-  for step in 0..<100
+  for _ in 0..<100
     for p in ps
       p.x += p.vx
       p.y += p.vy

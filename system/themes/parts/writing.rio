@@ -26,12 +26,12 @@ save :: proc(t: Int) -> Bool
   fine = out.print("# ", titles[titleAt[t]..<titleAt[t] + titleLen[t]].asString(), "\n")
   for r in 0..<ROLES
     fine = out.print(roleNames[r], "*")
-    for k in roleNames[r].len() + 1..<8 # (lined up: comment*, the longest, is 8)
+    for _ in roleNames[r].len() + 1..<8 # (lined up: comment*, the longest, is 8)
       fine = out.push(32)
     end
     c := colors[t * ROLES + r]
     fine = out.print(" :: ", c)
-    for k in 0..<4 - (c >= 10).toInt() - (c >= 100).toInt()
+    for _ in 0..<4 - (c >= 10).toInt() - (c >= 100).toInt()
       fine = out.push(32)
     end
     fine = out.print("# ", colorName(c), "\n")

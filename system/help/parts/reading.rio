@@ -212,7 +212,7 @@ contents :: proc()
     keptBoot = 0
     n := min(pc.stashRead("contents", keptText[0..<0]), 4352)
     if n > 0
-      for i in 0..<n
+      for _ in 0..<n
         ok := keptText.push(0)
       end
       n = min(pc.stashRead("contents", keptText[0..<n]), n)
@@ -425,7 +425,7 @@ restorePlace :: proc() -> Bool
     return false
   end
   place.clear()
-  for i in 0..<n
+  for _ in 0..<n
     ok := place.push(0)
   end
   n = min(pc.stashRead("place", place[0..<n]), n)

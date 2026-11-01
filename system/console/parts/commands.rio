@@ -209,7 +209,7 @@ enter :: proc()
     showLog()
     if r == 1
       setLine("")
-      for i in 0..<pc.rioIndent(acc[].asString()) * 2
+      for _ in 0..<pc.rioIndent(acc[].asString()) * 2
         _ = line.push(32)
       end
       cur = line.len()
@@ -233,7 +233,7 @@ typing :: proc(c: Int)
     enter()
   case 8 # (in the indent, at its end: a whole step, back to the one before)
     if cur > 0 and cur == line.len() and blank(line[].asString()) and cur >= 2
-      for k in 0..<2 - cur % 2
+      for _ in 0..<2 - cur % 2
         line.remove(cur - 1)
         cur -= 1
       end
