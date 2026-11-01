@@ -129,9 +129,31 @@ opensBlock :: proc(l: Int) -> Bool
          lineHas(l, ":: union")
 end
 
+# a line that's a comment (after its indent, a #): how far its # and the spaces after it go, else 0
+commentMark :: proc(l: Int) -> Int
+  p := indentEnd(l)
+  e := lineEnd(l)
+  if p == e or text[p] != 35
+    return 0
+  end
+  q := p + 1
+  for q < e and text[q] == 32
+    q += 1
+  end
+  return q - p
+end
+
+# Enter: a new line, with the line's indent (a step more after a line that opens a block); in a comment
+# line, after its #, the comment goes on (# and its spaces, again), unless it's empty: then it ends there
 enter :: proc()
   l := lineOf(selStart())
   indent := min(indentEnd(l), selStart()) - lineAt[l]
+  mark := commentMark(l)
+  if mark > 0 and selStart() >= indentEnd(l) + 1 and indentEnd(l) + mark == lineEnd(l) and selEnd() == lineEnd(l)
+    merging = 0 # (an empty comment line: its # taken off, the comment done)
+    ok := edit(indentEnd(l), lineEnd(l), "", 0)
+    return
+  end
   if opensBlock(l) and selStart() > indentEnd(l)
     indent += 2
   end
@@ -139,6 +161,12 @@ enter :: proc()
   _ = built.push(10)
   for _ in 0..<indent
     _ = built.push(32)
+  end
+  if mark > 0 and selStart() >= indentEnd(l) + 1
+    _ = built.pushAll(text[indentEnd(l)..<indentEnd(l) + mark])
+    if mark == 1
+      _ = built.push(32) # ("#" alone: "# " to go on)
+    end
   end
   merging = 0
   ok := edit(selStart(), selEnd(), built[0..<built.len()].asString(), 0)
@@ -328,6 +356,136 @@ deleteLines :: proc()
   if a == 0
     moveTo(0, false)
   end
+end
+
+# Ctrl+Shift+J: the next line joined onto this one (or the selected lines, all onto the first): each
+# one's indent and the spaces at the ends taken off, and a space between them, but none after an opening
+# bracket or before a closing one, a comma or a dot; a comment line joined onto a comment line loses its
+# #. The cursor goes where the first two lines met
+joinLines :: proc()
+  selectedLines()
+  if last == first
+    last = first + 1
+  end
+  if last >= lineCount
+    return
+  end
+  a := lineAt[first]
+  b := lineEnd(last)
+  if b - a + 1 > BUILT
+    say("Too much to join at once", errorColor)
+    return
+  end
+  built.clear()
+  e := lineEnd(first)
+  for e > a and text[e - 1] == 32
+    e -= 1
+  end
+  _ = built.pushAll(text[a..<e])
+  at := -1
+  for l in first + 1..=last
+    p := indentEnd(l)
+    e = lineEnd(l)
+    for e > p and text[e - 1] == 32
+      e -= 1
+    end
+    if commentMark(l) > 0 and commentMark(l - 1) > 0
+      p += commentMark(l) # (a comment going on: one comment)
+    end
+    n := built.len()
+    if p < e and n > 0 and built[n - 1] != 32 and built[n - 1] != 40 and built[n - 1] != 91 and built[n - 1] != 123 and
+        text[p] != 41 and text[p] != 93 and text[p] != 125 and text[p] != 44 and text[p] != 46
+      _ = built.push(32)
+    end
+    if at < 0
+      at = a + built.len()
+    end
+    _ = built.pushAll(text[p..<e])
+  end
+  merging = 0
+  ok := edit(a, b, built[0..<built.len()].asString(), 0)
+  moveTo(at, false)
+end
+
+# ---------------------------------------------------------------- laid out (rio fmt)
+
+formatted: Blob[32769] # the text, as rio fmt lays it out (a byte more than the text can have: its end)
+
+# a character rio fmt keeps (it changes only spaces and line breaks, and may add a comma)
+kept :: proc(c: Int) -> Bool
+  return c != 32 and c != 10 and c != 13 and c != 9 and c != 44
+end
+
+# how many kept characters come before p in s
+keptBefore :: proc(s: String, p: Int) -> Int
+  n := 0
+  for i in 0..<p
+    if kept(s[i])
+      n += 1
+    end
+  end
+  return n
+end
+
+# where in s, after n kept characters: just after the nth, or (on) at the next one
+placeAfter :: proc(s: String, n: Int, on: Bool) -> Int
+  k := 0
+  for i in 0..<s.len()
+    if kept(s[i])
+      if k == n and on
+        return i
+      end
+      k += 1
+      if k == n and not on
+        return i + 1
+      end
+    end
+  end
+  return s.len()
+end
+
+# where p is, as code: kept characters before it, and whether it's on the next one (it's at that one,
+# or in the spaces at a line's start before it) rather than just after the one before
+mark :: proc(p: Int) -> [2]Int
+  on := p < textLen and (kept(text[p]) or p <= indentEnd(lineOf(p)))
+  n := keptBefore(text[0..<textLen].asString(), p)
+  if on
+    return {n, 1}
+  end
+  return {n, 0}
+end
+
+# the text laid out the one way (rio fmt): the cursor and selection on the same code, and the cursor's
+# line where it was on the screen. Undo takes it back, as an edit of just the part that changed
+layOut :: proc()
+  n := pc.formatRio(formatted[], text[0..<textLen].asString())
+  if n < 0 or n > CAP
+    return # (too big, or not sure of it: as it is)
+  end
+  a := 0 # (what changed: text[a..<textLen - b] becomes formatted[a..<n - b])
+  for a < n and a < textLen and text[a] == formatted[a]
+    a += 1
+  end
+  if a == n and a == textLen
+    return
+  end
+  b := 0
+  for b < n - a and b < textLen - a and text[textLen - 1 - b] == formatted[n - 1 - b]
+    b += 1
+  end
+  row := lineOf(cursor) - top
+  c := mark(cursor)
+  s := mark(anchor)
+  merging = 0
+  if not edit(a, textLen - b, formatted[a..<n - b].asString(), 0)
+    return
+  end
+  merging = 0
+  laid := text[0..<textLen].asString()
+  cursor = placeAfter(laid, c[0], c[1] == 1)
+  anchor = placeAfter(laid, s[0], s[1] == 1)
+  top = max(0, min(lineOf(cursor) - row, lineCount - 1))
+  wantCol = -1
 end
 
 # ---------------------------------------------------------------- the clipboard

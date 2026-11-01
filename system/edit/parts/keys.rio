@@ -102,6 +102,8 @@ key :: proc(k: Int)
     redo()
   case base == 11 and shift
     deleteLines()
+  case base == 10 and shift # Ctrl+Shift+J
+    joinLines()
   case base == 12 # Ctrl+L: the line, and the next with each again
     l := lineOf(cursor)
     if cursor != anchor and lineAt[lineOf(selEnd())] == selEnd() # (whole lines already: one more)

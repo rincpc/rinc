@@ -33,10 +33,10 @@ has :: proc(s: String, f: Blob) -> Bool
 end
 
 # every command, for the list Ctrl+Shift+P shows: what it does, its keys, and the key it is
-COMMANDS :: 21
-labels := [COMMANDS]String{"Open a file", "Save", "Save as", "Run its app", "New file", "Find", "Go to line", "Undo", "Redo", "Select all", "Select the line", "Cut", "Copy", "Paste", "Delete the lines", "Move the lines up", "Move the lines down", "Indent", "Outdent", "Help", "Home"}
-keyNames := [COMMANDS]String{"^O", "^S", "^Shift+S", "^R", "^N", "^F", "^G", "^Z", "^Y", "^A", "^L", "^X", "^C", "^V", "^Shift+K", "Alt+Up", "Alt+Down", "Tab", "Shift+Tab", "", "Sys+Esc"}
-keys := [COMMANDS]Int{15, 19, 19 | 256, 18, 14, 6, 7, 26, 25, 1, 12, 24, 3, 22, 11 | 256, 130 | 1024, 131 | 1024, 9, 9 | 256, -1, -2}
+COMMANDS :: 22
+labels := [COMMANDS]String{"Open a file", "Save", "Save as", "Run its app", "New file", "Find", "Go to line", "Undo", "Redo", "Select all", "Select the line", "Cut", "Copy", "Paste", "Delete the lines", "Join the lines", "Move the lines up", "Move the lines down", "Indent", "Outdent", "Help", "Home"}
+keyNames := [COMMANDS]String{"^O", "^S", "^Shift+S", "^R", "^N", "^F", "^G", "^Z", "^Y", "^A", "^L", "^X", "^C", "^V", "^Shift+K", "^Shift+J", "Alt+Up", "Alt+Down", "Tab", "Shift+Tab", "", "Sys+Esc"}
+keys := [COMMANDS]Int{15, 19, 19 | 256, 18, 14, 6, 7, 26, 25, 1, 12, 24, 3, 22, 11 | 256, 10 | 256, 130 | 1024, 131 | 1024, 9, 9 | 256, -1, -2}
 listed: [COMMANDS]Int
 nlisted := 0
 pick := 0

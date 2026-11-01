@@ -215,6 +215,14 @@ saveAs :: proc()
   callFiles("save")
 end
 
+# a .rio file, laid out the one way (rio fmt) as it's saved: layOut
+tidy :: proc()
+  p := here()
+  if p.len() >= 4 and p[p.len() - 4..<p.len()] == ".rio"
+    layOut()
+  end
+end
+
 refBuf: Blob[..34]
 naming := false   # (a new file: a project's name asked for, to save it as that project's main file)
 runAfter := false # (and then run it)
@@ -243,6 +251,7 @@ save :: proc() -> Bool
     end
     setPath(projectPath(here()))
   end
+  tidy()
   if pc.fileWrite(here(), text[0..<textLen].asString()) < 0
     sayName("Couldn't save ", "", errorColor)
     return false

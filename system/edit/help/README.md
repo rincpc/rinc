@@ -30,6 +30,7 @@ with what's active (another app can pick one for it), else the file it had last,
 | Ctrl+A, Ctrl+L | select all, select the line (and the next, again) |
 | Tab, Shift+Tab | indent, outdent (the selected lines) |
 | Alt+Up, Alt+Down, Ctrl+Shift+K | move the lines up or down, delete them |
+| Ctrl+Shift+J | join the next line onto this one (or the selected lines) |
 | Ctrl+Backspace, Ctrl+Delete | delete a word |
 | Ctrl+F, Ctrl+G | find (Enter finds the next), go to a line |
 | Esc | let go of the selection, or close the bar at the bottom |
@@ -43,9 +44,18 @@ sideways.
 ## Writing Rio
 
 Enter keeps the line's indent, and goes a step further in after a line that opens a block (`if`, `for`,
-a proc and so on); `end`, `else` and `case` step back out as they're typed. Tab and Backspace move by
+a proc and so on); `end`, `else` and `case` step back out as they're typed. In a comment line, Enter
+goes on with the comment (its `#` again), and on an empty one, ends it. Tab and Backspace move by
 whole steps of two spaces in the indent. Rio's keywords, strings, numbers and comments each have a
 color of their own.
+
+Saving a `.rio` file lays it out the one way, as `rio fmt` does: only spaces and line breaks change
+(and a trailing comma may be added), and the cursor stays on the same code, where it was on the
+screen. A list in brackets goes on one line, unless it ends with a trailing comma (then an item a
+line) or has a line break after its opening bracket (then its items on a line of their own); add the
+comma to put it over lines, and take it off, with Ctrl+Shift+J on the opening bracket's line, to
+bring it back. Code between `# nofmt` and `# /nofmt` comment lines is left as it is. Ctrl+Z undoes
+the layout.
 
 Undo groups typing by words, and remembers the last 256 changes (or 16 KB of what they changed). When
 there's an app with unsaved changes, opening another or starting a new one asks first.

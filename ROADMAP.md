@@ -24,8 +24,11 @@ app is a Rio program.
   to do: deciding by ear which rate and smoothing to start at, and the synth's loudness beside
   recorded sound (8 dB down for now: notes/native-synth.md); a small library that plays Sound's
   files in games; music (patterns of sounds across voices), in Rio on top or in the core.
-- Editing code on the board: `rio fmt`, completion. (Coming back to the editor after a run that stopped
-  with an error, compile or runtime, puts the cursor on it, in whichever part it was.)
+- Editing code on the board: completion, next: words from the file and core's names (hippie style),
+  and names after a module's dot (`pc.`, core's, any module's). (Saving lays code out as `rio fmt`
+  does; Ctrl+Shift+J joins lines; Enter goes on with a comment; coming back to the editor after a run
+  that stopped with an error, compile or runtime, puts the cursor on it, in whichever part it was.)
+- A diff view in the editor (inline, maybe): what changed since the file was saved, or between two.
 - Help search.
 - Fonts: several fonts and sizes, 5x8 the default, and text measured, so apps lay text out by its
   size rather than counting 6-pixel characters (home's columns, the editor's, Paint's panels).

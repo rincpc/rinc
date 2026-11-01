@@ -55,6 +55,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
 #define pc_pointerShown_SIG ">i"
 #define pc_scroll_SIG "i>i"
 #define pc_fromHex_SIG "bs>i"
+#define pc_formatRio_SIG "bs>i"
 #define pc_sound_SIG "ib" pc_Sound_LAYOUT
 #define pc_soundWav_SIG "ib>i"
 #define pc_soundRate_SIG "if"
@@ -138,6 +139,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(pointerShown, pc_pointerShown_SIG) \
   X(scroll, pc_scroll_SIG) \
   X(fromHex, pc_fromHex_SIG) \
+  X(formatRio, pc_formatRio_SIG) \
   X(sound, pc_sound_SIG) \
   X(soundWav, pc_soundWav_SIG) \
   X(soundRate, pc_soundRate_SIG) \
@@ -201,7 +203,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0xaa92198du /* (rio_hashText of the source) */
+#define pc_HASH 0x66fc7e77u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -279,6 +281,9 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "\n" \
   "# bytes from hex digits into out (anything else in the text is skipped), until it's full: how many\n" \
   "fromHex* :: host proc(out: Blob, text: String) -> Int\n" \
+  "# Rio code laid out the one way (as rio fmt does: only its spaces and line breaks change) into out: how\n" \
+  "# long, or -1 (too little room in out) or -2 (it couldn't be sure of keeping the code the same)\n" \
+  "formatRio* :: host proc(out: Blob, code: String) -> Int\n" \
   "\n" \
   "# ---------------------------------------------------------------- sound: 8 voices, 0 to 7\n" \
   "\n" \

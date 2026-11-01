@@ -9,8 +9,9 @@
 # Home, End, Page Up and Down move, with Ctrl by words and to either end, and with Shift they select.
 # Ctrl+A selects all; Ctrl+X, C and V cut, copy and paste (the line, with nothing selected); Ctrl+Z
 # undoes, Ctrl+Y (or Ctrl+Shift+Z) redoes. Tab and Shift+Tab indent and outdent, Alt+Up and Down move
-# lines, Ctrl+Shift+K deletes them, Ctrl+L selects one, Ctrl+F finds, Ctrl+G goes to a line. Up to 32
-# KB of text. With a mouse: a click puts the cursor there, dragging selects, and the wheel scrolls. An
+# lines, Ctrl+Shift+K deletes them, Ctrl+Shift+J joins them, Ctrl+L selects one, Ctrl+F finds, Ctrl+G
+# goes to a line. Saving a .rio file lays it out as rio fmt does, the cursor kept on its code; Enter
+# in a comment goes on with it. Up to 32 KB of text. With a mouse: a click puts the cursor there, dragging selects, and the wheel scrolls. An
 # ordinary app (the Fruit Jam's firmware has it built in).
 
 # ---------------------------------------------------------------- its parts

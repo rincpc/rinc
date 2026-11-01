@@ -49,13 +49,17 @@ R_CALL :: 18
 R_NUMBER :: 19
 R_STRING :: 20
 R_COMMENT :: 21
-roleNames := [ROLES]String{"bg", "bar", "text", "soft", "dim", "faint", "accent", "heading", "pick", "select", "link",
-                           "error", "ok", "codeBg", "code", "punct", "keyword", "type", "call", "number", "string", "comment"}
+roleNames := [ROLES]String{
+  "bg", "bar", "text", "soft", "dim", "faint", "accent", "heading", "pick", "select", "link",
+  "error", "ok", "codeBg", "code", "punct", "keyword", "type", "call", "number", "string", "comment",
+}
 defaults := [ROLES]Int{1, 0, 7, 6, 13, 5, 10, 9, 12, 2, 12, 8, 11, 17, 7, 6, 14, 15, 12, 9, 11, 13}
-picoNames := [32]String{"black", "dark blue", "dark purple", "dark green", "brown", "dark gray", "light gray", "white",
-                        "red", "orange", "yellow", "green", "blue", "lavender", "pink", "peach",
-                        "brown black", "night blue", "plum", "teal", "rust", "dusk", "stone", "pale yellow",
-                        "crimson", "tangerine", "lime", "emerald", "royal blue", "mauve", "coral", "salmon"}
+picoNames := [32]String{
+  "black", "dark blue", "dark purple", "dark green", "brown", "dark gray", "light gray", "white",
+  "red", "orange", "yellow", "green", "blue", "lavender", "pink", "peach",
+  "brown black", "night blue", "plum", "teal", "rust", "dusk", "stone", "pale yellow",
+  "crimson", "tangerine", "lime", "emerald", "royal blue", "mauve", "coral", "salmon",
+}
 
 include "parts/found.rio"
 

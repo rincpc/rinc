@@ -74,6 +74,9 @@ scroll* :: host proc(i: Int) -> Int
 
 # bytes from hex digits into out (anything else in the text is skipped), until it's full: how many
 fromHex* :: host proc(out: Blob, text: String) -> Int
+# Rio code laid out the one way (as rio fmt does: only its spaces and line breaks change) into out: how
+# long, or -1 (too little room in out) or -2 (it couldn't be sure of keeping the code the same)
+formatRio* :: host proc(out: Blob, code: String) -> Int
 
 # ---------------------------------------------------------------- sound: 8 voices, 0 to 7
 

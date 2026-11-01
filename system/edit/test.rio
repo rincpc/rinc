@@ -41,4 +41,47 @@ assert(typed("if x\n  y()\n  en", 100) == "if x\n  y()\nend", "end dedents")
 assert(typed("if x\n  en", 100) == "if x\nend", "end dedents an empty block")
 assert(typed("if x\n  y()\n  els", 101) == "if x\n  y()\nelse", "else dedents")
 assert(typed("if x\n  y()\nen", 100) == "if x\n  y()\nend", "already dedented")
+
+# Enter in a comment line goes on with the comment; in an empty one, ends it
+entered :: proc(s: String) -> String
+  start(s)
+  enter()
+  return text[0..<textLen].asString()
+end
+assert(entered("  # hello") == "  # hello\n  # ", "a comment goes on")
+assert(entered("#x") == "#x\n# ", "a comment with no space after its # goes on with one")
+assert(entered("if x # why") == "if x # why\n  ", "code with a comment after it: just code")
+assert(entered("  # hello\n  # ") == "  # hello\n  ", "an empty comment line ends the comment")
+
+# Ctrl+Shift+J joins the next line (or the selected lines) onto this one
+joined :: proc(s: String, a, b: Int) -> String
+  start(s)
+  anchor = a
+  cursor = b
+  joinLines()
+  return text[0..<textLen].asString()
+end
+assert(joined("f(\n  a,\n  b\n)", 0, 0) == "f(a,\n  b\n)", "after an opener: no space")
+assert(joined("f(a,  \n  b)", 0, 0) == "f(a, b)", "a space between, the spaces at the ends gone")
+assert(joined("f(\n  a,\n  b\n)", 0, 13) == "f(a, b)", "the selected lines, all")
+assert(joined("x := a\n  .b()", 0, 0) == "x := a.b()", "before a dot: no space")
+assert(joined("  # one\n  # two", 0, 0) == "  # one two", "a comment going on: one comment")
+assert(joined("x := 1", 0, 0) == "x := 1", "the last line: nothing to join")
+
+# laid out as rio fmt does, the cursor kept on the same code
+laid :: proc(s: String, at: Int) -> Int
+  start(s)
+  cursor = at
+  anchor = at
+  layOut()
+  return cursor
+end
+c := laid("x:=f( a,b )\ny:=2", 8)
+assert(text[0..<textLen].asString() == "x := f(a, b)\ny := 2", "laid out")
+assert(text[c] == 98, "the cursor still on b")
+c = laid("if a\n      x:=1\nend", 11)
+assert(text[0..<textLen].asString() == "if a\n  x := 1\nend", "indented")
+assert(text[c] == 120, "the cursor still on x")
+undo()
+assert(text[0..<textLen].asString() == "if a\n      x:=1\nend", "and undone")
 log("all edit tests passed")
