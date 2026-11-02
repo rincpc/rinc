@@ -22,7 +22,7 @@ key :: proc(k: Int)
     if base == 100 or base == 101
       dedent()
     end
-    if base == 46 # (after a module's name: its names)
+    if base == 46 # (after a value, a type or a module: what it has)
       complete(1)
     end
   case k == (32 | CTRL) # Ctrl+Space

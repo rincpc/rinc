@@ -136,9 +136,7 @@ drawOffers :: proc()
   sigs := 0
   for i in 0..<shownCount
     names = max(names, offerLen[shown[i]])
-    if offerKind[shown[i]] == 1
-      sigs = max(sigs, offerSigLen[shown[i]])
-    end
+    sigs = max(sigs, offerSigLen[shown[i]])
   end
   names = min(names, 24)
   w := names * 6 + 6
@@ -162,7 +160,7 @@ drawOffers :: proc()
     end
     pc.print(s, {x + 3, yy + 1}, textColor)
     pc.print(s[0..<min(typed, s.len())], {x + 3, yy + 1}, accentColor)
-    if offerKind[i] == 1 and offerSigLen[i] > 0
+    if offerSigLen[i] > 0
       g := offerSig(i)
       room := (x + w - 6 - (x + 3 + names * 6 + 12)) / 6
       if g.len() > room

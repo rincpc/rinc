@@ -1206,7 +1206,7 @@ char rinc_hostFolder[512];
 static int rinc_readAt(void *ud, char *buf, uint32_t at, uint32_t n) {
   rinc_Reader *r = (rinc_Reader *)ud; int got = 0, k;
   if (r->host) {
-    char full[640];
+    static char full[640]; /* (static, as are the loader's: off the stack, small on a board, which an app's check also loads from: pc.checkRio) */
     snprintf(full, sizeof full, "%s/%s", rinc_hostFolder, r->path);
     if (!rinc_hostRead || (got = rinc_hostRead(full, buf, at, n)) < 0) return -1;
   } else {
@@ -1252,7 +1252,7 @@ static int rinc_loadFile(const char *path, rio_Source *out, int host) {
   return 0;
 }
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
-  char base[64], bundleBase[64], tryPath[104], name[640]; const char *last; const rinc_File *f; int n = (int)strlen(rinc_loadApp), project, k, res;
+  static char base[64], bundleBase[64], tryPath[104], name[640]; const char *last; const rinc_File *f; int n = (int)strlen(rinc_loadApp), project, k, res;
   int host = !(kind & rio_LoadKind_package) && rinc_hostFolder[0]; /* (an app run from the host's files: its own, from there) */
   (void)ud;
   if (!rinc_srcOn || strstr(path, "..") || strlen(path) > 48) return 1;
@@ -1322,6 +1322,98 @@ int rinc_compile(rio_Vm *vm, void *space, uint32_t size, const char *src, uint32
 int rinc_compileFile(rio_Vm *vm, void *space, uint32_t size, const char *path, int host) {
   (void)space; (void)size;
   return rinc_compileSource(vm, 0, 0, path, host);
+}
+
+/* An editor's completion (pc.checkRio, pc.completeRio): its app's main file checked (rio_check) in the
+   session's vm, up to the file being edited, whose text (cut at the cursor's line) the editor gives;
+   then the names that fit there. The tables stay in the app's memory (room), lent: hashed after the
+   check, so a room the app has written over since is seen, and not read */
+static int rinc_cplOn; static const uint8_t *rinc_checkRoom; static uint32_t rinc_checkSize, rinc_checkHash;
+static const char *rinc_checkPath, *rinc_checkCode; static uint32_t rinc_checkLen;
+static uint32_t rinc_roomHash(const uint8_t *p, uint32_t n) { uint32_t h = 2166136261u; while (n--) h = (h ^ *p++) * 16777619u; return h; }
+#ifndef rio_NO_COMPILER
+static int rinc_checkLoader(void *ud, const char *path, int kind, rio_Source *out) { /* (the file being edited: the editor's text) */
+  int res = rinc_loader(ud, path, kind, out);
+  const char *name = out->name;
+  if (res || !name) return res;
+  if (out->read == rinc_readAt) name = ((rinc_Reader *)out->readData)->path; /* (storage's: /rinc/apps/...) */
+  if (!strcmp(name, rinc_checkPath) || (!strncmp(rinc_checkPath, "/rinc/", 6) && !strcmp(name, rinc_checkPath + 6))) {
+    out->src = rinc_checkCode; out->len = rinc_checkLen; out->read = 0; out->readData = 0;
+  }
+  return 0;
+}
+#endif
+static void rinc_hostCheckrio(rio_Vm *v, rio_Val *a) {
+  const char *main = (const char *)rio_sliceBytes(v, a), *path = (const char *)rio_sliceBytes(v, a + 2), *code = (const char *)rio_sliceBytes(v, a + 4);
+  uint8_t *room = (uint8_t *)rio_sliceBytes(v, a + 6);
+  uint32_t size = a[7].u, constRoom = size / 16 < 4096 ? 4096 : size / 16; /* (the constants: ~1000 in 4 KB) */
+  static char mainPath[100], editPath[100]; /* (off the stack: see rinc_readAt) */
+  char host;
+  a[0].i = -1;
+  rinc_cplOn = 0;
+  if (v == &rinc_nest || !main || !path || !room || a[1].u >= sizeof mainPath || a[3].u >= sizeof editPath || size < constRoom + 4096) return;
+#ifdef rio_NO_COMPILER
+  (void)code;
+#else
+  memcpy(mainPath, main, a[1].u); mainPath[a[1].u] = 0;
+  memcpy(editPath, path, a[3].u); editPath[a[3].u] = 0;
+  rinc_nestOn = 0; rinc_nestTried = 1; /* (the session's vm: a session there is over) */
+  if (rio_init(&rinc_nest, room, constRoom, 0, 0)) return;
+  rio_setLoader(&rinc_nest, rinc_checkLoader, 0);
+  if (rinc_hostProcs(&rinc_nest) || rio_autoImport(&rinc_nest, "pc")) return;
+  rinc_checkPath = editPath; rinc_checkCode = code ? code : ""; rinc_checkLen = code ? a[5].u : 0;
+  { /* (its app: the folder its own files come from, /rinc/apps/name/... or /rinc/projects/name/..., as name+) */
+    const char *p = mainPath, *e; int project = !strncmp(p, "/rinc/projects/", 15);
+    rinc_loadApp[0] = 0;
+    if (project || !strncmp(p, "/rinc/apps/", 11)) {
+      p += project ? 15 : 11;
+      if ((e = strchr(p, '/')) && e - p < (int)sizeof rinc_loadApp - 1) snprintf(rinc_loadApp, sizeof rinc_loadApp, "%.*s%s", (int)(e - p), p, project ? "+" : "");
+    }
+  }
+  rinc_srcCount = rinc_srcLost = 0;
+  rinc_srcOn = 1;
+  host = rinc_hostFolder[0];
+  rinc_hostFolder[0] = 0; /* (storage's files, even for an app run from the host's) */
+  rio_setSourceWindow(&rinc_nest, 2048);
+  if (!strcmp(mainPath, editPath)) a[0].i = rio_check(&rinc_nest, rinc_checkCode, rinc_checkLen, 0, 0, room + constRoom, size - constRoom);
+  else {
+    rinc_Reader *top = &rinc_srcFiles[rinc_SRC_FILES];
+    if (!rinc_readerStart(top, mainPath, 0)) top->path[0] = 0;
+    a[0].i = rio_check(&rinc_nest, 0, 0, rinc_readAt, top, room + constRoom, size - constRoom);
+  }
+  rinc_srcOn = 0;
+  rinc_hostFolder[0] = host;
+  if (rinc_readerOpen) { rinc_fs->close(); rinc_readerOpen = 0; }
+  rinc_checkPath = rinc_checkCode = 0;
+  if (!rinc_nest.compiler) return;
+  rinc_cplOn = 1; rinc_checkRoom = room; rinc_checkSize = size; rinc_checkHash = rinc_roomHash(room, size);
+#endif
+}
+typedef struct { char *out; uint32_t cap, n; } rinc_Offers;
+static void rinc_offer(void *ud, const char *name, int nameLen, int kind, const char *detail, int detailLen) {
+  rinc_Offers *o = (rinc_Offers *)ud;
+  if (o->n + (uint32_t)nameLen + (uint32_t)detailLen + 4 > o->cap) return;
+  memcpy(o->out + o->n, name, (size_t)nameLen); o->n += (uint32_t)nameLen;
+  o->out[o->n++] = '\t'; o->out[o->n++] = "kvctpmfMe"[kind < 9 ? kind : 0]; o->out[o->n++] = '\t';
+  memcpy(o->out + o->n, detail, (size_t)detailLen); o->n += (uint32_t)detailLen;
+  o->out[o->n++] = '\n';
+}
+static void rinc_hostCompleterio(rio_Vm *v, rio_Val *a) {
+  const char *line = (const char *)rio_sliceBytes(v, a);
+  rinc_Offers o;
+  o.out = (char *)rio_sliceBytes(v, a + 2); o.cap = a[3].u; o.n = 0;
+  a[0].i = 0;
+  if (v == &rinc_nest || !o.out) return;
+#ifdef rio_NO_COMPILER
+  (void)line;
+#else
+  { /* (the check's tables, if the room's as the check left it; else just the words, and the line's own names) */
+    const uint8_t *c = (const uint8_t *)rinc_nest.compiler; /* (still the check's: not a session's since) */
+    int ok = rinc_cplOn && c >= rinc_checkRoom && c < rinc_checkRoom + rinc_checkSize && rinc_roomHash(rinc_checkRoom, rinc_checkSize) == rinc_checkHash;
+    rio_complete(ok ? &rinc_nest : 0, line ? line : "", line ? a[1].u : 0, rinc_offer, &o);
+  }
+#endif
+  a[0].i = (int32_t)o.n;
 }
 
 /* where an app's error is: the file it included or imported, if it was in one (else 0: the app's own) */
@@ -1683,7 +1775,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.saveDelete", pc_saveDelete_SIG, rinc_hostSaveDelete) || rio_addFfi(vm, "pc.rioStart", pc_rioStart_SIG, rinc_hostRioStart) ||
          rio_addFfi(vm, "pc.rioEval", pc_rioEval_SIG, rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", pc_rioFrame_SIG, rinc_hostRioFrame) ||
          rio_addFfi(vm, "pc.rioType", pc_rioType_SIG, rinc_hostRioType) || rio_addFfi(vm, "pc.rioError", pc_rioError_SIG, rinc_hostRioError) ||
-         rio_addFfi(vm, "pc.rioLog", pc_rioLog_SIG, rinc_hostRioLog) || rio_addFfi(vm, "pc.rioIndent", pc_rioIndent_SIG, rinc_hostRioIndent) ||
+         rio_addFfi(vm, "pc.rioLog", pc_rioLog_SIG, rinc_hostRioLog) || rio_addFfi(vm, "pc.rioIndent", pc_rioIndent_SIG, rinc_hostRioIndent) || rio_addFfi(vm, "pc.checkRio", pc_checkRio_SIG, rinc_hostCheckrio) || rio_addFfi(vm, "pc.completeRio", pc_completeRio_SIG, rinc_hostCompleterio) ||
          rinc_pcSource(vm);
 }
 

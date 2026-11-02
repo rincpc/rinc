@@ -57,6 +57,8 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
 #define pc_fromHex_SIG "bs>i"
 #define pc_formatRio_SIG "bs>i"
 #define pc_moduleSource_SIG "sb>i"
+#define pc_checkRio_SIG "sssb>i"
+#define pc_completeRio_SIG "sb>i"
 #define pc_sound_SIG "ib" pc_Sound_LAYOUT
 #define pc_soundWav_SIG "ib>i"
 #define pc_soundRate_SIG "if"
@@ -142,6 +144,8 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(fromHex, pc_fromHex_SIG) \
   X(formatRio, pc_formatRio_SIG) \
   X(moduleSource, pc_moduleSource_SIG) \
+  X(checkRio, pc_checkRio_SIG) \
+  X(completeRio, pc_completeRio_SIG) \
   X(sound, pc_sound_SIG) \
   X(soundWav, pc_soundWav_SIG) \
   X(soundRate, pc_soundRate_SIG) \
@@ -205,7 +209,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0xe5b3d116u /* (rio_hashText of the source) */
+#define pc_HASH 0x9666023du /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -289,6 +293,17 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "# a module's source, in Rio, into out, as much as fits (for an editor's completion): pc's (this), or\n" \
   "# core's (the builtins: Rio's core.rio); its whole length, or -1 for another\n" \
   "moduleSource* :: host proc(name: String, out: Blob) -> Int\n" \
+  "# an editor's completion, in two steps. checkRio: main (an app's main file, by its path: path itself if\n" \
+  "# it's the one) checked, up to path's text, code: the file being edited as the editor has it, cut at the\n" \
+  "# start of the cursor's line. Its compiler's tables go in room, the app's own memory, lent (60 KB is\n" \
+  "# plenty): 0, or -1 (an error before the cut; rioError says what; the cut's own, missing 'end', is\n" \
+  "# expected). It uses the session's place: a session is over\n" \
+  "checkRio* :: host proc(main: String, path: String, code: String, room: Blob) -> Int\n" \
+  "# then the names that fit at the end of line (the cursor's line, to the cursor), from what the check\n" \
+  "# found (if room is as it left it), into out, a line each: the name, a tab, what it is (k a word of\n" \
+  "# Rio's, v a variable, c a constant, t a type, p a proc, m a method, f a field, M a module, e an enum's\n" \
+  "# value), a tab, its type or signature. How long\n" \
+  "completeRio* :: host proc(line: String, out: Blob) -> Int\n" \
   "\n" \
   "# ---------------------------------------------------------------- sound: 8 voices, 0 to 7\n" \
   "\n" \

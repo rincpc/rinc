@@ -4,6 +4,8 @@
 
 text: Blob[32768]
 textLen := 0
+changedFrom := 0       # the first byte changed since completion's last check (CAP + 1: none)
+checkedAt := -1        # where that check was cut (a line's start), or -1: none, or not to be trusted
 scratch: Blob[..32768] # the text after an edit, moving over
 lineAt: [4096]Int      # where each line starts
 lineCount := 1
@@ -69,6 +71,7 @@ replaceRaw :: proc(a, b: Int, s: String) -> Bool
   _ = w.pushAll(s)
   _ = w.pushAll(scratch[0..<scratch.len()])
   textLen += s.len() - (b - a)
+  changedFrom = min(changedFrom, a)
   rebuildLines()
   return true
 end
