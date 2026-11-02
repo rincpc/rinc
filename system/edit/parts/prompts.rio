@@ -33,7 +33,7 @@ has :: proc(s: String, f: Blob) -> Bool
 end
 
 # every command, for the list Ctrl+Shift+P shows
-COMMANDS :: 24
+COMMANDS :: 25
 Command :: struct
   label: String   # what it does
   keys: String    # its keys, as shown
@@ -62,6 +62,7 @@ commands := [COMMANDS]Command{
   {label = "Move the lines down", keys = "Alt+Down", key = DOWN | ALT},
   {label = "Indent", keys = "Tab", key = 9},
   {label = "Outdent", keys = "Shift+Tab", key = 9 | SHIFT},
+  {label = "Line numbers, shown or not", keys = "", key = -3},
   {label = "Help", keys = "", key = -1},
   {label = "Home", keys = "Sys+Esc", key = -2},
 }
@@ -97,6 +98,13 @@ command :: proc(i: Int)
     pc.help("edit/README")
   case commands[i].key == -2
     pc.launch("home")
+  case commands[i].key == -3 # (and kept, for next time)
+    showNumbers(not numbers)
+    v := "0"
+    if numbers
+      v = "1"
+    end
+    saved := pc.saveWrite("numbers", v)
   else
     queued = commands[i].key # (as typed: update does it)
   end

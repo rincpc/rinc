@@ -31,7 +31,7 @@ with what's active (another app can pick one for it), else the file it had last,
 | Tab, Shift+Tab | indent, outdent (the selected lines) |
 | Alt+Up, Alt+Down, Ctrl+Shift+K | move the lines up or down, delete them |
 | Ctrl+Shift+J | join the next line onto this one (or the selected lines) |
-| Ctrl+Space | complete the word (after a module's dot, the list opens by itself) |
+| Ctrl+Space | complete the word |
 | Ctrl+/ | comment the lines (the selected ones, or the cursor's), or uncomment them |
 | Ctrl+Backspace, Ctrl+Delete | delete a word |
 | Ctrl+F, Ctrl+G | find (Enter finds the next), go to a line |
@@ -51,13 +51,21 @@ goes on with the comment (its `#` again), and on an empty one, ends it. Tab and 
 whole steps of two spaces in the indent. Rio's keywords, strings, numbers and comments each have a
 color of their own.
 
-Ctrl+Space offers what could finish the word at the cursor: the file's own words (the nearest
-first), core's names and Rio's words; with just one, it's put in. After a module's name and a dot
-(`pc.`, `core.`, or a module the file or its app's main file imports), the list opens by itself with
-the module's names, and what each one is (a proc's parameters, a field's type): `pc.Rect.` offers
-Rect's methods and fields. After another dot, Ctrl+Space offers the file's words and core's methods
-(`len`, `push`). Typing narrows the list; Up and Down (and Page Up and Down) pick, Tab or Enter puts
-the pick in, a click puts one in, and Esc or any other key closes it.
+Ctrl+Space offers what could finish the word at the cursor, as Rio sees it there: the names in
+scope (the proc's own parameters and locals first), with what each is (a variable's type, a proc's
+parameters), and Rio's words that fit (a statement's, an expression's, `and`, `or` and `is` after a
+value); then the file's own words. With just one, it's put in. After a dot, it's what's before the
+dot has: a value's fields and methods (`len` and `push` too, where its kind has them), a type's
+values and static procs (`pc.Rect.`), a module's names (`pc.`). The list opens only for Ctrl+Space,
+never by itself, so typing is never held up: Rio's view of the file comes from checking it, up to the
+cursor's line, and on the board a big app's check takes about half a second. Typing narrows the list;
+Up and Down (and Page Up and Down) pick, Tab or Enter puts the pick in, a click puts one in, and Esc
+or any other key closes it.
+
+A pause in typing checks the whole file: its first error is underlined, with a mark beside its line,
+and what it says shows at the bottom while the cursor's on that line. Line numbers are off at first
+(a mark beside the cursor's line stands in for them, and the top bar has its number): ^Shift+P,
+Line numbers, shows them, and the editor remembers.
 
 Saving a `.rio` file lays it out the one way, as `rio fmt` does: only spaces and line breaks change
 (and a trailing comma may be added), and the cursor stays on the same code, where it was on the

@@ -474,7 +474,7 @@ end
 
 # ---------------------------------------------------------------- laid out (rio fmt)
 
-formatted: Blob[32769] # the text, as rio fmt lays it out (a byte more than the text can have: its end)
+formatted: Blob[61440] # the text, as rio fmt lays it out (more than the text can have); between saves, completion's check (pc.checkRio)
 
 # a character rio fmt keeps (it changes only spaces and line breaks, and may add a comma)
 kept :: proc(c: Int) -> Bool
@@ -523,6 +523,7 @@ end
 # the text laid out the one way (rio fmt): the cursor and selection on the same code, and the cursor's
 # line where it was on the screen. Undo takes it back, as an edit of just the part that changed
 layOut :: proc()
+  checkedAt = -1 # (formatted is the check's room: written over now)
   n := pc.formatRio(formatted[], text[0..<textLen].asString())
   if n < 0 or n > CAP
     return # (too big, or not sure of it: as it is)

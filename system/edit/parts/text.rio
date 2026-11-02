@@ -4,6 +4,11 @@
 
 text: Blob[32768]
 textLen := 0
+changedFrom := 0       # the first byte changed since completion's last check (CAP + 1: none)
+checkedAt := -1        # where that check was cut (a line's start), or -1: none, or not to be trusted
+edits := 0             # how many changes the text's had (the error check is of one of them)
+editedAt := 0.0        # when the last was
+checkCost := 0.0       # how long a check took, the last (on the board, a big app's: about half a second)
 scratch: Blob[..32768] # the text after an edit, moving over
 lineAt: [4096]Int      # where each line starts
 lineCount := 1
@@ -69,6 +74,9 @@ replaceRaw :: proc(a, b: Int, s: String) -> Bool
   _ = w.pushAll(s)
   _ = w.pushAll(scratch[0..<scratch.len()])
   textLen += s.len() - (b - a)
+  changedFrom = min(changedFrom, a)
+  edits += 1
+  editedAt = pc.time()
   rebuildLines()
   return true
 end

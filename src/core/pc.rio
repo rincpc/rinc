@@ -80,6 +80,17 @@ formatRio* :: host proc(out: Blob, code: String) -> Int
 # a module's source, in Rio, into out, as much as fits (for an editor's completion): pc's (this), or
 # core's (the builtins: Rio's core.rio); its whole length, or -1 for another
 moduleSource* :: host proc(name: String, out: Blob) -> Int
+# an editor's completion, in two steps. checkRio: main (an app's main file, by its path: path itself if
+# it's the one) checked, up to path's text, code: the file being edited as the editor has it, cut at the
+# start of the cursor's line. Its compiler's tables go in room, the app's own memory, lent (60 KB is
+# plenty): 0, or -1 (an error before the cut; rioError says what; the cut's own, missing 'end', is
+# expected). It uses the session's place: a session is over
+checkRio* :: host proc(main: String, path: String, code: String, room: Blob) -> Int
+# then the names that fit at the end of line (the cursor's line, to the cursor), from what the check
+# found (if room is as it left it), into out, a line each: the name, a tab, what it is (k a word of
+# Rio's, v a variable, c a constant, t a type, p a proc, m a method, f a field, M a module, e an enum's
+# value), a tab, its type or signature. How long
+completeRio* :: host proc(line: String, out: Blob) -> Int
 
 # ---------------------------------------------------------------- sound: 8 voices, 0 to 7
 
@@ -145,6 +156,9 @@ AppError* :: struct
 end
 appError* :: host proc(path: Blob, message: Blob) -> AppError
 # an app's source into out, as much as fits: its whole length, or -1 if there's no such app
+# the last checkRio's error, as appError has an app's (line 0: none), its file the main file or one it
+# includes or imports (/rinc/...): for an editor's underline. Checking the whole file finds its first
+checkError* :: host proc(path: Blob, message: Blob) -> AppError
 appSource* :: host proc(name: String, out: Blob) -> Int
 appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1
 appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1

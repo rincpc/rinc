@@ -154,12 +154,33 @@ static void rinc_frameNow(void) {
 
 static float rinc_now(void) { return (float)((double)time_us_64() / 1e6); }
 
+/* compiling on a stack of its own (pc.checkRio's: the compiler, the SD card's reader under it, from inside
+   an app's call), as the 4 KB main stack, in scratch Y, isn't enough from there; and with MSPLIM moved to its bottom,
+   since the core faults on a stack pointer below MSPLIM. Interrupts that come meanwhile use it too */
+static _Alignas(8) uint8_t rinc_bigStack[6 << 10]; /* (a check of the editor itself takes ~2.2 KB) */
+static void rinc_onStack(void (*fn)(void *), void *arg) {
+  uint32_t top = (uint32_t)(uintptr_t)(rinc_bigStack + sizeof rinc_bigStack), bottom = (uint32_t)(uintptr_t)rinc_bigStack;
+  __asm volatile(
+    "mrs r4, msplim\n"
+    "mov r5, sp\n"
+    "msr msplim, %[bottom]\n"
+    "mov sp, %[top]\n"
+    "mov r0, %[arg]\n"
+    "blx %[fn]\n"
+    "mov sp, r5\n"
+    "msr msplim, r4\n"
+    :
+    : [fn] "r"(fn), [arg] "r"(arg), [top] "r"(top), [bottom] "r"(bottom)
+    : "r0", "r1", "r2", "r3", "r4", "r5", "r12", "lr", "memory", "cc");
+}
+
 int main(void) {
   set_sys_clock_khz(252000, true); /* 10x the 25.2 MHz pixel clock of 640x480 DVI; fine at the default core voltage */
   rinc_keyboardSetup();
   stdio_init_all();
   setvbuf(stdout, 0, _IONBF, 0); /* (so no buffer from the heap: the SDK's heap is its least, 256 bytes) */
   rinc_time = rinc_now;
+  rinc_onBigStack = rinc_onStack;
   rinc_consoleClear(rinc_themeColor(0)); /* (the theme's defaults: the card isn't read yet) */
   rinc_consolePut("Rinc\r\n\r\n", 8);
   rinc_audioSetup();

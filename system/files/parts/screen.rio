@@ -2,6 +2,24 @@
 
 # ---------------------------------------------------------------- the screen
 
+# n bytes, as a listing says it: 532 B, 4.7 KB, 24 KB, 1.2 MB
+sizeText: Blob[..12]
+sizeOf :: proc(n: Int) -> String
+  sizeText.clear()
+  if n < 1024
+    _ = sizeText.print(n, " B")
+  case n < 10240
+    t := (n * 10 + 512) / 1024
+    _ = sizeText.print(t / 10, ".", t % 10, " KB")
+  case n < 1048576
+    _ = sizeText.print((n + 512) / 1024, " KB")
+  else
+    t := (n / 1024 * 10 + 512) / 1024
+    _ = sizeText.print(t / 10, ".", t % 10, " MB")
+  end
+  return sizeText[0..<sizeText.len()].asString()
+end
+
 drawList :: proc()
   for row in 0..<min(nshown - top, ROWS)
     i := top + row
@@ -24,6 +42,10 @@ drawList :: proc()
       pc.print("/", {6 + nameLen[k] * 6, y}, dimColor)
     else
       pc.print(nameOf(k), {6, y}, softColor)
+      if size[k] >= 0 # (its size, at the right)
+        s := sizeOf(size[k])
+        pc.print(s, {314 - s.len() * 6, y}, dimColor)
+      end
     end
   end
   if nshown <= 1 and filter.len() == 0 and (count == 0 or kind[0] == UP)

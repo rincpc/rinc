@@ -117,7 +117,9 @@ static uint32_t rinc_makeImage(const char *app, int list) {
   for (k = 0; k < rinc_vm.ffiCount; k++) {
     if (!used[k]) continue;
     if (list) printf("host %s\n", rinc_vm.ffi[k].name);
-    if (!strncmp(rinc_vm.ffi[k].name, "pc.rio", 6) || !strcmp(rinc_vm.ffi[k].name, "pc.appSave")) rinc_nested = 1;
+    if (!strncmp(rinc_vm.ffi[k].name, "pc.rio", 6) || !strcmp(rinc_vm.ffi[k].name, "pc.appSave") || !strcmp(rinc_vm.ffi[k].name, "pc.checkRio") ||
+        !strcmp(rinc_vm.ffi[k].name, "pc.completeRio") || !strcmp(rinc_vm.ffi[k].name, "pc.formatRio"))
+      rinc_nested = 1; /* (the compiler's, all of them) */
   }
   if (!(size = rio_saveImage(&rinc_vm, rinc_image, sizeof rinc_image))) fprintf(stderr, "rinc: can't make an image\n");
   return size;

@@ -24,11 +24,31 @@ app is a Rio program.
   to do: deciding by ear which rate and smoothing to start at, and the synth's loudness beside
   recorded sound (8 dB down for now: notes/native-synth.md); a small library that plays Sound's
   files in games; music (patterns of sounds across voices), in Rio on top or in the core.
-- Editing code on the board: completion that knows types (a variable's fields and methods after its
-  dot), once Rio can say what they are. (Ctrl+Space completes from the file's words, core's names and
-  Rio's words, and after a module's dot, from its names, by itself; saving lays code out as `rio fmt`
-  does; Ctrl+Shift+J joins lines; Enter goes on with a comment; coming back to the editor after a run
-  that stopped with an error, compile or runtime, puts the cursor on it, in whichever part it was.)
+- Editing code on the board: completion knows types now (branch `exact-completion`: pc.checkRio, Rio's
+  check up to the cursor's line, then pc.completeRio; Ctrl+Space only), and a pause in typing checks the
+  whole file and underlines its first error. Next: go to definition (across files: the check's tables
+  need where each name was declared), then renames (a check that reports a name's every use).
+- Speed, compiling and checking on the board (measured 2026-11-02, the editor checking itself, ~2,600
+  lines in 9 files: 746 ms on the board, 4 ms on a desktop; pc alone, which every check and compile
+  compiles first, 34 ms and 0.4 ms). Not started; ideas, roughly by what they'd likely give:
+  - Reading sources from the card: about half of the 746 ms. The reader keeps one file open, reopening
+    and seeking (a walk of FAT's cluster chain) each time compiling moves between a part and the file
+    including it. Keep a few files open, use FatFS's fast seek, or read bigger windows than 2 KB.
+  - The compiler runs from flash, through a 16 KB cache, and is ~225 KB: its hot paths (the lexer,
+    name lookup) in SRAM, as the interpreter is, if the room can be found.
+  - pc compiled once, its compiler tables kept and copied into each check and compile after (34 ms
+    each; most of a small app's compile).
+  - Rio's own: see Rio's roadmap (name lookup by hash, a check that makes no code).
+  - Imports instead of includes would only help once Rio can keep a module's compiled tables between
+    compiles (it compiles every module every time now), so not yet: keep using whichever reads best.
+- The editor and native code: the check's room (formatted, now 60 KB) leaves the editor 1.6 KB free,
+  and rio_jit, which puts an app's native loops in its free memory (needing ~8 KB to compile them),
+  now does nothing for the editor: on the board, it all runs as bytecode (it had 26 KB free before).
+  To decide: a smaller check room (Rio's check tables sized closer to need), freeing the 32 KB edit
+  scratch (an in-place move, which Rio would need: a memmove-like builtin, or a byte loop), or
+  measuring first whether the editor's frames are slower enough to matter. Desktop and web have no
+  JIT and nothing to reserve: native code only ever uses what an app leaves free, so an app that fits
+  one fits all.
 - A diff view in the editor (inline, maybe): what changed since the file was saved, or between two.
 - Key handling, an audit and a pass to refine it (for review): how each platform's keys become
   `pc.key()`'s codes (Ctrl with letters, and now Ctrl+Space and Ctrl+/ added one at a time), other

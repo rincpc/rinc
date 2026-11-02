@@ -22,9 +22,6 @@ key :: proc(k: Int)
     if base == 100 or base == 101
       dedent()
     end
-    if base == 46 # (after a module's name: its names)
-      complete(1)
-    end
   case k == (32 | CTRL) # Ctrl+Space
     complete(0)
   case k == (47 | CTRL) # Ctrl+/
@@ -177,8 +174,8 @@ reveal :: proc()
   if col < left
     left = max(0, col - 8)
   end
-  if col >= left + COLS
-    left = col - COLS + 8
+  if col >= left + cols
+    left = col - cols + 8
   end
 end
 
@@ -193,8 +190,8 @@ textAt :: proc(px: Int, py: Int) -> Int
   end
   l := min(top + row, lineCount - 1)
   col := left
-  if px >= TEXT_X
-    col = left + (px - TEXT_X + 3) / 6
+  if px >= textX
+    col = left + (px - textX + 3) / 6
   end
   return lineAt[l] + min(col, lineEnd(l) - lineAt[l])
 end
@@ -266,7 +263,7 @@ pointer :: proc()
     for l in top..<min(lineCount, top + ROWS)
       widest = max(widest, lineEnd(l) - lineAt[l])
     end
-    left = max(0, min(left + 4 * across, widest - COLS / 2))
+    left = max(0, min(left + 4 * across, widest - cols / 2))
   end
 end
 
@@ -295,4 +292,5 @@ update* :: proc()
     end
   end
   pointer()
+  idleCheck()
 end
