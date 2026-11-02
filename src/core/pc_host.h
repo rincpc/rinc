@@ -84,6 +84,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
 #define pc_done_SIG "s"
 #define pc_result_SIG "b>i"
 #define pc_appError_SIG "bb>" pc_AppError_LAYOUT
+#define pc_checkError_SIG "bb>" pc_AppError_LAYOUT
 #define pc_appSource_SIG "sb>i"
 #define pc_appSave_SIG "ss>i"
 #define pc_appDelete_SIG "s>i"
@@ -171,6 +172,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(done, pc_done_SIG) \
   X(result, pc_result_SIG) \
   X(appError, pc_appError_SIG) \
+  X(checkError, pc_checkError_SIG) \
   X(appSource, pc_appSource_SIG) \
   X(appSave, pc_appSave_SIG) \
   X(appDelete, pc_appDelete_SIG) \
@@ -209,7 +211,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x9666023du /* (rio_hashText of the source) */
+#define pc_HASH 0xec331dd7u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -369,6 +371,9 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "end\n" \
   "appError* :: host proc(path: Blob, message: Blob) -> AppError\n" \
   "# an app's source into out, as much as fits: its whole length, or -1 if there's no such app\n" \
+  "# the last checkRio's error, as appError has an app's (line 0: none), its file the main file or one it\n" \
+  "# includes or imports (/rinc/...): for an editor's underline. Checking the whole file finds its first\n" \
+  "checkError* :: host proc(path: Blob, message: Blob) -> AppError\n" \
   "appSource* :: host proc(name: String, out: Blob) -> Int\n" \
   "appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1\n" \
   "appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1\n" \

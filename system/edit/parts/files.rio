@@ -101,6 +101,7 @@ settle :: proc(n: Int)
   end
   textLen = k
   checkedAt = -1 # (another file, or the same read again)
+  edits += 1
   rebuildLines()
 end
 

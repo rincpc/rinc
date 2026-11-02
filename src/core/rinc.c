@@ -1348,6 +1348,7 @@ static int rinc_checkLoader(void *ud, const char *path, int kind, rio_Source *ou
    call, so the board runs it on a stack of its own (rinc_onBigStack) */
 void (*rinc_onBigStack)(void (*fn)(void *), void *arg);
 static struct { const char *main; uint8_t *room; uint32_t size; int result; } rinc_checking;
+static struct { char path[128], message[rio_ERROR_BUF_SIZE]; int line, col, len; } rinc_checkError; /* (the last check's) */
 static void rinc_runCheck(void *arg) {
   (void)arg;
   rinc_checking.result = -1;
@@ -1397,6 +1398,14 @@ static void rinc_hostCheckrio(rio_Vm *v, rio_Val *a) {
   if (rinc_onBigStack) rinc_onBigStack(rinc_runCheck, 0); /* (the board's: a stack of its own) */
   else rinc_runCheck(0);
   a[0].i = rinc_checking.result;
+  { /* (its error, kept for pc.checkError: in which file, /rinc/... or main's own) */
+    rio_Error e = rio_errorInfo(&rinc_nest);
+    rinc_checkError.line = a[0].i < 0 && e.kind == rio_ErrorKind_compile ? e.line : 0;
+    rinc_checkError.col = e.col; rinc_checkError.len = e.len;
+    if (!e.file) snprintf(rinc_checkError.path, sizeof rinc_checkError.path, "%s", mainPath);
+    else snprintf(rinc_checkError.path, sizeof rinc_checkError.path, "%s%s", e.file[0] == '/' ? "" : "/rinc/", e.file);
+    snprintf(rinc_checkError.message, sizeof rinc_checkError.message, "%s", e.msg ? e.msg : "");
+  }
   rinc_srcOn = 0;
   rinc_hostFolder[0] = host;
   if (rinc_readerOpen) { rinc_fs->close(); rinc_readerOpen = 0; }
@@ -1404,6 +1413,17 @@ static void rinc_hostCheckrio(rio_Vm *v, rio_Val *a) {
   if (!rinc_nest.compiler) return;
   rinc_cplOn = 1; rinc_checkRoom = room; rinc_checkSize = size; rinc_checkHash = rinc_roomHash(room, size);
 #endif
+}
+/* checkError(path, message) -> pc.AppError: the last check's error (line 0: none), its file and what it says */
+static void rinc_hostCheckerror(rio_Vm *v, rio_Val *a) {
+  pc_AppError r;
+  memset(&r, 0, sizeof r);
+  if (rinc_checkError.line > 0) {
+    r.line = rinc_checkError.line; r.col = rinc_checkError.col; r.len = rinc_checkError.len;
+    r.pathLen = rinc_copyOut(v, a + 2, rinc_checkError.path, (int)strlen(rinc_checkError.path));
+    r.messageLen = rinc_copyOut(v, a + 4, rinc_checkError.message, (int)strlen(rinc_checkError.message));
+  }
+  rio_putStruct(v, a, &r, sizeof r);
 }
 typedef struct { char *out; uint32_t cap, n; } rinc_Offers;
 static void rinc_offer(void *ud, const char *name, int nameLen, int kind, const char *detail, int detailLen) {
@@ -1791,7 +1811,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.saveDelete", pc_saveDelete_SIG, rinc_hostSaveDelete) || rio_addFfi(vm, "pc.rioStart", pc_rioStart_SIG, rinc_hostRioStart) ||
          rio_addFfi(vm, "pc.rioEval", pc_rioEval_SIG, rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", pc_rioFrame_SIG, rinc_hostRioFrame) ||
          rio_addFfi(vm, "pc.rioType", pc_rioType_SIG, rinc_hostRioType) || rio_addFfi(vm, "pc.rioError", pc_rioError_SIG, rinc_hostRioError) ||
-         rio_addFfi(vm, "pc.rioLog", pc_rioLog_SIG, rinc_hostRioLog) || rio_addFfi(vm, "pc.rioIndent", pc_rioIndent_SIG, rinc_hostRioIndent) || rio_addFfi(vm, "pc.checkRio", pc_checkRio_SIG, rinc_hostCheckrio) || rio_addFfi(vm, "pc.completeRio", pc_completeRio_SIG, rinc_hostCompleterio) ||
+         rio_addFfi(vm, "pc.rioLog", pc_rioLog_SIG, rinc_hostRioLog) || rio_addFfi(vm, "pc.rioIndent", pc_rioIndent_SIG, rinc_hostRioIndent) || rio_addFfi(vm, "pc.checkRio", pc_checkRio_SIG, rinc_hostCheckrio) || rio_addFfi(vm, "pc.completeRio", pc_completeRio_SIG, rinc_hostCompleterio) || rio_addFfi(vm, "pc.checkError", pc_checkError_SIG, rinc_hostCheckerror) ||
          rinc_pcSource(vm);
 }
 

@@ -10,7 +10,10 @@
 # Ctrl+A selects all; Ctrl+X, C and V cut, copy and paste (the line, with nothing selected); Ctrl+Z
 # undoes, Ctrl+Y (or Ctrl+Shift+Z) redoes. Tab and Shift+Tab indent and outdent, Alt+Up and Down move
 # lines, Ctrl+Shift+K deletes them, Ctrl+Shift+J joins them, Ctrl+L selects one, Ctrl+F finds, Ctrl+G
-# goes to a line, Ctrl+/ comments lines (or uncomments them), Ctrl+Space completes the word (after a module's dot, by itself). Saving a .rio file
+# goes to a line, Ctrl+/ comments lines (or uncomments them), Ctrl+Space completes the word, as Rio sees
+# it there (after a dot, by itself). A pause in typing checks the file, and its first error is underlined,
+# what it says on the bottom bar while the cursor's on its line. Line numbers are in the list of
+# commands (hidden, a slim gutter marks the cursor's line). Saving a .rio file
 # lays it out as rio fmt does, the cursor kept on its code; Enter in a comment goes on with it. Up to
 # 32 KB of text. With a mouse: a click puts the cursor there, dragging selects, and the wheel scrolls. An
 # ordinary app (the Fruit Jam's firmware has it built in).
@@ -31,6 +34,8 @@ include "parts/screen.rio"
 # back from Files (called to open a file, or to save as): what it had, again, then what was picked;
 # else the active app or project's main file (another app may have made another one active), or, if
 # that's where it was, where it was, else a new file
+numbersBuf: Blob[1] # (line numbers, if they were shown last time)
+showNumbers(pc.saveRead("numbers", numbersBuf[]) == 1 and numbersBuf[0] == 49)
 place: [3]Int # (the path's length, the cursor, the line at the top)
 lastBuf: Blob[128]
 lastLen := min(pc.saveRead("last", lastBuf[0..<128]), 128)

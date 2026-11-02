@@ -20,6 +20,8 @@ listing: Blob[6144]   # its entries, a line each: "d name" or "f name"
 kind: [MOST]Int       # each one's: 0 a file, 1 a folder, 2 .. (up)
 nameAt: [MOST]Int
 nameLen: [MOST]Int
+size: [MOST]Int       # a file's bytes (-1: not known)
+none: Blob[1]         # (pc.fileRead's room, to have just a file's size)
 count := 0
 shown: [MOST]Int      # what's listed: each one's number
 nshown := 0

@@ -31,9 +31,9 @@ drawLine :: proc(l: Int, y: Int)
     c0 := max(s0, a) - a - left
     c1 := min(s1, e + 1) - a - left
     c0 = max(0, c0)
-    c1 = min(COLS, c1)
+    c1 = min(cols, c1)
     if c1 > c0
-      pc.rect({TEXT_X + c0 * 6 - 1, y - 1}, {(c1 - c0) * 6, 9}, selectColor)
+      pc.rect({textX + c0 * 6 - 1, y - 1}, {(c1 - c0) * 6, 9}, selectColor)
     end
   end
   inString := 0 # its quote, while in one
@@ -83,16 +83,16 @@ drawLine :: proc(l: Int, y: Int)
       end
     end
     col := p - a - left
-    visible := p < e and col >= 0 and col < COLS
+    visible := p < e and col >= 0 and col < cols
     if runStart >= 0 and (not visible or color != runColor)
-      pc.print(text[runStart..<p].asString(), {TEXT_X + (runStart - a - left) * 6, y}, runColor)
+      pc.print(text[runStart..<p].asString(), {textX + (runStart - a - left) * 6, y}, runColor)
       runStart = -1
     end
     if visible and runStart < 0
       runStart = p
       runColor = color
     end
-    if col >= COLS
+    if col >= cols
       return
     end
   end
@@ -143,7 +143,7 @@ drawOffers :: proc()
   if sigs > 0
     w = min(316, w + 12 + sigs * 6)
   end
-  x := TEXT_X + (wordFrom - lineAt[cl] - left) * 6 - 3
+  x := textX + (wordFrom - lineAt[cl] - left) * 6 - 3
   x = max(2, min(x, 318 - w))
   pc.rect({x - 1, y - 1}, {w + 2, rows * 9 + 2}, faintColor)
   pc.rect({x, y}, {w, rows * 9}, barColor)
@@ -238,20 +238,35 @@ draw* :: proc()
       break
     end
     y := TOP_Y + row * 9
-    num.clear()
-    _ = num.print(l + 1)
-    numColor := faintColor
-    if l == cl
-      numColor = softColor
+    if numbers
+      num.clear()
+      _ = num.print(l + 1)
+      numColor := faintColor
+      if l == errLine
+        numColor = errorColor
+      case l == cl
+        numColor = softColor
+      end
+      pc.print(num[0..<num.len()].asString(), {textX - 6 - num.len() * 6, y}, numColor)
+    case l == errLine # (the slim gutter: the error's line, else the cursor's)
+      pc.rect({1, y - 1}, {2, 9}, errorColor)
+    case l == cl
+      pc.rect({1, y - 1}, {2, 9}, faintColor)
     end
-    pc.print(num[0..<num.len()].asString(), {TEXT_X - 6 - num.len() * 6, y}, numColor)
     drawLine(l, y)
+    if l == errLine # (the error, underlined)
+      c0 := max(0, errCol - left)
+      c1 := min(cols, errCol - left + errLen)
+      if c1 > c0
+        pc.rect({textX + c0 * 6 - 1, y + 8}, {(c1 - c0) * 6, 1}, errorColor)
+      end
+    end
   end
   # the cursor: lit while it moves, else blinking
   ccol := cursor - lineAt[cl] - left
-  if mode == NONE and cl >= top and cl < top + ROWS and ccol >= 0 and ccol <= COLS
+  if mode == NONE and cl >= top and cl < top + ROWS and ccol >= 0 and ccol <= cols
     if pc.time() - movedAt < 0.5 or (pc.time() * 2.0).toInt() % 2 == 0
-      pc.rect({TEXT_X + ccol * 6 - 1, TOP_Y + (cl - top) * 9 - 1}, {1, 9}, accentColor)
+      pc.rect({textX + ccol * 6 - 1, TOP_Y + (cl - top) * 9 - 1}, {1, 9}, accentColor)
     end
   end
   # the bottom bar: a prompt, a message, or the keys
@@ -272,6 +287,8 @@ draw* :: proc()
     pc.rect({2 + (label.len() + t.len()) * 6, 230}, {1, 9}, accentColor)
   case message.len() > 0 and pc.time() - messageAt < 4.0
     pc.print(message[0..<message.len()].asString(), {2, 231}, messageColor)
+  case errLine == cl and errTextLen > 0 # (on the error's line: what it says)
+    pc.print(errText[0..<min(errTextLen, 53)].asString(), {2, 231}, errorColor)
   else
     pc.print("^O open  ^S save  ^R run  ^Shift+P all", {2, 231}, faintColor)
   end

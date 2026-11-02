@@ -103,6 +103,10 @@ open :: proc(p: String) -> Bool
       end
       nameAt[count] = at + 2
       nameLen[count] = i - at - 2
+      size[count] = -1
+      if kind[count] == FILE
+        size[count] = pc.fileRead(pathTo(nameOf(count)), none[0..<0])
+      end
       count += 1
       n -= 1
       at = i + 1

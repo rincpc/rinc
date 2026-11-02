@@ -156,6 +156,9 @@ AppError* :: struct
 end
 appError* :: host proc(path: Blob, message: Blob) -> AppError
 # an app's source into out, as much as fits: its whole length, or -1 if there's no such app
+# the last checkRio's error, as appError has an app's (line 0: none), its file the main file or one it
+# includes or imports (/rinc/...): for an editor's underline. Checking the whole file finds its first
+checkError* :: host proc(path: Blob, message: Blob) -> AppError
 appSource* :: host proc(name: String, out: Blob) -> Int
 appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1
 appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1

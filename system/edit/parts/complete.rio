@@ -7,7 +7,8 @@
 # after a value and, or, is); then the file's own words (the nearest first). With just one, it's put
 # in. After a dot, what's before it has: a value's fields and methods (its kind's built-in ones too), a
 # type's values and static procs, a module's names; and the list opens by itself as the dot's typed.
-# Typing narrows the list, Up and Down (and Page Up and Down) pick, Tab or Enter puts the pick in, and
+# (Where a check takes long, on the board for a big app, the dot waits for Ctrl+Space, unless the cursor's
+# line was checked already.) Typing narrows the list, Up and Down (and Page Up and Down) pick, Tab or Enter puts the pick in, and
 # Esc or any other key closes it. Rio's view of it comes from a check (pc.checkRio): the app's main
 # file compiled up to the start of the cursor's line, in formatted (saving's: a save means another);
 # another only once the line, or anything above it, changes.
@@ -138,15 +139,22 @@ end
 # Rio's names for the cursor: a check first, unless the last still holds (cut at this line, and nothing
 # changed above it since), then what fits there, each ranked as it came (the proc's own first), Rio's
 # words after the names
+# the file a check compiles: the app's main file (this one is it, or one it includes or imports), else this
+checkMain :: proc() -> String
+  main := here()
+  app := appOf(main)
+  if app.len() > 0
+    main = mainPath(app)
+  end
+  return main
+end
+
 offerRio :: proc()
   a := lineAt[lineOf(cursor)]
   if checkedAt != a or changedFrom < a
-    main := here()
-    app := appOf(main)
-    if app.len() > 0
-      main = mainPath(app)
-    end
-    _ = pc.checkRio(main, here(), text[0..<a].asString(), formatted[])
+    t := pc.time()
+    _ = pc.checkRio(checkMain(), here(), text[0..<a].asString(), formatted[])
+    checkCost = pc.time() - t
     checkedAt = a
     changedFrom = CAP + 1
   end
@@ -171,6 +179,46 @@ offerRio :: proc()
     end
     i += 1
     p = e + 1
+  end
+end
+
+# ---------------------------------------------------------------- errors
+#
+# Once typing pauses, the whole file is checked (pc.checkRio, as for completion, but to its end), and
+# its first error, if it's in this file, underlined; what it says shows on the bottom bar while the
+# cursor's on its line. The pause is longer where a check takes long (a big app's, on the board: about
+# half a second)
+
+errLine := -1            # the first error's line here (-1: none, or it's in another file)
+errCol := 0              # where on it (from 0), and how wide (at least 1)
+errLen := 1
+errText: Blob[96]
+errTextLen := 0
+errPath: Blob[128]
+checkedEdits := -1       # the edits the last check of the whole file was of
+
+checkErrors :: proc()
+  t := pc.time()
+  r := pc.checkRio(checkMain(), here(), text[0..<textLen].asString(), formatted[])
+  checkCost = pc.time() - t
+  checkedAt = -1 # (the tables are this check's now: completion makes its own)
+  checkedEdits = edits
+  errLine = -1
+  if r < 0
+    e := pc.checkError(errPath[], errText[])
+    errTextLen = min(e.messageLen, 96)
+    if e.line >= 1 and e.line <= lineCount and errPath[0..<min(e.pathLen, 128)].asString() == here()
+      errLine = e.line - 1
+      errCol = max(0, e.col - 1)
+      errLen = max(1, e.len)
+    end
+  end
+end
+
+# each frame: the check, when the text's changed and typing has paused
+idleCheck :: proc()
+  if checkedEdits != edits and not completing and mode == NONE and pc.time() - editedAt > 0.6 + checkCost * 4.0
+    checkErrors()
   end
 end
 
@@ -229,6 +277,10 @@ complete :: proc(how: Int)
     p -= 1
   end
   wordFrom = p
+  a := lineAt[lineOf(cursor)]
+  if how == 1 and (checkedAt != a or changedFrom < a) and checkCost > 0.15 # (a slow check would hold up typing: Ctrl+Space shows it)
+    return
+  end
   offers = 0
   dot := p > 0 and text[p - 1] == 46 and (p < 2 or text[p - 2] != 46)
   offerRio()

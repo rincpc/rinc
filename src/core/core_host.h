@@ -8,7 +8,7 @@
 
 #define core_HOST_PROCS(X)
 
-#define core_HASH 0xaecfb53fu /* (rio_hashText of the source) */
+#define core_HASH 0xa1ab2e37u /* (rio_hashText of the source) */
 #define core_SOURCE \
   "# core.rio: the builtins, module core, declared (docs/spec/builtins.md says what they do). Programs\n" \
   "# don't import it: the builtins are always there, and as core.name too. It's what they are, written in Rio, and tests/host.c compiles\n" \
@@ -81,7 +81,7 @@
   "Int.toBool* :: host proc() -> Bool       # n != 0\n" \
   "Float.toInt* :: host proc() -> Int       # toward zero; saturates; NaN is 0\n" \
   "Bool.toInt* :: host proc() -> Int        # 0 or 1\n" \
-  "Blob.asString* :: host proc() -> String  # the same bytes, read-only\n" \
+  "Blob.asString* :: host proc() -> String  # the same bytes, read-only (a Blob[..]'s, or a Blob[N]'s, too)\n" \
   "\n" \
   "# text as a number: nil if it isn't one (docs/spec/expressions.md#text-as-numbers); base 2 to 36, left\n" \
   "# out or 0 for 10\n" \

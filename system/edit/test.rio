@@ -157,4 +157,26 @@ anchor = cursor
 complete(0)
 assert(completing and offered(0) == "zebra", "Rio's names before the file's words")
 completing = false
+# errors: the whole file checked, its first error where it is
+start("x := 1\ny := nope + x\n")
+checkErrors()
+assert(errLine == 1 and errCol == 5 and errLen == 4 and errText[0..<errTextLen].asString() == "undefined name near 'nope'", "an error, underlined where it is")
+start("x := 1\n")
+checkErrors()
+assert(errLine == -1 and checkedEdits == edits, "and none")
+start("f :: proc()\n  x := 1\n")
+checkErrors()
+assert(errLine == 1, "an unfinished block: at its end")
+checkCost = 1.0 # (checks as slow as a big app's on the board: a dot doesn't hold typing up)
+start("P :: struct\n  across, down: Int\nend\np: P\np.")
+complete(1)
+assert(not completing, "a slow check: the dot waits for Ctrl+Space")
+complete(0)
+assert(completing and offered(0) == "across", "which shows it")
+completing = false
+checkCost = 0.0
+showNumbers(true)
+assert(textX == TEXT_X and cols == COLS, "line numbers")
+showNumbers(false)
+assert(textX < TEXT_X and cols > COLS, "and not")
 log("all edit tests passed")
