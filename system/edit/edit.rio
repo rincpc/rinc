@@ -11,7 +11,7 @@
 # undoes, Ctrl+Y (or Ctrl+Shift+Z) redoes. Tab and Shift+Tab indent and outdent, Alt+Up and Down move
 # lines, Ctrl+Shift+K deletes them, Ctrl+Shift+J joins them, Ctrl+L selects one, Ctrl+F finds, Ctrl+G
 # goes to a line, Ctrl+/ comments lines (or uncomments them), Ctrl+Space completes the word, as Rio sees
-# it there (after a dot, by itself). A pause in typing checks the file, and its first error is underlined,
+# it there. A pause in typing checks the file, and its first error is underlined,
 # what it says on the bottom bar while the cursor's on its line. Line numbers are in the list of
 # commands (hidden, a slim gutter marks the cursor's line). Saving a .rio file
 # lays it out as rio fmt does, the cursor kept on its code; Enter in a comment goes on with it. Up to

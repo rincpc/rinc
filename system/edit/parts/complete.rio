@@ -6,10 +6,9 @@
 # (the proc's own first), with what each is, and Rio's words that fit (a statement's, an expression's,
 # after a value and, or, is); then the file's own words (the nearest first). With just one, it's put
 # in. After a dot, what's before it has: a value's fields and methods (its kind's built-in ones too), a
-# type's values and static procs, a module's names; and the list opens by itself as the dot's typed.
-# (Where a check takes long, on the board for a big app, the dot waits for Ctrl+Space, unless the cursor's
-# line was checked already.) Typing narrows the list, Up and Down (and Page Up and Down) pick, Tab or Enter puts the pick in, and
-# Esc or any other key closes it. Rio's view of it comes from a check (pc.checkRio): the app's main
+# type's values and static procs, a module's names. It opens only for Ctrl+Space, never by itself (a
+# check can take half a second on the board: typing isn't held up). Typing narrows the list, Up and Down
+# (and Page Up and Down) pick, Tab or Enter puts the pick in, and Esc or any other key closes it. Rio's view of it comes from a check (pc.checkRio): the app's main
 # file compiled up to the start of the cursor's line, in formatted (saving's: a save means another);
 # another only once the line, or anything above it, changes.
 
@@ -268,8 +267,8 @@ takeOffer :: proc()
   ok := edit(wordFrom, cursor, built[0..<built.len()].asString(), 0)
 end
 
-# the list, for the word at the cursor. how: 0 asked for (Ctrl+Space: one, put in; none, said), 1 a
-# dot just typed (quietly: open only if something fits), 2 again as it's typed (quietly)
+# the list, for the word at the cursor. how: 0 asked for (Ctrl+Space: one, put in; none, said), 2 again
+# as it's typed (quietly)
 complete :: proc(how: Int)
   completing = false
   p := cursor
@@ -277,16 +276,9 @@ complete :: proc(how: Int)
     p -= 1
   end
   wordFrom = p
-  a := lineAt[lineOf(cursor)]
-  if how == 1 and (checkedAt != a or changedFrom < a) and checkCost > 0.15 # (a slow check would hold up typing: Ctrl+Space shows it)
-    return
-  end
   offers = 0
   dot := p > 0 and text[p - 1] == 46 and (p < 2 or text[p - 2] != 46)
   offerRio()
-  if how == 1 and offers == 0
-    return
-  end
   if not dot or offers == 0 # (after a dot, the file's words only when Rio has nothing)
     offerWords()
   end
