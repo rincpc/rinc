@@ -1343,6 +1343,24 @@ static int rinc_checkLoader(void *ud, const char *path, int kind, rio_Source *ou
   return 0;
 }
 #endif
+/* the check itself: main compiled, from storage, unless it's the file being edited (the editor's text). Deep:
+   the compiler, and under it the loader, the SD card's reader and its file system, from inside an app's
+   call, so the board runs it on a stack of its own (rinc_onBigStack) */
+void (*rinc_onBigStack)(void (*fn)(void *), void *arg);
+static struct { const char *main; uint8_t *room; uint32_t size; int result; } rinc_checking;
+static void rinc_runCheck(void *arg) {
+  (void)arg;
+  rinc_checking.result = -1;
+#ifndef rio_NO_COMPILER
+  if (!strcmp(rinc_checking.main, rinc_checkPath))
+    rinc_checking.result = rio_check(&rinc_nest, rinc_checkCode, rinc_checkLen, 0, 0, rinc_checking.room, rinc_checking.size);
+  else {
+    rinc_Reader *top = &rinc_srcFiles[rinc_SRC_FILES];
+    if (!rinc_readerStart(top, rinc_checking.main, 0)) top->path[0] = 0;
+    rinc_checking.result = rio_check(&rinc_nest, 0, 0, rinc_readAt, top, rinc_checking.room, rinc_checking.size);
+  }
+#endif
+}
 static void rinc_hostCheckrio(rio_Vm *v, rio_Val *a) {
   const char *main = (const char *)rio_sliceBytes(v, a), *path = (const char *)rio_sliceBytes(v, a + 2), *code = (const char *)rio_sliceBytes(v, a + 4);
   uint8_t *room = (uint8_t *)rio_sliceBytes(v, a + 6);
@@ -1375,12 +1393,10 @@ static void rinc_hostCheckrio(rio_Vm *v, rio_Val *a) {
   host = rinc_hostFolder[0];
   rinc_hostFolder[0] = 0; /* (storage's files, even for an app run from the host's) */
   rio_setSourceWindow(&rinc_nest, 2048);
-  if (!strcmp(mainPath, editPath)) a[0].i = rio_check(&rinc_nest, rinc_checkCode, rinc_checkLen, 0, 0, room + constRoom, size - constRoom);
-  else {
-    rinc_Reader *top = &rinc_srcFiles[rinc_SRC_FILES];
-    if (!rinc_readerStart(top, mainPath, 0)) top->path[0] = 0;
-    a[0].i = rio_check(&rinc_nest, 0, 0, rinc_readAt, top, room + constRoom, size - constRoom);
-  }
+  rinc_checking.main = mainPath; rinc_checking.room = room + constRoom; rinc_checking.size = size - constRoom;
+  if (rinc_onBigStack) rinc_onBigStack(rinc_runCheck, 0); /* (the board's: a stack of its own) */
+  else rinc_runCheck(0);
+  a[0].i = rinc_checking.result;
   rinc_srcOn = 0;
   rinc_hostFolder[0] = host;
   if (rinc_readerOpen) { rinc_fs->close(); rinc_readerOpen = 0; }

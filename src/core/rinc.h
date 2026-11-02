@@ -47,6 +47,9 @@ int rinc_zipInstall(rinc_Zip *zip);
    it says what to do */
 void rinc_dropped(int bad);
 extern float (*rinc_time)(void);          /* seconds since start, from the platform */
+/* calls fn(arg) on a stack big enough for compiling (pc.checkRio's), from the platform: the board's
+   main stack is small; 0 (elsewhere): called as it is */
+extern void (*rinc_onBigStack)(void (*fn)(void *), void *arg);
 /* buttons held: bit 0 left, 1 right, 2 up, 3 down, then the face buttons, named as on an Xbox
    controller and in order of importance: 4 A (V key), 5 B (C), 6 X (X), 7 Y (Z), then the
    controller's others: 8 LB, 9 RB, 10 left stick, 11 right stick (pressed in), 12 Start, 13 Back.
