@@ -211,7 +211,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0xec331dd7u /* (rio_hashText of the source) */
+#define pc_HASH 0x4e12d62bu /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -384,7 +384,8 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "# ---------------------------------------------------------------- files, by path, for a file browser\n" \
   "\n" \
   "# A path is absolute (/rinc/save/chord/best), in /rinc, the root: looking goes anywhere in it, changing\n" \
-  "# only inside it\n" \
+  "# only inside it. Or, not starting with /, it's one of the app's own files, in its folder (as a project,\n" \
+  "# /rinc/projects/chord/, or installed, /rinc/apps/chord/): pngRead(\"sprites.png\"), for reading only\n" \
   "dir* :: host proc(path: String, out: Blob) -> Int          # its entries, folders first, a line each (\"d name\", \"f name\"): how many, or -1\n" \
   "fileRead* :: host proc(path: String, out: Blob) -> Int     # as much as fits: its whole length, or -1\n" \
   "fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1\n" \

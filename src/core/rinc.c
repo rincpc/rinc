@@ -720,6 +720,13 @@ static void rinc_hostAppRename(rio_Vm *v, rio_Val *a) {
 static void rinc_writeFile(rio_Vm *v, rio_Val *a, const char *path); /* (below) */
 static int rinc_argPath(rio_Vm *v, rio_Val *a, char *out, int change) {
   const char *s = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u, i;
+  char own[96];
+  if (s && n >= 1 && s[0] != '/') { /* (one of the app's own files, by its path in its folder: its project's, chord+, or as installed) */
+    int k = snprintf(own, sizeof own, "/rinc/%s/%s/%.*s", rinc_appProject ? "projects" : "apps", rinc_appNow, n, s);
+    if (change || k < 0 || k >= (int)sizeof own) return 0; /* (read only: an installed app's folder isn't for writing) */
+    s = own;
+    n = k;
+  }
   if (!s || n < 1 || n > 95 || s[0] != '/' || (n > 1 && s[n - 1] == '/')) return 0;
   for (i = 0; i < n; i++) {
     char c = s[i];

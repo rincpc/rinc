@@ -19,23 +19,46 @@ app is a Rio program.
 
 ## Next
 
+- An app's own files by relative path: in (pc's file procs: a path not starting with / is in the app's
+  folder, its project's or as installed; for reading). Next with it: run from the desktop's own files
+  (rinc mygame/), the same path reads from there; and tools/send.py sending binary files (a PNG, a WAV)
+  with the console's put, as hex (today it sends text only, so a picture arrives broken).
+- Apps for file types, sooner (from Later): Files opens a .png in Paint, a .snd in Sound, .rio in the
+  editor, and Ctrl+O in the editor starts in the current project's folder.
+- Pictures and blit (breaking: one pass with the system apps and Studio): Blit's fields as [2]Int
+  (at, from, size, and scale); a picture keeps its size in it (one value to blit, save and load), with
+  pc.picSize(picture) -> [2]Int so no app decodes the header with getInt.
+- The editor's screen flickers while a check runs (about half a second on the board, for a big app).
+  Suspect: core 1 (HDMI and sound) running some of its code from flash, which the compiler (~225 KB,
+  also from flash) pushes out of the 16 KB cache they share. Check: whether video's and sound's hot
+  paths are all in SRAM; whether a long busy loop in an app (no compiling) flickers too; and what the
+  frame loop does after a slow frame.
+- A palette with a perceptual spread, in place of the 6x6x6 cube's many bright, saturated colors: a
+  script (tools/palette.rio) given a number of slots and colors pinned (PICO-8's 32, the secret 16
+  among them; 16 grays; maybe 16 more kept free), filling the rest by farthest-point sampling in OKLab
+  over the colors sRGB can show, weighted toward darker and moderate chroma, staying off the gray axis
+  (chroma under ~0.03) when grays are pinned. sRGB's own gamut gives the darker-blues, lighter-yellows
+  lean. Writes a preview PNG and the C table, to compare against the cube in real apps' screenshots
+  and what Paint and the themes need, before switching.
+- Themes: the gray theme (in progress) as the default; no theme called Rinc.
 - The synth (`pc.synth`, `pc.synthMake`: Sound's notes, made in C as they play) is in, with each
   voice's rate, bend, envelope and smoothing changeable as it plays, and waves of an app's own. Still
   to do: deciding by ear which rate and smoothing to start at, and the synth's loudness beside
   recorded sound (8 dB down for now: notes/native-synth.md); a small library that plays Sound's
   files in games; music (patterns of sounds across voices), in Rio on top or in the core.
-- Editing code on the board: completion knows types now (branch `exact-completion`: pc.checkRio, Rio's
-  check up to the cursor's line, then pc.completeRio; Ctrl+Space only), and a pause in typing checks the
+- Editing code on the board: completion knows types now (pc.checkRio, Rio's check up to the cursor's
+  line, then pc.completeRio; Ctrl+Space only), and a pause in typing checks the
   whole file and underlines its first error. Next: go to definition (across files: the check's tables
   need where each name was declared), then renames (a check that reports a name's every use).
 - Speed, compiling and checking on the board (measured 2026-11-02, the editor checking itself, ~2,600
   lines in 9 files: 746 ms on the board, 4 ms on a desktop; pc alone, which every check and compile
   compiles first, 34 ms and 0.4 ms). Not started; ideas, roughly by what they'd likely give:
-  - Reading sources from the card: about half of the 746 ms. The reader keeps one file open, reopening
-    and seeking (a walk of FAT's cluster chain) each time compiling moves between a part and the file
-    including it. Keep a few files open, use FatFS's fast seek, or read bigger windows than 2 KB.
-  - The compiler runs from flash, through a 16 KB cache, and is ~225 KB: its hot paths (the lexer,
-    name lookup) in SRAM, as the interpreter is, if the room can be found.
+  - Profiled (Rio's bench/compile-profile.md): of a 763 ms check of the editor, the lexer ~150 ms of
+    its own, reading the card 150 ms (twice reading the files whole: 2 KB windows, a file reopened at
+    each include and back), lookups 55 ms, and half in the rest of Rio's compiler. Rio's roadmap has
+    the compiler's side; the board's: the lexer's hot loop in SRAM, as the interpreter's is (the
+    compiler runs from flash, through a 16 KB cache), and reading in bigger windows with files kept
+    open (FatFS's fast seek), or sources cached in PSRAM (the SDK has `hardware_psram`).
   - pc compiled once, its compiler tables kept and copied into each check and compile after (34 ms
     each; most of a small app's compile).
   - Rio's own: see Rio's roadmap (name lookup by hash, a check that makes no code).
@@ -44,9 +67,10 @@ app is a Rio program.
 - The editor and native code: the check's room (formatted, now 60 KB) leaves the editor 1.6 KB free,
   and rio_jit, which puts an app's native loops in its free memory (needing ~8 KB to compile them),
   now does nothing for the editor: on the board, it all runs as bytecode (it had 26 KB free before).
-  To decide: a smaller check room (Rio's check tables sized closer to need), freeing the 32 KB edit
-  scratch (an in-place move, which Rio would need: a memmove-like builtin, or a byte loop), or
-  measuring first whether the editor's frames are slower enough to matter. Desktop and web have no
+  Measured (2026-11-02, a big file, a full draw): 4.3 ms with native code, 6.6 ms without, of a
+  frame's 16.7 ms; moving the cursor, next to nothing either way. So the editor's well inside a frame
+  as it is. If its room is wanted back later: a smaller check room (Rio's check tables sized closer to
+  need), or freeing the 32 KB edit scratch (an in-place move: a memmove-like builtin, or a byte loop). Desktop and web have no
   JIT and nothing to reserve: native code only ever uses what an app leaves free, so an app that fits
   one fits all.
 - A diff view in the editor (inline, maybe): what changed since the file was saved, or between two.
@@ -74,6 +98,26 @@ app is a Rio program.
 - A hex editor, as a system app.
 - Themes: editing titles, saving into the active project.
 - Lending the app's free memory to Rinc while Rio isn't running.
+- PSRAM (the Fruit Jam's 8 MB, unused so far), as a cache only, never where anything lives: the card
+  stays the truth, everything read back from PSRAM is checked (a hash, kept with it, of what it holds
+  and of what it was made from), and a check that fails just means doing the slow thing. A plan:
+  1. Bring-up, alone first: the QMI's second chip select set up at our clocks (252 MHz system, with HSTX
+     video and PIO-USB running), and a test at boot (patterns over all of it, or a sample each boot and
+     all of it on request); PSRAM that fails it isn't used, and everything works as now without it.
+     Reached through the XIP cache, which flash shares: measure what reading it costs flash's code.
+  2. Files, cached: a source file's bytes, kept by path, size and its hash (or the card's date); a
+     compile or check reads from there (about half of a big check's time now is the card). Written
+     through: saving writes the card first, then the cache.
+  3. Compiled pc, and apps' images: pc's compiler tables, copied into each check and compile; an app's
+     image, kept as the card's image cache keeps it now (keyed by its sources' hashes), so starting it
+     again needs no compiling and no reading.
+  4. Apps swapped out whole, so going back to one is instant. Coming back as it was is the stash's job
+     already (pc.stash*: an app keeps what it needs, and gets it back as it starts again), so this is
+     for speed, and for what an app doesn't stash: its 256 KB of app space, its vm, and the host's state
+     that's the app's (sound's voices, keys typed ahead, its screen, open files). The hard part, and
+     why it's last: that host state is C statics all over today; it would have to be gathered into one
+     per-app struct first, with a test that swaps and resumes every system app mid-use. Until then,
+     images (3) and the stash get most of it.
 
 ## Maybe
 
