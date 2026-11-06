@@ -176,6 +176,12 @@ void rinc_cacheDrop(const char *name);
 extern const char rinc_buildId[];
 void rinc_appFail(const char *name, const char *why);
 void rinc_say(const char *s);
+/* a builder argument, Blob[..] (where its length is, where its bytes start, its capacity): rinc_into
+   finds its end, where more go, and the room past it (0 for a bad one); rinc_outAdd counts n more bytes
+   in it */
+typedef struct { rio_Val len[2]; uint8_t *end; uint32_t room; } rinc_Out;
+uint8_t *rinc_into(rio_Vm *v, const rio_Val *b, rinc_Out *o);
+void rinc_outAdd(rio_Vm *v, rinc_Out *o, uint32_t n);
 /* what every Rinc says with no home app to start, into out: how, the platform's way to install apps */
 void rinc_noHome(char *out, int size, const char *how);
 /* whether there's a home app to start (storage's, or the bundle's); and, where there's none, that on

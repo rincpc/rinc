@@ -115,7 +115,8 @@ appName: Blob[32]
 listApps :: proc()
   appsNow.clear()
   for i in 0..<pc.apps()
-    n := min(pc.appName(i, appName[]), 32)
+    appNameIn: Blob[..] = appName
+    n := min(pc.appName(i, appNameIn), 32)
     ok := appsNow.pushAll(appName[0..<n])
     ok = appsNow.push(44)
   end

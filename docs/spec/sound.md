@@ -19,7 +19,7 @@ Each proc takes a voice number first; a number outside 0 to 7 does nothing (and 
 | `pc.soundSeek(v, at)` | on from frame `at` (on the synth, note `at`), as it plays; past the end, the last |
 | `pc.soundPlaying(v) -> Int` | 1 while `v` plays, else 0 |
 | `pc.synth(v, notes, speed)` | play `notes` on the synth, from the first, each `speed` 120ths of a second (1 to 255), full volume, centered, with no loop, in place of whatever `v` was playing; fewer than 4 bytes of notes stops `v` |
-| `pc.synthMake(out, notes, speed) -> Int` | the samples `synth` would make, into `out` instead: 16-bit, little-endian, with voice -1's settings (below), until the notes end or `out` is full; how many. `speed` 0: on from where the last one stopped (its next sample, in the `notes` given now), so a sound longer than `out` holds can be made a piece at a time |
+| `pc.synthMake(out, notes, speed) -> Int` | the samples `synth` would make, added to `out` instead: 16-bit, little-endian, with voice -1's settings (below), until the notes end or `out` is full; how many. `speed` 0: on from where the last one stopped (its next sample, in the `notes` given now), so a sound longer than `out` holds can be made a piece at a time |
 | `pc.synthRate(v, rate)` | samples the synth makes a second, from 8,000 to 48,000 (16,000 to start) |
 | `pc.synthBend(v, semitones)` | every pitch moved by that many semitones, from -96 to 96 (0 to start) |
 | `pc.synthEnvelope(v, attack, release)` | seconds the volume heard takes to rise, and to fall, about 2/3 of the way to a note's: from 0 (at once) to 10 (0.0062 to start) |

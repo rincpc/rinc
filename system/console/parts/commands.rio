@@ -11,7 +11,8 @@ ls :: proc()
   names: Blob[..2048]
   name: Blob[32]
   for i in 0..<n
-    k := min(pc.appName(i, name[]), 32)
+    nameIn: Blob[..] = name
+    k := min(pc.appName(i, nameIn), 32)
     _ = names.pushAll(name[..<k].asString())
     _ = names.pushAll("  ")
   end
@@ -20,7 +21,8 @@ end
 
 load :: proc(name: String)
   msg: Blob[..80]
-  n := pc.appSource(name, file[])
+  fileIn: Blob[..] = file
+  n := pc.appSource(name, fileIn)
   if n < 0
     _ = msg.print("can't open ", name)
     say(msg[].asString(), errorColor)
@@ -133,7 +135,8 @@ command :: proc(t: String) -> Bool
   case "save"
     startSave(name)
   case "active"                          # app or project (name+) name, active: the editor opens it next
-    if pc.appSource(name, msg[0..<0]) >= 0 and pc.settingWrite("active", name) == 0
+    msgIn: Blob[..] = msg[0..<0]
+    if pc.appSource(name, msgIn) >= 0 and pc.settingWrite("active", name) == 0
       _ = msg.print("active: ", name)
       say(msg[].asString(), softColor)
     else

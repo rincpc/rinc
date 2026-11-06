@@ -54,7 +54,8 @@ lastPath := lastBuf[0..<place[0]].asString()
 calling: Blob[..8]
 callingLen := pc.stashRead("calling", calling)
 picked: Blob[128]
-pickedLen := pc.result(picked[])
+pickedIn: Blob[..] = picked
+pickedLen := pc.result(pickedIn)
 activeBuf: Blob[..34]
 _ = pc.settingRead("active", activeBuf)
 if callingLen > 0

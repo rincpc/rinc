@@ -158,7 +158,7 @@ promptDone :: proc()
     refBuf.clear()
     pushed := refBuf.pushAll(s)
     pushed = refBuf.push(43)
-    if pc.appSource(refBuf[0..<refBuf.len()].asString(), one[0..<0]) >= 0
+    if sourceLen(refBuf[0..<refBuf.len()].asString()) >= 0
       say("There's a project of that name already", errorColor)
       return
     end

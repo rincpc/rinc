@@ -76,7 +76,8 @@ _ = pc.stashRead("view", view)
 editName: Blob[..64]
 _ = pc.stashRead("edit", editName)
 picked: Blob[8]
-pickedLen := pc.result(picked[])
+pickedIn: Blob[..] = picked
+pickedLen := pc.result(pickedIn)
 if view.len() == 3
   screen = view[0]
   pick = min(view[1], max(count - 1, 0))

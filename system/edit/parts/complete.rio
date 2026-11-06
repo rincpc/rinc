@@ -157,7 +157,8 @@ offerRio :: proc()
     checkedAt = a
     changedFrom = CAP + 1
   end
-  n := min(pc.completeRio(text[a..<cursor].asString(), items[]), ITEMS)
+  itemsIn: Blob[..] = items
+  n := min(pc.completeRio(text[a..<cursor].asString(), itemsIn), ITEMS)
   p := 0
   i := 0
   for p < n
@@ -204,9 +205,11 @@ checkErrors :: proc()
   checkedEdits = edits
   errLine = -1
   if r < 0
-    e := pc.checkError(errPath[], errText[])
-    errTextLen = min(e.messageLen, 96)
-    if e.line >= 1 and e.line <= lineCount and errPath[0..<min(e.pathLen, 128)].asString() == here()
+    errPathIn: Blob[..] = errPath
+    errTextIn: Blob[..] = errText
+    e := pc.checkError(errPathIn, errTextIn)
+    errTextLen = errTextIn.len()
+    if e.line >= 1 and e.line <= lineCount and errPathIn.asString() == here()
       errLine = e.line - 1
       errCol = max(0, e.col - 1)
       errLen = max(1, e.len)

@@ -74,7 +74,7 @@ again. A web page carries it in base64.
 | `pc.apps() -> Int` | looks again, in storage and in the bundle, and says how many apps there are (the first 64, by name; `home` aside) |
 | `pc.appName(i, out) -> Int` | app `i`'s name, from 0, in order of name ignoring case |
 | `pc.appInfo(i, out) -> Int` | app `i`'s description: its first line after `#` and any spaces, if it starts with `#` |
-| `pc.appSource(name, out) -> Int` | app `name`'s source (from storage, else the bundle), as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.appSource(name, out) -> Int` | app `name`'s source (from storage, else the bundle), added to `out`, as much as fits: its whole length, or -1 if there's none |
 | `pc.appSave(name, text) -> Int` | `text` becomes app `name`'s source in storage (its folder too, if it's new): 0, or -1 |
 | `pc.appDelete(name) -> Int` | removes app `name`'s source from storage, and its folder if that's all it held: 0, or -1 |
 | `pc.launch(name)` | after this frame, leave this app and run app `name` |
@@ -212,8 +212,8 @@ log(pc.fileDelete("/rinc/save/demo2"))
 ## Calling an app
 
 An app can start another for something, such as a file picked, and have the answer back. `pc.call(name,
-args)` starts app `name` after this frame, with `args`, which it reads with `pc.args(out) -> Int` (how
-long: 0 for none). When it's done, `pc.done(result)` goes back to the app that called it (it's left out
+args)` starts app `name` after this frame, with `args`, which it reads with `pc.args(out) -> Int` (added to
+`out`, as text that reads into a builder does; how long: 0 for none). When it's done, `pc.done(result)` goes back to the app that called it (it's left out
 of the recent apps, as the system key's Q leaves an app out), and that app, starting again, reads the
 result with `pc.result(out) -> Int` (how long, or -1 if there's none: it's taken). What's typed ahead,
 after a call, is the called app's.
@@ -222,12 +222,11 @@ Files is a picker this way: `pc.call("files", "pick /rinc/save/chord")` starts i
 Enter on a file gives its path back (Esc at the top, nothing: an empty result):
 
 ```rio fragment
-out: Blob[96]
-n := pc.result(out[])
-if n < 0
+out: Blob[..96]
+if pc.result(out) < 0
   pc.call("files", "pick")      # (the first time)
 else
-  log("picked", out[0..<n].asString())
+  log("picked", out.asString())
 end
 ```
 
@@ -240,15 +239,15 @@ An app that stops with an error, one that didn't compile or a runtime error, sho
 and Rinc keeps where it was for an editor: `pc.appError(path, message) -> pc.AppError` gives its line
 (0 when there's none), column and width (0 when they're not known, as for a runtime error's), and
 whether it was a runtime error, with the file's path (the app's main file, or the part it was in) and
-what was wrong written into `path` and `message`. It's taken: a second call gives none. The editor
+what was wrong added to the builders `path` and `message`, as much as fits. It's taken: a second call gives none. The editor
 takes it as it starts, so coming back to it after Ctrl+R puts the cursor on the error.
 
 ```rio fragment
-path: Blob[128]
-message: Blob[96]
-e := pc.appError(path[], message[])
+path: Blob[..128]
+message: Blob[..96]
+e := pc.appError(path, message)
 if e.line > 0
-  log(path[0..<min(e.pathLen, 128)].asString(), e.line, e.col, message[0..<min(e.messageLen, 96)].asString())
+  log(path.asString(), e.line, e.col, message.asString())
 end
 ```
 

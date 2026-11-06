@@ -25,12 +25,19 @@ app is a Rio program.
   with the console's put, as hex (today it sends text only, so a picture arrives broken).
 - Apps for file types, sooner (from Later): Files opens a .png in Paint, a .snd in Sound, .rio in the
   editor, and Ctrl+O in the editor starts in the current project's folder.
-- pc's reads into builders (breaking: in progress, with the system apps and Studio): what reads into
-  out takes a Blob[..] and adds to it. Done: files, dir, saves, stash, settings, help, and pictures
-  (pc.Image, pixels and size: imageRead gives one, imageWrite takes one and an ImageWrite, notes and
-  format, imageNotes; blit(image, at, b?)). Left:
-  the app procs, synthMake, rio*, fromHex, formatRio. imageRead needs (w + 1) * h of room for Rinc's
-  PNGs (the deflate window is the rows as they come, filter bytes and all), and says so in the log.
+- Where an app's messages go: its log, and Rinc's lines about it (imageRead's "needs N bytes of room",
+  runtime errors short of stopping it), go to the platform's output (serial, stdout, the browser's
+  console) and to the screen only until the app draws. On the board, that's nowhere to be seen. Maybe a
+  log app: each app's log kept as it runs (in its stash, say: per app, kept across a restart, dropped on
+  Sys+Q, and out of the save space), shown per app, opened from a Sys key or the console; and maybe a
+  mark on screen when there's something new.
+- Paths: maybe show /rinc as /, since nothing gets out of it: /save/chord/best, /apps/chord. Apps,
+  the docs and the console would all change at once; /rinc/ given would still have to work, or not.
+- pc's reads into builders: done (2026-11-06). What reads into out takes a Blob[..], adds as much as
+  fits, and gives the whole length; pictures are pc.Image (imageRead, imageWrite, blit(image, at, b?)),
+  imageRead needing (w + 1) * h of room for Rinc's PNGs and saying so in the log. Left: the system
+  apps read into arrays through views declared just before each call (fooIn: Blob[..] = foo[...]),
+  made mechanically; where a buffer is only ever read into, a builder of its own would read better.
 - The editor's screen flickers while a check runs (about half a second on the board, for a big app).
   Suspect: core 1 (HDMI and sound) running some of its code from flash, which the compiler (~225 KB,
   also from flash) pushes out of the 16 KB cache they share. Check: whether video's and sound's hot

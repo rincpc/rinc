@@ -44,7 +44,8 @@ check(get('save/chord/best') == '42' and get('save/chord/best3') == '42' and not
 # a picker, for its caller: the path picked comes back
 shutil.copytree(os.path.dirname(files), os.path.join(data, 'apps', 'files')) # (installed, to be called: its folder, parts and all)
 put('apps/caller/caller.rio', '''out: Blob[96]
-n := pc.result(out[])
+outIn: Blob[..] = out
+n := pc.result(outIn)
 if n < 0
   pc.call("files", "pick /rinc/save/chord")
 else

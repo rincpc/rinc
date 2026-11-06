@@ -10,7 +10,7 @@ On a Rinc with storage, such as the Fruit Jam's SD card, each app is a Rio file 
 Home is an app too (`system/home/home.rio`), using procs any app can:
 
 - `pc.apps()` looks for the apps and says how many there are.
-- `pc.appName(i, out)` and `pc.appInfo(i, out)` copy app `i`'s name, or its first line without the `#`,
+- `pc.appName(i, out)` and `pc.appInfo(i, out)` add app `i`'s name, or its first line without the `#`,
   into a `Blob`, and say how long it is.
 - `pc.launch(name)` starts an app (or `home`, or `console`) after the current frame.
 

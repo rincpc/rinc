@@ -4,7 +4,8 @@
 
 showLog :: proc()
   for
-    n := pc.rioLog(logBuf[])
+    logBufIn: Blob[..] = logBuf
+    n := pc.rioLog(logBufIn)
     if n <= 0
       break
     end
@@ -13,7 +14,8 @@ showLog :: proc()
 end
 
 showError :: proc()
-  n := pc.rioError(logBuf[])
+  logBufIn2: Blob[..] = logBuf
+  n := pc.rioError(logBufIn2)
   say(logBuf[..<n].asString(), errorColor)
 end
 

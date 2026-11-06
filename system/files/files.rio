@@ -83,7 +83,8 @@ include "parts/screen.rio"
 
 _ = pc.settingRead("active", active)
 args: Blob[96]
-argsLen := min(pc.args(args[]), 96)
+argsIn: Blob[..] = args
+argsLen := min(pc.args(argsIn), 96)
 start: Blob[..96]
 if argsLen >= 4 and (args[0..<4].asString() == "pick" or args[0..<4].asString() == "save") # (pick, or pick /a/folder; save, likewise)
   picking = true

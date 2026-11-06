@@ -36,10 +36,12 @@ refresh :: proc()
   bt := 0
   for i in 0..<count
     nameAt[i] = at
-    nameLen[i] = min(pc.appName(i, names[at..<at + 33]), 33)
+    namesIn: Blob[..] = names[at..<at + 33]
+    nameLen[i] = min(pc.appName(i, namesIn), 33)
     at += nameLen[i]
     infoAt[i] = bt
-    infoLen[i] = min(pc.appInfo(i, infos[bt..<bt + 96]), 96)
+    infosIn: Blob[..] = infos[bt..<bt + 96]
+    infoLen[i] = min(pc.appInfo(i, infosIn), 96)
     titleLen[i] = 0
     for k in 0..<min(infoLen[i], 24)
       if titleLen[i] == 0 and infos[bt + k] == 58 # (the colon)

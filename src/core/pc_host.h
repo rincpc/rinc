@@ -33,11 +33,9 @@ typedef struct {
   int32_t col;
   int32_t len;
   int32_t runtime;
-  int32_t pathLen;
-  int32_t messageLen;
 } pc_AppError;
-typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's size) */
-#define pc_AppError_LAYOUT "{line:Int,col:Int,len:Int,runtime:Int,pathLen:Int,messageLen:Int}"
+typedef char pc_AppError_size[sizeof(pc_AppError) == 16 ? 1 : -1]; /* (Rio's size) */
+#define pc_AppError_LAYOUT "{line:Int,col:Int,len:Int,runtime:Int}"
 
 typedef struct {
   rio_View notes;
@@ -64,11 +62,11 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_pointerDown_SIG "i>i"
 #define pc_pointerShown_SIG ">i"
 #define pc_scroll_SIG "i>i"
-#define pc_fromHex_SIG "bs>i"
-#define pc_formatRio_SIG "bs>i"
-#define pc_moduleSource_SIG "sb>i"
+#define pc_fromHex_SIG "Bs>i"
+#define pc_formatRio_SIG "Bs>i"
+#define pc_moduleSource_SIG "sB>i"
 #define pc_checkRio_SIG "sssb>i"
-#define pc_completeRio_SIG "sb>i"
+#define pc_completeRio_SIG "sB>i"
 #define pc_sound_SIG "ib" pc_Sound_LAYOUT
 #define pc_soundWav_SIG "ib>i"
 #define pc_soundRate_SIG "if"
@@ -78,7 +76,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_soundStop_SIG "i"
 #define pc_soundPlaying_SIG "i>i"
 #define pc_synth_SIG "ibi"
-#define pc_synthMake_SIG "bbi>i"
+#define pc_synthMake_SIG "Bbi>i"
 #define pc_synthRate_SIG "if"
 #define pc_synthBend_SIG "if"
 #define pc_synthEnvelope_SIG "iff"
@@ -86,16 +84,16 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_synthWave_SIG "ib"
 #define pc_soundSeek_SIG "ii"
 #define pc_apps_SIG ">i"
-#define pc_appName_SIG "ib>i"
-#define pc_appInfo_SIG "ib>i"
+#define pc_appName_SIG "iB>i"
+#define pc_appInfo_SIG "iB>i"
 #define pc_launch_SIG "s"
 #define pc_call_SIG "ss"
-#define pc_args_SIG "b>i"
+#define pc_args_SIG "B>i"
 #define pc_done_SIG "s"
-#define pc_result_SIG "b>i"
-#define pc_appError_SIG "bb>" pc_AppError_LAYOUT
-#define pc_checkError_SIG "bb>" pc_AppError_LAYOUT
-#define pc_appSource_SIG "sb>i"
+#define pc_result_SIG "B>i"
+#define pc_appError_SIG "BB>" pc_AppError_LAYOUT
+#define pc_checkError_SIG "BB>" pc_AppError_LAYOUT
+#define pc_appSource_SIG "sB>i"
 #define pc_appSave_SIG "ss>i"
 #define pc_appDelete_SIG "s>i"
 #define pc_appInstall_SIG "s>i"
@@ -114,7 +112,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_helps_SIG "B>i"
 #define pc_helpRead_SIG "sB>i"
 #define pc_help_SIG "s"
-#define pc_helpTopic_SIG "b>i"
+#define pc_helpTopic_SIG "B>i"
 #define pc_saveRead_SIG "sB>i"
 #define pc_saveWrite_SIG "ss>i"
 #define pc_saveDelete_SIG "s>i"
@@ -129,8 +127,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_rioEval_SIG "s>i"
 #define pc_rioFrame_SIG ">i"
 #define pc_rioType_SIG "i"
-#define pc_rioError_SIG "b>i"
-#define pc_rioLog_SIG "b>i"
+#define pc_rioError_SIG "B>i"
+#define pc_rioLog_SIG "B>i"
 #define pc_rioIndent_SIG "s>i"
 
 #define pc_HOST_PROCS(X) \
@@ -221,7 +219,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x8f25ead0u /* (rio_hashText of the source) */
+#define pc_HASH 0xe67c3ed6u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -300,14 +298,15 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "\n" \
   "# ---------------------------------------------------------------- data\n" \
   "\n" \
-  "# bytes from hex digits into out (anything else in the text is skipped), until it's full: how many\n" \
-  "fromHex* :: host proc(out: Blob, text: String) -> Int\n" \
-  "# Rio code laid out the one way (as rio fmt does: only its spaces and line breaks change) into out: how\n" \
-  "# long, or -1 (too little room in out) or -2 (it couldn't be sure of keeping the code the same)\n" \
-  "formatRio* :: host proc(out: Blob, code: String) -> Int\n" \
-  "# a module's source, in Rio, into out, as much as fits (for an editor's completion): pc's (this), or\n" \
+  "# bytes from hex digits added to out (anything else in the text is skipped), until it's full: how many\n" \
+  "fromHex* :: host proc(out: Blob[..], text: String) -> Int\n" \
+  "# Rio code laid out the one way (as rio fmt does: only its spaces and line breaks change), added to out:\n" \
+  "# how long, or -1 (too little room in out: nothing added) or -2 (it couldn't be sure of keeping the code\n" \
+  "# the same)\n" \
+  "formatRio* :: host proc(out: Blob[..], code: String) -> Int\n" \
+  "# a module's source, in Rio, added to out, as much as fits (for an editor's completion): pc's (this), or\n" \
   "# core's (the builtins: Rio's core.rio); its whole length, or -1 for another\n" \
-  "moduleSource* :: host proc(name: String, out: Blob) -> Int\n" \
+  "moduleSource* :: host proc(name: String, out: Blob[..]) -> Int\n" \
   "# an editor's completion, in two steps. checkRio: main (an app's main file, by its path: path itself if\n" \
   "# it's the one) checked, up to path's text, code: the file being edited as the editor has it, cut at the\n" \
   "# start of the cursor's line. Its compiler's tables go in room, the app's own memory, lent (60 KB is\n" \
@@ -315,10 +314,10 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "# expected). It uses the session's place: a session is over\n" \
   "checkRio* :: host proc(main: String, path: String, code: String, room: Blob) -> Int\n" \
   "# then the names that fit at the end of line (the cursor's line, to the cursor), from what the check\n" \
-  "# found (if room is as it left it), into out, a line each: the name, a tab, what it is (k a word of\n" \
+  "# found (if room is as it left it), added to out, a line each: the name, a tab, what it is (k a word of\n" \
   "# Rio's, v a variable, c a constant, t a type, p a proc, m a method, f a field, M a module, e an enum's\n" \
   "# value), a tab, its type or signature. How long\n" \
-  "completeRio* :: host proc(line: String, out: Blob) -> Int\n" \
+  "completeRio* :: host proc(line: String, out: Blob[..]) -> Int\n" \
   "\n" \
   "# ---------------------------------------------------------------- sound: 8 voices, 0 to 7\n" \
   "\n" \
@@ -342,9 +341,10 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "# each speed 120ths of a second. The sound procs above work on it too: its loop's start and stop are\n" \
   "# notes\n" \
   "synth* :: host proc(v: Int, notes: Blob, speed: Int)\n" \
-  "# the notes made into out instead, as 16-bit samples at voice -1's rate (16000 a second unless set), to\n" \
-  "# their end or out's: how many (speed 0: on from where the last one stopped, for more than out holds)\n" \
-  "synthMake* :: host proc(out: Blob, notes: Blob, speed: Int) -> Int\n" \
+  "# the notes made instead, added to out, as 16-bit samples at voice -1's rate (16000 a second unless set),\n" \
+  "# to their end or out's: how many samples (speed 0: on from where the last one stopped, for more than out\n" \
+  "# holds)\n" \
+  "synthMake* :: host proc(out: Blob[..], notes: Blob, speed: Int) -> Int\n" \
   "# a voice's synth settings, kept from one synth to the next, and heard at once if it's playing (voice\n" \
   "# -1: synthMake's): samples made a second (8000 to 48000; 16000 to start), every pitch moved (in\n" \
   "# semitones), seconds the volume takes to rise and fall about 2/3 of the way to a note's (0.0062 to\n" \
@@ -363,31 +363,31 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "# A name is an installed app's (chord), or with a + after it, its project's (chord+): the app in work,\n" \
   "# with a save space of its own\n" \
   "apps* :: host proc() -> Int                         # the apps and projects (sorted, each project after its app): how many\n" \
-  "appName* :: host proc(i: Int, out: Blob) -> Int     # app i's name (a project's with its +), into out: how long\n" \
-  "appInfo* :: host proc(i: Int, out: Blob) -> Int     # its first line: \"Title: what it does\"\n" \
+  "# what adds text to out below adds as much as fits, and gives its whole length\n" \
+  "appName* :: host proc(i: Int, out: Blob[..]) -> Int # app i's name (a project's with its +): how long\n" \
+  "appInfo* :: host proc(i: Int, out: Blob[..]) -> Int # its first line: \"Title: what it does\"\n" \
   "launch* :: host proc(name: String)                  # switch to an app or project (or \"home\", \"console\") after this frame\n" \
   "# one app calling another: call starts it with args (after this frame), which it reads with args; done goes\n" \
   "# back to the caller (this app forgotten, as the system key's Q does), which, starting again, reads result\n" \
   "call* :: host proc(name: String, args: String)\n" \
-  "args* :: host proc(out: Blob) -> Int                # the args this app was called with: how long (0: none)\n" \
+  "args* :: host proc(out: Blob[..]) -> Int            # the args this app was called with: how long (0: none)\n" \
   "done* :: host proc(result: String)                  # back to the caller, with a result (or to the app before)\n" \
-  "result* :: host proc(out: Blob) -> Int              # the result of the app this one called: how long, or -1 (taken)\n" \
-  "# where the last app to stop with an error stopped, for an editor to go to: its file's path into path,\n" \
-  "# and what was wrong into message (as much as fits). Taken: a second call gives none\n" \
+  "result* :: host proc(out: Blob[..]) -> Int          # the result of the app this one called: how long, or -1 (taken)\n" \
+  "# where the last app to stop with an error stopped, for an editor to go to: its file's path added to path,\n" \
+  "# and what was wrong to message (as much as fits). Taken: a second call gives none\n" \
   "AppError* :: struct\n" \
   "  line: Int             # from 1 (0: there's none)\n" \
   "  col: Int              # from 1 (0: not known, as for a runtime error)\n" \
   "  len: Int              # how wide what's wrong is (0: not known)\n" \
   "  runtime: Bool         # a runtime error (else it didn't compile)\n" \
-  "  pathLen: Int          # how long the path and the message are\n" \
-  "  messageLen: Int\n" \
   "end\n" \
-  "appError* :: host proc(path: Blob, message: Blob) -> AppError\n" \
-  "# an app's source into out, as much as fits: its whole length, or -1 if there's no such app\n" \
+  "appError* :: host proc(path: Blob[..], message: Blob[..]) -> AppError\n" \
+  "\n" \
   "# the last checkRio's error, as appError has an app's (line 0: none), its file the main file or one it\n" \
   "# includes or imports (/rinc/...): for an editor's underline. Checking the whole file finds its first\n" \
-  "checkError* :: host proc(path: Blob, message: Blob) -> AppError\n" \
-  "appSource* :: host proc(name: String, out: Blob) -> Int\n" \
+  "checkError* :: host proc(path: Blob[..], message: Blob[..]) -> AppError\n" \
+  "# an app's source added to out, as much as fits: its whole length, or -1 if there's no such app\n" \
+  "appSource* :: host proc(name: String, out: Blob[..]) -> Int\n" \
   "appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1\n" \
   "appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1\n" \
   "appInstall* :: host proc(name: String) -> Int              # project name* installed as app name: 0, or -1\n" \
@@ -439,7 +439,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "helpRead* :: host proc(name: String, out: Blob[..]) -> Int\n" \
   "# the help app, after this frame, at a help text (and maybe a heading): help(\"rio/spec/statements#if\")\n" \
   "help* :: host proc(topic: String)\n" \
-  "helpTopic* :: host proc(out: Blob) -> Int             # for the help app: the topic it was opened at, taken (0: none)\n" \
+  "helpTopic* :: host proc(out: Blob[..]) -> Int         # for the help app: the topic it was opened at, taken (0: none)\n" \
   "\n" \
   "# ---------------------------------------------------------------- this app's own files: /rinc/save/<app>\n" \
   "\n" \
@@ -498,6 +498,6 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "rioEval* :: host proc(text: String) -> Int          # run a piece: 0 done, 1 unfinished (needs more), -1 error\n" \
   "rioFrame* :: host proc() -> Int                     # its update then draw: 0, 1 if it has neither, -1 error\n" \
   "rioType* :: host proc(key: Int)                     # a key for its pc.key()\n" \
-  "rioError* :: host proc(out: Blob) -> Int            # the last error, as text: how long\n" \
-  "rioLog* :: host proc(out: Blob) -> Int              # what it logged since, taken: how long (lines end with 10)\n" \
+  "rioError* :: host proc(out: Blob[..]) -> Int        # the last error, as text, added to out: how long\n" \
+  "rioLog* :: host proc(out: Blob[..]) -> Int          # what it logged since, as much as fits, taken: how much (lines end with 10)\n" \
   "rioIndent* :: host proc(text: String) -> Int        # the indent steps an unfinished input's next line takes\n"

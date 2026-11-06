@@ -491,16 +491,16 @@ static void rinc_hostSynth(rio_Vm *vm, rio_Val *a) {
   else v->on = 0;
   rinc_lock(0);
 }
-/* synthMake(out, notes, speed): the notes made into out instead, as 16-bit samples (little-endian) at
+/* synthMake(out, notes, speed): the notes made, added to out, as 16-bit samples (little-endian) at
    the rate set for voice -1 (16 kHz unless set), to its end or out's: how many. Speed 0: on from where
    the last one stopped (its next sample, in the notes given now) */
 static void rinc_hostSynthMake(rio_Vm *vm, rio_Val *a) {
-  uint8_t *out = (uint8_t *)rio_sliceBytes(vm, a); const uint8_t *notes = (const uint8_t *)rio_sliceBytes(vm, a + 2);
-  uint32_t cap = a[1].u / 2, k = 0, count = a[3].u / 4;
+  rinc_Out o; uint8_t *out = rinc_into(vm, a, &o); const uint8_t *notes = (const uint8_t *)rio_sliceBytes(vm, a + 3);
+  uint32_t cap = o.room / 2, k = 0, count = a[4].u / 4;
   rinc_Voice *v = &rinc_maker;
   a[0].u = 0;
   if (!out || !notes || !count) return;
-  if (a[4].i) rinc_synthStart(v, notes, count, a[4].i, rinc_VOICES);
+  if (a[5].i) rinc_synthStart(v, notes, count, a[5].i, rinc_VOICES);
   else {
     if (!v->on) return;
     v->notes = notes; v->frames = count;
@@ -511,6 +511,7 @@ static void rinc_hostSynthMake(rio_Vm *vm, rio_Val *a) {
     int32_t x = v->sb < -32768 ? -32768 : v->sb > 32767 ? 32767 : v->sb;
     out[k * 2] = (uint8_t)(x & 255); out[k * 2 + 1] = (uint8_t)(x >> 8 & 255);
   }
+  rinc_outAdd(vm, &o, k * 2);
   a[0].u = k;
 }
 /* the synth's settings for voice a[0] (-1: synthMake's), changed by change, and into the voice if it's

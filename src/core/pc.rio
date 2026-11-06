@@ -75,14 +75,15 @@ scroll* :: host proc(i: Int) -> Int
 
 # ---------------------------------------------------------------- data
 
-# bytes from hex digits into out (anything else in the text is skipped), until it's full: how many
-fromHex* :: host proc(out: Blob, text: String) -> Int
-# Rio code laid out the one way (as rio fmt does: only its spaces and line breaks change) into out: how
-# long, or -1 (too little room in out) or -2 (it couldn't be sure of keeping the code the same)
-formatRio* :: host proc(out: Blob, code: String) -> Int
-# a module's source, in Rio, into out, as much as fits (for an editor's completion): pc's (this), or
+# bytes from hex digits added to out (anything else in the text is skipped), until it's full: how many
+fromHex* :: host proc(out: Blob[..], text: String) -> Int
+# Rio code laid out the one way (as rio fmt does: only its spaces and line breaks change), added to out:
+# how long, or -1 (too little room in out: nothing added) or -2 (it couldn't be sure of keeping the code
+# the same)
+formatRio* :: host proc(out: Blob[..], code: String) -> Int
+# a module's source, in Rio, added to out, as much as fits (for an editor's completion): pc's (this), or
 # core's (the builtins: Rio's core.rio); its whole length, or -1 for another
-moduleSource* :: host proc(name: String, out: Blob) -> Int
+moduleSource* :: host proc(name: String, out: Blob[..]) -> Int
 # an editor's completion, in two steps. checkRio: main (an app's main file, by its path: path itself if
 # it's the one) checked, up to path's text, code: the file being edited as the editor has it, cut at the
 # start of the cursor's line. Its compiler's tables go in room, the app's own memory, lent (60 KB is
@@ -90,10 +91,10 @@ moduleSource* :: host proc(name: String, out: Blob) -> Int
 # expected). It uses the session's place: a session is over
 checkRio* :: host proc(main: String, path: String, code: String, room: Blob) -> Int
 # then the names that fit at the end of line (the cursor's line, to the cursor), from what the check
-# found (if room is as it left it), into out, a line each: the name, a tab, what it is (k a word of
+# found (if room is as it left it), added to out, a line each: the name, a tab, what it is (k a word of
 # Rio's, v a variable, c a constant, t a type, p a proc, m a method, f a field, M a module, e an enum's
 # value), a tab, its type or signature. How long
-completeRio* :: host proc(line: String, out: Blob) -> Int
+completeRio* :: host proc(line: String, out: Blob[..]) -> Int
 
 # ---------------------------------------------------------------- sound: 8 voices, 0 to 7
 
@@ -117,9 +118,10 @@ soundPlaying* :: host proc(v: Int) -> Int
 # each speed 120ths of a second. The sound procs above work on it too: its loop's start and stop are
 # notes
 synth* :: host proc(v: Int, notes: Blob, speed: Int)
-# the notes made into out instead, as 16-bit samples at voice -1's rate (16000 a second unless set), to
-# their end or out's: how many (speed 0: on from where the last one stopped, for more than out holds)
-synthMake* :: host proc(out: Blob, notes: Blob, speed: Int) -> Int
+# the notes made instead, added to out, as 16-bit samples at voice -1's rate (16000 a second unless set),
+# to their end or out's: how many samples (speed 0: on from where the last one stopped, for more than out
+# holds)
+synthMake* :: host proc(out: Blob[..], notes: Blob, speed: Int) -> Int
 # a voice's synth settings, kept from one synth to the next, and heard at once if it's playing (voice
 # -1: synthMake's): samples made a second (8000 to 48000; 16000 to start), every pitch moved (in
 # semitones), seconds the volume takes to rise and fall about 2/3 of the way to a note's (0.0062 to
@@ -138,31 +140,31 @@ soundSeek* :: host proc(v, at: Int)
 # A name is an installed app's (chord), or with a + after it, its project's (chord+): the app in work,
 # with a save space of its own
 apps* :: host proc() -> Int                         # the apps and projects (sorted, each project after its app): how many
-appName* :: host proc(i: Int, out: Blob) -> Int     # app i's name (a project's with its +), into out: how long
-appInfo* :: host proc(i: Int, out: Blob) -> Int     # its first line: "Title: what it does"
+# what adds text to out below adds as much as fits, and gives its whole length
+appName* :: host proc(i: Int, out: Blob[..]) -> Int # app i's name (a project's with its +): how long
+appInfo* :: host proc(i: Int, out: Blob[..]) -> Int # its first line: "Title: what it does"
 launch* :: host proc(name: String)                  # switch to an app or project (or "home", "console") after this frame
 # one app calling another: call starts it with args (after this frame), which it reads with args; done goes
 # back to the caller (this app forgotten, as the system key's Q does), which, starting again, reads result
 call* :: host proc(name: String, args: String)
-args* :: host proc(out: Blob) -> Int                # the args this app was called with: how long (0: none)
+args* :: host proc(out: Blob[..]) -> Int            # the args this app was called with: how long (0: none)
 done* :: host proc(result: String)                  # back to the caller, with a result (or to the app before)
-result* :: host proc(out: Blob) -> Int              # the result of the app this one called: how long, or -1 (taken)
-# where the last app to stop with an error stopped, for an editor to go to: its file's path into path,
-# and what was wrong into message (as much as fits). Taken: a second call gives none
+result* :: host proc(out: Blob[..]) -> Int          # the result of the app this one called: how long, or -1 (taken)
+# where the last app to stop with an error stopped, for an editor to go to: its file's path added to path,
+# and what was wrong to message (as much as fits). Taken: a second call gives none
 AppError* :: struct
   line: Int             # from 1 (0: there's none)
   col: Int              # from 1 (0: not known, as for a runtime error)
   len: Int              # how wide what's wrong is (0: not known)
   runtime: Bool         # a runtime error (else it didn't compile)
-  pathLen: Int          # how long the path and the message are
-  messageLen: Int
 end
-appError* :: host proc(path: Blob, message: Blob) -> AppError
-# an app's source into out, as much as fits: its whole length, or -1 if there's no such app
+appError* :: host proc(path: Blob[..], message: Blob[..]) -> AppError
+
 # the last checkRio's error, as appError has an app's (line 0: none), its file the main file or one it
 # includes or imports (/rinc/...): for an editor's underline. Checking the whole file finds its first
-checkError* :: host proc(path: Blob, message: Blob) -> AppError
-appSource* :: host proc(name: String, out: Blob) -> Int
+checkError* :: host proc(path: Blob[..], message: Blob[..]) -> AppError
+# an app's source added to out, as much as fits: its whole length, or -1 if there's no such app
+appSource* :: host proc(name: String, out: Blob[..]) -> Int
 appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1
 appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1
 appInstall* :: host proc(name: String) -> Int              # project name* installed as app name: 0, or -1
@@ -214,7 +216,7 @@ helps* :: host proc(out: Blob[..]) -> Int
 helpRead* :: host proc(name: String, out: Blob[..]) -> Int
 # the help app, after this frame, at a help text (and maybe a heading): help("rio/spec/statements#if")
 help* :: host proc(topic: String)
-helpTopic* :: host proc(out: Blob) -> Int             # for the help app: the topic it was opened at, taken (0: none)
+helpTopic* :: host proc(out: Blob[..]) -> Int         # for the help app: the topic it was opened at, taken (0: none)
 
 # ---------------------------------------------------------------- this app's own files: /rinc/save/<app>
 
@@ -273,6 +275,6 @@ rioStart* :: host proc(mem, tables: Blob) -> Int
 rioEval* :: host proc(text: String) -> Int          # run a piece: 0 done, 1 unfinished (needs more), -1 error
 rioFrame* :: host proc() -> Int                     # its update then draw: 0, 1 if it has neither, -1 error
 rioType* :: host proc(key: Int)                     # a key for its pc.key()
-rioError* :: host proc(out: Blob) -> Int            # the last error, as text: how long
-rioLog* :: host proc(out: Blob) -> Int              # what it logged since, taken: how long (lines end with 10)
+rioError* :: host proc(out: Blob[..]) -> Int        # the last error, as text, added to out: how long
+rioLog* :: host proc(out: Blob[..]) -> Int          # what it logged since, as much as fits, taken: how much (lines end with 10)
 rioIndent* :: host proc(text: String) -> Int        # the indent steps an unfinished input's next line takes

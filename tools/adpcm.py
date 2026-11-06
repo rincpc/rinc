@@ -94,14 +94,14 @@ def write_wav(path, data, nch, rate):
 
 def write_rio(path, data, nch, rate, name):
   """the bytes as hex, in statements of at most 1.5 KB of sound (3 KB of text: the board's REPL takes
-  4 KB at a time), each filling the next part of the Blob"""
+  4 KB at a time), each adding to the Blob, through a builder view of it"""
   out = ['# %s: %d frames of %s IMA ADPCM at %d a second (%d bytes; tools/adpcm.py made this)' % (
            name, frames_in(len(data), nch), 'stereo' if nch == 2 else 'mono', rate, len(data)),
-         '%s: Blob[%d]' % (name, len(data)), '%s_n := 0' % name]
+         '%s: Blob[%d]' % (name, len(data)), '%s_in: Blob[..] = %s # (filled in a statement at a time)' % (name, name)]
   for k in range(0, len(data), 1536):
     hexed = data[k:k + 1536].hex()
     lines = '\n'.join('  "' + hexed[i:i + 96] for i in range(0, len(hexed), 96))
-    out.append('%s_n += pc.fromHex(\n  %s[%s_n..<%s.len()],\n%s",\n)' % (name, name, name, name, lines))
+    out.append('_ = pc.fromHex(\n  %s_in,\n%s",\n)' % (name, lines))
   out.append('# play it: pc.sound(0, %s, 4, %d, %d.0)' % (name, nch, rate))
   open(path, 'w', encoding='utf-8', newline='\n').write('\n'.join(out) + '\n')
 

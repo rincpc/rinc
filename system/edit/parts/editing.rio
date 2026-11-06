@@ -524,7 +524,8 @@ end
 # line where it was on the screen. Undo takes it back, as an edit of just the part that changed
 layOut :: proc()
   checkedAt = -1 # (formatted is the check's room: written over now)
-  n := pc.formatRio(formatted[], text[0..<textLen].asString())
+  formattedIn: Blob[..] = formatted
+  n := pc.formatRio(formattedIn, text[0..<textLen].asString())
   if n < 0 or n > CAP
     return # (too big, or not sure of it: as it is)
   end

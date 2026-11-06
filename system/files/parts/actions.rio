@@ -194,7 +194,8 @@ promptDone :: proc()
   res := 0
   if m == NEW
     to := projectRef(s)
-    if pc.appSource(to, input[0..<0]) >= 0
+    inputIn: Blob[..] = input[0..<0]
+    if pc.appSource(to, inputIn) >= 0
       say("There's a project of that name already", errorColor)
       return
     end

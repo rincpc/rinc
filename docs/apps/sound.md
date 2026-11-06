@@ -52,7 +52,7 @@ log(pc.soundPlaying(0))
 
 The waves are triangle, tilted, saw, square, pulse, organ, noise and phaser (0 to 7), and the effects
 slide, vibrato, drop, fade in, fade out and two arpeggios (1 to 7): see [the synth](../spec/sound.md#the-synth).
-`pc.synthMake(out, notes, speed)` makes the same sound into a `Blob`, 16-bit at 16,000 samples a second,
+`pc.synthMake(out, notes, speed)` makes the same sound into a byte builder, 16-bit at 16,000 samples a second,
 for a WAV file or to change before playing it.
 
 Each voice has settings of its own, which change what it's playing as they're set:

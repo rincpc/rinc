@@ -42,11 +42,11 @@ An app can call Colors to pick a color: `pc.call("colors", "pick")`, or `pc.call
 number back as text; Esc gives nothing, an empty result:
 
 ```rio fragment
-out: Blob[8]
-n := pc.result(out[])
+out: Blob[..8]
+n := pc.result(out)
 if n < 0
   pc.call("colors", "pick")     # (the first time)
 case n > 0
-  log("picked", out[0..<n].asString())
+  log("picked", out.asString())
 end
 ```

@@ -11,8 +11,8 @@ at a time, and a session can't start one of its own.
 | `pc.rioEval(text) -> Int` | compile and run a piece of Rio, as a REPL does: 0 done, 1 unfinished (it needs more text), -1 an error |
 | `pc.rioFrame() -> Int` | the session's `update` then `draw`: 0, 1 if it has neither, -1 an error |
 | `pc.rioType(key)` | a key for the session's `pc.key()` |
-| `pc.rioError(out) -> Int` | the last error, as text, into `out`: how long it is |
-| `pc.rioLog(out) -> Int` | what the session has logged since the last call, taken into `out`: how long (each line ends with 10) |
+| `pc.rioError(out) -> Int` | the last error, as text, added to `out`: how long it is |
+| `pc.rioLog(out) -> Int` | what the session has logged since the last call, as much as fits, taken and added to `out`: how much (each line ends with 10) |
 | `pc.rioIndent(text) -> Int` | how many steps an unfinished input's next line is indented |
 
 Like a REPL, a session keeps its globals, procs and types from one piece to the next, and a bare
@@ -21,14 +21,15 @@ expression logs its value:
 ```rio
 mem: Blob[65536]
 tables: Blob[45056]
-out: Blob[256]
+out: Blob[..256]
 log(pc.rioStart(mem[], tables[]))
 r := pc.rioEval("x := 6 * 7\nx + 1\n")
-n := pc.rioLog(out[])
-log(r, out[..<n].asString())
+_ = pc.rioLog(out)
+log(r, out.asString())
 log(pc.rioEval("y := nope\n"))
-n = pc.rioError(out[])
-log(out[..<n].asString())
+out.clear()
+_ = pc.rioError(out)
+log(out.asString())
 ```
 
 ```output

@@ -92,7 +92,8 @@ include "parts/screen.rio"
 # ---------------------------------------------------------------- starting
 
 args: Blob[16]
-argsLen := min(pc.args(args[]), 16)
+argsIn: Blob[..] = args
+argsLen := min(pc.args(argsIn), 16)
 start := -1
 if argsLen >= 4 and args[0..<4].asString() == "pick" # (pick, or pick 12)
   calledFor = true

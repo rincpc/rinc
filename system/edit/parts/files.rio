@@ -105,6 +105,11 @@ settle :: proc(n: Int)
   rebuildLines()
 end
 
+# how long app name's source is, without reading it: -1 if there's no such app
+sourceLen :: proc(name: String) -> Int
+  none: Blob[..] = one[0..<0]
+  return pc.appSource(name, none)
+end
 # the file at p: false if it can't be had (a new one, if it isn't there yet and it could be saved)
 load :: proc(p: String) -> Bool
   sizeOnly: Blob[..] = one[0..<0]
@@ -112,7 +117,7 @@ load :: proc(p: String) -> Bool
   a := appOf(p)
   bundled := false
   if n < 0 and a.len() > 0 and a[end] != 42 and p == mainPath(a) # (an app the Rinc has built in)
-    n = pc.appSource(a, one[0..<0])
+    n = sourceLen(a)
     bundled = n >= 0
   end
   if n > CAP
@@ -130,7 +135,8 @@ load :: proc(p: String) -> Bool
     sayName("New: ", "", softColor)
   else
     if bundled
-      n = pc.appSource(a, text[0..<CAP])
+      textIn: Blob[..] = text[0..<CAP]
+      n = pc.appSource(a, textIn)
     else
       got: Blob[..] = text[0..<CAP]
       n = pc.fileRead(p, got)
@@ -153,8 +159,10 @@ end
 errorPath: Blob[128]
 errorText: Blob[96]
 goToError :: proc() -> Bool
-  e := pc.appError(errorPath[], errorText[])
-  if e.line < 1 or e.pathLen > 128 or not load(errorPath[0..<e.pathLen].asString())
+  errorPathIn: Blob[..] = errorPath
+  errorTextIn: Blob[..] = errorText
+  e := pc.appError(errorPathIn, errorTextIn)
+  if e.line < 1 or not load(errorPathIn.asString())
     return false
   end
   l := min(e.line, lineCount) - 1
@@ -165,7 +173,7 @@ goToError :: proc() -> Bool
   moveTo(a, false)
   moveTo(min(a + e.len, lineEnd(l)), true)
   wantCol = -1
-  say(errorText[0..<min(e.messageLen, 96)].asString(), errorColor)
+  say(errorTextIn.asString(), errorColor)
   return true
 end
 
@@ -183,7 +191,7 @@ end
 argsBuf: Blob[..128]
 leaving := false
 callFiles :: proc(how: String)
-  if pc.appSource("files", one[0..<0]) < 0
+  if sourceLen("files") < 0
     say("There's no Files app here", errorColor)
     return
   end
@@ -232,7 +240,7 @@ naming := false   # (a new file: a project's name asked for, to save it as that 
 runAfter := false # (and then run it)
 save :: proc() -> Bool
   if path.len() == 0
-    if pc.appSource("files", one[0..<0]) >= 0
+    if sourceLen("files") >= 0
       saveAs()
     else
       naming = true
@@ -249,7 +257,7 @@ save :: proc() -> Bool
     refBuf.clear()
     ok := refBuf.pushAll(a)
     ok = refBuf.push(43)
-    if pc.appSource(refBuf[0..<refBuf.len()].asString(), one[0..<0]) < 0 and pc.appCopy(a, refBuf[0..<refBuf.len()].asString()) != 0
+    if sourceLen(refBuf[0..<refBuf.len()].asString()) < 0 and pc.appCopy(a, refBuf[0..<refBuf.len()].asString()) != 0
       say("Couldn't make its project", errorColor)
       return false
     end

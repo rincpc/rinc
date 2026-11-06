@@ -225,8 +225,7 @@ static char rinc_homeOver[rinc_REF], rinc_homeSet[rinc_REF];
 static int rinc_readFile(const char *path, char *buf, uint32_t cap, uint32_t *total);
 /* a builder argument, Blob[..] (where its length is, where its bytes start, its capacity): rinc_into finds
    its end, where more go, and the room past it (0 for a bad one); rinc_outAdd counts n more bytes in it */
-typedef struct { rio_Val len[2]; uint8_t *end; uint32_t room; } rinc_Out;
-static uint8_t *rinc_into(rio_Vm *v, const rio_Val *b, rinc_Out *o) {
+uint8_t *rinc_into(rio_Vm *v, const rio_Val *b, rinc_Out *o) {
   rio_Val at[2]; const uint8_t *l; uint32_t n;
   o->len[0] = b[0]; o->len[1].u = 4; o->end = 0; o->room = 0;
   if (!(l = (const uint8_t *)rio_sliceBytes(v, o->len))) return 0;
@@ -236,11 +235,17 @@ static uint8_t *rinc_into(rio_Vm *v, const rio_Val *b, rinc_Out *o) {
   o->end += n; o->room = b[2].u - n;
   return o->end;
 }
-static void rinc_outAdd(rio_Vm *v, rinc_Out *o, uint32_t n) {
+void rinc_outAdd(rio_Vm *v, rinc_Out *o, uint32_t n) {
   uint8_t *l = (uint8_t *)rio_sliceBytes(v, o->len); uint32_t k;
   if (!l || !o->end || n > o->room) return;
   memcpy(&k, l, 4); k += n; memcpy(l, &k, 4);
   o->end += n; o->room -= n;
+}
+/* n bytes of s added to a builder, as many as fit: n */
+static int rinc_addOut(rio_Vm *v, const rio_Val *b, const char *s, int n) {
+  rinc_Out o; uint32_t k;
+  if (n > 0 && rinc_into(v, b, &o)) { k = (uint32_t)n < o.room ? (uint32_t)n : o.room; memcpy(o.end, s, k); rinc_outAdd(v, &o, k); }
+  return n;
 }
 /* a read into a builder: as much as fits, added; its whole length, or -1 */
 static int32_t rinc_readOut(rio_Vm *v, const rio_Val *b, const char *path) {
@@ -416,13 +421,8 @@ int rinc_readApp(const char *name, char *buf, uint32_t cap) {
 }
 void rinc_cacheDrop(const char *name); /* (compiled apps: below) */
 static void rinc_hostApps(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_findApps(); }
-static int rinc_copyOut(rio_Vm *v, rio_Val *out, const char *s, int n) {
-  char *p = (char *)rio_sliceBytes(v, out); int cap = (int)out[1].u;
-  if (p) memcpy(p, s, (size_t)(n < cap ? n : cap));
-  return n;
-}
 static void rinc_hostAppName(rio_Vm *v, rio_Val *a) {
-  a[0].i = a[0].u < (uint32_t)rinc_appCount ? rinc_copyOut(v, a + 1, rinc_appNames[a[0].i], (int)strlen(rinc_appNames[a[0].i])) : 0;
+  a[0].i = a[0].u < (uint32_t)rinc_appCount ? rinc_addOut(v, a + 1, rinc_appNames[a[0].i], (int)strlen(rinc_appNames[a[0].i])) : 0;
 }
 static void rinc_hostAppInfo(rio_Vm *v, rio_Val *a) {
   char path[96], line[128]; const char *t = line; uint32_t n = 0; int i, k = a[0].i; const rinc_App *b;
@@ -431,13 +431,13 @@ static void rinc_hostAppInfo(rio_Vm *v, rio_Val *a) {
   if (rinc_appPath(rinc_appNames[k], path, sizeof path) && !rinc_readFile(path, line, sizeof line, &n)) {
     if (n > sizeof line) n = sizeof line;
   } else if ((b = rinc_bundled(rinc_appNames[k])) && b->image) {
-    a[0].i = rinc_copyOut(v, a + 1, b->info, (int)strlen(b->info));
+    a[0].i = rinc_addOut(v, a + 1, b->info, (int)strlen(b->info));
     return;
   } else if (b) { t = b->data; n = rinc_appLen(b); }
   if (n == 0 || t[0] != '#') return;
   for (i = 1; i < (int)n && t[i] == ' '; i++) {}
   for (k = i; k < (int)n && t[k] != '\n' && t[k] != '\r'; k++) {}
-  a[0].i = rinc_copyOut(v, a + 1, t + i, k - i);
+  a[0].i = rinc_addOut(v, a + 1, t + i, k - i);
 }
 /* help texts, for a help app: each app's own, in its help folder (/rinc/apps/<app>/help/..., named
    <app>/...), and those that are no app's (Rinc's and Rio's docs), in /rinc/help (named by their path
@@ -571,7 +571,7 @@ static void rinc_hostHelp(rio_Vm *v, rio_Val *a) {
   snprintf(rinc_launchName, sizeof rinc_launchName, "help"); rinc_launch = 1;
 }
 static void rinc_hostHelpTopic(rio_Vm *v, rio_Val *a) {
-  a[0].i = rinc_copyOut(v, a, rinc_helpTopicNow, (int)strlen(rinc_helpTopicNow));
+  a[0].i = rinc_addOut(v, a, rinc_helpTopicNow, (int)strlen(rinc_helpTopicNow));
   rinc_helpTopicNow[0] = 0;
 }
 /* one app calling another (docs/spec/apps.md#calling-an-app): call(name, args) starts app name (after
@@ -589,10 +589,10 @@ static void rinc_hostCall(rio_Vm *v, rio_Val *a) {
   rinc_callArgsLen = m;
   rinc_calling = 1; rinc_launch = 1;
 }
-static void rinc_hostArgs(rio_Vm *v, rio_Val *a) { a[0].i = rinc_copyOut(v, a, rinc_callArgs, rinc_callArgsLen); }
+static void rinc_hostArgs(rio_Vm *v, rio_Val *a) { a[0].i = rinc_addOut(v, a, rinc_callArgs, rinc_callArgsLen); }
 static void rinc_hostResult(rio_Vm *v, rio_Val *a) {
   int n = rinc_callResultLen;
-  a[0].i = n < 0 ? -1 : rinc_copyOut(v, a, rinc_callResult, n);
+  a[0].i = n < 0 ? -1 : rinc_addOut(v, a, rinc_callResult, n);
   rinc_callResultLen = -1;
 }
 static const char *rinc_recentBefore(void); /* (the recent apps: below) */
@@ -920,14 +920,14 @@ static void rinc_hostAppInstall(rio_Vm *v, rio_Val *a) {
   a[0].i = rinc_copyTree(from, to, "save", 0);
 }
 static void rinc_hostAppSource(rio_Vm *v, rio_Val *a) {
-  char name[rinc_REF], path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; const rinc_App *b;
+  char name[rinc_REF], path[96]; const rinc_App *b;
   int named = rinc_argRef(v, a, name);
   a[0].i = -1;
   if (!named) return;
-  if (rinc_appPath(name, path, sizeof path) && !rinc_readFile(path, (char *)out, out ? cap : 0, &total)) a[0].i = (int32_t)total;
+  if (rinc_appPath(name, path, sizeof path) && rinc_exists(path)) a[0].i = rinc_readOut(v, a + 2, path);
   else if ((b = rinc_bundled(name)) && !b->image) {
-    total = rinc_appLen(b);
-    if (out) memcpy(out, b->data, total < cap ? total : cap);
+    uint32_t total = rinc_appLen(b);
+    rinc_addOut(v, a + 2, (const char *)b->data, (int)total);
     a[0].i = (int32_t)total;
   }
 }
@@ -1122,12 +1122,6 @@ static void rinc_nestLogLine(void *ud, const char *s, int n) {
   memcpy(rinc_nestLog + rinc_nestLogLen, s, (size_t)n); rinc_nestLogLen += n;
   rinc_nestLog[rinc_nestLogLen++] = '\n';
 }
-static int rinc_copyText(rio_Vm *v, rio_Val *out, const char *s, int n) {
-  char *p = (char *)rio_sliceBytes(v, out); int cap = (int)out[1].u;
-  if (n > cap) n = cap;
-  if (p && n > 0) memcpy(p, s, (size_t)n);
-  return p ? n : 0;
-}
 #ifdef rio_NO_COMPILER /* (a vm that only runs images, as the web player's: no sessions, nothing to compile) */
 static int rinc_noCompiler(void) { return -1; }
 #define rio_replBegin(vm, scratch, size, lim) rinc_noCompiler()
@@ -1155,10 +1149,11 @@ static void rinc_hostRioFrame(rio_Vm *v, rio_Val *a) { a[0].i = v != &rinc_nest 
 static void rinc_hostRioType(rio_Vm *v, rio_Val *a) { if (v != &rinc_nest && a[0].i > 0 && a[0].i < 2048) rinc_queue(&rinc_nestTyped, a[0].i); }
 static void rinc_hostRioError(rio_Vm *v, rio_Val *a) {
   const char *e = rinc_nestOn || rinc_nestTried ? rio_error(&rinc_nest) : "no session (pc.rioStart starts one)";
-  a[0].i = v == &rinc_nest ? 0 : rinc_copyText(v, a, e, (int)strlen(e));
+  a[0].i = v == &rinc_nest ? 0 : rinc_addOut(v, a, e, (int)strlen(e));
 }
 static void rinc_hostRioLog(rio_Vm *v, rio_Val *a) {
-  int n = v == &rinc_nest ? 0 : rinc_copyText(v, a, rinc_nestLog, rinc_nestLogLen);
+  rinc_Out o; int n = v == &rinc_nest || !rinc_into(v, a, &o) ? 0 : rinc_nestLogLen < (int)o.room ? rinc_nestLogLen : (int)o.room;
+  memcpy(o.end, rinc_nestLog, (size_t)n); if (n) rinc_outAdd(v, &o, (uint32_t)n);
   memmove(rinc_nestLog, rinc_nestLog + n, (size_t)(rinc_nestLogLen - n)); rinc_nestLogLen -= n;
   a[0].i = n;
 }
@@ -1178,37 +1173,38 @@ static void rinc_hostStick(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = a[0].u < 4
 static void rinc_hostTrigger(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = a[0].u < 2 ? (float)rinc_axes[4 + a[0].i] / 32767.0f : 0; }
 static void rinc_hostTime(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = rinc_time ? rinc_time() : 0; }
 /* fromHex(out, text): bytes from hex digits (pairs; anything else between them, such as spaces and
-   line breaks, is skipped) into out, until it's full. Returns how many. For binary data typed into an
+   line breaks, is skipped) added to out, until it's full. Returns how many. For binary data typed into an
    app: sound, pictures */
 static int rinc_hexDigit(int c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; }
 static void rinc_hostFromhex(rio_Vm *v, rio_Val *a) {
-  uint8_t *out = (uint8_t *)rio_sliceBytes(v, a); const char *t = (const char *)rio_sliceBytes(v, a + 2);
-  uint32_t cap = a[1].u, n = a[3].u, i, k = 0; int hi = -1;
+  rinc_Out o; uint8_t *out = rinc_into(v, a, &o); const char *t = (const char *)rio_sliceBytes(v, a + 3);
+  uint32_t cap = o.room, n = a[4].u, i, k = 0; int hi = -1;
   for (i = 0; out && t && i < n && k < cap; i++) {
     int d = rinc_hexDigit(t[i]);
     if (d < 0) continue;
     if (hi < 0) hi = d; else { out[k++] = (uint8_t)(hi << 4 | d); hi = -1; }
   }
+  if (k) rinc_outAdd(v, &o, k);
   a[0].u = k;
 }
-/* moduleSource(name, out): pc's or core's source, as much as fits, and its whole length (-1: neither) */
+/* moduleSource(name, out): pc's or core's source, added to out, as much as fits, and its whole length (-1: neither) */
 static void rinc_hostModulesource(rio_Vm *v, rio_Val *a) {
-  const char *name = (const char *)rio_sliceBytes(v, a), *s = 0; char *out = (char *)rio_sliceBytes(v, a + 2);
+  const char *name = (const char *)rio_sliceBytes(v, a), *s = 0;
   uint32_t n = 0;
   if (name && a[1].u == 2 && !memcmp(name, "pc", 2)) s = pc_SOURCE, n = sizeof pc_SOURCE - 1;
   if (name && a[1].u == 4 && !memcmp(name, "core", 4)) s = core_SOURCE, n = sizeof core_SOURCE - 1;
-  if (s && out) memcpy(out, s, n < a[3].u ? n : a[3].u);
-  a[0].i = s ? (int32_t)n : -1;
+  a[0].i = s ? rinc_addOut(v, a + 2, s, (int)n) : -1;
 }
-/* formatRio(out, code): rio_format's (rio fmt's); -2 (left as it is) in a build without the compiler,
-   which has no rio_format */
+/* formatRio(out, code): rio_format's (rio fmt's), added to out (nothing, unless it all fits); -2 (left as
+   it is) in a build without the compiler, which has no rio_format */
 static void rinc_hostFormatrio(rio_Vm *v, rio_Val *a) {
 #ifdef rio_NO_COMPILER
   (void)v;
   a[0].i = -2;
 #else
-  char *out = (char *)rio_sliceBytes(v, a); const char *code = (const char *)rio_sliceBytes(v, a + 2);
-  a[0].i = out && a[1].u ? rio_format(code ? code : "", code ? a[3].u : 0, out, a[1].u) : -1;
+  rinc_Out o; const char *code = (const char *)rio_sliceBytes(v, a + 3);
+  a[0].i = rinc_into(v, a, &o) && o.room ? rio_format(code ? code : "", code ? a[4].u : 0, (char *)o.end, o.room) : -1;
+  if (a[0].i > 0) rinc_outAdd(v, &o, (uint32_t)a[0].i);
 #endif
 }
 
@@ -1473,14 +1469,15 @@ static void rinc_hostCheckrio(rio_Vm *v, rio_Val *a) {
   rinc_cplOn = 1; rinc_checkRoom = room; rinc_checkSize = size; rinc_checkHash = rinc_roomHash(room, size);
 #endif
 }
-/* checkError(path, message) -> pc.AppError: the last check's error (line 0: none), its file and what it says */
+/* checkError(path, message) -> pc.AppError: the last check's error (line 0: none), its file and what it
+   says, added to path and message */
 static void rinc_hostCheckerror(rio_Vm *v, rio_Val *a) {
   pc_AppError r;
   memset(&r, 0, sizeof r);
   if (rinc_checkError.line > 0) {
     r.line = rinc_checkError.line; r.col = rinc_checkError.col; r.len = rinc_checkError.len;
-    r.pathLen = rinc_copyOut(v, a + 2, rinc_checkError.path, (int)strlen(rinc_checkError.path));
-    r.messageLen = rinc_copyOut(v, a + 4, rinc_checkError.message, (int)strlen(rinc_checkError.message));
+    rinc_addOut(v, a + 2, rinc_checkError.path, (int)strlen(rinc_checkError.path));
+    rinc_addOut(v, a + 5, rinc_checkError.message, (int)strlen(rinc_checkError.message));
   }
   rio_putStruct(v, a, &r, sizeof r);
 }
@@ -1495,8 +1492,8 @@ static void rinc_offer(void *ud, const char *name, int nameLen, int kind, const 
 }
 static void rinc_hostCompleterio(rio_Vm *v, rio_Val *a) {
   const char *line = (const char *)rio_sliceBytes(v, a);
-  rinc_Offers o;
-  o.out = (char *)rio_sliceBytes(v, a + 2); o.cap = a[3].u; o.n = 0;
+  rinc_Offers o; rinc_Out into;
+  o.out = (char *)rinc_into(v, a + 2, &into); o.cap = into.room; o.n = 0;
   a[0].i = 0;
   if (v == &rinc_nest || !o.out) return;
 #ifdef rio_NO_COMPILER
@@ -1508,6 +1505,7 @@ static void rinc_hostCompleterio(rio_Vm *v, rio_Val *a) {
     rio_complete(ok ? &rinc_nest : 0, line ? line : "", line ? a[1].u : 0, rinc_offer, &o);
   }
 #endif
+  rinc_outAdd(v, &into, o.n);
   a[0].i = (int32_t)o.n;
 }
 
@@ -1529,13 +1527,13 @@ static void rinc_keepError(rio_Vm *vm, const char *name) {
   rinc_lastError.line = e.line; rinc_lastError.col = e.col; rinc_lastError.len = e.len;
   rinc_lastError.runtime = e.kind == rio_ErrorKind_runtime;
 }
-static void rinc_hostAppError(rio_Vm *v, rio_Val *a) { /* (-> pc.AppError: where it goes in a[0], a[1]; path, message after) */
+static void rinc_hostAppError(rio_Vm *v, rio_Val *a) { /* (-> pc.AppError: where it goes in a[0], a[1]; path, message after, added to) */
   pc_AppError r;
   memset(&r, 0, sizeof r);
   if (rinc_lastError.line > 0) {
     r.line = rinc_lastError.line; r.col = rinc_lastError.col; r.len = rinc_lastError.len; r.runtime = rinc_lastError.runtime;
-    r.pathLen = rinc_copyOut(v, a + 2, rinc_lastError.path, (int)strlen(rinc_lastError.path));
-    r.messageLen = rinc_copyOut(v, a + 4, rinc_lastError.message, (int)strlen(rinc_lastError.message));
+    rinc_addOut(v, a + 2, rinc_lastError.path, (int)strlen(rinc_lastError.path));
+    rinc_addOut(v, a + 5, rinc_lastError.message, (int)strlen(rinc_lastError.message));
   }
   rinc_lastError.line = 0;
   rio_putStruct(v, a, &r, sizeof r);
