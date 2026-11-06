@@ -34,13 +34,13 @@ include "parts/screen.rio"
 # back from Files (called to open a file, or to save as): what it had, again, then what was picked;
 # else the active app or project's main file (another app may have made another one active), or, if
 # that's where it was, where it was, else a new file
-numbersBuf: Blob[1] # (line numbers, if they were shown last time)
-showNumbers(pc.saveRead("numbers", numbersBuf[]) == 1 and numbersBuf[0] == 49)
+numbersBuf: Blob[..1] # (line numbers, if they were shown last time)
+showNumbers(pc.saveRead("numbers", numbersBuf) == 1 and numbersBuf[0] == 49)
 place: [3]Int # (the path's length, the cursor, the line at the top)
-lastBuf: Blob[128]
-lastLen := min(pc.saveRead("last", lastBuf[0..<128]), 128)
+lastBuf: Blob[..128]
+_ = pc.saveRead("last", lastBuf)
 part := 0
-for i in 0..<max(lastLen, 0)
+for i in 0..<lastBuf.len()
   c := lastBuf[i]
   if c == 32 and part < 2
     part += 1
@@ -51,22 +51,23 @@ for i in 0..<max(lastLen, 0)
   end
 end
 lastPath := lastBuf[0..<place[0]].asString()
-calling: Blob[8]
-callingLen := pc.stashRead("calling", calling[])
+calling: Blob[..8]
+callingLen := pc.stashRead("calling", calling)
 picked: Blob[128]
 pickedLen := pc.result(picked[])
-activeBuf: Blob[34]
-activeLen := min(pc.settingRead("active", activeBuf[0..<34]), 34)
+activeBuf: Blob[..34]
+_ = pc.settingRead("active", activeBuf)
 if callingLen > 0
   ok := pc.stashDelete("calling")
-  draftPath: Blob[96]
-  n := min(pc.stashRead("draftPath", draftPath[]), 96)
-  if n > 0
-    setPath(draftPath[0..<n].asString())
+  draftPath: Blob[..96]
+  if pc.stashRead("draftPath", draftPath) > 0
+    setPath(draftPath.asString())
   end
-  m := min(pc.stashRead("draft", text[0..<CAP]), CAP)
-  settle(max(m, 0))
-  disk := pc.fileRead(here(), one[0..<0])
+  draft: Blob[..] = text[0..<CAP]
+  _ = pc.stashRead("draft", draft)
+  settle(draft.len())
+  sizeOnly: Blob[..] = one[0..<0]
+  disk := pc.fileRead(here(), sizeOnly)
   savedTop = recTop
   if path.len() == 0 or disk != textLen # (changed from what's saved: shown as changed)
     savedTop = -1
@@ -83,8 +84,8 @@ if callingLen > 0
   reveal()
 case goToError() # (back from an app that stopped with an error: at the error)
   reveal()
-case activeLen > 0 and appOf(lastPath) != activeBuf[0..<activeLen].asString() # (another app, made active)
-  if not load(mainPath(activeBuf[0..<activeLen].asString()))
+case activeBuf.len() > 0 and appOf(lastPath) != activeBuf.asString() # (another app, made active)
+  if not load(mainPath(activeBuf.asString()))
     fresh()
   end
 case place[0] > 0 and load(lastPath)

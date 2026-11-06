@@ -102,11 +102,12 @@ if argsLen >= 4 and args[0..<4].asString() == "pick" # (pick, or pick 12)
     end
   end
 end
-stashLen := pc.stashRead("pick", stashed[])
-if stashLen >= 3
-  axis = stashed[1] % 3
-  pickColor(stashed[0], stashed[2] == CUBE)
-  if stashLen >= 4 and stashed[3] == HUE_VIEW
+back: Blob[..4]
+_ = pc.stashRead("pick", back)
+if back.len() >= 3
+  axis = back[1] % 3
+  pickColor(back[0], back[2] == CUBE)
+  if back.len() >= 4 and back[3] == HUE_VIEW
     setView(HUE_VIEW)
   end
 end

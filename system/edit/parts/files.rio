@@ -107,7 +107,8 @@ end
 
 # the file at p: false if it can't be had (a new one, if it isn't there yet and it could be saved)
 load :: proc(p: String) -> Bool
-  n := pc.fileRead(p, one[0..<0])
+  sizeOnly: Blob[..] = one[0..<0]
+  n := pc.fileRead(p, sizeOnly)
   a := appOf(p)
   bundled := false
   if n < 0 and a.len() > 0 and a[end] != 42 and p == mainPath(a) # (an app the Rinc has built in)
@@ -131,7 +132,8 @@ load :: proc(p: String) -> Bool
     if bundled
       n = pc.appSource(a, text[0..<CAP])
     else
-      n = pc.fileRead(p, text[0..<CAP])
+      got: Blob[..] = text[0..<CAP]
+      n = pc.fileRead(p, got)
     end
     settle(min(n, CAP))
     if not readOnly()
@@ -195,11 +197,11 @@ callFiles :: proc(how: String)
   pushed = argsBuf.push(32)
   p := here()
   if p.len() == 0
-    a: Blob[34]
-    n := min(pc.settingRead("active", a[]), 34)
+    a: Blob[..34]
+    _ = pc.settingRead("active", a)
     p = "/rinc/projects"
-    if n > 0
-      p = mainPath(a[0..<n].asString())
+    if a.len() > 0
+      p = mainPath(a.asString())
     end
   end
   slash := p.len() - 1

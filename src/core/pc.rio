@@ -28,23 +28,19 @@ Rect.between* :: static proc(a, b: [2]Int) -> Rect   # from two corners, either 
   at := min(a, b)
   return Rect{pos = at, size = max(a, b) - at + 1}
 end
-# where blit draws a picture, and which part of it; left out, the whole picture at its size
+# a picture: its pixels, a byte each, row by row (0: see-through), size.x to a row, and its size
+Image* :: struct
+  pixels: Blob
+  size: [2]Int
+end
+# which part of a picture blit draws, and how; left out, the whole picture at its size
 Blit* :: struct
-  at: [2]Int    # where its top left goes
   from: [2]Int  # the part's top left, in the picture
   size: [2]Int  # the part's size (a 0: the rest of the picture, that way)
   scale: [2]Int # each pixel so many wide and high (a 0: 1); negative mirrors it that way: {-1, 1}, left for right
 end
-# a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it), or
-# part of it, as b says; color 0 is see-through: blit(pic, {at = {10, 20}})
-blit* :: host proc(picture: String, b: Blit)
-# a picture's width and height ({0, 0} for what's too short to be one)
-picSize* :: proc(picture: String) -> [2]Int
-  if picture.len() < 4
-    return {0, 0}
-  end
-  return {picture.getInt(0, 16), picture.getInt(2, 16)}
-end
+# a picture, or part of it, as b says, its top left at at; color 0 is see-through: blit(image, {10, 20})
+blit* :: host proc(image: Image, at: [2]Int, b?: Blit)
 print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in the 5x8 font, 6 pixels a character
 
 # ---------------------------------------------------------------- input
@@ -177,40 +173,54 @@ appRename* :: host proc(from: String, to: String) -> Int   # project from (from*
 
 # A path is absolute (/rinc/save/chord/best), in /rinc, the root: looking goes anywhere in it, changing
 # only inside it. Or, not starting with /, it's one of the app's own files, in its folder (as a project,
-# /rinc/projects/chord/, or installed, /rinc/apps/chord/): pngRead("sprites.png"), for reading only
-dir* :: host proc(path: String, out: Blob) -> Int          # its entries, folders first, a line each ("d name", "f name"): how many, or -1
-fileRead* :: host proc(path: String, out: Blob) -> Int     # as much as fits: its whole length, or -1
+# /rinc/projects/chord/, or installed, /rinc/apps/chord/): imageRead("sprites.png", pixels), for reading
+# only. What reads into a builder adds to what's in it, as much as fits: out.len() tells how much it holds
+dir* :: host proc(path: String, out: Blob[..]) -> Int      # its entries, folders first, a line each ("d name", "f name"): how many, or -1
+fileRead* :: host proc(path: String, out: Blob[..]) -> Int # its whole length, or -1
 fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1
 fileDelete* :: host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1
 fileCopy* :: host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1
 fileRename* :: host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1
 dirMake* :: host proc(path: String) -> Int                 # a folder, at a path not taken: 0, or -1
-# pictures as PNG files: a picture is its width and height (2 bytes each, low first), then its pixels, a
-# byte each, row by row (0: see-through). pngRead reads one into out, each color the palette's nearest
-# (exactly, for one written by pngWrite): its size, or -1 (out needs room for the PNG's rows as they come
-# too: w * h + 2 * h + 4 bytes for one of the palette's). pngWrite writes one as an indexed PNG, with the
-# app's notes about it (text, up to 512 bytes, kept in the PNG: a sprite sheet's sprite size, say; "":
-# none), and pngNotes reads them back
-pngRead* :: host proc(path: String, out: Blob) -> Int
-pngWrite* :: host proc(path: String, picture: String, notes: String) -> Int # 0, or -1
-pngNotes* :: host proc(path: String, out: Blob) -> Int      # the notes, into out: how many bytes, or -1 (none)
+# pictures in files (Image: its pixels and size). imageRead adds one's pixels to pixels, each color the
+# palette's nearest (exactly, for one imageWrite wrote), and gives it as an Image, viewing them (size {0,
+# 0} for none). pixels needs room past what it holds for the file's rows as they come: (w + 1) * h bytes
+# for a PNG of the palette's; without it, the Image has its size but no pixels, and the log says why. imageWrite writes one as o says, and
+# imageNotes adds its notes to out. Only PNG files, so far
+ImageFormat* :: enum
+  fromName
+  png
+end
+imageLoad :: host proc(path: String, pixels: Blob[..]) -> [2]Int # (imageRead's: the pixels added, and its size)
+imageRead* :: proc(path: String, pixels: Blob[..]) -> Image
+  start := pixels.len()
+  size := imageLoad(path, pixels)
+  return {pixels = pixels[start..<pixels.len()], size = size}
+end
+# how imageWrite writes a picture; left out, as its name ends (.png), with no notes
+ImageWrite* :: struct
+  notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)
+  format: ImageFormat  # fromName: as its name ends
+end
+imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1
+imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 
 # the help texts (Markdown): their names (paths, .md left off: rinc/spec/apps; a project's, chord+/...),
-# in order, into out, each with a 10 after it, as many as fit: how many
-helps* :: host proc(out: Blob) -> Int
-# a help text into out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none
-helpRead* :: host proc(name: String, out: Blob) -> Int
+# in order, added to out, each with a 10 after it, as many as fit: how many
+helps* :: host proc(out: Blob[..]) -> Int
+# a help text added to out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none
+helpRead* :: host proc(name: String, out: Blob[..]) -> Int
 # the help app, after this frame, at a help text (and maybe a heading): help("rio/spec/statements#if")
 help* :: host proc(topic: String)
 helpTopic* :: host proc(out: Blob) -> Int             # for the help app: the topic it was opened at, taken (0: none)
 
 # ---------------------------------------------------------------- this app's own files: /rinc/save/<app>
 
-# a file's contents into out, as much as fits: its whole length, or -1 if there's no such file. Names are
-# 1 to 32 letters, digits, _, - and . (not first)
-saveRead* :: host proc(file: String, out: Blob) -> Int
+# a file's contents added to out, as much as fits: its whole length, or -1 if there's no such file. Names
+# are 1 to 32 letters, digits, _, - and . (not first)
+saveRead* :: host proc(file: String, out: Blob[..]) -> Int
 saveWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1
 saveDelete* :: host proc(file: String) -> Int               # 0, or -1
 
@@ -219,11 +229,11 @@ saveDelete* :: host proc(file: String) -> Int               # 0, or -1
 # what an app keeps of where it was, for its next start, under keys of its own (named as save files are),
 # written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space
 stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
-stashRead* :: host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1 for none
+stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none
 stashDelete* :: host proc(key: String) -> Int               # 0, or -1
 # the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): "active" is the app or project
 # being worked on (chord, or chord+); keys are named as save files are
-settingRead* :: host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1
+settingRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1
 settingWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
 
 # the theme: a color for each role, which the system apps draw with, so they look alike and a theme (the

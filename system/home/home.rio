@@ -129,8 +129,8 @@ end
 
 # the active app or project, the whole Rinc's setting (what the editor opens): Ctrl+Enter makes the
 # picked one active, and opens the editor
-active: Blob[34]
-activeLen := max(0, min(pc.settingRead("active", active[]), 34))
+active: Blob[..34]
+_ = pc.settingRead("active", active)
 edit :: proc()
   if nshown == 0
     return
@@ -142,7 +142,7 @@ edit :: proc()
   end
 end
 isActive :: proc(k: Int) -> Bool
-  return activeLen > 0 and names[nameAt[k]..<nameAt[k] + nameLen[k]].asString() == active[0..<activeLen].asString()
+  return active.len() > 0 and names[nameAt[k]..<nameAt[k] + nameLen[k]].asString() == active.asString()
 end
 
 # the rows shown, so the pick is among them, and never past either end of the list

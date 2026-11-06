@@ -48,20 +48,21 @@ static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   (void)v;
   a[0].i = x < rinc_W && y < rinc_H ? rinc_screen[y][x] : 0;
 }
-/* blit(picture, b: Blit): a picture (its width and height, 2 bytes each, then its pixels, as pc.pngRead
-   gives it), or b.size of it from b.from (a 0 in size: the rest of it that way), drawn at b.at, each pixel
-   b.scale wide and high (0: 1; negative: mirrored that way); color 0 is see-through */
+/* blit(image, at, b: Blit): a picture (pc.Image: its pixels, a byte each, row by row, and its width and
+   height), or b.size of it from b.from (a 0 in size: the rest of it that way),
+   drawn at at, each pixel b.scale wide and high (0: 1; negative: mirrored that way); color 0 is
+   see-through. b left out: all zeros */
 static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
-  const uint8_t *p = (const uint8_t *)rio_sliceBytes(v, a); uint32_t n = a[1].u;
-  pc_Blit b;
+  pc_Image im; pc_Blit b; const uint8_t *p; uint32_t n;
   int pw, ph, sx, sy, w, h, x0, y0, kx, ky, flipX, flipY, i, j;
-  rio_getStruct(v, a + 2, &b, sizeof b);
-  sx = b.from[0]; sy = b.from[1]; w = b.size[0]; h = b.size[1]; x0 = b.at[0]; y0 = b.at[1];
+  memset(&im, 0, sizeof im); memset(&b, 0, sizeof b);
+  rio_getStruct(v, a, &im, sizeof im);
+  rio_getStruct(v, a + 4, &b, sizeof b);
+  p = (const uint8_t *)rio_viewBytes(v, im.pixels); n = im.pixels.len; pw = im.size[0]; ph = im.size[1];
+  sx = b.from[0]; sy = b.from[1]; w = b.size[0]; h = b.size[1]; x0 = a[2].i; y0 = a[3].i;
   flipX = b.scale[0] < 0; flipY = b.scale[1] < 0;
   kx = flipX ? -b.scale[0] : b.scale[0] ? b.scale[0] : 1; ky = flipY ? -b.scale[1] : b.scale[1] ? b.scale[1] : 1;
-  if (!p || n < 4) return;
-  pw = p[0] | p[1] << 8; ph = p[2] | p[3] << 8;
-  if ((uint32_t)pw * (uint32_t)ph > n - 4) return;
+  if (!p || pw <= 0 || ph <= 0 || (uint64_t)pw * (uint32_t)ph > n) return;
   if (w <= 0) w = pw - (sx > 0 ? sx : 0); /* (0: the rest of the picture) */
   if (h <= 0) h = ph - (sy > 0 ? sy : 0);
   if (sx < 0) { w += sx; x0 -= sx * kx; sx = 0; } /* (the part that's in the picture) */
@@ -69,7 +70,7 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   if (w > pw - sx) w = pw - sx;
   if (h > ph - sy) h = ph - sy;
   for (j = 0; j < h; j++) {
-    const uint8_t *row = p + 4 + (sy + (flipY ? h - 1 - j : j)) * pw + sx; /* (mirrored: the rows from the bottom) */
+    const uint8_t *row = p + (sy + (flipY ? h - 1 - j : j)) * pw + sx; /* (mirrored: the rows from the bottom) */
     int y = y0 + j * ky, ya = y < 0 ? 0 : y, yb = y + ky > rinc_H ? rinc_H : y + ky;
     if (ya >= yb) continue;
     for (i = 0; i < w; i++) {
@@ -222,6 +223,32 @@ const char *rinc_bundleName(void) { return rinc_bundleStorage; }
    app (one that carries apps: an exported game, a web page), else the home setting, else home */
 static char rinc_homeOver[rinc_REF], rinc_homeSet[rinc_REF];
 static int rinc_readFile(const char *path, char *buf, uint32_t cap, uint32_t *total);
+/* a builder argument, Blob[..] (where its length is, where its bytes start, its capacity): rinc_into finds
+   its end, where more go, and the room past it (0 for a bad one); rinc_outAdd counts n more bytes in it */
+typedef struct { rio_Val len[2]; uint8_t *end; uint32_t room; } rinc_Out;
+static uint8_t *rinc_into(rio_Vm *v, const rio_Val *b, rinc_Out *o) {
+  rio_Val at[2]; const uint8_t *l; uint32_t n;
+  o->len[0] = b[0]; o->len[1].u = 4; o->end = 0; o->room = 0;
+  if (!(l = (const uint8_t *)rio_sliceBytes(v, o->len))) return 0;
+  memcpy(&n, l, 4);
+  at[0] = b[1]; at[1] = b[2];
+  if (n > b[2].u || !(o->end = (uint8_t *)rio_sliceBytes(v, at))) return o->end = 0;
+  o->end += n; o->room = b[2].u - n;
+  return o->end;
+}
+static void rinc_outAdd(rio_Vm *v, rinc_Out *o, uint32_t n) {
+  uint8_t *l = (uint8_t *)rio_sliceBytes(v, o->len); uint32_t k;
+  if (!l || !o->end || n > o->room) return;
+  memcpy(&k, l, 4); k += n; memcpy(l, &k, 4);
+  o->end += n; o->room -= n;
+}
+/* a read into a builder: as much as fits, added; its whole length, or -1 */
+static int32_t rinc_readOut(rio_Vm *v, const rio_Val *b, const char *path) {
+  rinc_Out o; uint32_t total;
+  if (!rinc_into(v, b, &o) || rinc_readFile(path, (char *)o.end, o.room, &total)) return -1;
+  rinc_outAdd(v, &o, total < o.room ? total : o.room);
+  return (int32_t)total;
+}
 static int rinc_refOk(const char *s, int n);
 void rinc_setHome(const char *name) { snprintf(rinc_homeOver, sizeof rinc_homeOver, "%s", name ? name : ""); }
 const char *rinc_homeName(void) {
@@ -501,17 +528,22 @@ static int rinc_findHelps(char *out, int cap) {
   rinc_helpOut = 0;
   return rinc_helpCount;
 }
-static void rinc_hostHelps(rio_Vm *v, rio_Val *a) { char *out = (char *)rio_sliceBytes(v, a); a[0].i = rinc_findHelps(out, out ? (int)a[1].u : 0); }
+static void rinc_hostHelps(rio_Vm *v, rio_Val *a) {
+  rinc_Out o; int n = rinc_into(v, a, &o) ? rinc_findHelps((char *)o.end, (int)o.room) : 0;
+  rinc_outAdd(v, &o, (uint32_t)rinc_helpUsed);
+  a[0].i = n;
+}
 static void rinc_hostHelpRead(rio_Vm *v, rio_Val *a) {
   const char *s = (const char *)rio_sliceBytes(v, a), *slash; int n = (int)a[1].u, app = 0, k; char name[64], path[128];
-  uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; const rinc_File *f = 0;
+  rinc_Out o; const rinc_File *f = 0;
   a[0].i = -1; /* (after the name's read: it was there) */
+  if (!rinc_into(v, a + 2, &o)) return;
   if (!rinc_helpNameOk(s, n)) return;
   memcpy(name, s, (size_t)n); name[n] = 0;
   if ((slash = strchr(name, '/'))) app = (int)(slash - name); /* (app/rest: maybe an app's own) */
   if (app > 1 && name[app - 1] == rinc_PROJECT) { /* (a project's: in storage only) */
     snprintf(path, sizeof path, "/rinc/projects/%.*s/help/%s.md", app - 1, name, slash + 1);
-    if (rinc_nameOk(name, app - 1, 0) && !rinc_readFile(path, (char *)out, out ? cap : 0, &total)) a[0].i = (int32_t)total;
+    if (rinc_nameOk(name, app - 1, 0)) a[0].i = rinc_readOut(v, a + 2, path);
     return;
   }
   for (k = 0; k < 4 && !f; k++) { /* storage: the app's, then help's; the bundle: the same */
@@ -521,9 +553,10 @@ static void rinc_hostHelpRead(rio_Vm *v, rio_Val *a) {
     else if (k == 2) snprintf(path, sizeof path, "apps/%.*s/help/%s.md", app, name, slash + 1);
     else snprintf(path, sizeof path, "help/%s.md", name);
     if (k < 2) {
-      if (!rinc_readFile(path, (char *)out, out ? cap : 0, &total)) { a[0].i = (int32_t)total; return; }
+      if (rinc_exists(path)) { a[0].i = rinc_readOut(v, a + 2, path); return; }
     } else if ((f = rinc_bundleFile(path))) {
-      if (out) memcpy(out, f->data, f->len < cap ? f->len : cap);
+      uint32_t k = f->len < o.room ? f->len : o.room;
+      memcpy(o.end, f->data, k); rinc_outAdd(v, &o, k);
       a[0].i = (int32_t)f->len;
     }
   }
@@ -794,40 +827,56 @@ static int rinc_dirBundled(const char *path) {
 }
 static void rinc_hostDir(rio_Vm *v, rio_Val *a) { /* (storage's entries, then the bundle's) */
   char path[96]; int named = rinc_argPath(v, a, path, 0), listed, bundled;
-  rinc_dirOut = (char *)rio_sliceBytes(v, a + 2); rinc_dirCap = rinc_dirOut ? (int)a[3].u : 0; rinc_dirUsed = rinc_dirCount = 0;
+  rinc_Out o;
+  if (!rinc_into(v, a + 2, &o)) { a[0].i = -1; return; }
+  rinc_dirOut = (char *)o.end; rinc_dirCap = (int)o.room; rinc_dirUsed = rinc_dirCount = 0;
   listed = named && rinc_fs && !rinc_fs->list(path, rinc_dirFound, 0);
   bundled = named && rinc_dirBundled(path);
   a[0].i = listed || bundled ? rinc_dirCount : -1;
+  rinc_outAdd(v, &o, (uint32_t)rinc_dirUsed);
   rinc_dirOut = 0;
 }
 static void rinc_hostFileRead(rio_Vm *v, rio_Val *a) {
-  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_argPath(v, a, path, 0);
-  a[0].i = named && !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
+  char path[96]; int named = rinc_argPath(v, a, path, 0);
+  a[0].i = named ? rinc_readOut(v, a + 2, path) : -1;
 }
 static void rinc_hostFileWrite(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_argPath(v, a, path, 1);
   if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
 }
-/* pictures as PNG files (png.c): pngRead(path, out) -> Int: the picture, into out: its width and height
-   (2 bytes each, low first), then its pixels, a byte each, row by row; its size, or -1 (out needs more
-   room than that, for the PNG's rows as they come: w * h + 2 * h + 4 for one of the palette's).
-   pngWrite(path, picture, notes) -> Int: one, laid out the same, as an indexed PNG, with the app's notes
-   (text; "": none): 0, or -1. pngNotes(path, out) -> Int: those notes, into out: how many bytes, or -1 */
-static void rinc_hostPngRead(rio_Vm *v, rio_Val *a) {
-  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); int named = rinc_argPath(v, a, path, 0);
-  a[0].i = named && out ? rinc_pngRead(path, out, a[3].u) : -1;
+/* pictures in files (png.c; only PNGs so far): imageLoad(path, pixels) -> [2]Int (pc.imageRead's): the
+   picture's pixels, a byte each, row by row, added to pixels; its width and height, or {0, 0} (pixels needs
+   room past its length for the PNG's rows as they come: (w + 1) * h for one of the palette's; without it,
+   just its size, and a line in the log saying so).
+   imageWrite(path, image, o: ImageWrite) -> Int: one, as an indexed PNG (o.format fromName: the path ends
+   .png), with the app's notes, o.notes (text; "": none): 0, or -1. imageNotes(path, out) -> Int: those
+   notes, added to out: how many bytes, or -1 */
+static void rinc_hostImageLoad(rio_Vm *v, rio_Val *a) {
+  char path[96], say[160]; rinc_Out o; uint32_t size[2] = {0, 0}, need = 0;
+  int named = rinc_argPath(v, a, path, 0), r = named && rinc_into(v, a + 2, &o) ? rinc_pngRead(path, o.end, o.room, size, &need) : -1;
+  a[0].i = (int32_t)size[0]; a[1].i = (int32_t)size[1];
+  if (r == -2) {
+    snprintf(say, sizeof say, "imageRead: %.96s needs %u bytes of room, and has %u\r\n", path, (unsigned)need, (unsigned)o.room);
+    rinc_say(say);
+  }
+  if (!r) rinc_outAdd(v, &o, size[0] * size[1]);
 }
-static void rinc_hostPngWrite(rio_Vm *v, rio_Val *a) {
-  char path[96]; const uint8_t *p = (const uint8_t *)rio_sliceBytes(v, a + 2); uint32_t n = a[3].u, w, h; int named = rinc_argPath(v, a, path, 1);
+static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
+  char path[96]; pc_Image im; pc_ImageWrite o; const uint8_t *p; int w, h, named = rinc_argPath(v, a, path, 1);
+  size_t k = strlen(path);
+  memset(&im, 0, sizeof im); memset(&o, 0, sizeof o);
+  rio_getStruct(v, a + 2, &im, sizeof im);
+  rio_getStruct(v, a + 4, &o, sizeof o);
+  p = (const uint8_t *)rio_viewBytes(v, im.pixels); w = im.size[0]; h = im.size[1];
   a[0].i = -1;
-  if (!named || !p || n < 4) return;
-  w = p[0] | (uint32_t)p[1] << 8; h = p[2] | (uint32_t)p[3] << 8;
-  if (w && h && (uint64_t)w * h <= n - 4 && a[5].u <= rinc_PNG_NOTES)
-    a[0].i = rinc_pngWrite(path, p + 4, (int)w, (int)h, (const char *)rio_sliceBytes(v, a + 4), (int)a[5].u);
+  if (!named || !p || w <= 0 || h <= 0 || (uint64_t)w * (uint32_t)h > im.pixels.len || o.notes.len > rinc_PNG_NOTES) return;
+  if (!o.format && !(k > 4 && path[k - 4] == '.' && (path[k - 3] | 32) == 'p' && (path[k - 2] | 32) == 'n' && (path[k - 1] | 32) == 'g')) return; /* (fromName) */
+  a[0].i = rinc_pngWrite(path, p, w, h, (const char *)rio_viewBytes(v, o.notes), (int)o.notes.len);
 }
-static void rinc_hostPngNotes(rio_Vm *v, rio_Val *a) {
-  char path[96]; char *out = (char *)rio_sliceBytes(v, a + 2); int named = rinc_argPath(v, a, path, 0);
-  a[0].i = named && out ? rinc_pngNotes(path, out, a[3].u) : -1;
+static void rinc_hostImageNotes(rio_Vm *v, rio_Val *a) {
+  char path[96]; rinc_Out o; int named = rinc_argPath(v, a, path, 0), n = named && rinc_into(v, a + 2, &o) ? rinc_pngNotes(path, (char *)o.end, o.room) : -1;
+  if (n > 0) rinc_outAdd(v, &o, (uint32_t)n < o.room ? (uint32_t)n : o.room);
+  a[0].i = n;
 }
 static void rinc_hostFileDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_argPath(v, a, path, 1);
@@ -899,8 +948,8 @@ static void rinc_hostAppDelete(rio_Vm *v, rio_Val *a) { /* (all of it: rinc_appR
   a[0].i = named ? rinc_appRemove(name) : -1;
 }
 static void rinc_hostSaveRead(rio_Vm *v, rio_Val *a) {
-  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_savePath(v, a, path, sizeof path);
-  a[0].i = named && !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
+  char path[96]; int named = rinc_savePath(v, a, path, sizeof path);
+  a[0].i = named ? rinc_readOut(v, a + 2, path) : -1;
 }
 static void rinc_hostSaveWrite(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_savePath(v, a, path, sizeof path);
@@ -947,8 +996,8 @@ static void rinc_hostStashWrite(rio_Vm *v, rio_Val *a) {
   }
 }
 static void rinc_hostStashRead(rio_Vm *v, rio_Val *a) {
-  char path[96]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_stashPath(v, a, path, sizeof path);
-  a[0].i = named && !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
+  char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
+  a[0].i = named ? rinc_readOut(v, a + 2, path) : -1;
 }
 static void rinc_hostStashDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
@@ -963,8 +1012,8 @@ static int rinc_settingPath(rio_Vm *v, rio_Val *key, char *path, size_t cap) {
   return rinc_argName(v, key, own, 1) && snprintf(path, cap, "/rinc/settings/%s", own) < (int)cap;
 }
 static void rinc_hostSettingRead(rio_Vm *v, rio_Val *a) {
-  char path[64]; uint8_t *out = (uint8_t *)rio_sliceBytes(v, a + 2); uint32_t cap = a[3].u, total; int named = rinc_settingPath(v, a, path, sizeof path);
-  a[0].i = named && !rinc_readFile(path, (char *)out, out ? cap : 0, &total) ? (int32_t)total : -1;
+  char path[64]; int named = rinc_settingPath(v, a, path, sizeof path);
+  a[0].i = named ? rinc_readOut(v, a + 2, path) : -1;
 }
 static void rinc_hostSettingWrite(rio_Vm *v, rio_Val *a) {
   char path[64]; int named = rinc_settingPath(v, a, path, sizeof path);
@@ -1813,7 +1862,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.done", pc_done_SIG, rinc_hostDone) || rio_addFfi(vm, "pc.result", pc_result_SIG, rinc_hostResult) ||
          rio_addFfi(vm, "pc.appError", pc_appError_SIG, rinc_hostAppError) ||
          rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
-         rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.pngRead", pc_pngRead_SIG, rinc_hostPngRead) || rio_addFfi(vm, "pc.pngWrite", pc_pngWrite_SIG, rinc_hostPngWrite) || rio_addFfi(vm, "pc.pngNotes", pc_pngNotes_SIG, rinc_hostPngNotes) ||
+         rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.imageLoad", pc_imageLoad_SIG, rinc_hostImageLoad) || rio_addFfi(vm, "pc.imageWrite", pc_imageWrite_SIG, rinc_hostImageWrite) || rio_addFfi(vm, "pc.imageNotes", pc_imageNotes_SIG, rinc_hostImageNotes) ||
          rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) || rio_addFfi(vm, "pc.pointerAt", pc_pointerAt_SIG, rinc_hostPointerAt) ||
          rio_addFfi(vm, "pc.pointerY", pc_pointerY_SIG, rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", pc_pointerDown_SIG, rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", pc_pointerShown_SIG, rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", pc_scroll_SIG, rinc_hostScroll) ||

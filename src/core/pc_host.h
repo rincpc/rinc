@@ -6,13 +6,19 @@
 #include "rio.h"
 
 typedef struct {
-  int32_t at[2];
+  rio_View pixels;
+  int32_t size[2];
+} pc_Image;
+typedef char pc_Image_size[sizeof(pc_Image) == 16 ? 1 : -1]; /* (Rio's size) */
+#define pc_Image_LAYOUT "{pixels:Blob,size:[2]Int}"
+
+typedef struct {
   int32_t from[2];
   int32_t size[2];
   int32_t scale[2];
 } pc_Blit;
-typedef char pc_Blit_size[sizeof(pc_Blit) == 32 ? 1 : -1]; /* (Rio's size) */
-#define pc_Blit_LAYOUT "{at:[2]Int,from:[2]Int,size:[2]Int,scale:[2]Int}"
+typedef char pc_Blit_size[sizeof(pc_Blit) == 24 ? 1 : -1]; /* (Rio's size) */
+#define pc_Blit_LAYOUT "{from:[2]Int,size:[2]Int,scale:[2]Int}"
 
 typedef struct {
   int32_t bits;
@@ -33,11 +39,18 @@ typedef struct {
 typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's size) */
 #define pc_AppError_LAYOUT "{line:Int,col:Int,len:Int,runtime:Int,pathLen:Int,messageLen:Int}"
 
+typedef struct {
+  rio_View notes;
+  int32_t format;
+} pc_ImageWrite;
+typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's size) */
+#define pc_ImageWrite_LAYOUT "{notes:String,format:Enum{fromName,png}}"
+
 #define pc_cls_SIG "i"
 #define pc_pset_SIG "iii"
 #define pc_pget_SIG "ii>i"
 #define pc_rect_SIG "iiiii"
-#define pc_blit_SIG "s" pc_Blit_LAYOUT
+#define pc_blit_SIG pc_Image_LAYOUT "ii" pc_Blit_LAYOUT
 #define pc_print_SIG "siii"
 #define pc_btn_SIG "i>i"
 #define pc_key_SIG ">i"
@@ -88,27 +101,27 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
 #define pc_appInstall_SIG "s>i"
 #define pc_appCopy_SIG "ss>i"
 #define pc_appRename_SIG "ss>i"
-#define pc_dir_SIG "sb>i"
-#define pc_fileRead_SIG "sb>i"
+#define pc_dir_SIG "sB>i"
+#define pc_fileRead_SIG "sB>i"
 #define pc_fileWrite_SIG "ss>i"
 #define pc_fileDelete_SIG "s>i"
 #define pc_fileCopy_SIG "ss>i"
 #define pc_fileRename_SIG "ss>i"
 #define pc_dirMake_SIG "s>i"
-#define pc_pngRead_SIG "sb>i"
-#define pc_pngWrite_SIG "sss>i"
-#define pc_pngNotes_SIG "sb>i"
-#define pc_helps_SIG "b>i"
-#define pc_helpRead_SIG "sb>i"
+#define pc_imageLoad_SIG "sB>ii"
+#define pc_imageWrite_SIG "s" pc_Image_LAYOUT pc_ImageWrite_LAYOUT ">i"
+#define pc_imageNotes_SIG "sB>i"
+#define pc_helps_SIG "B>i"
+#define pc_helpRead_SIG "sB>i"
 #define pc_help_SIG "s"
 #define pc_helpTopic_SIG "b>i"
-#define pc_saveRead_SIG "sb>i"
+#define pc_saveRead_SIG "sB>i"
 #define pc_saveWrite_SIG "ss>i"
 #define pc_saveDelete_SIG "s>i"
 #define pc_stashWrite_SIG "ss>i"
-#define pc_stashRead_SIG "sb>i"
+#define pc_stashRead_SIG "sB>i"
 #define pc_stashDelete_SIG "s>i"
-#define pc_settingRead_SIG "sb>i"
+#define pc_settingRead_SIG "sB>i"
 #define pc_settingWrite_SIG "ss>i"
 #define pc_theme_SIG "Enum{bg,bar,text,soft,dim,faint,accent,heading,pick,select,link,error,ok,codeBg,code,punct,keyword,type,call,number,string,comment}>i"
 #define pc_boot_SIG ">i"
@@ -183,9 +196,9 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(fileCopy, pc_fileCopy_SIG) \
   X(fileRename, pc_fileRename_SIG) \
   X(dirMake, pc_dirMake_SIG) \
-  X(pngRead, pc_pngRead_SIG) \
-  X(pngWrite, pc_pngWrite_SIG) \
-  X(pngNotes, pc_pngNotes_SIG) \
+  X(imageLoad, pc_imageLoad_SIG) \
+  X(imageWrite, pc_imageWrite_SIG) \
+  X(imageNotes, pc_imageNotes_SIG) \
   X(helps, pc_helps_SIG) \
   X(helpRead, pc_helpRead_SIG) \
   X(help, pc_help_SIG) \
@@ -208,7 +221,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x76ddd573u /* (rio_hashText of the source) */
+#define pc_HASH 0x8f25ead0u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -240,23 +253,19 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "  at := min(a, b)\n" \
   "  return Rect{pos = at, size = max(a, b) - at + 1}\n" \
   "end\n" \
-  "# where blit draws a picture, and which part of it; left out, the whole picture at its size\n" \
+  "# a picture: its pixels, a byte each, row by row (0: see-through), size.x to a row, and its size\n" \
+  "Image* :: struct\n" \
+  "  pixels: Blob\n" \
+  "  size: [2]Int\n" \
+  "end\n" \
+  "# which part of a picture blit draws, and how; left out, the whole picture at its size\n" \
   "Blit* :: struct\n" \
-  "  at: [2]Int    # where its top left goes\n" \
   "  from: [2]Int  # the part's top left, in the picture\n" \
   "  size: [2]Int  # the part's size (a 0: the rest of the picture, that way)\n" \
   "  scale: [2]Int # each pixel so many wide and high (a 0: 1); negative mirrors it that way: {-1, 1}, left for right\n" \
   "end\n" \
-  "# a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it), or\n" \
-  "# part of it, as b says; color 0 is see-through: blit(pic, {at = {10, 20}})\n" \
-  "blit* :: host proc(picture: String, b: Blit)\n" \
-  "# a picture's width and height ({0, 0} for what's too short to be one)\n" \
-  "picSize* :: proc(picture: String) -> [2]Int\n" \
-  "  if picture.len() < 4\n" \
-  "    return {0, 0}\n" \
-  "  end\n" \
-  "  return {picture.getInt(0, 16), picture.getInt(2, 16)}\n" \
-  "end\n" \
+  "# a picture, or part of it, as b says, its top left at at; color 0 is see-through: blit(image, {10, 20})\n" \
+  "blit* :: host proc(image: Image, at: [2]Int, b?: Blit)\n" \
   "print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in the 5x8 font, 6 pixels a character\n" \
   "\n" \
   "# ---------------------------------------------------------------- input\n" \
@@ -389,40 +398,54 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "\n" \
   "# A path is absolute (/rinc/save/chord/best), in /rinc, the root: looking goes anywhere in it, changing\n" \
   "# only inside it. Or, not starting with /, it's one of the app's own files, in its folder (as a project,\n" \
-  "# /rinc/projects/chord/, or installed, /rinc/apps/chord/): pngRead(\"sprites.png\"), for reading only\n" \
-  "dir* :: host proc(path: String, out: Blob) -> Int          # its entries, folders first, a line each (\"d name\", \"f name\"): how many, or -1\n" \
-  "fileRead* :: host proc(path: String, out: Blob) -> Int     # as much as fits: its whole length, or -1\n" \
+  "# /rinc/projects/chord/, or installed, /rinc/apps/chord/): imageRead(\"sprites.png\", pixels), for reading\n" \
+  "# only. What reads into a builder adds to what's in it, as much as fits: out.len() tells how much it holds\n" \
+  "dir* :: host proc(path: String, out: Blob[..]) -> Int      # its entries, folders first, a line each (\"d name\", \"f name\"): how many, or -1\n" \
+  "fileRead* :: host proc(path: String, out: Blob[..]) -> Int # its whole length, or -1\n" \
   "fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1\n" \
   "fileDelete* :: host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1\n" \
   "fileCopy* :: host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1\n" \
   "fileRename* :: host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1\n" \
   "dirMake* :: host proc(path: String) -> Int                 # a folder, at a path not taken: 0, or -1\n" \
-  "# pictures as PNG files: a picture is its width and height (2 bytes each, low first), then its pixels, a\n" \
-  "# byte each, row by row (0: see-through). pngRead reads one into out, each color the palette's nearest\n" \
-  "# (exactly, for one written by pngWrite): its size, or -1 (out needs room for the PNG's rows as they come\n" \
-  "# too: w * h + 2 * h + 4 bytes for one of the palette's). pngWrite writes one as an indexed PNG, with the\n" \
-  "# app's notes about it (text, up to 512 bytes, kept in the PNG: a sprite sheet's sprite size, say; \"\":\n" \
-  "# none), and pngNotes reads them back\n" \
-  "pngRead* :: host proc(path: String, out: Blob) -> Int\n" \
-  "pngWrite* :: host proc(path: String, picture: String, notes: String) -> Int # 0, or -1\n" \
-  "pngNotes* :: host proc(path: String, out: Blob) -> Int      # the notes, into out: how many bytes, or -1 (none)\n" \
+  "# pictures in files (Image: its pixels and size). imageRead adds one's pixels to pixels, each color the\n" \
+  "# palette's nearest (exactly, for one imageWrite wrote), and gives it as an Image, viewing them (size {0,\n" \
+  "# 0} for none). pixels needs room past what it holds for the file's rows as they come: (w + 1) * h bytes\n" \
+  "# for a PNG of the palette's; without it, the Image has its size but no pixels, and the log says why. imageWrite writes one as o says, and\n" \
+  "# imageNotes adds its notes to out. Only PNG files, so far\n" \
+  "ImageFormat* :: enum\n" \
+  "  fromName\n" \
+  "  png\n" \
+  "end\n" \
+  "imageLoad :: host proc(path: String, pixels: Blob[..]) -> [2]Int # (imageRead's: the pixels added, and its size)\n" \
+  "imageRead* :: proc(path: String, pixels: Blob[..]) -> Image\n" \
+  "  start := pixels.len()\n" \
+  "  size := imageLoad(path, pixels)\n" \
+  "  return {pixels = pixels[start..<pixels.len()], size = size}\n" \
+  "end\n" \
+  "# how imageWrite writes a picture; left out, as its name ends (.png), with no notes\n" \
+  "ImageWrite* :: struct\n" \
+  "  notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)\n" \
+  "  format: ImageFormat  # fromName: as its name ends\n" \
+  "end\n" \
+  "imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1\n" \
+  "imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)\n" \
   "\n" \
   "# ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's\n" \
   "\n" \
   "# the help texts (Markdown): their names (paths, .md left off: rinc/spec/apps; a project's, chord+/...),\n" \
-  "# in order, into out, each with a 10 after it, as many as fit: how many\n" \
-  "helps* :: host proc(out: Blob) -> Int\n" \
-  "# a help text into out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none\n" \
-  "helpRead* :: host proc(name: String, out: Blob) -> Int\n" \
+  "# in order, added to out, each with a 10 after it, as many as fit: how many\n" \
+  "helps* :: host proc(out: Blob[..]) -> Int\n" \
+  "# a help text added to out, as much as fits (storage's, else the bundle's): its whole length, or -1 if there's none\n" \
+  "helpRead* :: host proc(name: String, out: Blob[..]) -> Int\n" \
   "# the help app, after this frame, at a help text (and maybe a heading): help(\"rio/spec/statements#if\")\n" \
   "help* :: host proc(topic: String)\n" \
   "helpTopic* :: host proc(out: Blob) -> Int             # for the help app: the topic it was opened at, taken (0: none)\n" \
   "\n" \
   "# ---------------------------------------------------------------- this app's own files: /rinc/save/<app>\n" \
   "\n" \
-  "# a file's contents into out, as much as fits: its whole length, or -1 if there's no such file. Names are\n" \
-  "# 1 to 32 letters, digits, _, - and . (not first)\n" \
-  "saveRead* :: host proc(file: String, out: Blob) -> Int\n" \
+  "# a file's contents added to out, as much as fits: its whole length, or -1 if there's no such file. Names\n" \
+  "# are 1 to 32 letters, digits, _, - and . (not first)\n" \
+  "saveRead* :: host proc(file: String, out: Blob[..]) -> Int\n" \
   "saveWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1\n" \
   "saveDelete* :: host proc(file: String) -> Int               # 0, or -1\n" \
   "\n" \
@@ -431,11 +454,11 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "# what an app keeps of where it was, for its next start, under keys of its own (named as save files are),\n" \
   "# written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space\n" \
   "stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1\n" \
-  "stashRead* :: host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1 for none\n" \
+  "stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none\n" \
   "stashDelete* :: host proc(key: String) -> Int               # 0, or -1\n" \
   "# the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): \"active\" is the app or project\n" \
   "# being worked on (chord, or chord+); keys are named as save files are\n" \
-  "settingRead* :: host proc(key: String, out: Blob) -> Int      # as much as fits: its whole length, or -1\n" \
+  "settingRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1\n" \
   "settingWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1\n" \
   "\n" \
   "# the theme: a color for each role, which the system apps draw with, so they look alike and a theme (the\n" \

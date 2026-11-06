@@ -25,9 +25,12 @@ app is a Rio program.
   with the console's put, as hex (today it sends text only, so a picture arrives broken).
 - Apps for file types, sooner (from Later): Files opens a .png in Paint, a .snd in Sound, .rio in the
   editor, and Ctrl+O in the editor starts in the current project's folder.
-- Pictures and blit (breaking: one pass with the system apps and Studio): Blit's fields as [2]Int
-  (at, from, size, and scale); a picture keeps its size in it (one value to blit, save and load), with
-  pc.picSize(picture) -> [2]Int so no app decodes the header with getInt.
+- pc's reads into builders (breaking: in progress, with the system apps and Studio): what reads into
+  out takes a Blob[..] and adds to it. Done: files, dir, saves, stash, settings, help, and pictures
+  (pc.Image, pixels and size: imageRead gives one, imageWrite takes one and an ImageWrite, notes and
+  format, imageNotes; blit(image, at, b?)). Left:
+  the app procs, synthMake, rio*, fromHex, formatRio. imageRead needs (w + 1) * h of room for Rinc's
+  PNGs (the deflate window is the rows as they come, filter bytes and all), and says so in the log.
 - The editor's screen flickers while a check runs (about half a second on the board, for a big app).
   Suspect: core 1 (HDMI and sound) running some of its code from flash, which the compiler (~225 KB,
   also from flash) pushes out of the 16 KB cache they share. Check: whether video's and sound's hot

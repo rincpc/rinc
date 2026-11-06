@@ -594,13 +594,16 @@ end
 
 paste :: proc()
   merging = 0
-  n := min(pc.fileRead(CLIPBOARD, formatted[0..<CLIP]), CLIP) # (formatted: the check's room, so there's another check after)
+  got: Blob[..] = formatted[0..<CLIP] # (formatted: the check's room, so there's another check after)
+  _ = pc.fileRead(CLIPBOARD, got)
+  n := got.len()
   checkedAt = -1
   if n <= 0
     say("Nothing to paste", softColor)
     return
   end
-  if pc.fileRead(CLIPBOARD_LINE, one[0..<0]) >= 0 and cursor == anchor # (a whole line: above this one)
+  sizeOnly: Blob[..] = one[0..<0]
+  if pc.fileRead(CLIPBOARD_LINE, sizeOnly) >= 0 and cursor == anchor # (a whole line: above this one)
     if formatted[n - 1] != 10
       formatted[n] = 10
       n += 1

@@ -107,10 +107,9 @@ command :: proc(t: String) -> Bool
     pc.launch("home")
     return true
   case "active"                          # the active app or project, the whole Rinc's setting
-    v: Blob[34]
-    n := pc.settingRead("active", v[])
-    if n > 0
-      _ = msg.print("active: ", v[0..<min(n, 34)])
+    v: Blob[..34]
+    if pc.settingRead("active", v) > 0
+      _ = msg.print("active: ", v)
       say(msg[].asString(), softColor)
     else
       say("nothing active: active name makes one active (name+ for a project)", softColor)

@@ -3,8 +3,9 @@
    PNG (indexed at 1, 2, 4 or 8 bits too), each color the palette's nearest. Small enough for the Fruit
    Jam: 1.2 KB, the inflater's Huffman trees, a read buffer and a color map, which writing (its 512-byte
    buffer) shares, since a picture is read or written at a time.
-   Reading inflates into the caller's own memory (out), past where the pixels go, and reverses PNG's
-   filters there, a row at a time; writing compresses as it goes, matching runs (the pixel before) and
+   Reading inflates into the caller's own memory (out), as the end of the room it takes (PNG's rows as they
+   come, each with its filter byte: (w + 1) * h bytes for one of the palette's), reverses PNG's filters
+   there, a row at a time, and moves the pixels to its start, each onto bytes already read; writing compresses as it goes, matching runs (the pixel before) and
    rows (the pixel above), which is most of what pixel art repeats, in IDAT chunks of 1 KB. */
 #include <string.h>
 #include "rinc.h"
@@ -335,11 +336,12 @@ int rinc_pngNotes(const char *path, char *out, uint32_t cap) {
   return rinc_pngBad ? -1 : n;
 }
 
-int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap) {
+int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need) {
   uint8_t *map = rinc_png.r.map; /* (an indexed PNG's colors, as the palette's) */
   uint32_t w = 0, h = 0, rowBytes, base, end = 0, x, y, len, type;
   int depth = 0, kind = -1, channels, pixelBytes, i, b;
   uint8_t sig[8];
+  size[0] = size[1] = 0; *need = 0;
   if (!rinc_fs || !out || rinc_fs->open(path, 0)) return -1;
   rinc_pngBad = 0; rinc_pngInLen = rinc_pngInAt = 0; rinc_pngLeft = 0;
   for (i = 0; i < 8; i++) sig[i] = (uint8_t)rinc_pngByteIn();
@@ -376,9 +378,11 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap) {
   channels = kind == 2 ? 3 : kind == 4 ? 2 : kind == 6 ? 4 : 1;
   rowBytes = (w * (uint32_t)channels * (uint32_t)depth + 7) / 8;
   pixelBytes = (channels * depth + 7) / 8;
-  base = rowBytes >= w ? 4 + h : 4 + w * h; /* (the rows as they come, from here: past where pixels go, row for row) */
-  if ((uint64_t)base + (uint64_t)h * (rowBytes + 1) > cap) { rinc_fs->close(); return -1; }
-  if (rinc_inflate(out, base, cap, &end) || end - base < h * (rowBytes + 1)) { rinc_fs->close(); return -1; }
+  size[0] = w; size[1] = h;
+  *need = h * ((rowBytes > w ? rowBytes : w) + 1); /* (the rows as they come, as its end) */
+  base = *need - h * (rowBytes + 1);
+  if (*need > cap) { rinc_fs->close(); return -2; }
+  if (rinc_inflate(out, base, *need, &end) || end - base < h * (rowBytes + 1)) { rinc_fs->close(); return -1; }
   rinc_fs->close();
   for (y = 0; y < h; y++) { /* the filters, undone, in place */
     uint8_t *row = out + base + y * (rowBytes + 1), *up = y ? row - (rowBytes + 1) : 0;
@@ -392,7 +396,7 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap) {
   }
   for (y = 0; y < h; y++) { /* each row's pixels, as the palette's colors, where they go */
     const uint8_t *row = out + base + y * (rowBytes + 1) + 1;
-    uint8_t *to = out + 4 + y * w;
+    uint8_t *to = out + y * w; /* (each pixel onto bytes already read) */
     uint32_t last = 0xFFFFFFFFu; uint8_t lastColor = 0; /* (the color before, often the same) */
     for (x = 0; x < w; x++) {
       uint32_t c;
@@ -403,6 +407,5 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap) {
       to[x] = lastColor;
     }
   }
-  out[0] = (uint8_t)w; out[1] = (uint8_t)(w >> 8); out[2] = (uint8_t)h; out[3] = (uint8_t)(h >> 8);
-  return (int)(4 + w * h);
+  return 0;
 }

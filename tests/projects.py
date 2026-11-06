@@ -17,9 +17,9 @@ def run(name, want, why):
   out = '\n'.join(line for line in out.replace('\r', '').split('\n') if line) # (lines, as typed: \r\n where it says them)
   if not out.startswith(want): sys.exit('FAIL: %s: got %r, wanted %r' % (why, out, want))
 
-app = '''note: Blob[16]
-n := pc.saveRead("note", note[0..<16])
-log("%s", note[0..<max(n, 0)].asString())
+app = '''note: Blob[..16]
+_ = pc.saveRead("note", note)
+log("%s", note.asString())
 ok := pc.saveWrite("note", "%s")
 '''
 shutil.rmtree(data, ignore_errors=True)
@@ -29,15 +29,15 @@ put('save/chord/note', 'live')
 put('projects/chord/chord.rio', app % ('project', 'by the project'))
 put('projects/chord/help/README.md', '# Chord, in work\n')
 put('apps/inst/inst.rio', 'log(pc.appInstall("chord"))\n')
-put('apps/helpls/helpls.rio', '''names: Blob[4096]
-text: Blob[64]
-n := pc.helps(names[])
+put('apps/helpls/helpls.rio', '''names: Blob[..4096]
+text: Blob[..64]
+n := pc.helps(names)
 at := 0
 for k in 0..<names.len()
   if names[k] == 10
     if names[at..<k].asString() == "chord+/README"
-      t := pc.helpRead("chord+/README", text[])
-      log(names[at..<k].asString(), text[0..<t].asString())
+      _ = pc.helpRead("chord+/README", text)
+      log(names[at..<k].asString(), text.asString())
     end
     at = k + 1
   end
@@ -51,10 +51,10 @@ run('chord', 'app live', "the app's saves, untouched")
 for img in ('cache/rinc/apps/chord.rioi', 'cache/rinc/projects/chord.rioi'): # (binary: there, not read as text)
   if not os.path.exists(os.path.join(data, *img.split('/'))): sys.exit('FAIL: no ' + img)
 run('helpls', 'chord+/README # Chord, in work', "the project's help, listed and read")
-put('apps/setact/setact.rio', '''v: Blob[34]
-log(pc.settingRead("active", v[]), pc.settingWrite("active", "chord+"))
-n := pc.settingRead("active", v[])
-log(v[0..<n].asString())
+put('apps/setact/setact.rio', '''v: Blob[..34]
+log(pc.settingRead("active", v), pc.settingWrite("active", "chord+"))
+_ = pc.settingRead("active", v)
+log(v.asString())
 ''')
 run('setact', '-1 0\nchord+', 'the active setting, shared by the apps')
 if get('settings/active') != 'chord+': sys.exit("FAIL: the active setting isn't in /rinc/settings")

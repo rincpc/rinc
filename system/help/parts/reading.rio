@@ -85,11 +85,13 @@ end
 setName: Blob[..64]
 summary: Blob[..80]
 readme: Blob[..80]
-head: Blob[80]
+head: Blob[..80]
 
 # the set's title: its README's first line, if that's a heading, else the set's name
 addTitle :: proc()
-  n := min(pc.helpRead(readme[0..<readme.len()].asString(), head[]), 80)
+  head.clear()
+  _ = pc.helpRead(readme.asString(), head)
+  n := head.len()
   if n > 2 and head[0] == 35 and head[1] == 32
     e := 2
     for e < n and head[e] != 10 and head[e] != 13
@@ -121,10 +123,11 @@ end
 
 makeContents :: proc()
   srcLen = 0
-  found := pc.helps(names[]) # (each name, then 10)
+  got: Blob[..] = names
+  found := pc.helps(got) # (each name, then 10)
   nameCount = 0
   at := 0
-  for k in 0..<names.len()
+  for k in 0..<got.len()
     if nameCount < min(found, 128) and names[k] == 10
       nameAt[nameCount] = at
       nameLen[nameCount] = k - at
@@ -210,12 +213,10 @@ contents :: proc()
   listApps()
   if kept.len() == 0 and keptBoot < 0 # (the first time: what was kept, if anything)
     keptBoot = 0
-    n := min(pc.stashRead("contents", keptText[0..<0]), 4352)
+    keptText.clear()
+    _ = pc.stashRead("contents", keptText)
+    n := keptText.len()
     if n > 0
-      for _ in 0..<n
-        ok := keptText.push(0)
-      end
-      n = min(pc.stashRead("contents", keptText[0..<n]), n)
       k := 0
       b := 0
       for k < n and keptText[k] != 10
@@ -261,12 +262,13 @@ open :: proc(name: Blob, anchor: Blob) -> Bool
   if name.len() == 0
     contents()
   else
-    n := pc.helpRead(name.asString(), src[0..<SRC])
+    got: Blob[..] = src[0..<SRC]
+    n := pc.helpRead(name.asString(), got)
     if n < 0
       say("No help text there")
       return false
     end
-    srcLen = min(n, SRC)
+    srcLen = got.len()
     if n > SRC
       say("(too long: just the start)")
     end
@@ -420,15 +422,12 @@ end
 
 # where it was last, from its save file: false if there's none to go back to
 restorePlace :: proc() -> Bool
-  n := min(pc.stashRead("place", place[0..<0]), 6144)
-  if n <= 0
+  place.clear()
+  _ = pc.stashRead("place", place)
+  n := place.len()
+  if n == 0
     return false
   end
-  place.clear()
-  for _ in 0..<n
-    ok := place.push(0)
-  end
-  n = min(pc.stashRead("place", place[0..<n]), n)
   at := 0
   k := 0
   for k < n and place[k] != 10
@@ -469,6 +468,10 @@ end
 # up a level: a text's contents (its set's SUMMARY), and from there (or a text in no set), all of them
 upName: Blob[..80]
 one: Blob[1]
+helpThere :: proc(name: String) -> Bool
+  sizeOnly: Blob[..] = one[0..<0]
+  return pc.helpRead(name, sizeOnly) >= 0
+end
 up :: proc()
   if doc.len() == 0
     return
@@ -483,7 +486,7 @@ up :: proc()
   if slash > 0
     ok := upName.pushAll(doc[0..<slash])
     ok = upName.pushAll("/SUMMARY")
-    if (upName.len() == doc.len() and upName[0..<upName.len()].asString() == doc[0..<doc.len()].asString()) or pc.helpRead(upName[0..<upName.len()].asString(), one[]) < 0
+    if (upName.len() == doc.len() and upName[0..<upName.len()].asString() == doc[0..<doc.len()].asString()) or not helpThere(upName.asString())
       upName.clear()
     end
   end

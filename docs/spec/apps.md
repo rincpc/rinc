@@ -89,16 +89,21 @@ file's name is 1 to 32 letters, digits, `_`, `-` and `.`, not starting with a do
 
 | proc | |
 |---|---|
-| `pc.saveRead(file, out) -> Int` | the file's contents, as much as fits in `out`: its whole length, or -1 if there's no such file |
+| `pc.saveRead(file, out) -> Int` | the file's contents, added to `out`, as much as fits: its whole length, or -1 if there's no such file |
 | `pc.saveWrite(file, data) -> Int` | `data` becomes the file's contents: 0, or -1 |
 | `pc.saveDelete(file) -> Int` | removes it: 0, or -1 |
 
+Whatever reads into `out` takes a byte builder (`Blob[..N]`, or a view, `Blob[..]`, over an array or
+part of one) and adds to what it holds, so `out.len()` tells how much came in; the result says how long
+the whole thing is, so more than came in means it didn't all fit.
+
 ```rio
 log(pc.saveWrite("best.txt", "42"))
-out: Blob[16]
-n := pc.saveRead("best.txt", out[])
-log(n, out[..<n].asString(), pc.saveRead("nope.txt", out[]))
-log(pc.saveDelete("best.txt"), pc.saveRead("best.txt", out[]))
+out: Blob[..16]
+n := pc.saveRead("best.txt", out)
+log(n, out.asString(), pc.saveRead("nope.txt", out))
+out.clear()
+log(pc.saveDelete("best.txt"), pc.saveRead("best.txt", out))
 ```
 
 ```output
@@ -149,8 +154,8 @@ Each gives 0, or -1, unless it says otherwise:
 
 | proc | |
 |---|---|
-| `pc.dir(path, out) -> Int` | a folder's entries into `out`, folders first, then by name, a line each (`d name`, `f name`): how many, or -1 if it's no folder |
-| `pc.fileRead(path, out) -> Int` | a file, as much as fits: its whole length, or -1 |
+| `pc.dir(path, out) -> Int` | a folder's entries, added to `out`, folders first, then by name, a line each (`d name`, `f name`): how many, or -1 if it's no folder |
+| `pc.fileRead(path, out) -> Int` | a file, added to `out`, as much as fits: its whole length, or -1 |
 | `pc.fileWrite(path, data) -> Int` | a file's contents, its folders made |
 | `pc.fileDelete(path) -> Int` | a file, or a folder and everything in it |
 | `pc.fileCopy(from, to) -> Int` | a file, or a folder and everything in it, to a path not taken |
@@ -159,9 +164,9 @@ Each gives 0, or -1, unless it says otherwise:
 
 ```rio
 log(pc.fileWrite("/rinc/save/demo/notes/a.txt", "hi"), pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"))
-out: Blob[64]
-n := pc.dir("/rinc/save/demo", out[])
-log(n, out[0..<14].asString())
+out: Blob[..64]
+n := pc.dir("/rinc/save/demo", out)
+log(n, out.asString())
 log(pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"), pc.fileDelete("/rinc/save/demo"))
 ```
 
@@ -169,38 +174,37 @@ log(pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"), pc.fileDelete(
 0 0
 2 d copy
 d notes
+
 -1 0
 ```
 
 Files shows them: its help text, `files/README`, says how. Deleting there takes the whole name typed.
 
-Pictures are PNG files. A picture in memory is its width and height (2 bytes each, low first), then its
-pixels, a color number each, row by row, 0 see-through:
+Pictures are image files, PNGs so far. A picture in memory is a `pc.Image`: its `pixels`, a `Blob`, a
+color number each, row by row, 0 see-through, and its `size`, a `[2]Int`:
 
 | proc | |
 |---|---|
-| `pc.pngWrite(path, picture, notes) -> Int` | a picture as an indexed PNG: Rinc's 256 colors are its own, 0 see-through, so other programs show it as Rinc does; with the app's notes about it (text up to 512 bytes, `""` for none: a sprite sheet's sprite size, say), kept in the PNG as a text chunk named `Rinc`, which other programs keep or ignore |
-| `pc.pngRead(path, out) -> Int` | a PNG (8 bits a color, or indexed at 1 to 8 bits; not interlaced) into `out` as a picture, each color Rinc's nearest (exactly the same, for one `pngWrite` wrote): its size, or -1. `out` needs room for the PNG's rows as they come too: `w * h + 2 * h + 4` bytes for one of Rinc's |
-| `pc.pngNotes(path, out) -> Int` | those notes, into `out`: how many bytes, or -1 (none, or no such PNG) |
+| `pc.imageWrite(path, image, o?) -> Int` | a picture as an indexed PNG: Rinc's 256 colors are its own, 0 see-through, so other programs show it as Rinc does. `o` is a `pc.ImageWrite`: `notes`, the app's notes about it (text up to 512 bytes: a sprite sheet's sprite size, say), kept in the PNG as a text chunk named `Rinc`, which other programs keep or ignore; and `format`, a `pc.ImageFormat`: `fromName` (left out: the path ends `.png`) or `png`. 0, or -1 |
+| `pc.imageRead(path, pixels) -> pc.Image` | a PNG (8 bits a color, or indexed at 1 to 8 bits; not interlaced), its pixels added to the builder `pixels`, each color Rinc's nearest (exactly the same, for one `imageWrite` wrote): the picture, its `pixels` viewing them (size `{0, 0}`, and none, if it can't be read). `pixels` needs room past what it holds for the PNG's rows as they come, each with a byte saying how it's packed: `(w + 1) * h` bytes for one of Rinc's, or any indexed or gray PNG; `(3 * w + 1) * h` for RGB, `(4 * w + 1) * h` with alpha. Without it, the picture has its size but no pixels, and the log says how much room it needs |
+| `pc.imageNotes(path, out) -> Int` | those notes, added to `out`: how many bytes, or -1 (none, or no such PNG) |
 
 ```rio
-pic: Blob[4 + 4]
-pic[0] = 2
-pic[2] = 2
-pic[4] = 8
-pic[7] = 12
-log(pc.pngWrite("/rinc/save/demo2/tiny.png", pic[].asString(), "sprite 2"))
-back: Blob[16]
-log(pc.pngRead("/rinc/save/demo2/tiny.png", back[]), back[0], back[2], back[4], back[5], back[7])
-notes: Blob[16]
-n := pc.pngNotes("/rinc/save/demo2/tiny.png", notes[])
-log(n, notes[0..<max(n, 0)].asString())
+pic: Blob[4]
+pic[0] = 8
+pic[3] = 12
+log(pc.imageWrite("/rinc/save/demo2/tiny.png", {pixels = pic[], size = {2, 2}}, {notes = "sprite 2"}))
+back: Blob[..16]
+image := pc.imageRead("/rinc/save/demo2/tiny.png", back)
+log(image.size, image.pixels.len(), image.pixels[0], image.pixels[1], image.pixels[3])
+notes: Blob[..16]
+log(pc.imageNotes("/rinc/save/demo2/tiny.png", notes), notes.asString())
 log(pc.fileDelete("/rinc/save/demo2"))
 ```
 
 ```output
 0
-8 2 2 8 0 12
+[2, 2] 4 8 0 12
 8 sprite 2
 0
 ```
@@ -251,7 +255,7 @@ end
 ## Settings
 
 The whole Rinc's settings, not any one app's, are in `/rinc/settings`, a file a key, and any app can
-read and change them: `pc.settingRead(key, out) -> Int` (as much as fits: its whole length, or -1 if
+read and change them: `pc.settingRead(key, out) -> Int` (added to `out`, as much as fits: its whole length, or -1 if
 there's none) and `pc.settingWrite(key, data) -> Int` (0, or -1). Keys are named as save files are.
 
 `active` is the app or project being worked on: `chord`, or its project, `chord+` (an installed app
@@ -313,7 +317,7 @@ the Rinc drops all of an app's stash when it's told to start the app afresh: the
 | proc | |
 |---|---|
 | `pc.stashWrite(key, data) -> Int` | `data` becomes what's kept under `key`: 0, or -1 |
-| `pc.stashRead(key, out) -> Int` | what's kept under `key`, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.stashRead(key, out) -> Int` | what's kept under `key`, added to `out`, as much as fits: its whole length, or -1 if there's none |
 | `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
 | `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
 
@@ -428,8 +432,8 @@ while the project runs.
 
 | proc | |
 |---|---|
-| `pc.helps(out) -> Int` | looks again, and puts the help texts' names in `out`, in order, each with a 10 after it, as many as fit: how many |
-| `pc.helpRead(name, out) -> Int` | a text, as much as fits in `out`: its whole length, or -1 if there's none |
+| `pc.helps(out) -> Int` | looks again, and adds the help texts' names to `out`, in order, each with a 10 after it, as many as fit: how many |
+| `pc.helpRead(name, out) -> Int` | a text, added to `out`, as much as fits: its whole length, or -1 if there's none |
 | `pc.help(topic)` | after this frame, the help app, at that text and maybe a heading: `pc.help("rio/spec/statements#if")` |
 | `pc.helpTopic(out) -> Int` | for the help app: the topic it was opened at, taken (0: none) |
 

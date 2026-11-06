@@ -21,15 +21,14 @@ kind: [MOST]Int       # each one's: 0 a file, 1 a folder, 2 .. (up)
 nameAt: [MOST]Int
 nameLen: [MOST]Int
 size: [MOST]Int       # a file's bytes (-1: not known)
-none: Blob[1]         # (pc.fileRead's room, to have just a file's size)
+none: Blob[1]         # (pc.fileRead's room, none of it, to have just a file's size)
 count := 0
 shown: [MOST]Int      # what's listed: each one's number
 nshown := 0
 filter: Blob[..24]
 pick := 0
 top := 0
-active: Blob[34]
-activeLen := 0
+active: Blob[..34]
 message: Blob[..53]
 # colors: the theme's, for each role (pc.Role)
 backColor := pc.theme(pc.Role.bg)
@@ -82,7 +81,7 @@ include "parts/screen.rio"
 
 # ---------------------------------------------------------------- starting
 
-activeLen = max(0, min(pc.settingRead("active", active[]), 34))
+_ = pc.settingRead("active", active)
 args: Blob[96]
 argsLen := min(pc.args(args[]), 96)
 start: Blob[..96]
@@ -94,10 +93,7 @@ if argsLen >= 4 and (args[0..<4].asString() == "pick" or args[0..<4].asString() 
   end
 end
 if start.len() == 0
-  placeLen := min(pc.stashRead("place", args[]), 96)
-  if placeLen > 0
-    ok := start.pushAll(args[0..<placeLen])
-  end
+  _ = pc.stashRead("place", start)
 end
 made := pc.dirMake("/rinc/projects") # (where projects go: there to be found, even before the first)
 if start.len() == 0 or not open(start[0..<start.len()].asString())

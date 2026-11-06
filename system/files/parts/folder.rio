@@ -79,7 +79,8 @@ end
 
 # the folder at p, listed: false if it can't be
 open :: proc(p: String) -> Bool
-  n := pc.dir(p, listing[])
+  got: Blob[..] = listing
+  n := pc.dir(p, got)
   if n < 0
     say("Can't look in ", errorColor)
     ok := message.pushAll(p)
@@ -95,7 +96,7 @@ open :: proc(p: String) -> Bool
     count = 1
   end
   at := 0
-  for i in 0..<listing.len()
+  for i in 0..<got.len()
     if listing[i] == 10 and count < MOST and n > 0
       kind[count] = FILE
       if listing[at] == 100
@@ -105,7 +106,8 @@ open :: proc(p: String) -> Bool
       nameLen[count] = i - at - 2
       size[count] = -1
       if kind[count] == FILE
-        size[count] = pc.fileRead(pathTo(nameOf(count)), none[0..<0])
+        sizeOnly: Blob[..] = none[0..<0]
+        size[count] = pc.fileRead(pathTo(nameOf(count)), sizeOnly)
       end
       count += 1
       n -= 1
@@ -186,11 +188,11 @@ appRef :: proc(k: Int) -> String
 end
 
 isActive :: proc(k: Int) -> Bool
-  if activeLen == 0 or kind[k] != FOLDER
+  if active.len() == 0 or kind[k] != FOLDER
     return false
   end
   r := appRef(k)
-  return r.len() > 0 and r == active[0..<activeLen].asString()
+  return r.len() > 0 and r == active.asString()
 end
 
 # whether an entry can be changed: inside /rinc, but not /rinc's own folders
@@ -218,13 +220,14 @@ viewTop := 0
 VIEW_ROWS :: 22
 
 showFile :: proc(k: Int)
-  n := pc.fileRead(pathTo(nameOf(k)), view[])
+  got: Blob[..] = view
+  n := pc.fileRead(pathTo(nameOf(k)), got)
   if n < 0
     say("Can't read it", errorColor)
     return
   end
   viewAll = n
-  viewLen = min(n, 16384)
+  viewLen = got.len()
   lineCount = 1
   lineAt[0] = 0
   for i in 0..<viewLen

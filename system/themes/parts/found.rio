@@ -147,7 +147,8 @@ add :: proc(owner: String, id: String, where: Int, path: String, plus: Bool)
   if count >= MOST or namesUsed + owner.len() + id.len() + 3 > 2048
     return
   end
-  n := pc.fileRead(path, fileBuf[])
+  got: Blob[..] = fileBuf
+  n := pc.fileRead(path, got)
   if n < 0
     return
   end
@@ -197,9 +198,10 @@ idBuf: Blob[..40]
 scanThemes :: proc(folder: String, owner: String, where: Int)
   pathBuf.clear()
   fine = pathBuf.print(folder, "/themes")
-  n := pc.dir(pathBuf[0..<pathBuf.len()].asString(), sub[])
+  got: Blob[..] = sub
+  n := pc.dir(pathBuf.asString(), got)
   at := 0
-  for i in 0..<sub.len()
+  for i in 0..<got.len()
     if n > 0 and sub[i] == 10
       e := sub[at + 2..<i].asString() # (its name, after "f ")
       if sub[at] == 102 and e.len() > 10 and e[e.len() - 10..<e.len()] == ".theme.rio"
@@ -223,9 +225,10 @@ top: Blob[4096]
 ownerBuf: Blob[..40]
 folderBuf: Blob[..80]
 scanAll :: proc(root: String, where: Int)
-  n := pc.dir(root, top[])
+  got: Blob[..] = top
+  n := pc.dir(root, got)
   at := 0
-  for i in 0..<top.len()
+  for i in 0..<got.len()
     if n > 0 and top[i] == 10
       if top[at] == 100
         e := top[at + 2..<i].asString()
@@ -253,7 +256,9 @@ findAll :: proc()
   scanAll("/rinc/projects", PROJECTS)
   scanAll("/rinc/save", OWN)
   current = -1
-  n := pc.settingRead("theme", setting[])
+  got: Blob[..] = setting
+  _ = pc.settingRead("theme", got)
+  n := got.len()
   for n > 0 and (setting[n - 1] == 10 or setting[n - 1] == 13 or setting[n - 1] == 32)
     n -= 1
   end

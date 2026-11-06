@@ -12,17 +12,18 @@
 extern uint8_t rinc_screen[rinc_H][rinc_W]; /* 8 bits per pixel: an index into rinc_palette */
 extern uint16_t rinc_palette[256];        /* RGB565: PICO-8's 32, a 6x6x6 color cube, 8 grays */
 uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
-/* pictures as PNG files (png.c), in storage: indexed, with the palette as their colors and 0 see-through.
-   pngWrite: w * h pixels, a byte each, row by row: 0, or -1. pngRead: into out (cap bytes), w and h (2
-   bytes each, low first), then the pixels, each the palette's nearest color (exactly the same, for a PNG
-   of the palette's colors), its size; or -1: no such file, a PNG it can't read, or out too small (it
-   needs room for the PNG's rows as they come, too: w * h + 2 * h + 4 bytes for one of the palette's).
+/* pictures as PNG files (png.c), in storage: indexed, with the palette as their colors and 0 see-through
+   (pc.imageRead and imageWrite). pngWrite: w * h pixels, a byte each, row by row: 0, or -1. pngRead: into
+   out (cap bytes), the pixels, each the palette's nearest color (exactly the same, for a PNG
+   of the palette's colors), its width and height in size, and the room it takes in need: 0; or -1, no such
+   file or a PNG it can't read; or -2, out too small (size and need still given: the PNG's rows as they
+   come, each with its filter byte, (w + 1) * h bytes for one of the palette's).
    notes: an app's text about the picture (a sprite sheet's sprite size, say), kept in the PNG in a tEXt
    chunk named Rinc (up to rinc_PNG_NOTES bytes; n 0: none), which other programs keep or ignore;
    pngNotes reads them back into out: how many bytes, or -1 (no such file, not a PNG, or none) */
 #define rinc_PNG_NOTES 512
 int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n);
-int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap);
+int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 /* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */
 int rinc_inflateRaw(int (*read)(char *buf, int n), uint32_t size, uint8_t *out, uint32_t cap);
