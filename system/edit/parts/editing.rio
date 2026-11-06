@@ -556,14 +556,16 @@ end
 
 # ---------------------------------------------------------------- the clipboard
 
-clip: Blob[..16384]
-clipIsLine := false # copied with nothing selected: a whole line, pasted as one
+# the clipboard: shared, a file (so it's there in another app, or after Files is called, and after a
+# restart), and a second file when it's a whole line (copied with nothing selected: pasted as a line)
+CLIPBOARD :: "/rinc/clipboard"
+CLIPBOARD_LINE :: "/rinc/clipboard-line"
 
 copy :: proc(cut: Bool)
   a := selStart()
   b := selEnd()
-  clipIsLine = a == b
-  if clipIsLine
+  line := a == b
+  if line
     l := lineOf(cursor)
     a = lineAt[l]
     b = lineEnd(l)
@@ -575,10 +577,14 @@ copy :: proc(cut: Bool)
     say("Too much to copy: 16 KB at most", errorColor)
     return
   end
-  clip.clear()
-  _ = clip.pushAll(text[a..<b])
-  if clipIsLine and (b == a or text[b - 1] != 10)
-    _ = clip.push(10)
+  if pc.fileWrite(CLIPBOARD, text[a..<b].asString()) < 0
+    say("Couldn't copy (no storage?)", errorColor)
+    return
+  end
+  if line
+    ok := pc.fileWrite(CLIPBOARD_LINE, "1")
+  else
+    ok := pc.fileDelete(CLIPBOARD_LINE)
   end
   if cut
     merging = 0
@@ -588,13 +594,23 @@ end
 
 paste :: proc()
   merging = 0
-  if clipIsLine and cursor == anchor # (a whole line: above this one)
+  n := min(pc.fileRead(CLIPBOARD, formatted[0..<CLIP]), CLIP) # (formatted: the check's room, so there's another check after)
+  checkedAt = -1
+  if n <= 0
+    say("Nothing to paste", softColor)
+    return
+  end
+  if pc.fileRead(CLIPBOARD_LINE, one[0..<0]) >= 0 and cursor == anchor # (a whole line: above this one)
+    if formatted[n - 1] != 10
+      formatted[n] = 10
+      n += 1
+    end
     c := cursor
     l := lineOf(cursor)
-    ok := edit(lineAt[l], lineAt[l], clip[0..<clip.len()].asString(), 0)
-    cursor = c + clip.len()
+    ok := edit(lineAt[l], lineAt[l], formatted[0..<n].asString(), 0)
+    cursor = c + n
     anchor = cursor
     return
   end
-  ok := edit(selStart(), selEnd(), clip[0..<clip.len()].asString(), 0)
+  ok := edit(selStart(), selEnd(), formatted[0..<n].asString(), 0)
 end

@@ -41,6 +41,19 @@ app is a Rio program.
   lean. Writes a preview PNG and the C table, to compare against the cube in real apps' screenshots
   and what Paint and the themes need, before switching.
 - Themes: the gray theme (in progress) as the default; no theme called Rinc.
+- Sleep, Sys+L: the screen dark and the monitor let sleep (HSTX's output stopped, so it sees no signal and
+  goes to standby; sound paused, the app not run) until a key or button wakes it; a lock (a PIN, say) on
+  waking can come later on the same path.
+- Commands for every serious app, as the editor has them: an app declares its list (label, keys, what
+  it does), and Rinc draws and filters the list the same way for all of them. Ctrl+Shift+P stays the
+  key (as most editors have it), with Sys+P opening the same list from any app; the editor's own list
+  becomes the first user of the shared one.
+- A clipboard shared across apps, kept through switching apps (and restarting): a file on the card
+  (/rinc/clipboard: text, or a picture), read and written through pc procs (clipRead, clipWrite), so
+  the editor's cut, copy and paste, Paint's, and others' all meet there; cached in PSRAM later, when
+  that's in.
+- Ctrl+Tab in the editor: back and forth through the files opened lately (kept with "last" in its save
+  space), and the same in other apps with documents (Paint, Sound).
 - The synth (`pc.synth`, `pc.synthMake`: Sound's notes, made in C as they play) is in, with each
   voice's rate, bend, envelope and smoothing changeable as it plays, and waves of an app's own. Still
   to do: deciding by ear which rate and smoothing to start at, and the synth's loudness beside

@@ -171,4 +171,21 @@ showNumbers(true)
 assert(textX == TEXT_X and cols == COLS, "line numbers")
 showNumbers(false)
 assert(textX < TEXT_X and cols > COLS, "and not")
+# the clipboard: a file, so it's there after another file's opened (and in other apps)
+start("hello world")
+anchor = 0
+cursor = 5
+copy(false)
+start("ab")
+cursor = 1
+anchor = 1
+paste()
+assert(text[0..<textLen].asString() == "ahellob", "a selection, pasted into another text")
+start("one\ntwo")
+cursor = 1
+anchor = 1
+copy(false)
+start("x")
+paste()
+assert(text[0..<textLen].asString() == "one\nx", "a whole line, pasted as one, above")
 log("all edit tests passed")

@@ -6,7 +6,8 @@
    Each screen line goes through the palette once, into one of two line buffers, and is sent for two
    lines in a row (doubling vertically). That's 320 lookups per screen line, about 6% of core 1.
 
-   Apps draw into rinc_screen. At each vertical blank a DMA copies it to the buffer being shown, so
+   Apps draw into rinc_screen. At each vertical blank a DMA copies it to the buffer being shown (but not
+   while an app's update and draw are under way, rinc_drawing: a slow one shows its last whole frame), so
    the picture is always a whole frame (rinc_frames counts them, for a flip() to wait on). The system
    overlay (rinc_overlay) takes the place of the bottom rows while it's up, leaving the app's alone.
 
@@ -100,6 +101,7 @@ static int rinc_ping, rinc_pong, rinc_copy;
 static uint32_t rinc_vline;   /* the line the next posted block belongs to */
 static bool rinc_pixelsNext; /* posted an active line's commands; its pixels come next */
 volatile uint32_t rinc_frames;
+volatile int rinc_drawing; /* an app's update and draw are under way: what's in rinc_screen isn't a whole frame yet */
 
 static void __scratch_x("") rinc_convert(int y) {
   const uint8_t *s = shown[y]; uint32_t *d = rinc_line[y & 1]; int x;
@@ -124,9 +126,11 @@ static void __scratch_x("") rinc_dmaDone(void) {
   if (rinc_vline < rinc_V_FRONT + rinc_V_SYNC + rinc_V_BACK) {
     int sync = rinc_vline >= rinc_V_FRONT && rinc_vline < rinc_V_FRONT + rinc_V_SYNC;
     c->read_addr = (uintptr_t)rinc_cmd[ch == rinc_ping ? 0 : 1]; c->transfer_count = rinc_lineCmds(ch == rinc_ping ? 0 : 1, !sync, 0, rinc_islandFor(rinc_vline));
-    if (rinc_vline == 0) { /* blanking starts: show the newest frame */
-      dma_channel_set_read_addr(rinc_copy, rinc_screen, false);
-      dma_channel_set_write_addr(rinc_copy, shown, true);
+    if (rinc_vline == 0) { /* blanking starts: show the newest frame (unless an app's frame is under way: the last whole one stays) */
+      if (!rinc_drawing) {
+        dma_channel_set_read_addr(rinc_copy, rinc_screen, false);
+        dma_channel_set_write_addr(rinc_copy, shown, true);
+      }
       rinc_frames++;
     }
     if (rinc_vline == rinc_V_FRONT + rinc_V_SYNC + rinc_V_BACK - 1) y = 0; /* (the copy finished long ago) */
