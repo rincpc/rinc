@@ -49,31 +49,34 @@ static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   a[0].i = x < rinc_W && y < rinc_H ? rinc_screen[y][x] : 0;
 }
 /* blit(picture, b: Blit): a picture (its width and height, 2 bytes each, then its pixels, as pc.pngRead
-   gives it), or b.w by b.h of it from b.sx, b.sy (a w or h of 0: the rest of it), drawn at b.x, b.y, each
-   pixel b.scale by b.scale (at least 1); color 0 is see-through */
+   gives it), or b.size of it from b.from (a 0 in size: the rest of it that way), drawn at b.at, each pixel
+   b.scale wide and high (0: 1; negative: mirrored that way); color 0 is see-through */
 static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   const uint8_t *p = (const uint8_t *)rio_sliceBytes(v, a); uint32_t n = a[1].u;
   pc_Blit b;
-  int pw, ph, sx, sy, w, h, x0, y0, k, i, j;
+  int pw, ph, sx, sy, w, h, x0, y0, kx, ky, flipX, flipY, i, j;
   rio_getStruct(v, a + 2, &b, sizeof b);
-  sx = b.sx; sy = b.sy; w = b.w; h = b.h; x0 = b.x; y0 = b.y; k = b.scale < 1 ? 1 : b.scale;
+  sx = b.from[0]; sy = b.from[1]; w = b.size[0]; h = b.size[1]; x0 = b.at[0]; y0 = b.at[1];
+  flipX = b.scale[0] < 0; flipY = b.scale[1] < 0;
+  kx = flipX ? -b.scale[0] : b.scale[0] ? b.scale[0] : 1; ky = flipY ? -b.scale[1] : b.scale[1] ? b.scale[1] : 1;
   if (!p || n < 4) return;
   pw = p[0] | p[1] << 8; ph = p[2] | p[3] << 8;
   if ((uint32_t)pw * (uint32_t)ph > n - 4) return;
   if (w <= 0) w = pw - (sx > 0 ? sx : 0); /* (0: the rest of the picture) */
   if (h <= 0) h = ph - (sy > 0 ? sy : 0);
-  if (sx < 0) { w += sx; x0 -= sx * k; sx = 0; } /* (the part that's in the picture) */
-  if (sy < 0) { h += sy; y0 -= sy * k; sy = 0; }
+  if (sx < 0) { w += sx; x0 -= sx * kx; sx = 0; } /* (the part that's in the picture) */
+  if (sy < 0) { h += sy; y0 -= sy * ky; sy = 0; }
   if (w > pw - sx) w = pw - sx;
   if (h > ph - sy) h = ph - sy;
   for (j = 0; j < h; j++) {
-    const uint8_t *row = p + 4 + (sy + j) * pw + sx;
-    int y = y0 + j * k, ya = y < 0 ? 0 : y, yb = y + k > rinc_H ? rinc_H : y + k;
+    const uint8_t *row = p + 4 + (sy + (flipY ? h - 1 - j : j)) * pw + sx; /* (mirrored: the rows from the bottom) */
+    int y = y0 + j * ky, ya = y < 0 ? 0 : y, yb = y + ky > rinc_H ? rinc_H : y + ky;
     if (ya >= yb) continue;
     for (i = 0; i < w; i++) {
-      int x = x0 + i * k, xa = x < 0 ? 0 : x, xb = x + k > rinc_W ? rinc_W : x + k, yy;
-      if (!row[i] || xa >= xb) continue;
-      for (yy = ya; yy < yb; yy++) memset(&rinc_screen[yy][xa], row[i], (size_t)(xb - xa));
+      int x = x0 + i * kx, xa = x < 0 ? 0 : x, xb = x + kx > rinc_W ? rinc_W : x + kx, yy;
+      uint8_t c = row[flipX ? w - 1 - i : i];
+      if (!c || xa >= xb) continue;
+      for (yy = ya; yy < yb; yy++) memset(&rinc_screen[yy][xa], c, (size_t)(xb - xa));
     }
   }
 }

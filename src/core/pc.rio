@@ -30,14 +30,21 @@ Rect.between* :: static proc(a, b: [2]Int) -> Rect   # from two corners, either 
 end
 # where blit draws a picture, and which part of it; left out, the whole picture at its size
 Blit* :: struct
-  x, y: Int     # where its top left goes
-  sx, sy: Int   # the part's top left, in the picture
-  w, h: Int     # the part's size (0: the rest of the picture)
-  scale: Int    # each pixel scale by scale (0: 1)
+  at: [2]Int    # where its top left goes
+  from: [2]Int  # the part's top left, in the picture
+  size: [2]Int  # the part's size (a 0: the rest of the picture, that way)
+  scale: [2]Int # each pixel so many wide and high (a 0: 1); negative mirrors it that way: {-1, 1}, left for right
 end
 # a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it), or
-# part of it, as b says; color 0 is see-through
+# part of it, as b says; color 0 is see-through: blit(pic, {at = {10, 20}})
 blit* :: host proc(picture: String, b: Blit)
+# a picture's width and height ({0, 0} for what's too short to be one)
+picSize* :: proc(picture: String) -> [2]Int
+  if picture.len() < 4
+    return {0, 0}
+  end
+  return {picture.getInt(0, 16), picture.getInt(2, 16)}
+end
 print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in the 5x8 font, 6 pixels a character
 
 # ---------------------------------------------------------------- input

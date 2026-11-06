@@ -6,16 +6,13 @@
 #include "rio.h"
 
 typedef struct {
-  int32_t x;
-  int32_t y;
-  int32_t sx;
-  int32_t sy;
-  int32_t w;
-  int32_t h;
-  int32_t scale;
+  int32_t at[2];
+  int32_t from[2];
+  int32_t size[2];
+  int32_t scale[2];
 } pc_Blit;
-typedef char pc_Blit_size[sizeof(pc_Blit) == 28 ? 1 : -1]; /* (Rio's size) */
-#define pc_Blit_LAYOUT "{x:Int,y:Int,sx:Int,sy:Int,w:Int,h:Int,scale:Int}"
+typedef char pc_Blit_size[sizeof(pc_Blit) == 32 ? 1 : -1]; /* (Rio's size) */
+#define pc_Blit_LAYOUT "{at:[2]Int,from:[2]Int,size:[2]Int,scale:[2]Int}"
 
 typedef struct {
   int32_t bits;
@@ -211,7 +208,7 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x4e12d62bu /* (rio_hashText of the source) */
+#define pc_HASH 0x76ddd573u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -245,14 +242,21 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 24 ? 1 : -1]; /* (Rio's siz
   "end\n" \
   "# where blit draws a picture, and which part of it; left out, the whole picture at its size\n" \
   "Blit* :: struct\n" \
-  "  x, y: Int     # where its top left goes\n" \
-  "  sx, sy: Int   # the part's top left, in the picture\n" \
-  "  w, h: Int     # the part's size (0: the rest of the picture)\n" \
-  "  scale: Int    # each pixel scale by scale (0: 1)\n" \
+  "  at: [2]Int    # where its top left goes\n" \
+  "  from: [2]Int  # the part's top left, in the picture\n" \
+  "  size: [2]Int  # the part's size (a 0: the rest of the picture, that way)\n" \
+  "  scale: [2]Int # each pixel so many wide and high (a 0: 1); negative mirrors it that way: {-1, 1}, left for right\n" \
   "end\n" \
   "# a picture (its width and height, 2 bytes each, low first, then its pixels: as pngRead gives it), or\n" \
-  "# part of it, as b says; color 0 is see-through\n" \
+  "# part of it, as b says; color 0 is see-through: blit(pic, {at = {10, 20}})\n" \
   "blit* :: host proc(picture: String, b: Blit)\n" \
+  "# a picture's width and height ({0, 0} for what's too short to be one)\n" \
+  "picSize* :: proc(picture: String) -> [2]Int\n" \
+  "  if picture.len() < 4\n" \
+  "    return {0, 0}\n" \
+  "  end\n" \
+  "  return {picture.getInt(0, 16), picture.getInt(2, 16)}\n" \
+  "end\n" \
   "print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in the 5x8 font, 6 pixels a character\n" \
   "\n" \
   "# ---------------------------------------------------------------- input\n" \
