@@ -41,13 +41,19 @@ app is a Rio program.
   lean. Writes a preview PNG and the C table, to compare against the cube in real apps' screenshots
   and what Paint and the themes need, before switching.
 - Themes: the gray theme (in progress) as the default; no theme called Rinc.
+- Display modes, maybe (not decided: one mode for every app has its appeal): 640x480 in 16 colors,
+  drawn straight to what's shown (no second buffer: the same memory), for a text editor with more on
+  the screen in a bigger font; and half and quarter resolutions (160x120, 80x60) for apps that want
+  big pixels. Each would need the HDMI line code (video.c) to read a different layout, apps a call to
+  pick one, and the desktop and web players the same modes.
 - Sleep, Sys+L: the screen dark and the monitor let sleep (HSTX's output stopped, so it sees no signal and
   goes to standby; sound paused, the app not run) until a key or button wakes it; a lock (a PIN, say) on
   waking can come later on the same path.
 - Commands for every serious app, as the editor has them: an app declares its list (label, keys, what
   it does), and Rinc draws and filters the list the same way for all of them. Ctrl+Shift+P stays the
   key (as most editors have it), with Sys+P opening the same list from any app; the editor's own list
-  becomes the first user of the shared one.
+  becomes the first user of the shared one. Most commands are an app's own; a few are every app's
+  (Help, Home, copy and paste), which Rinc adds to each list.
 - A clipboard shared across apps, kept through switching apps (and restarting): a file on the card
   (/rinc/clipboard: text, or a picture), read and written through pc procs (clipRead, clipWrite), so
   the editor's cut, copy and paste, Paint's, and others' all meet there; cached in PSRAM later, when

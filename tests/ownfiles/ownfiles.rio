@@ -1,0 +1,9 @@
+# an app's own files, by relative path (rinc's ctest: as installed, and as a project)
+sheet: Blob[256]
+n := pc.pngRead("pic.png", sheet[]) # (a 12 by 6 picture: its size, 2 bytes each, then 72 pixels)
+m := pc.fileRead("ownfiles.rio", sheet[0..<0])
+w := pc.fileWrite("x.txt", "no") # (refused: for reading only)
+wide := sheet.getInt(0, 16)
+high := sheet.getInt(2, 16)
+if n == 76 and wide == 12 and high == 6 and m > 0 and w < 0 do log("own files read by relative path")
+log(n, wide, high, m, w)
