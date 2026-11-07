@@ -53,6 +53,9 @@ btn* :: host proc(i: Int) -> Int
 # and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down;
 # a key that isn't a character with the modifiers held added on: 256 Shift, 512 Ctrl, 1024 Alt
 key* :: host proc() -> Int
+# the modifiers held now, as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt (one locked, tapped twice, too);
+# -1 where it can't tell (in a terminal): for a walk that goes on while Ctrl is held, as Ctrl+Tab's
+modsHeld* :: host proc() -> Int
 # a controller's sticks: 0 left x, 1 left y, 2 right x, 3 right y; -1 to 1, + right and down
 stick* :: host proc(i: Int) -> Float
 trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1

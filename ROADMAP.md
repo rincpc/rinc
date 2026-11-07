@@ -68,8 +68,10 @@ app is a Rio program.
   (/rinc/clipboard: text, or a picture), read and written through pc procs (clipRead, clipWrite), so
   the editor's cut, copy and paste, Paint's, and others' all meet there; cached in PSRAM later, when
   that's in.
-- Ctrl+Tab in the editor: back and forth through the files opened lately (kept with "last" in its save
-  space), and the same in other apps with documents (Paint, Sound).
+- Ctrl+Tab: done in the editor (2026-11-06: its stash "recent", the last 8, where each was; Ctrl+Tab
+  the one before, again within 1.5 s the next along, Ctrl+Shift+Tab the other way). Left: the same in
+  Paint and Sound; and walking while Ctrl is held, ending when it's let go (as browsers do), which needs
+  pc to say whether a modifier is held.
 - The synth (`pc.synth`, `pc.synthMake`: Sound's notes, made in C as they play) is in, with each
   voice's rate, bend, envelope and smoothing changeable as it plays, and waves of an app's own. Still
   to do: deciding by ear which rate and smoothing to start at, and the synth's loudness beside

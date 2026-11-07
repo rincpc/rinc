@@ -33,7 +33,7 @@ has :: proc(s: String, f: Blob) -> Bool
 end
 
 # every command, for the list Ctrl+Shift+P shows
-COMMANDS :: 25
+COMMANDS :: 27
 Command :: struct
   label: String   # what it does
   keys: String    # its keys, as shown
@@ -41,6 +41,8 @@ Command :: struct
 end
 commands := [COMMANDS]Command{
   {label = "Open a file", keys = "^O", key = 15},
+  {label = "The file before this one", keys = "^Tab", key = 9 | CTRL},
+  {label = "The file longest ago (round them all)", keys = "^Shift+Tab", key = 9 | CTRL | SHIFT},
   {label = "Save", keys = "^S", key = 19},
   {label = "Save as", keys = "^Shift+S", key = 19 | SHIFT},
   {label = "Run its app", keys = "^R", key = 18},

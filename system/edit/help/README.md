@@ -23,6 +23,7 @@ with what's active (another app can pick one for it), else the file it had last,
 |---|---|
 | arrows, Home, End, Page Up, Page Down | move: with Ctrl, by words and to either end; with Shift, select |
 | Ctrl+O, Ctrl+S, Ctrl+Shift+S | open a file (Files picks it), save it, save it as another (Files picks where) |
+| Ctrl+Tab, Ctrl+Shift+Tab | the file before this one, where it was, or the one longest ago; Tab again with Ctrl still held, the next one along, through the last 8; let go of Ctrl, and Ctrl+Tab starts over, so it goes back and forth between two |
 | Ctrl+R, Ctrl+N | save and run its app or project, start a new file |
 | Ctrl+Shift+P | every command, to type to narrow and pick one |
 | Ctrl+Z, Ctrl+Y (or Ctrl+Shift+Z) | undo, redo |

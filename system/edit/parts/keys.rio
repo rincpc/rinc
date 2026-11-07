@@ -14,8 +14,9 @@ key :: proc(k: Int)
   if completing and completeKey(k)
     return
   end
-  if base != 14 and base != 15
+  if base != 14 and base != 15 and not (base == 9 and ctrl)
     confirm = 0 # (a warning stands only until the next key)
+    walkStep = 0 # (and Ctrl+Tab's walk back, only while it's Ctrl+Tab again)
   end
   if base >= 32 and base < 127 and k < 256
     typeChar(base)
@@ -32,6 +33,14 @@ key :: proc(k: Int)
     backspace(ctrl or alt)
   case base == DELETE
     deleteForward(ctrl or alt)
+  case base == 9 and ctrl # Ctrl+Tab: the file before this one (Shift: the one longest ago, round them all)
+    if modified() and confirm != 9
+      say("Unsaved changes: Ctrl+Tab again drops them", warnColor)
+      confirm = 9
+    else
+      confirm = 0
+      switchRecent(shift)
+    end
   case base == 9
     tab(shift)
   case base == 27
@@ -268,6 +277,10 @@ pointer :: proc()
 end
 
 update* :: proc()
+  held := pc.modsHeld()
+  if walkStep > 0 and held >= 0 and held & CTRL == 0 # (Ctrl let go: Ctrl+Tab's walk is over)
+    walkStep = 0
+  end
   c := pc.key()
   for c >= 0
     was := cursor

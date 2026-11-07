@@ -116,6 +116,7 @@ static inline int rinc_pointerKeys(int buttons) {
          (buttons & 8 ? rinc_SysKey_down : 0) | (buttons & 16 ? rinc_SysKey_a : 0) | (buttons & 32 ? rinc_SysKey_b : 0);
 }
 int rinc_systemKey(int sysDown, int mods, int otherDown, int keys);
+extern int rinc_modsHeld; /* the mods rinc_systemKey last had (-1: none yet, or a host that can't tell): pc.modsHeld */
 /* a mouse's, from the platform: where it is in screen pixels (fractions as they come), the buttons held
    (1 primary, 2 secondary, 4 middle), and its wheel (steps, + right and up) */
 void rinc_mouseMove(float x, float y);

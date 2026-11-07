@@ -7,6 +7,7 @@ import os, shutil, subprocess, sys
 rinc, system, data = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2]), sys.argv[3]
 SAVE, OPEN, SAVE_AS, ALL, RUN = '\\x13', '\\x0f', '\\x1b[27;6;115~', '\\x1b[27;6;112~', '\\x12'
 DOWN = '\\x1b[B'
+CTRL_TAB, CTRL_SHIFT_TAB = '\\x1b[27;5;9~', '\\x1b[27;6;9~'
 
 def put(path, text):
   path = os.path.join(data, *path.split('/'))
@@ -35,6 +36,14 @@ typing('y' + SAVE)
 check(get('projects/demo/parts/a.rio') == 'ya :: 1\n', 'a file opened through Files, edited and saved: %r' % get('projects/demo/parts/a.rio'))
 typing('z' + SAVE_AS + 'b.rio\\n')
 check(get('projects/demo/parts/b.rio') == 'yza :: 1\n' and get('projects/demo/parts/a.rio') == 'ya :: 1\n', 'saved as another, through Files')
+typing(CTRL_TAB + 'u' + SAVE) # (the file before this one, where it was: a.rio, its cursor after yz, kept as Save As left it)
+check(get('projects/demo/parts/a.rio') == 'yau :: 1\n', 'Ctrl+Tab: the file before: %r' % get('projects/demo/parts/a.rio'))
+typing(CTRL_SHIFT_TAB + 't' + SAVE) # (the one longest ago: demo.rio, after its x)
+check(get('projects/demo/demo.rio') == 'xtlog(1)\n', 'Ctrl+Shift+Tab: the file longest ago: %r' % get('projects/demo/demo.rio'))
+typing(CTRL_TAB + 's' + SAVE) # (back again: a.rio, the one before now)
+check(get('projects/demo/parts/a.rio') == 'yaus :: 1\n', 'Ctrl+Tab back: %r' % get('projects/demo/parts/a.rio'))
+typing(CTRL_TAB + CTRL_TAB + 'r' + SAVE) # (twice in a row: two back, past demo.rio to b.rio)
+check(get('projects/demo/parts/b.rio') == 'yzra :: 1\n', 'Ctrl+Tab twice in a row: two back: %r' % get('projects/demo/parts/b.rio'))
 put('settings/active', 'live')
 typing('w' + SAVE)
 check(get('apps/live/live.rio') == 'log(2)\n' and get('projects/live/live.rio') == 'wlog(2)\n', "an installed app's file, saved in its project")

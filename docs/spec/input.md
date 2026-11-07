@@ -49,6 +49,10 @@ Ctrl+Shift+Z 26 + 256 (Ctrl+letter already says Ctrl). Enter and Backspace don't
 easily still held from typing. So `c & 255` is the key without its modifiers, and an app that doesn't
 care about them can use that.
 
+`pc.modsHeld() -> Int` says which modifiers are held now, with the same bits: 512 while Ctrl is down,
+say, or locked (tapped twice). It's for what goes on while one's held, as the editor's Ctrl+Tab walks back through its files
+until Ctrl is let go. Where Rinc can't tell (in a terminal), it's -1.
+
 A controller's RB types Tab as it's pressed, and LB Shift+Tab, so anything moved through with Tab works
 from a controller too. Other keys (function keys, the system key) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
 and one fed text faster than that (a serial port, a paste) waits for room. Keys also hold buttons down

@@ -880,6 +880,7 @@ int main(int argc, char **argv) {
       if (rinc_sysFrames) { /* (-type's \s: the system key with its key, then let go) */
         int held = rinc_sysFrames-- == 2;
         if (rinc_systemKey(held, 0, 0, held ? rinc_typedSys : 0)) rinc_launch = 1;
+        rinc_modsHeld = -1; /* (-type's modifiers come with its keys: whether one's held, it can't tell) */
       }
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();

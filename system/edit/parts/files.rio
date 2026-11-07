@@ -3,6 +3,10 @@
 # ---------------------------------------------------------------- files
 
 last: Blob[..128] # the file it had last, and where: "path cursor top" (its save file "last")
+# the files it had lately, the latest first, a line each as last is (its stash "recent"), for Ctrl+Tab
+recent: Blob[..1024]
+recentWas: Blob[..1024]
+RECENT :: 8
 
 here :: proc() -> String
   return path[0..<path.len()].asString()
@@ -41,13 +45,83 @@ readOnly :: proc() -> Bool
   return p.len() > 0 and (not startsWith(p, "/rinc/") or startsWith(p, "/rinc/apps/"))
 end
 
-# where it is, kept for next time: on opening, saving and running; and the app or project it's in is
-# the active one, the whole Rinc's setting
+# a line of recent's (or last): its path, what's before its last two spaces; and its cursor and top
+pathOf :: proc(line: String) -> String
+  e := line.len()
+  for _ in 0..<2
+    e -= 1
+    for e > 0 and line[e] != 32
+      e -= 1
+    end
+  end
+  return line[0..<max(e, 0)]
+end
+placeOf :: proc(line: String) -> [2]Int
+  r: [2]Int
+  part := 0
+  for i in pathOf(line).len() + 1..<line.len()
+    c := line[i]
+    if c == 32
+      part = 1
+    case c >= 48 and c <= 57
+      r[part] = r[part] * 10 + c - 48
+    end
+  end
+  return r
+end
+# line k of a list of recent's lines (from 0): "" if there's none; and how many lines it has
+lineIn :: proc(list: String, k: Int) -> String
+  at := 0
+  n := 0
+  for i in 0..<list.len()
+    if list[i] == 10
+      if n == k
+        return list[at..<i]
+      end
+      n += 1
+      at = i + 1
+    end
+  end
+  return ""
+end
+linesIn :: proc(list: String) -> Int
+  n := 0
+  for i in 0..<list.len()
+    if list[i] == 10
+      n += 1
+    end
+  end
+  return n
+end
+
+# where it is, kept for next time: on opening, saving and running (last, and first in recent); and the
+# app or project it's in is the active one, the whole Rinc's setting
 remember :: proc()
   last.clear()
   ok := last.pushAll(path[0..<path.len()])
   _ = last.print(" ", cursor, " ", top)
   saved := pc.saveWrite("last", last[0..<last.len()].asString())
+  if path.len() > 0
+    recentWas.clear()
+    _ = pc.stashRead("recent", recentWas)
+    recent.clear()
+    ok = recent.pushAll(last[0..<last.len()])
+    ok = recent.push(10)
+    n := 1
+    at := 0
+    for i in 0..<recentWas.len()
+      if recentWas[i] == 10
+        line := recentWas[at..<i].asString()
+        if n < RECENT and line.len() > 0 and pathOf(line) != here()
+          ok = recent.pushAll(line)
+          ok = recent.push(10)
+          n += 1
+        end
+        at = i + 1
+      end
+    end
+    saved = pc.stashWrite("recent", recent[0..<recent.len()].asString())
+  end
   a := appOf(here())
   if a.len() > 0
     saved = pc.settingWrite("active", a)
@@ -152,6 +226,54 @@ load :: proc(p: String) -> Bool
   end
   remember()
   return true
+end
+
+# Ctrl+Tab: the file it had before this one, where it was; again while Ctrl's still held, the one before
+# that, and so on, through the list as it was when the walk began (back, Ctrl+Shift+Tab: the other way,
+# from the one it had longest ago). Letting go of Ctrl, or another key, ends the walk (keys.rio sets
+# walkStep to 0), so Ctrl+Tab starts again from the latest: this one and the one before. Where Rinc
+# can't tell what's held (pc.modsHeld, -1), the walk goes on while the presses come within 1.5 seconds
+walk: Blob[..1024]
+walkStep := 0
+walkAt := 0.0
+switchTarget: Blob[..128]
+switchRecent :: proc(back: Bool)
+  if path.len() > 0
+    remember() # (this one's place, first)
+  end
+  if walkStep == 0 or (pc.modsHeld() < 0 and pc.time() - walkAt > 1.5)
+    walk.clear()
+    _ = pc.stashRead("recent", walk)
+    walkStep = 0
+  end
+  n := linesIn(walk.asString())
+  k := walkStep + 1
+  if back
+    k = walkStep - 1 + n
+  end
+  if n > 0
+    k = k % n
+  end
+  if path.len() == 0 and k == 0 and n > 1 # (nothing open: the latest isn't this one)
+    k = walkStep
+  end
+  line := lineIn(walk.asString(), k)
+  if line.len() == 0 or (pathOf(line) == here() and k == walkStep)
+    say("No other file lately", softColor)
+    return
+  end
+  at := placeOf(line)
+  switchTarget.clear()
+  ok := switchTarget.pushAll(pathOf(line))
+  if load(switchTarget[0..<switchTarget.len()].asString())
+    cursor = min(at.x, textLen)
+    anchor = cursor
+    top = max(0, min(at.y, lineCount - 1))
+    wantCol = -1
+    remember()
+  end
+  walkStep = k
+  walkAt = pc.time()
 end
 
 # where the last app to stop with an error stopped (taken, so once): its file, opened, with what's
