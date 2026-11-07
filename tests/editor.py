@@ -93,4 +93,8 @@ check(still != scrolled, 'scrolled sideways: the screen moved')
 check(scrolled != pushed and screen('rsright 5-85, rsleft 86-89') != still, 'scrolled further, and back toward the start')
 put('projects/wide/wide.rio', 'log(1)\n')
 check(screen('rsright 5-85') == screen(''), 'a short line: nothing to scroll to')
+# its prompts edit as a text box does (pc.Field): Ctrl+G, 57, left, Backspace, 2: line 27
+put('settings/active', 'place+')
+typing('\\x07' + '57' + '\\x1b[D' + '\\x08' + '2' + '\\n' + 'Q' + SAVE)
+check('\nQline26\n' in get('projects/place/place.rio'), 'Ctrl+G, edited: to line 27')
 print('the editor came through')

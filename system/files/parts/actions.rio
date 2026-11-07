@@ -73,11 +73,17 @@ end
 
 startPrompt :: proc(m: Int)
   mode = m
-  input.clear()
-  inputFresh = false
-  if m == RENAME or m == COPY # (from its name)
-    ok := input.pushAll(nameOf(target))
-    inputFresh = true
+  field.set("")
+  if m == RENAME or m == COPY # (from its name, selected but for a file's extension, as Windows has it)
+    n := nameOf(target)
+    field.set(n)
+    dot := n.len()
+    for i in 1..<n.len()
+      if n[i] == 46 and kind[target] == FILE
+        dot = i
+      end
+    end
+    field.select(0, dot)
   end
 end
 
@@ -145,6 +151,7 @@ reopen :: proc(name: String)
       pick = i
     end
   end
+  selectOnly(pick)
   reveal()
 end
 
@@ -164,6 +171,40 @@ promptDone :: proc()
       return
     end
     reopen(s)
+    return
+  end
+  if m == DELETE and k < 0 # (several selected: delete typed for all of them)
+    if s != "delete"
+      say("Type delete to delete them", errorColor)
+      return
+    end
+    mode = NONE
+    gone := 0
+    left := 0
+    for j in 0..<count
+      if marked[j]
+        res := 0
+        ref := appRef(j)
+        if kind[j] == FOLDER and ref.len() > 0
+          res = pc.appDelete(ref)
+        else
+          res = pc.fileDelete(pathTo(nameOf(j)))
+        end
+        if res == 0
+          gone += 1
+        else
+          left += 1
+        end
+      end
+    end
+    reopen("")
+    message.clear()
+    _ = message.print("Deleted ", gone)
+    messageColor = softColor
+    if left > 0
+      _ = message.print("; ", left, " couldn't be")
+      messageColor = errorColor
+    end
     return
   end
   if m == DELETE
@@ -257,8 +298,7 @@ enter :: proc(k: Int)
   case kind[k] == FOLDER
     ok := open(pathTo(nameOf(k)))
   case saving
-    saveName.clear()
-    ok := saveName.pushAll(nameOf(k))
+    saveField.set(nameOf(k))
   case picking
     finish(pathTo(nameOf(k)))
   case appRef(k).len() > 0

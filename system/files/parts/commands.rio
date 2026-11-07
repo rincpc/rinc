@@ -3,7 +3,8 @@
 # it (part of files.rio, included there, in order: the names it uses are declared before it)
 
 ACT :: 4096           # (a command of its own: 4096 + one of the menu's, on what's picked)
-listKeys := [10]pc.Command{
+LIST_KEYS :: 16
+listKeys := [LIST_KEYS]pc.Command{
   {label = "Open what's picked", keys = "Enter", key = 13},
   {label = "Up a folder", keys = "Alt+Up", key = 130 | 1024},
   {label = "What else can be done with it", keys = "Space", key = 32},
@@ -14,7 +15,14 @@ listKeys := [10]pc.Command{
   {label = "A page up", keys = "Page Up", key = 135},
   {label = "A page down", keys = "Page Down", key = 136},
   {label = "Back: what's typed cleared, or up", keys = "Esc", key = 27},
+  {label = "Select all", keys = "^A", key = 1},
+  {label = "The one picked, selected or not", keys = "^Space", key = 32 | 512},
+  {label = "Cut, to move it elsewhere", keys = "^X", key = 24},
+  {label = "Copy, to put a copy elsewhere", keys = "^C", key = 3},
+  {label = "Rename the one picked", keys = "F2", key = 141},
+  {label = "Delete", keys = "Delete", key = 134},
 }
+pasteCommand := pc.Command{label = "Paste here", keys = "^V", key = 22}
 viewKeys := [5]pc.Command{
   {label = "Back to the list", keys = "Esc", key = 27},
   {label = "A page up", keys = "Page Up", key = 135},
@@ -37,22 +45,30 @@ actOn :: proc(id: Int)
   end
 end
 menuKeys := [9]String{"Space O", "Space E", "Space R", "Space C", "Space N", "Space D", "Space I", "Space V", "Space F"}
-listed: [19]pc.Command
+listed: [26]pc.Command
 commandList* :: proc() -> []pc.Command
   if mode == VIEW
     return viewKeys[0..<5]
   end
   n := 0
-  for i in 0..<10
-    if not picking or i == 0 or i == 1 or i >= 5 # (picking: no menu, nothing new)
+  for i in 0..<LIST_KEYS
+    if not picking or i == 0 or i == 1 or (i >= 5 and i < 10) # (picking: no menu, nothing new, nothing changed)
       listed[n] = listKeys[i]
       n += 1
     end
   end
+  if not picking and clip.len() > 2
+    listed[n] = pasteCommand
+    n += 1
+  end
   if mode == NONE and not picking and fillItems(picked())
     for i in 0..<itemCount
-      if itemOk[i] and items[i] != FOLDER_IT and items[i] != OPEN_IT # (those are Ctrl+Shift+N and Enter, above)
-        listed[n] = {label = LABELS[items[i]], keys = menuKeys[items[i]], key = ACT + items[i]}
+      if itemOk[i] and items[i] != FOLDER_IT and items[i] != OPEN_IT and items[i] != RENAME_IT and items[i] != DELETE_IT # (those are above)
+        label := LABELS[items[i]]
+        if items[i] == COPY_IT
+          label = "Copy as another name, here"
+        end
+        listed[n] = {label = label, keys = menuKeys[items[i]], key = ACT + items[i]}
         n += 1
       end
     end

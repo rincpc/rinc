@@ -5,7 +5,10 @@
 # goes up), edits an app's main file (it becomes the active app, and the editor opens it) or shows a
 # file's text; Backspace goes up too. Typing narrows the list. Space (or the secondary button, or Y)
 # shows what else can be done, each with a letter. Ctrl+N starts a new project, Ctrl+Shift+N makes a
-# folder here. Ctrl+Shift+P (or the system key with P) lists every command. Esc closes what's open,
+# folder here. Several are selected as in Windows: Shift with the arrows (or a click) from the anchor,
+# Ctrl+Space (or Ctrl+click) one more or less, Ctrl+A all; then Ctrl+X or Ctrl+C, and Ctrl+V in another
+# folder moves or copies them there; Delete deletes them (after typing delete), F2 renames the one
+# picked. Ctrl+Shift+P (or the system key with P) lists every command. Esc closes what's open,
 # else clears what's typed. /rinc is the root; changing is only inside it. Called with
 # pc.call("files", "pick"), it's a picker: Enter on a file gives its path back (pc.done), Esc nothing.
 # Called with "save", it picks where to save: a name typed, in the folder shown (Enter on a file takes
@@ -46,6 +49,7 @@ messageColor := softColor
 picking := false      # (called to pick a file)
 saving := false       # (called to pick where to save: a folder, and a name typed)
 saveName: Blob[..60]
+saveField := pc.Field{text = saveName} # (saving: the name, edited as a text box is)
 full: Blob[..160]     # a path, made up
 
 FILE :: 0
@@ -63,7 +67,7 @@ NEW_FOLDER :: 7
 mode := NONE
 target := -1          # what it's about
 input: Blob[..60]
-inputFresh := false   # (its text as it started, selected: what's typed takes its place)
+field := pc.Field{text = input} # (edited as a text box is: renaming, its name to start, the extension left out of what's selected)
 
 # back to its caller, with what was picked (what's typed after is the caller's)
 leaving := false
@@ -76,6 +80,7 @@ end
 
 include "parts/folder.rio"
 include "parts/actions.rio"
+include "parts/clip.rio"
 include "parts/commands.rio"
 include "parts/input.rio"
 include "parts/screen.rio"

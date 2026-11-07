@@ -42,6 +42,8 @@ it:
 | 128, 129, 130, 131 | left, right, up, down |
 | 132, 133, 134 | Home, End, Delete |
 | 135, 136 | Page Up, Page Down |
+| 140 to 151 | F1 to F12 (where the Rinc gets them: a browser keeps F5, F11 and F12 for itself too, and the desktop's F11 is its whole display) |
+| 4096 and up | one of the app's own commands, picked from the command list (see [its commands](apps.md#its-commands)) |
 
 A key that isn't a character (all but printable ASCII and Esc) also says which modifiers were held
 with it, as bits added on: 256 Shift, 512 Ctrl, 1024 Alt. Ctrl+Right is 129 + 512, Shift+Tab 9 + 256, and
@@ -51,15 +53,48 @@ care about them can use that.
 
 `pc.modsHeld() -> Int` says which modifiers are held now, with the same bits: 512 while Ctrl is down,
 say, or locked (tapped twice). It's for what goes on while one's held, as the editor's Ctrl+Tab walks back through its files
-until Ctrl is let go. Where Rinc can't tell (in a terminal), it's -1.
+until Ctrl is let go, or the arrows held with Shift selecting. Where Rinc can't tell (in a terminal),
+it's -1. In a pointer app (`pc.Pointer.ui`, below), a controller's left trigger, held, counts as Shift
+and its right one as Ctrl, so its d-pad selects as the arrows do (a game's triggers stay its own:
+`pc.trigger`).
 
 A controller's RB types Tab as it's pressed, and LB Shift+Tab, so anything moved through with Tab works
-from a controller too. Other keys (function keys, the system key) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
+from a controller too. Other keys (the system key, Caps Lock and the like) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
 and one fed text faster than that (a serial port, a paste) waits for room. Keys also hold buttons down
 while they're held (the arrows, V, C, X and Z), so an app reads them either way: in a game. In a pointer
 app (`pc.Pointer.ui`, below) the keyboard types, and only its arrows are buttons too; there a
 controller's A and B, with the pointer hidden, type Enter and Esc, so one works such an app through the
 keys it reads.
+
+## A line of text, edited
+
+`pc.Field` edits a line of text as a text box does (in Windows, say): a name to give, something to
+find. It holds the text, in room of the app's own, the cursor, and the selection's other end:
+
+```rio fragment
+room: Blob[..32]
+name := pc.Field{text = room}
+name.set("tune.png")       # its text, all of it selected
+name.select(0, 4)          # just "tune": typing takes its place
+c := pc.key()
+if c >= 0 and not name.key(c) # (Enter and Esc aren't its: the app's)
+  log("the app's key", c)
+end
+name.draw({10, 100}, 30, 7, 2, 10) # 30 characters across, scrolled to show the cursor: text, selection and cursor colors
+```
+
+| key | |
+|---|---|
+| typing | in place of what's selected, while there's room |
+| Backspace, Delete | the character before or after, or what's selected; with Ctrl, a word |
+| left, right | a character, or with Ctrl a word; with Shift, selecting; with nothing held, out of a selection to that side |
+| Home, End | its start, its end (with Shift, selecting) |
+| Ctrl+A | all of it |
+
+`key(c)` says whether the key was the field's; the rest (Enter, Esc, Tab, up and down) are the app's.
+`set(s)` gives it new text, all selected; `select(from, to)` selects from `from` to `to`, the cursor at
+`to`; `selected()` says whether anything is. Its `text` is the app's own room, so the app reads it
+there: `name.text.asString()`.
 
 A terminal's escape sequences (`ESC [ A` for up, `ESC [ 3 ~` for Delete, and so on) become the key codes
 above, so a Rinc fed by a serial terminal types the same keys. Modifiers come as xterm sends them:

@@ -138,10 +138,11 @@ void rinc_textPush(int c) {
     if (c == '[' || c == 'O') { t->esc = 2; t->escn = 0; t->escp[0] = t->escp[1] = t->escp[2] = 0; return; }
     t->esc = 0; rinc_queue(t, 27); /* (a lone ESC: Esc itself, then c) */
   } else if (t->esc == 2) {
-    int n = t->escp[0], m = t->escp[1] > 1 ? t->escp[1] - 1 : 0, mods = rinc_textMods(m & 1, m & 4, m & 2), k = t->escp[2];
+    int n = t->escp[0], m = t->escp[1] > 1 ? t->escp[1] - 1 : 0, mods = rinc_textMods(m & 1, m & 4, m & 2), k = t->escp[2], c0;
     if (c >= '0' && c <= '9') { if (t->escp[t->escn] < 10000) t->escp[t->escn] = t->escp[t->escn] * 10 + c - '0'; return; }
     if (c == ';') { if (t->escn < 2) t->escn++; return; }
     t->esc = 0;
+    c0 = c;
     if (c == '~' && n == 27) { /* (xterm's modifyOtherKeys) */
       if (k >= 'A' && k <= 'Z') k += 32;
       c = k == 9 || k == 13 || k == 32 || k == '/' ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
@@ -152,6 +153,8 @@ void rinc_textPush(int c) {
           c == 'H' ? rinc_Key_home : c == 'F' ? rinc_Key_end : c == 'Z' ? 9 | rinc_Mod_shift : c != '~' ? 0 :
           n == 1 || n == 7 ? rinc_Key_home : n == 4 || n == 8 ? rinc_Key_end : n == 3 ? rinc_Key_delete :
           n == 5 ? rinc_Key_pageUp : n == 6 ? rinc_Key_pageDown : 0;
+    if (c0 >= 'P' && c0 <= 'S') c = rinc_Key_f1 + c0 - 'P'; /* (F1 to F4: ESC O P to S, or ESC [ 1 ; m P with modifiers) */
+    if (c0 == '~' && n >= 11 && n <= 24 && n != 16 && n != 22) c = rinc_Key_f1 + (n <= 15 ? n - 11 : n <= 21 ? n - 12 : n - 13); /* (F1 to F12: n ~, as xterm and the console send them) */
     if (c) rinc_queue(t, c | mods);
     return;
   }
@@ -617,10 +620,11 @@ static void rinc_hostLaunch(rio_Vm *v, rio_Val *a) {
 void rinc_textEsc(void) { rinc_typed.esc = 0; rinc_queue(&rinc_typed, 27); }
 static rio_Vm rinc_nest; static int rinc_nestOn, rinc_nestTried; /* (below: Rio inside an app) */
 static void rinc_hostKey(rio_Vm *v, rio_Val *a) { a[0].i = v == &rinc_nest ? rinc_dequeue(&rinc_nestTyped) : rinc_cmdWanted ? -1 : rinc_dequeue(&rinc_typed); } /* (the command list asked for: the rest is its) */
+extern int rinc_pointerMode; /* (below) */
 static void rinc_hostModsHeld(rio_Vm *v, rio_Val *a) { /* (as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt, a locked one too; -1: it can't tell) */
-  int m = rinc_modsHeld;
+  int m = rinc_modsHeld, pad = rinc_pointerMode == 1 ? (rinc_axes[4] > 16000 ? 256 : 0) | (rinc_axes[5] > 16000 ? 512 : 0) : 0; /* (in a pointer app, a controller's LT is Shift, RT Ctrl) */
   (void)v;
-  a[0].i = m < 0 ? -1 : (m & 1 ? 256 : 0) | (m & 2 ? 512 : 0) | (m & 4 ? 1024 : 0) | rinc_locks;
+  a[0].i = m < 0 && !pad ? -1 : (m > 0 ? (m & 1 ? 256 : 0) | (m & 2 ? 512 : 0) | (m & 4 ? 1024 : 0) : 0) | pad | rinc_locks;
 }
 
 /* apps' sources, for a console or an editor: appSource(name, out) -> Int copies app name's source (from
@@ -908,7 +912,8 @@ static void rinc_hostDirMake(rio_Vm *v, rio_Val *a) { /* dirMake(path) -> Int: a
 }
 static void rinc_hostFileRename(rio_Vm *v, rio_Val *a) {
   char from[96], to[96]; int named = rinc_argPath(v, a, from, 1) && rinc_argPath(v, a + 2, to, 1);
-  a[0].i = named && rinc_fs && !rinc_exists(to) && rinc_exists(from) && !rinc_fs->rename(from, to) ? 0 : -1;
+  int into = named && !strncmp(to, from, strlen(from)) && to[strlen(from)] == '/'; /* (not into itself) */
+  a[0].i = named && !into && rinc_fs && !rinc_exists(to) && rinc_exists(from) && !rinc_fs->rename(from, to) ? 0 : -1;
 }
 /* a project's own save space, the first time it runs: the app's saves, copied in */
 static void rinc_projectSaves(void) {

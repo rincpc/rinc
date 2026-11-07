@@ -1,0 +1,53 @@
+# pc.Field: a line of text edited as a text box is (pc.rio): typing, Backspace and Delete, by words with
+# Ctrl, the arrows, Home and End, selecting with Shift, Ctrl+A, and typing in place of what's selected
+LEFT :: 128
+RIGHT :: 129
+HOME :: 132
+END :: 133
+DELETE :: 134
+SHIFT :: 256
+CTRL :: 512
+room: Blob[..12]
+f := pc.Field{text = room}
+keys :: proc(s: String)
+  for c in s
+    assert(f.key(c), "typed")
+  end
+end
+shows :: proc(want: String, why: String)
+  assert(f.text.asString() == want, why)
+end
+
+keys("tune")
+shows("tune", "typed")
+assert(f.key(LEFT) and f.key(LEFT), "left twice")
+keys("x")
+shows("tuxne", "typed where the cursor is")
+assert(f.key(8), "Backspace")
+shows("tune", "Backspace: the one before")
+assert(f.key(DELETE), "Delete")
+shows("tue", "Delete: the one after")
+assert(f.key(END) and f.key(LEFT | SHIFT) and f.key(LEFT | SHIFT), "Shift+left twice: two selected")
+keys("une")
+shows("tune", "typing in place of what's selected")
+f.set("song.rio")
+f.select(0, 4) # (as renaming starts: the name, not its extension)
+keys("tune")
+shows("tune.rio", "the name selected, typed over")
+assert(f.key(END) and f.key(8 | CTRL), "End, Ctrl+Backspace")
+shows("tune.", "Ctrl+Backspace: the word before")
+assert(f.key(HOME) and f.key(DELETE | CTRL), "Home, Ctrl+Delete")
+shows("", "Ctrl+Delete: the word after, and what follows it")
+keys("a b c")
+assert(f.key(LEFT | CTRL) and f.key(LEFT | CTRL | SHIFT), "Ctrl+left, Ctrl+Shift+left")
+assert(f.cursor == 2 and f.anchor == 4, "by words")
+assert(f.key(LEFT), "left, out of a selection")
+assert(f.cursor == 2 and not f.selected(), "left: to its start")
+assert(f.key(1), "Ctrl+A")
+assert(f.selected() and f.anchor == 0 and f.cursor == 5, "Ctrl+A: all of it")
+keys("123456789012345") # (12 of room: the rest don't go in)
+shows("123456789012", "as much as fits")
+assert(not f.key(9) and not f.key(13) and not f.key(27), "Tab, Enter and Esc aren't its")
+f.draw({0, 0}, 5, 7, 2, 10) # (scrolled to the cursor, at the end)
+assert(f.scroll == 8, "drawn scrolled to show the cursor")
+log("field tests passed")

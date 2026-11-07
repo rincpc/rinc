@@ -1,6 +1,7 @@
 files.rio
 help/README.md
 parts/actions.rio
+parts/clip.rio
 parts/commands.rio
 parts/folder.rio
 parts/input.rio

@@ -61,6 +61,35 @@ narrow :: proc()
   pick = max(0, min(pick, nshown - 1))
 end
 
+# what's selected (as well as the one picked, which the arrows move): entries of the folder shown
+marked: [MOST]Bool
+markCount := 0
+anchor := 0           # a range's other end (Shift): a row of what's shown
+markable :: proc(k: Int) -> Bool do return k >= 0 and kind[k] != UP and not picking
+clearMarks :: proc()
+  for k in 0..<MOST
+    marked[k] = false
+  end
+  markCount = 0
+end
+setMark :: proc(k: Int, on: Bool)
+  if markable(k) and marked[k] != on
+    marked[k] = on
+    if on
+      markCount += 1
+    else
+      markCount -= 1
+    end
+  end
+end
+selectOnly :: proc(row: Int) # (row of what's shown: it alone, and the anchor there)
+  clearMarks()
+  if row >= 0 and row < nshown
+    setMark(shown[row], true)
+  end
+  anchor = row
+end
+
 picked :: proc() -> Int
   if nshown == 0
     return -1
@@ -118,6 +147,7 @@ open :: proc(p: String) -> Bool
   pick = 0
   top = 0
   narrow()
+  selectOnly(pick)
   saved := pc.stashWrite("place", p)
   return true
 end
@@ -142,6 +172,7 @@ goUp :: proc()
         pick = i
       end
     end
+    selectOnly(pick)
     reveal()
   end
 end

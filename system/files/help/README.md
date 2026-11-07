@@ -17,7 +17,31 @@ or where it was last. A yellow mark at the left is the active app or project, wh
 | Ctrl+Shift+P (or the system key with P) | every command: these, and what can be done with the one picked, each by name |
 | Esc | close what's open, else clear what's typed, else up a folder |
 
-With a mouse, a click picks one, a click on the one picked opens it, and the wheel scrolls. A file's
+With a mouse, a click picks one, a click on the one picked opens it, and the wheel scrolls.
+
+## Several at once, and moving them
+
+Selecting works as in Windows' Explorer. The arrows (or a click) select the one they pick; with Shift
+held, everything from where you started (the anchor) to there; with Ctrl, they move the pick alone,
+leaving what's selected as it is, and Ctrl+Space then selects that one too (or not). Ctrl+click adds or
+takes away one, Shift+click selects a run, and Ctrl+A selects them all. The one picked has a frame;
+what's selected is filled.
+
+| keys | |
+|---|---|
+| Ctrl+X | cut what's selected (or the one picked): Ctrl+V in another folder moves it there |
+| Ctrl+C | copy it: Ctrl+V puts a copy where you paste (in the same folder: `name-2.png`) |
+| Ctrl+V | paste here (what's cut or copied waits, even while you go to another app) |
+| F2 | rename the one picked |
+| Delete | delete what's selected: one after typing its name, several after typing `delete` |
+| Esc | with several selected, just the one picked again |
+
+With a controller, X selects the one picked (or not), as Ctrl+Space does, and the left trigger held is
+Shift, so the d-pad selects a run; the right trigger is Ctrl.
+
+Renaming, copying as a name and the other prompts edit their text as a text box does: it starts
+selected (a file's name, but not its extension), and the arrows, Home and End, Backspace and Delete (with
+Ctrl, by words) and Shift to select all work in it. A file's
 text shows its first 16 KB, bytes that aren't text as dots; Esc goes back.
 
 ## What's done with one

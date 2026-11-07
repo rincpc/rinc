@@ -296,12 +296,12 @@ draw* :: proc()
       label = "A new project, called: "
     end
     pc.print(label, {2, 231}, accentColor)
-    t := input[0..<input.len()]
+    at := {2 + label.len() * 6, 231}
     if mode == FIND
-      t = query[0..<query.len()]
+      queryField.draw(at, 52 - label.len(), textColor, selectColor, accentColor)
+    else
+      inputField.draw(at, 52 - label.len(), textColor, selectColor, accentColor)
     end
-    pc.print(t.asString(), {2 + label.len() * 6, 231}, textColor)
-    pc.rect({2 + (label.len() + t.len()) * 6, 230}, {1, 9}, accentColor)
   case message.len() > 0 and pc.time() - messageAt < 4.0
     pc.print(message[0..<message.len()].asString(), {2, 231}, messageColor)
   case errLine == cl and errTextLen > 0 # (on the error's line: what it says)

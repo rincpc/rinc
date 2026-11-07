@@ -1,0 +1,206 @@
+# Files: several picked at once, and cut, copy and paste (part of files.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the selection, as Windows' Explorer has it
+
+# what's selected follows the pick, unless Shift or Ctrl is held (mods: pc.key's 256 Shift, 512 Ctrl):
+# Shift selects from the anchor to the pick (with Ctrl too, as well as what was), Ctrl moves the pick alone
+followPick :: proc(mods: Int)
+  if mods & 256 != 0
+    if mods & 512 == 0
+      clearMarks()
+    end
+    for i in min(anchor, pick)..=max(anchor, pick)
+      setMark(shown[i], true)
+    end
+  case mods & 512 == 0
+    selectOnly(pick)
+  end
+end
+# up or down by: the pick, the menu's pick, or the text viewed
+move :: proc(by: Int)
+  if mode == VIEW
+    viewScroll(by)
+  case mode == MENU
+    menuPick = (menuPick + by + itemCount * 8) % itemCount
+  case mode == NONE and nshown > 0
+    pick = max(0, min(pick + by, nshown - 1))
+    reveal()
+  end
+end
+# up or down by, in the list, the selection as followPick has it
+moveSel :: proc(by: Int, mods: Int)
+  if mode != NONE or nshown == 0
+    move(by)
+    return
+  end
+  move(by)
+  followPick(mods)
+end
+# a row clicked: alone, with Ctrl added or taken away, with Shift from the anchor
+clickRow :: proc(r: Int, mods: Int)
+  pick = r
+  if mods & 512 != 0 and mods & 256 == 0
+    setMark(shown[r], not marked[shown[r]])
+    anchor = r
+  else
+    followPick(mods)
+  end
+end
+selectAll :: proc()
+  for i in 0..<nshown
+    setMark(shown[i], true)
+  end
+end
+# what's acted on: what's selected, else the one picked (none: -1)
+chosenCount :: proc() -> Int
+  if markCount > 0
+    return markCount
+  end
+  if markable(picked())
+    return 1
+  end
+  return 0
+end
+chosen :: proc(k: Int) -> Bool
+  if markCount > 0
+    return marked[k]
+  end
+  return k == picked()
+end
+
+# ---------------------------------------------------------------- cut, copy and paste
+
+# what's cut or copied: their paths, a line each, after "x" (cut) or "c" (copied) and a line; kept in the
+# stash, so it waits while you go elsewhere
+clip: Blob[..2048]
+clipLines :: proc() -> Int
+  n := 0
+  for i in 2..<clip.len()
+    if clip[i] == 10
+      n += 1
+    end
+  end
+  return n
+end
+take :: proc(cut: Bool)
+  if picking or chosenCount() == 0
+    return
+  end
+  if cut and not (here().len() > 6 and here()[0..<6] == "/rinc/")
+    say("Can't cut here: only inside /rinc's folders", errorColor)
+    return
+  end
+  clip.clear()
+  ok := clip.push(99)
+  if cut
+    clip[0] = 120
+  end
+  ok = clip.push(10)
+  n := 0
+  for k in 0..<count
+    if chosen(k) and clip.len() + path.len() + nameLen[k] + 2 < 2048
+      ok = clip.pushAll(pathTo(nameOf(k)))
+      ok = clip.push(10)
+      n += 1
+    end
+  end
+  saved := pc.stashWrite("clip", clip[0..<clip.len()].asString())
+  message.clear()
+  if cut
+    _ = message.print(n, " cut: ^V moves them to the folder you paste in")
+  else
+    _ = message.print(n, " copied: ^V puts a copy in the folder you paste in")
+  end
+  messageColor = softColor
+end
+
+# is something at p (a file or a folder)
+nothing2: Blob[1]
+taken :: proc(p: String) -> Bool
+  nothing: Blob[..] = nothing2[0..<0]
+  return pc.fileRead(p, nothing) >= 0 or pc.dir(p, nothing) >= 0
+end
+# a name for a copy where the name's taken: name-2 (before its extension), then -3, and on
+fresh: Blob[..80]
+freshName :: proc(name: String) -> String
+  dot := name.len()
+  for i in 1..<name.len()
+    if name[i] == 46
+      dot = i
+    end
+  end
+  for n in 2..<100
+    fresh.clear()
+    ok := fresh.pushAll(name[0..<dot])
+    _ = fresh.print("-", n)
+    ok = fresh.pushAll(name[dot..<name.len()])
+    if not taken(pathTo(fresh[0..<fresh.len()].asString()))
+      return fresh[0..<fresh.len()].asString()
+    end
+  end
+  return name
+end
+pasteFrom: Blob[..160]
+pasteName: Blob[..80]
+paste :: proc()
+  if picking or clip.len() < 3
+    say("Nothing cut or copied", softColor)
+    return
+  end
+  if here().len() <= 6 or here()[0..<6] != "/rinc/"
+    say("Can't paste here: only in /rinc's folders", errorColor)
+    return
+  end
+  cut := clip[0] == 120
+  done := 0
+  failed := 0
+  at := 2
+  for i in 2..<clip.len()
+    if clip[i] == 10
+      pasteFrom.clear()
+      ok := pasteFrom.pushAll(clip[at..<i])
+      at = i + 1
+      p := pasteFrom[0..<pasteFrom.len()].asString()
+      slash := p.len() - 1
+      for slash > 0 and p[slash] != 47
+        slash -= 1
+      end
+      pasteName.clear()
+      ok = pasteName.pushAll(p[slash + 1..<p.len()])
+      name := pasteName[0..<pasteName.len()].asString()
+      into := here()
+      inside := into.len() > p.len() and into[0..<p.len()] == p and into[p.len()] == 47
+      res := -1
+      if inside or (cut and p[0..<max(slash, 1)] == into) # (not into itself; moved to where it is: nothing to do)
+        res = -1
+      case cut
+        res = pc.fileRename(p, pathTo(name))
+      else
+        if taken(pathTo(name))
+          name = freshName(name)
+        end
+        res = pc.fileCopy(p, pathTo(name))
+      end
+      if res == 0
+        done += 1
+      else
+        failed += 1
+      end
+    end
+  end
+  if cut and failed == 0 # (moved: they're not there to paste again)
+    clip.clear()
+    ok := pc.stashDelete("clip")
+  end
+  reopen(pasteName[0..<pasteName.len()].asString())
+  message.clear()
+  if failed == 0
+    _ = message.print("Pasted ", done)
+    messageColor = softColor
+  else
+    _ = message.print("Pasted ", done, "; ", failed, " couldn't be (a name taken, or into itself?)")
+    messageColor = errorColor
+  end
+end
+
+_ = pc.stashRead("clip", clip)

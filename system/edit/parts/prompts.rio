@@ -9,6 +9,8 @@ GO_TO :: 4
 mode := NONE
 input: Blob[..33]
 query: Blob[..48]
+inputField := pc.Field{text = input} # (each edited as a text box is)
+queryField := pc.Field{text = query}
 confirm := 0     # an action asked for again after a warning: it goes ahead
 
 lower :: proc(c: Int) -> Int
@@ -54,7 +56,10 @@ end
 
 startPrompt :: proc(m: Int)
   mode = m
-  input.clear()
+  inputField.set("")
+  if m == FIND # (what was found last, or what's selected: all of it selected, so typing replaces it)
+    queryField.select(0, query.len())
+  end
 end
 
 # line numbers, shown or not (and kept, for next time)
@@ -150,20 +155,8 @@ promptKey :: proc(k: Int)
     return
   end
   if mode == FIND
-    if k == 8
-      if query.len() > 0
-        _ = query.pop()
-      end
-    case k >= 32 and k < 127 and query.len() < 48
-      _ = query.push(k)
-    end
-    return
-  end
-  if k == 8
-    if input.len() > 0
-      _ = input.pop()
-    end
-  case k >= 32 and k < 127 and input.len() < 32
-    _ = input.push(k)
+    _ = queryField.key(k)
+  else
+    _ = inputField.key(k)
   end
 end

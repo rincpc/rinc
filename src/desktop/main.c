@@ -372,7 +372,7 @@ static int rinc_saveWav(const char *path, uint32_t frames) {
    key with Tab, Esc, Q, R, L or O (held a frame, then let go: the typing waits for what it does); and \u, the
    typing waiting there until -ctrl's Ctrl is let go */
 static const char *rinc_typing;
-static int rinc_ctrlFrames, rinc_frameNow; /* (-ctrl n: Ctrl held for the first n frames, as pc.modsHeld says) */
+static int rinc_ctrlFrames, rinc_shiftFrames, rinc_frameNow; /* (-ctrl n, -shift n: Ctrl or Shift held for the first n frames, as pc.modsHeld says) */
 static int rinc_typedSys, rinc_sysFrames; /* (\s: its keys, and the frames left of it: 2 held, 1 let go) */
 static int rinc_hex(int c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; }
 static void rinc_typeMore(void) {
@@ -383,6 +383,13 @@ static void rinc_typeMore(void) {
     if (rinc_typing[0] == '\\' && rinc_typing[1] == 's' && rinc_textRoom() < room) return;
     if (rinc_typing[0] == '\\' && rinc_typing[1] == 'w') { /* (until what's typed before it is taken: the rest is for the app's next frame) */
       if (rinc_textRoom() < room) return;
+      rinc_typing += 2;
+      continue;
+    }
+    if (rinc_typing[0] == '\\' && rinc_typing[1] == 'f') { /* (a frame passes: for what -hold does meanwhile) */
+      static int waited;
+      if (!waited) { waited = 1; return; }
+      waited = 0;
       rinc_typing += 2;
       continue;
     }
@@ -412,14 +419,14 @@ static void rinc_typeMore(void) {
 
 /* -hold: buttons held, as a controller would, in frames counted from 0: "a 10-40, right 20-30" (names:
    left right up down a b x y lb rb ls rs start back; and the sticks pushed all the way: lsleft lsright
-   lsup lsdown, rsleft rsright rsup rsdown, into rinc_axes): the buttons for frame i */
+   lsup lsdown, rsleft rsright rsup rsdown, and the triggers, lt rt, into rinc_axes): the buttons for frame i */
 static const char *rinc_holding;
 static uint16_t rinc_held(int frame) {
   static const char *names[14] = {"left", "right", "up", "down", "a", "b", "x", "y", "lb", "rb", "ls", "rs", "start", "back"};
   static const char *sticks[8] = {"lsleft", "lsright", "lsup", "lsdown", "rsleft", "rsright", "rsup", "rsdown"};
   const char *s = rinc_holding;
   uint16_t bits = 0;
-  memset(rinc_axes, 0, 4 * sizeof rinc_axes[0]);
+  memset(rinc_axes, 0, 6 * sizeof rinc_axes[0]);
   while (s && *s) {
     char name[8]; int first, last, n = 0, k;
     while (*s == ' ' || *s == ',') s++;
@@ -430,6 +437,7 @@ static uint16_t rinc_held(int frame) {
       if (!strcmp(name, names[k])) bits |= (uint16_t)(1 << k);
     for (k = 0; k < 8; k++) /* (left stick 0, 1; right 2, 3: x, then y, + right and down) */
       if (!strcmp(name, sticks[k])) rinc_axes[k / 4 * 2 + (k % 4) / 2] = (int16_t)(k % 2 ? 32767 : -32767);
+    if (!strcmp(name, "lt") || !strcmp(name, "rt")) rinc_axes[name[0] == 'l' ? 4 : 5] = 32767; /* (the triggers, all the way) */
   }
   return bits;
 }
@@ -621,7 +629,8 @@ static void rinc_sdlKey(const SDL_KeyboardEvent *k) {
   int shift = (k->mod & SDL_KMOD_SHIFT) != 0, ctrl = (k->mod & SDL_KMOD_CTRL) != 0, alt = (k->mod & SDL_KMOD_ALT) != 0;
   int code = c == SDLK_LEFT ? rinc_Key_left : c == SDLK_RIGHT ? rinc_Key_right : c == SDLK_UP ? rinc_Key_up : c == SDLK_DOWN ? rinc_Key_down :
              c == SDLK_HOME ? rinc_Key_home : c == SDLK_END ? rinc_Key_end : c == SDLK_DELETE ? rinc_Key_delete :
-             c == SDLK_PAGEUP ? rinc_Key_pageUp : c == SDLK_PAGEDOWN ? rinc_Key_pageDown : c == SDLK_TAB ? 9 : 0;
+             c == SDLK_PAGEUP ? rinc_Key_pageUp : c == SDLK_PAGEDOWN ? rinc_Key_pageDown : c == SDLK_TAB ? 9 :
+             c >= SDLK_F1 && c <= SDLK_F12 ? rinc_Key_f1 + (int)(c - SDLK_F1) : 0;
   if (c == SDLK_RETURN || c == SDLK_KP_ENTER || c == SDLK_BACKSPACE) { code = c == SDLK_BACKSPACE ? 8 : 13; shift = 0; }
   if (!code && ctrl && c >= SDLK_A && c <= SDLK_Z) { code = (int)(c - SDLK_A) + 1; ctrl = 0; }
   if (!code && ctrl && (c == SDLK_SPACE || c == SDLK_SLASH)) code = c == SDLK_SPACE ? 32 : '/'; /* (Ctrl+Space, Ctrl+/: 32 or 47 with Ctrl's bit; their text isn't typed) */
@@ -659,7 +668,7 @@ static int rinc_window(const char *title) {
     while (SDL_PollEvent(&e)) {
       if (e.type == SDL_EVENT_QUIT) running = 0;
       if (e.type == SDL_EVENT_DROP_FILE && e.drop.data) rinc_drop(e.drop.data);
-      if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_F11 && !e.key.repeat) { rinc_fullscreen = !rinc_fullscreen; continue; } /* (the window's own: apps get no F keys) */
+      if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_F11 && !e.key.repeat) { rinc_fullscreen = !rinc_fullscreen; continue; } /* (the window's own: apps get the other F keys) */
       if (rinc_systemHeld() && (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_TEXT_INPUT)) continue; /* (a system combination: not the app's) */
       if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) rinc_textEsc(); /* (Esc is the app's: closing the window quits) */
       if (e.type == SDL_EVENT_TEXT_INPUT && !(rinc_ctrlText && e.text.text[0] == rinc_ctrlText && !e.text.text[1])) { const char *t = e.text.text; while (*t) rinc_textPush((unsigned char)*t++); } /* (key(): typing) */
@@ -792,8 +801,9 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-type") && i + 1 < argc) rinc_typing = argv[++i];
     else if (!strcmp(argv[i], "-hold") && i + 1 < argc) rinc_holding = argv[++i];
     else if (!strcmp(argv[i], "-ctrl") && i + 1 < argc) rinc_ctrlFrames = atoi(argv[++i]);
+    else if (!strcmp(argv[i], "-shift") && i + 1 < argc) rinc_shiftFrames = atoi(argv[++i]);
     else if (argv[i][0] == '-' || napps == rinc_BUNDLE_MOST) {
-      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-hold buttons] [-ctrl frames] [-i app.rioi]\n"
+      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-hold buttons] [-ctrl frames] [-shift frames] [-i app.rioi]\n"
                       "       rinc app.rio... -export program [-runner rinc] [-home name] [-name folder] [-docs name=folder]... [-files path=folder]...\n"
                       "       rinc app.rio... -web page.html [-home name]\n"
                       "       rinc -install name|app.rio...      (and -data folder with any of these: storage there)\n"
@@ -897,7 +907,7 @@ int main(int argc, char **argv) {
         rinc_modsHeld = -1; /* (-type's modifiers come with its keys: whether one's held, it can't tell) */
       }
       rinc_frameNow = i;
-      if (rinc_ctrlFrames) rinc_modsHeld = i < rinc_ctrlFrames ? 2 : 0;
+      if (rinc_ctrlFrames || rinc_shiftFrames) rinc_modsHeld = (i < rinc_ctrlFrames ? 2 : 0) | (i < rinc_shiftFrames ? 1 : 0);
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();
       if (wavout && i < 60 * 60) rinc_audioMix(rinc_wav + i * (rinc_RATE / 60) * 2, rinc_RATE / 60); /* (a frame's worth of sound) */

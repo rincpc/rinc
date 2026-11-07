@@ -70,7 +70,7 @@ extern int16_t rinc_axes[6];
    terminal sends them, ESC [ 1 ; 5 C for Ctrl+right, ESC [ Z for Shift+Tab, ESC [ 27 ; m ; key ~
    for the rest */
 enum { rinc_Key_left = 128, rinc_Key_right, rinc_Key_up, rinc_Key_down, rinc_Key_home, rinc_Key_end, rinc_Key_delete,
-       rinc_Key_pageUp, rinc_Key_pageDown };
+       rinc_Key_pageUp, rinc_Key_pageDown, rinc_Key_f1 = 140 /* (F1 to F12: 140 to 151) */ };
 enum { rinc_Mod_shift = 256, rinc_Mod_ctrl = 512, rinc_Mod_alt = 1024 };
 void rinc_textPush(int c);
 void rinc_textEsc(void);    /* the Esc key itself, for key() (the platform knows it from a terminal escape) */

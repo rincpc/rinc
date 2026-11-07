@@ -51,12 +51,15 @@ print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in 
 # sticks pressed in, 12 Start, 13 Back
 btn* :: host proc(i: Int) -> Int
 # the next key typed, or -1: 32-126 as typed, 13 Enter, 8 Backspace, 9 Tab, 27 Esc, Ctrl+letter as 1-26,
-# and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down;
+# and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down,
+# 140 to 151 F1 to F12 (where the Rinc gets them: a browser keeps some, F11 is the desktop's whole display);
 # a key that isn't a character with the modifiers held added on: 256 Shift, 512 Ctrl, 1024 Alt; and
 # 4096 + n, a command of the app's own picked from its list (Command, below)
 key* :: host proc() -> Int
-# the modifiers held now, as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt (one locked, tapped twice, too);
-# -1 where it can't tell (in a terminal): for a walk that goes on while Ctrl is held, as Ctrl+Tab's
+# the modifiers held now, as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt (one locked, tapped twice, too;
+# and in a pointer app, Pointer.ui, a controller's left trigger is Shift, its right one Ctrl); -1 where it
+# can't tell (in a terminal): for a walk that goes on while Ctrl is held, as Ctrl+Tab's, and the d-pad
+# with Shift, selecting
 modsHeld* :: host proc() -> Int
 # a controller's sticks: 0 left x, 1 left y, 2 right x, 3 right y; -1 to 1, + right and down
 stick* :: host proc(i: Int) -> Float
@@ -301,3 +304,157 @@ rioType* :: host proc(key: Int)                     # a key for its pc.key()
 rioError* :: host proc(out: Blob[..]) -> Int        # the last error, as text, added to out: how long
 rioLog* :: host proc(out: Blob[..]) -> Int          # what it logged since, as much as fits, taken: how much (lines end with 10)
 rioIndent* :: host proc(text: String) -> Int        # the indent steps an unfinished input's next line takes
+
+# ---------------------------------------------------------------- a line of text, edited
+
+# a line of text being edited (a name, something to find): its text, in room of the app's own
+# (Field{text = room}, room a Blob[..n]), the cursor (0 to its length), the selection's other end
+# (anchor == cursor: none), and draw's scroll. key() edits it as a text box does in Windows: typing
+# (in place of what's selected), Backspace and Delete (with Ctrl, a word), left and right (with Ctrl, by
+# words; with Shift, selecting), Home and End, and Ctrl+A (all of it); draw() shows it
+Field* :: struct
+  text: Blob[..]
+  cursor: Int
+  anchor: Int
+  scroll: Int
+end
+Field.set* :: proc(s: String) # its text, all of it selected (typing takes its place)
+  self.text.clear()
+  for c in s
+    _ = self.text.push(c)
+  end
+  self.anchor = 0
+  self.cursor = self.text.len()
+  self.scroll = 0
+end
+Field.select* :: proc(from: Int, to: Int) # from to, the cursor at to
+  self.anchor = max(0, min(from, self.text.len()))
+  self.cursor = max(0, min(to, self.text.len()))
+end
+Field.selected* :: proc() -> Bool do return self.anchor != self.cursor
+Field.wordAt :: proc(i: Int) -> Bool # (a letter, digit or _)
+  c := self.text[i]
+  return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_'
+end
+Field.wordLeft :: proc(from: Int) -> Int # (the start of the word before from)
+  i := from
+  for i > 0 and not self.wordAt(i - 1)
+    i -= 1
+  end
+  for i > 0 and self.wordAt(i - 1)
+    i -= 1
+  end
+  return i
+end
+Field.wordRight :: proc(from: Int) -> Int # (the end of the word after from, as Windows': past what's after it too)
+  i := from
+  n := self.text.len()
+  for i < n and self.wordAt(i)
+    i += 1
+  end
+  for i < n and not self.wordAt(i)
+    i += 1
+  end
+  return i
+end
+Field.cut :: proc(a: Int, b: Int) # (a to b taken out, the cursor there)
+  n := self.text.len()
+  for i in b..<n
+    self.text[a + i - b] = self.text[i]
+  end
+  for _ in a..<b
+    _ = self.text.pop()
+  end
+  self.cursor = a
+  self.anchor = a
+end
+Field.cutSelected :: proc()
+  if self.anchor != self.cursor
+    self.cut(min(self.anchor, self.cursor), max(self.anchor, self.cursor))
+  end
+end
+Field.moveTo :: proc(i: Int, shift: Bool)
+  self.cursor = i
+  if not shift
+    self.anchor = i
+  end
+end
+Field.key* :: proc(c: Int) -> Bool # a key, as key() gives it: true if it was the field's
+  k := c & 255
+  shift := c & 256 != 0
+  ctrl := c & 512 != 0
+  lo := min(self.anchor, self.cursor)
+  hi := max(self.anchor, self.cursor)
+  if c >= 32 and c < 127 # (typed, in place of what's selected)
+    self.cutSelected()
+    if self.text.push(c) # (room for it: then moved up to the cursor)
+      i := self.text.len() - 1
+      for i > self.cursor
+        self.text[i] = self.text[i - 1]
+        i -= 1
+      end
+      self.text[self.cursor] = c
+      self.cursor += 1
+      self.anchor = self.cursor
+    end
+  case k == 8 # Backspace, Ctrl+Backspace
+    if lo != hi
+      self.cutSelected()
+    case ctrl
+      self.cut(self.wordLeft(self.cursor), self.cursor)
+    case self.cursor > 0
+      self.cut(self.cursor - 1, self.cursor)
+    end
+  case k == 134 # Delete, Ctrl+Delete
+    if lo != hi
+      self.cutSelected()
+    case ctrl
+      self.cut(self.cursor, self.wordRight(self.cursor))
+    case self.cursor < self.text.len()
+      self.cut(self.cursor, self.cursor + 1)
+    end
+  case k == 128 # left: by a word with Ctrl; with nothing held, out of a selection to its start
+    if ctrl
+      self.moveTo(self.wordLeft(self.cursor), shift)
+    case lo != hi and not shift
+      self.moveTo(lo, false)
+    else
+      self.moveTo(max(self.cursor - 1, 0), shift)
+    end
+  case k == 129
+    if ctrl
+      self.moveTo(self.wordRight(self.cursor), shift)
+    case lo != hi and not shift
+      self.moveTo(hi, false)
+    else
+      self.moveTo(min(self.cursor + 1, self.text.len()), shift)
+    end
+  case k == 132
+    self.moveTo(0, shift)
+  case k == 133
+    self.moveTo(self.text.len(), shift)
+  case c == 1 # Ctrl+A
+    self.select(0, self.text.len())
+  else
+    return false
+  end
+  return true
+end
+Field.draw* :: proc(at: [2]Int, chars: Int, color: Int, selectColor: Int, cursorColor: Int) # chars across, scrolled to show the cursor
+  if self.cursor < self.scroll
+    self.scroll = self.cursor
+  end
+  if self.cursor > self.scroll + chars - 1
+    self.scroll = self.cursor - chars + 1
+  end
+  self.scroll = max(0, min(self.scroll, self.text.len()))
+  upTo := min(self.text.len(), self.scroll + chars)
+  lo := max(min(self.anchor, self.cursor), self.scroll)
+  hi := min(max(self.anchor, self.cursor), upTo)
+  if hi > lo
+    rect(at + {(lo - self.scroll) * 6 - 1, -1}, {(hi - lo) * 6 + 1, 9}, selectColor)
+  end
+  print(self.text[self.scroll..<upTo].asString(), at, color)
+  rect(at + {(self.cursor - self.scroll) * 6 - 1, -1}, {1, 9}, cursorColor)
+end
+

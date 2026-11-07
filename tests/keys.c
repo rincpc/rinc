@@ -31,9 +31,13 @@ int main(void) {
     "\033[27;5;47~" /* Ctrl+/: 47 + 512 */
     "\037"          /* Ctrl+/, as a terminal sends it (Ctrl+_): 47 + 512 */
     "\032"          /* Ctrl+Z: 26 */
+    "\033OQ"        /* F2: 141 */
+    "\033[1;2Q"     /* Shift+F2: 141 + 256 */
+    "\033[15~"      /* F5: 144 */
+    "\033[24~"      /* F12: 151 */
     "a\r";          /* a, Enter */
   static const char app[] = "c := pc.key()\nfor c >= 0\n  log(c)\n  c = pc.key()\nend\n";
-  static const char want[] = "129\n641\n384\n902\n265\n520\n282\n544\n559\n559\n26\n97\n13\n544\n";
+  static const char want[] = "129\n641\n384\n902\n265\n520\n282\n544\n559\n559\n26\n141\n397\n144\n151\n97\n13\n544\n";
   const char *p;
   if (rinc_start(&vm, space, sizeof space, put) || rinc_compile(&vm, space, sizeof space, app, sizeof app - 1)) {
     printf("FAIL: %s\n", rio_error(&vm));

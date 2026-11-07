@@ -6,16 +6,6 @@ prompting :: proc() -> Bool
   return mode == COPY or mode == RENAME or mode == NEW or mode == DELETE or mode == NEW_FOLDER
 end
 
-move :: proc(by: Int)
-  if mode == VIEW
-    viewScroll(by)
-  case mode == MENU
-    menuPick = (menuPick + by + itemCount * 8) % itemCount
-  case mode == NONE and nshown > 0
-    pick = max(0, min(pick + by, nshown - 1))
-    reveal()
-  end
-end
 
 # Esc, B: what's open closes, else back up (or, picking, nothing picked)
 back :: proc()
@@ -38,21 +28,8 @@ promptKey :: proc(c: Int)
     mode = NONE
   case k == 13
     promptDone()
-  case k == 8
-    if inputFresh
-      input.clear()
-    case input.len() > 0
-      _ = input.pop()
-    end
-    inputFresh = false
-  case c >= 32 and c < 127
-    if inputFresh
-      input.clear()
-      inputFresh = false
-    end
-    if input.len() < 60
-      ok := input.push(c)
-    end
+  else
+    _ = field.key(c)
   end
 end
 
@@ -93,9 +70,7 @@ end
 # saving: what's typed is the name, Enter with one gives the path back
 saveKey :: proc(c: Int) -> Bool
   k := c & 255
-  if k == 8 and saveName.len() > 0
-    _ = saveName.pop()
-  case c == 13 and saveName.len() > 0
+  if c == 13 and saveName.len() > 0
     if not validName(saveName[0..<saveName.len()].asString(), true)
       say("A name is letters, digits, _, - and .", errorColor)
     case here().len() <= 6 or here()[0..<6] != "/rinc/"
@@ -103,8 +78,7 @@ saveKey :: proc(c: Int) -> Bool
     else
       finish(pathTo(saveName[0..<saveName.len()].asString()))
     end
-  case c > 32 and c < 127 and saveName.len() < 60
-    ok := saveName.push(c)
+  case c != 32 and (k < 130 or k > 133) and saveField.key(c) # (the name's own keys: not up, down, Home and End, which are the list's; nor Space)
   else
     return false
   end
@@ -122,7 +96,31 @@ listKey :: proc(c: Int)
   case c == 16 | 256 # Ctrl+Shift+P: every command, the system's list
     pc.showCommands()
   case k == 27
-    back()
+    if markCount > 1 # (several selected: just the one picked)
+      selectOnly(pick)
+    else
+      back()
+    end
+  case c == 32 | 512 and not picking # Ctrl+Space: the one picked, selected or not
+    setMark(picked(), not marked[max(picked(), 0)])
+    anchor = pick
+  case c == 1 and not picking # Ctrl+A
+    selectAll()
+  case c == 24 # Ctrl+X, Ctrl+C, Ctrl+V
+    take(true)
+  case c == 3
+    take(false)
+  case c == 22
+    paste()
+  case c == 141 and not picking # F2: rename the one picked
+    actOn(RENAME_IT)
+  case k == 134 and not picking # Delete: what's selected (several: delete typed)
+    if chosenCount() > 1
+      target = -1
+      startPrompt(DELETE)
+    else
+      actOn(DELETE_IT)
+    end
   case c == 13
     enter(picked())
   case c == 32 and not picking
@@ -141,13 +139,13 @@ listKey :: proc(c: Int)
   case c == 130 | 1024 # Alt+Up
     goUp()
   case k == 135
-    move(-(ROWS - 1))
+    moveSel(-(ROWS - 1), c & 768)
   case k == 136
-    move(ROWS - 1)
+    moveSel(ROWS - 1, c & 768)
   case k == 132
-    move(-nshown)
+    moveSel(-nshown, c & 768)
   case k == 133
-    move(nshown)
+    moveSel(nshown, c & 768)
   case c > 32 and c < 127 and filter.len() < 24
     ok := filter.push(c)
     narrow()
@@ -168,7 +166,7 @@ end
 
 key :: proc(c: Int)
   if typedArrow(c) != 0 and not prompting()
-    move(typedArrow(c))
+    moveSel(typedArrow(c), c & 768)
     return
   end
   if prompting()
@@ -217,7 +215,7 @@ update* :: proc()
   end
   # up and down: the arrows and the d-pad, as buttons (a step a press, then more while it's held); Y the
   # menu (a controller's A and B are Enter and Esc, as keys)
-  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(7) * 4
+  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(7) * 4 + pc.btn(6) * 8
   pressed := bits & ~held
   step := 0
   if bits & 3 != held & 3
@@ -232,10 +230,15 @@ update* :: proc()
   end
   held = bits
   if step != 0 and not prompting()
-    move(step)
+    mods := max(pc.modsHeld(), 0) & 768 # (Shift and Ctrl held: as with the arrows typed)
+    moveSel(step, mods)
   end
   if pressed & 4 != 0 and mode == NONE and not picking
     openMenu()
+  end
+  if pressed & 8 != 0 and mode == NONE and not picking # (X: the one picked, selected or not, as Ctrl+Space)
+    setMark(picked(), not marked[max(picked(), 0)])
+    anchor = pick
   end
   # the pointer: a click picks, and a click on the one picked opens it (as Enter does, with the pointer
   # hidden); the secondary button shows the menu; in the menu, a click does that, outside it closes it
@@ -252,14 +255,20 @@ update* :: proc()
       end
     case mode == NONE
       r := rowAt(px, py)
+      mods := max(pc.modsHeld(), 0) & 768
       if r >= 0
-        if click & 2 != 0 and not picking
+        if click & 2 != 0 and not picking # (the menu: on what's selected, if it's among them)
+          if not marked[shown[r]]
+            clickRow(r, 0)
+          end
           pick = r
           openMenu()
-        case r == pick
+        case mods != 0 and not picking
+          clickRow(r, mods)
+        case r == pick and markCount <= 1
           enter(picked())
         else
-          pick = r
+          clickRow(r, 0)
         end
       case click & 1 != 0 and wasShown == 0
         enter(picked())

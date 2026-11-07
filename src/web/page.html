@@ -200,7 +200,8 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
   // key(): typing, and the keys that aren't characters (editing keys, Tab, Enter, Backspace, Ctrl+letter)
   // with the modifiers held, as bits: 256 Shift, 512 Ctrl, 1024 Alt (Enter and Backspace without Shift,
   // Esc without any); and the keys held, for the system key and the locks
-  const editing = { ArrowLeft: 128, ArrowRight: 129, ArrowUp: 130, ArrowDown: 131, Home: 132, End: 133, Delete: 134, PageUp: 135, PageDown: 136, Tab: 9, Enter: 13, Backspace: 8 };
+  const editing = { ArrowLeft: 128, ArrowRight: 129, ArrowUp: 130, ArrowDown: 131, Home: 132, End: 133, Delete: 134, PageUp: 135, PageDown: 136, Tab: 9, Enter: 13, Backspace: 8,
+    F1: 140, F2: 141, F3: 142, F4: 143, F5: 144, F6: 145, F7: 146, F8: 147, F9: 148, F10: 149, F11: 150, F12: 151 };
   const held = new Set();
   addEventListener("keydown", e => {
     held.add(e.code);
@@ -210,7 +211,7 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     if (e.key === "Escape") { ex.key(27); return; }
     if (editing[e.key] && !e.metaKey) {
       ex.key(editing[e.key] | (editing[e.key] < 32 && editing[e.key] !== 9 ? mods & ~256 : mods));
-      if (e.key !== "Delete" || mods) e.preventDefault();
+      if ((e.key !== "Delete" || mods) && !/^F(5|11|12)$/.test(e.key)) e.preventDefault(); // (F5, F11, F12: the browser's too, reloading, its whole screen, its tools)
       return;
     }
     if (e.ctrlKey && !e.metaKey && (e.key === " " || e.key === "/")) { ex.key(e.key.charCodeAt(0) | mods); e.preventDefault(); return; } // (Ctrl+Space, Ctrl+/: the editor's completion and comments)

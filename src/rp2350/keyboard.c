@@ -39,7 +39,8 @@ static int rinc_editing(uint8_t key, uint8_t mods) {
   char letter = key == HID_KEY_ARROW_UP ? 'A' : key == HID_KEY_ARROW_DOWN ? 'B' : key == HID_KEY_ARROW_RIGHT ? 'C' :
     key == HID_KEY_ARROW_LEFT ? 'D' : key == HID_KEY_HOME ? 'H' : key == HID_KEY_END ? 'F' : 0;
   char seq[24];
-  if (key == HID_KEY_DELETE) n = 3;
+  if (key >= HID_KEY_F1 && key <= HID_KEY_F12) { static const uint8_t fn[12] = {11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23, 24}; n = fn[key - HID_KEY_F1]; } /* (n ~, as a console sends them) */
+  else if (key == HID_KEY_DELETE) n = 3;
   else if (key == HID_KEY_PAGE_UP) n = 5;
   else if (key == HID_KEY_PAGE_DOWN) n = 6;
   else if (key == HID_KEY_TAB && shift && !ctrl && !alt) letter = 'Z';

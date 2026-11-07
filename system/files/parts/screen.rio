@@ -25,8 +25,17 @@ drawList :: proc()
     i := top + row
     k := shown[i]
     y := TOP + row * 11
-    if i == pick
-      pc.rect({2, y - 2}, {316, 11}, pickColor)
+    if marked[k] # (selected: the one picked brighter; picked alone, a frame)
+      color := selectColor
+      if i == pick
+        color = pickColor
+      end
+      pc.rect({2, y - 2}, {316, 11}, color)
+    case i == pick
+      pc.rect({2, y - 2}, {316, 1}, pickColor)
+      pc.rect({2, y + 8}, {316, 1}, pickColor)
+      pc.rect({2, y - 2}, {1, 11}, pickColor)
+      pc.rect({317, y - 2}, {1, 11}, pickColor)
     end
     if isActive(k) # (the active app: a mark at its left)
       pc.rect({0, y - 1}, {2, 9}, accentColor)
@@ -88,6 +97,8 @@ drawBottom :: proc()
       label = "Rename to: "
     case mode == NEW
       label = "New project: "
+    case mode == DELETE and target < 0
+      label = "Type delete to delete them all: "
     case mode == DELETE
       label = "Type its name to delete it: "
     case mode == NEW_FOLDER
@@ -95,11 +106,7 @@ drawBottom :: proc()
     end
     pc.print(label, {3, 219}, accentColor)
     x := 3 + label.len() * 6
-    if inputFresh # (selected)
-      pc.rect({x - 1, 218}, {input.len() * 6 + 1, 9}, selectColor)
-    end
-    pc.print(input[0..<input.len()].asString(), {x, 219}, textColor)
-    pc.rect({x + input.len() * 6, 218}, {1, 9}, accentColor)
+    field.draw({x, 219}, (318 - x) / 6, textColor, selectColor, accentColor)
     if mode == DELETE
       pc.print("All of it, for good. Enter: delete  Esc: no", {3, 230}, errorColor)
     else
@@ -117,13 +124,18 @@ drawBottom :: proc()
     end
   case saving
     pc.print("Save as: ", {3, 219}, accentColor)
-    pc.print(saveName[0..<saveName.len()].asString(), {3 + 9 * 6, 219}, textColor)
-    pc.rect({3 + (9 + saveName.len()) * 6, 218}, {1, 9}, accentColor)
+    saveField.draw({3 + 9 * 6, 219}, 43, textColor, selectColor, accentColor)
     pc.print("Type a name, Enter save  Esc no", {3, 230}, faintColor)
   case picking
     pc.print("Enter pick  Backspace up  Esc none", {3, 230}, faintColor)
   else
-    pc.print("Enter open  Space more  ^N project  ^Shift+N folder", {3, 230}, faintColor)
+    if markCount > 1 # (several selected: how many, and what's done with them)
+      t: Blob[..53]
+      _ = t.print(markCount, " selected  ^X cut  ^C copy  Del delete")
+      pc.print(t[0..<t.len()].asString(), {3, 230}, faintColor)
+    else
+      pc.print("Enter open  Space more  ^N project  ^Shift+N folder", {3, 230}, faintColor)
+    end
   end
 end
 
