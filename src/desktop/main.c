@@ -368,8 +368,8 @@ static int rinc_saveWav(const char *path, uint32_t frames) {
 }
 
 /* -type: what to type, as fast as the app takes it (\n Enter, \e Esc, \t Tab, \\ a backslash, and \xHH
-   a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right); and \s with t, e, q, r or l, the system
-   key with Tab, Esc, Q, R or L (held a frame, then let go: the typing waits for what it does); and \u, the
+   a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right); and \s with t, e, q, r, l or o, the system
+   key with Tab, Esc, Q, R, L or O (held a frame, then let go: the typing waits for what it does); and \u, the
    typing waiting there until -ctrl's Ctrl is let go */
 static const char *rinc_typing;
 static int rinc_ctrlFrames, rinc_frameNow; /* (-ctrl n: Ctrl held for the first n frames, as pc.modsHeld says) */
@@ -392,7 +392,7 @@ static void rinc_typeMore(void) {
       if (c == 'e') { rinc_textEsc(); continue; }
       if (c == 's' && *rinc_typing) {
         c = (unsigned char)*rinc_typing++;
-        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : c == 'l' ? rinc_SysKey_l : 0;
+        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : c == 'l' ? rinc_SysKey_l : c == 'o' ? rinc_SysKey_o : 0;
         rinc_sysFrames = 2;
         return;
       }
@@ -686,7 +686,7 @@ static int rinc_window(const char *title) {
       for (s = 0; s < SDL_SCANCODE_COUNT; s++)
         other |= k[s] && (s < SDL_SCANCODE_LCTRL || s > SDL_SCANCODE_RGUI); /* (all but the modifiers) */
       int keys = (k[SDL_SCANCODE_ESCAPE] || (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_BACK)) ? rinc_SysKey_esc : 0) |
-                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) | (k[SDL_SCANCODE_H] ? rinc_SysKey_h : 0) | (k[SDL_SCANCODE_L] ? rinc_SysKey_l : 0) |
+                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) | (k[SDL_SCANCODE_H] ? rinc_SysKey_h : 0) | (k[SDL_SCANCODE_L] ? rinc_SysKey_l : 0) | (k[SDL_SCANCODE_O] ? rinc_SysKey_o : 0) |
                  (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER] ? rinc_SysKey_enter : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? rinc_SysKey_next : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? rinc_SysKey_prev : 0) |
@@ -760,6 +760,7 @@ int main(int argc, char **argv) {
   const char *apps[rinc_BUNDLE_MOST], *out = 0, *img = 0, *wavout = 0, *exp = 0, *web = 0, *runner = 0, *named = 0, *data = 0, *root = 0, *home = 0, *storage = 0, *app = 0, *drop = 0;
   const char *installs[32], *docs[8], *carry[8]; int napps = 0, ninstall = 0, ndocs = 0, ncarry = 0, i, frames = 0, memReport = 0, opened = 0, windowed, repl = 0; uint32_t size = 0;
   char stem[40], *self = 0;
+  atexit(rinc_logSave); /* (the running app's log, written as rinc stops, however it does) */
   for (i = 1; i < argc; i++) { /* (these on their own) */
     if (!strcmp(argv[i], "-help") || !strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) return fputs(rinc_help, stdout) < 0;
     if (!strcmp(argv[i], "-license") || !strcmp(argv[i], "--license")) return fputs(rinc_license, stdout) < 0;

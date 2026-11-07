@@ -120,6 +120,9 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_stashWrite_SIG "ss>i"
 #define pc_stashRead_SIG "sB>i"
 #define pc_stashDelete_SIG "s>i"
+#define pc_cacheRead_SIG "sB>i"
+#define pc_cacheWrite_SIG "ss>i"
+#define pc_cacheDelete_SIG "s>i"
 #define pc_settingRead_SIG "sB>i"
 #define pc_settingWrite_SIG "ss>i"
 #define pc_theme_SIG "Enum{bg,bar,text,soft,dim,faint,accent,heading,pick,select,link,error,ok,codeBg,code,punct,keyword,type,call,number,string,comment}>i"
@@ -209,6 +212,9 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(stashWrite, pc_stashWrite_SIG) \
   X(stashRead, pc_stashRead_SIG) \
   X(stashDelete, pc_stashDelete_SIG) \
+  X(cacheRead, pc_cacheRead_SIG) \
+  X(cacheWrite, pc_cacheWrite_SIG) \
+  X(cacheDelete, pc_cacheDelete_SIG) \
   X(settingRead, pc_settingRead_SIG) \
   X(settingWrite, pc_settingWrite_SIG) \
   X(theme, pc_theme_SIG) \
@@ -221,7 +227,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x654faed3u /* (rio_hashText of the source) */
+#define pc_HASH 0xeeb4e5b0u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -461,6 +467,14 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1\n" \
   "stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none\n" \
   "stashDelete* :: host proc(key: String) -> Int               # 0, or -1\n" \
+  "# ---------------------------------------------------------------- this app's cache: /rinc/cache/<app>\n" \
+  "\n" \
+  "# what an app can make again (a project's, chord+, its own), named as save files are; any of it may go at\n" \
+  "# any time. Rinc keeps the app's log there, as log: what it logged lately, and what Rinc said about it\n" \
+  "cacheRead* :: host proc(file: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none\n" \
+  "cacheWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1\n" \
+  "cacheDelete* :: host proc(file: String) -> Int               # 0, or -1\n" \
+  "\n" \
   "# the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): \"active\" is the app or project\n" \
   "# being worked on (chord, or chord+); keys are named as save files are\n" \
   "settingRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1\n" \

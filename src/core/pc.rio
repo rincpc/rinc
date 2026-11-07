@@ -236,6 +236,14 @@ saveDelete* :: host proc(file: String) -> Int               # 0, or -1
 stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
 stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none
 stashDelete* :: host proc(key: String) -> Int               # 0, or -1
+# ---------------------------------------------------------------- this app's cache: /rinc/cache/<app>
+
+# what an app can make again (a project's, chord+, its own), named as save files are; any of it may go at
+# any time. Rinc keeps the app's log there, as log: what it logged lately, and what Rinc said about it
+cacheRead* :: host proc(file: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none
+cacheWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1
+cacheDelete* :: host proc(file: String) -> Int               # 0, or -1
+
 # the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): "active" is the app or project
 # being worked on (chord, or chord+); keys are named as save files are
 settingRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1

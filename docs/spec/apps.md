@@ -320,8 +320,24 @@ the Rinc drops all of an app's stash when it's told to start the app afresh: the
 | `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
 | `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
 
-And what an app can always make again, it keeps in `/rinc/cache/<app>`, by convention: anything may
+## Its cache, and its log
+
+What an app can always make again (thumbnails, an index, a download) goes in its cache space,
+`/rinc/cache/<app>` (a project's, `chord+`, its own), under names as save files have them. Anything may
 clear that, at any time, and the app carries on, only slower.
+
+| proc | |
+|---|---|
+| `pc.cacheWrite(file, data) -> Int` | `data` becomes the file: 0, or -1 |
+| `pc.cacheRead(file, out) -> Int` | the file, added to `out`, as much as fits: its whole length, or -1 if there's none |
+| `pc.cacheDelete(file) -> Int` | removes it: 0, or -1 |
+
+Rinc keeps each app's log there too, as `log`: what the app logged lately and what Rinc said about it
+(a runtime error, an `imageRead` that needs more room), the newest 4 KB of it, with a `-- started` line
+each time the app starts. It's written as it comes, at most a second apart, and whenever the app stops.
+The system key with O opens it in the Log app, at this app's log, and Esc there comes back; Tab goes
+through the other apps' logs. On a board, that's the one place to see what an app logged once it's
+drawing.
 
 ## Compiled apps
 
@@ -391,6 +407,7 @@ on, what's typed isn't the app's. It's:
 | system + Q | back to the app before, this one left out of the recent apps (its stash dropped) |
 | system + R | this app again, fresh: its stash and its compiled image dropped |
 | system + H | this app's help (its `help/README`), in the help app; or a notice, at the bottom, that it has none |
+| system + O | this app's log, in the Log app (see [its cache, and its log](#its-cache-and-its-log)); Esc there comes back |
 | system + arrows (or the d-pad) | move the pointer, faster the longer they're held |
 | system + V, C (or A, B) | the pointer's primary and secondary buttons |
 | system + P | the performance strip, on or off |

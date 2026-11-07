@@ -17,6 +17,7 @@ def get(path):
   return open(path).read() if os.path.exists(path) else None
 def typing(keys, app=None, frames=200):
   shutil.rmtree(os.path.join(data, 'stash'), ignore_errors=True) # (each from /rinc)
+  shutil.rmtree(os.path.join(data, 'cache'), ignore_errors=True) # (and /rinc as it was: apps, projects, save; not the last run's log)
   args = [rinc, '-data', data] + (['-app', app] if app else [files]) + ['-frames', str(frames), '-type', keys]
   return subprocess.run(args, capture_output=True, text=True, timeout=60).stdout
 def check(ok, why):

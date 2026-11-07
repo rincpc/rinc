@@ -1,0 +1,176 @@
+# Log: what an app logged lately, and what Rinc said about it (its errors, say)
+# Sys+O opens it at the app it's over, and Esc goes back there. Each app's log is in its cache space
+# (/rinc/cache/<app>/log), the newest 4 KB of it, kept as it comes. Tab goes to the next app with a log
+# (Shift+Tab the one before); Up, Down, Page Up, Page Down, Home and End move through it
+
+ROWS :: 24
+COLS :: 53
+TOP_Y :: 13
+
+backColor := pc.theme(pc.Role.bg)
+barColor := pc.theme(pc.Role.bar)
+textColor := pc.theme(pc.Role.text)
+softColor := pc.theme(pc.Role.soft)
+faintColor := pc.theme(pc.Role.faint)
+accentColor := pc.theme(pc.Role.accent)
+errorColor := pc.theme(pc.Role.error)
+
+# the apps with a log: their names, each with a 10 after it
+apps: Blob[..2048]
+appAt: [64]Int
+appLen: [64]Int
+appCount := 0
+listing: Blob[..4096]
+findApps :: proc()
+  listing.clear()
+  apps.clear()
+  appCount = 0
+  _ = pc.dir("/rinc/cache", listing)
+  at := 0
+  for i in 0..<listing.len()
+    if listing[i] == 10
+      if listing[at] == 100 and appCount < 64 # (d name: a folder, an app's, if it has a log)
+        name := listing[at + 2..<i].asString()
+        path: Blob[..96]
+        _ = path.print("/rinc/cache/", name, "/log")
+        probe: Blob[..] = listing[0..<0]
+        if pc.fileRead(path.asString(), probe) > 0
+          appAt[appCount] = apps.len()
+          appLen[appCount] = name.len()
+          ok := apps.pushAll(name)
+          ok = apps.push(10)
+          appCount += 1
+        end
+      end
+      at = i + 1
+    end
+  end
+end
+appName :: proc(k: Int) -> String
+  return apps[appAt[k]..<appAt[k] + appLen[k]].asString()
+end
+
+# the one shown: its log, and where each row of it starts on the screen (a long line takes more rows)
+now := -1
+text: Blob[..4200]
+rowAt: [1024]Int
+rowLen: [1024]Int
+rowCount := 0
+top := 0
+show :: proc(k: Int)
+  now = k
+  text.clear()
+  rowCount = 0
+  if k < 0
+    return
+  end
+  path: Blob[..96]
+  _ = path.print("/rinc/cache/", appName(k), "/log")
+  _ = pc.fileRead(path.asString(), text)
+  at := 0
+  for i in 0..<text.len() + 1
+    if i == text.len() or text[i] == 10
+      if i < text.len() or i > at # (a line, not the nothing after the last: its rows, COLS characters each)
+        for k in 0..<max(1, (i - at + COLS - 1) / COLS)
+          if rowCount < 1024
+            rowAt[rowCount] = at + k * COLS
+            rowLen[rowCount] = min(COLS, i - at - k * COLS)
+            rowCount += 1
+          end
+        end
+      end
+      at = i + 1
+    end
+  end
+  top = max(0, rowCount - ROWS) # (the newest at the bottom)
+end
+
+# what to show first: the app it was called for (Sys+O), else the first with a log
+findApps()
+called: Blob[..40]
+_ = pc.args(called)
+first := 0
+for k in 0..<appCount
+  if appName(k) == called.asString()
+    first = k
+  end
+end
+if appCount > 0
+  show(first)
+end
+
+# does s have word in it, any case
+has :: proc(s: String, word: String) -> Bool
+  for i in 0..<s.len() - word.len() + 1
+    k := 0
+    for k < word.len() and (s[i + k] | 32) == word[k]
+      k += 1
+    end
+    if k == word.len()
+      return true
+    end
+  end
+  return false
+end
+
+update* :: proc()
+  c := pc.key()
+  for c >= 0
+    base := c & 255
+    if base == 27
+      pc.done("")
+    case base == 9 and appCount > 0 # (Tab: the next app's log; Shift+Tab, the one before)
+      if c & 256 != 0
+        show((now + appCount - 1) % appCount)
+      else
+        show((now + 1) % appCount)
+      end
+    case base == 130 # up
+      top = max(0, top - 1)
+    case base == 131 # down
+      top = max(0, min(top + 1, rowCount - ROWS))
+    case base == 135 # page up
+      top = max(0, top - (ROWS - 1))
+    case base == 136 # page down
+      top = max(0, min(top + ROWS - 1, rowCount - ROWS))
+    case base == 132 # home
+      top = 0
+    case base == 133 # end
+      top = max(0, rowCount - ROWS)
+    end
+    c = pc.key()
+  end
+  s := pc.scroll(1)
+  if s != 0
+    top = max(0, min(top + s, rowCount - ROWS))
+  end
+end
+
+draw* :: proc()
+  pc.cls(backColor)
+  pc.rect({0, 0}, {320, 10}, barColor)
+  if now < 0
+    pc.print("Log", {2, 1}, textColor)
+    pc.print("No app has logged anything yet", {6, TOP_Y + 4}, softColor)
+  else
+    pc.print("Log: ", {2, 1}, softColor)
+    pc.print(appName(now), {32, 1}, textColor)
+    if appCount > 1
+      n: Blob[..12]
+      _ = n.print(now + 1, " of ", appCount)
+      pc.print(n.asString(), {318 - n.len() * 6, 1}, softColor)
+    end
+    for row in 0..<min(ROWS, rowCount - top)
+      r := top + row
+      line := text[rowAt[r]..<rowAt[r] + rowLen[r]].asString()
+      color := textColor
+      if line.len() >= 2 and line[0..<2] == "--"
+        color = faintColor
+      case has(line, "error")
+        color = errorColor
+      end
+      pc.print(line, {2, TOP_Y + row * 9}, color)
+    end
+  end
+  pc.print("Tab next app  Up/Down scroll  Esc back", {2, 231}, faintColor)
+end

@@ -25,7 +25,8 @@ app is a Rio program.
   with the console's put, as hex (today it sends text only, so a picture arrives broken).
 - Apps for file types, sooner (from Later): Files opens a .png in Paint, a .snd in Sound, .rio in the
   editor, and Ctrl+O in the editor starts in the current project's folder.
-- Where an app's messages go: its log, and Rinc's lines about it (imageRead's "needs N bytes of room",
+- Where an app's messages go: done (2026-11-06): each app's log in its cache space, and the Log app
+  (Sys+O). Was: its log, and Rinc's lines about it (imageRead's "needs N bytes of room",
   runtime errors short of stopping it), go to the platform's output (serial, stdout, the browser's
   console) and to the screen only until the app draws. On the board, that's nowhere to be seen. Maybe a
   log app: each app's log kept as it runs (in its stash, say: per app, kept across a restart, dropped on

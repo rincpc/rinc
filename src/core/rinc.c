@@ -652,6 +652,16 @@ static int rinc_argRef(rio_Vm *v, rio_Val *name, char *out) {
 static int rinc_saveSpace(char *path, size_t cap) {
   return snprintf(path, cap, rinc_appProject ? "/rinc/projects/%s/save" : "/rinc/save/%s", rinc_appNow) < (int)cap;
 }
+/* an app's cache space, /rinc/cache/<app> (a project's: <app>+, its own): what it can make again, which
+   may go at any time; Rinc keeps the app's log there (log, below). cacheRead, cacheWrite and cacheDelete
+   are as saves are */
+static int rinc_cacheSpace(char *path, size_t cap) {
+  return snprintf(path, cap, "/rinc/cache/%s%s", rinc_appNow, rinc_appProject ? "+" : "") < (int)cap;
+}
+static int rinc_cachePathOf(rio_Vm *v, rio_Val *file, char *path, size_t cap) {
+  char own[33], space[64];
+  return rinc_argName(v, file, own, 1) && rinc_cacheSpace(space, sizeof space) && snprintf(path, cap, "%s/%s", space, own) < (int)cap;
+}
 static int rinc_savePath(rio_Vm *v, rio_Val *file, char *path, size_t cap) {
   char own[33], space[64];
   return rinc_argName(v, file, own, 1) && rinc_saveSpace(space, sizeof space) && snprintf(path, cap, "%s/%s", space, own) < (int)cap;
@@ -964,6 +974,18 @@ static void rinc_hostSaveDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_savePath(v, a, path, sizeof path);
   a[0].i = named && rinc_fs && !rinc_fs->remove(path) ? 0 : -1;
 }
+static void rinc_hostCacheRead(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_cachePathOf(v, a, path, sizeof path);
+  a[0].i = named ? rinc_readOut(v, a + 2, path) : -1;
+}
+static void rinc_hostCacheWrite(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_cachePathOf(v, a, path, sizeof path);
+  if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
+}
+static void rinc_hostCacheDelete(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_cachePathOf(v, a, path, sizeof path);
+  a[0].i = named && rinc_fs && !rinc_fs->remove(path) ? 0 : -1;
+}
 /* an app's stash, /rinc/stash/<app>/<key>: what it keeps of where it was, for its next start (a place,
    a draft, something slow to make again), under keys of its own, written as it goes. Rinc drops it all,
    where its save space only the app changes (Sys+Q, Sys+R). stashWrite(key, data) -> Int: 0, or -1;
@@ -1215,7 +1237,54 @@ static void rinc_hostFormatrio(rio_Vm *v, rio_Val *a) {
 
 int rinc_game, rinc_showLog;
 /* what an app logs, and what Rinc says about it: to the platform, and on the screen while rinc_showLog */
-static void rinc_out(const char *s, int n) { rinc_put(s, n); if (rinc_showLog) rinc_consolePut(s, n); }
+/* each app's log: what it logs, and what Rinc says about it, kept in its cache space as log, the newest
+   rinc_LOG bytes (whole lines). Held here as it comes, and written at most a second apart while it does
+   (rinc_logTick, each frame), and when the app stops or another starts (rinc_logStart): the log app shows
+   it (Sys+O) */
+#define rinc_LOG 4096
+static char rinc_log[rinc_LOG], rinc_logApp[40];
+static int rinc_logLen, rinc_logDirty;
+static float rinc_logAt;
+static void rinc_readerDrop(void); /* (below: a source file being read, let go of, as storage has one file open at a time) */
+static void rinc_logFlush(void) {
+  char path[64];
+  if (!rinc_logDirty || !rinc_logApp[0] || !rinc_fs || snprintf(path, sizeof path, "/rinc/cache/%s/log", rinc_logApp) >= (int)sizeof path) return;
+  rinc_logDirty = 0;
+  rinc_readerDrop();
+  if (rinc_fs->open(path, 1)) return;
+  rinc_fs->write(rinc_log, rinc_logLen);
+  rinc_fs->close();
+}
+static void rinc_logAdd(const char *s, int n) {
+  int i;
+  if (!rinc_logApp[0]) return;
+  for (i = 0; i < n; i++) {
+    if (s[i] == '\r') continue;
+    if (rinc_logLen == rinc_LOG) { /* (full: the oldest quarter goes, to a line's end) */
+      int cut = rinc_LOG / 4;
+      while (cut < rinc_LOG && rinc_log[cut - 1] != '\n') cut++;
+      memmove(rinc_log, rinc_log + cut, (size_t)(rinc_LOG - cut));
+      rinc_logLen -= cut;
+    }
+    rinc_log[rinc_logLen++] = s[i];
+  }
+  rinc_logDirty = 1;
+}
+void rinc_logSave(void) { rinc_logFlush(); }
+static void rinc_logTick(void) {
+  float t = rinc_time ? rinc_time() : 0;
+  if (rinc_logDirty && t - rinc_logAt >= 1) { rinc_logFlush(); rinc_logAt = t; }
+}
+static void rinc_logStart(const char *app) { /* (the last app's written; this one's read back, then a line saying it's started) */
+  char path[64]; uint32_t total = 0;
+  rinc_logFlush();
+  snprintf(rinc_logApp, sizeof rinc_logApp, "%s", app);
+  rinc_logLen = 0;
+  if (snprintf(path, sizeof path, "/rinc/cache/%s/log", app) < (int)sizeof path && !rinc_readFile(path, rinc_log, rinc_LOG, &total))
+    rinc_logLen = total < rinc_LOG ? (int)total : rinc_LOG;
+  rinc_logAdd("-- started\n", 11);
+}
+static void rinc_out(const char *s, int n) { rinc_put(s, n); if (rinc_showLog) rinc_consolePut(s, n); rinc_logAdd(s, n); }
 void rinc_say(const char *s) { rinc_out(s, (int)strlen(s)); }
 void rinc_noHome(char *out, int size, const char *how) { /* (wrapped between words, for the screen's width) */
   char text[400]; const char *s = text; int n = 0, col = 0;
@@ -1257,6 +1326,7 @@ static int rinc_srcOn; /* (compiling an app: its other files can be read) */
    cached image (to its end: ended) */
 typedef struct { char path[100]; uint8_t host, ended; uint32_t hashed; uint64_t x; } rinc_Reader;
 static rinc_Reader rinc_srcFiles[rinc_SRC_FILES + 1], *rinc_readerOpen; /* (the last: the main file) */
+static void rinc_readerDrop(void) { if (rinc_readerOpen) { rinc_fs->close(); rinc_readerOpen = 0; } } /* (it opens again where it was, as it's next read) */
 static int rinc_srcCount, rinc_srcLost; /* (lost: more than were noted) */
 #ifdef rio_NO_COMPILER
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) { (void)ud; (void)path; (void)kind; (void)out; return 1; } /* (images only) */
@@ -1551,6 +1621,7 @@ static void rinc_sayError(rio_Vm *vm, const char *name, int image) {
   if (part) { rinc_say(part); rinc_say(":"); }
   else { rinc_say(name); rinc_say(image ? ": " : ".rio:"); }
   rinc_say(rio_error(vm));
+  rinc_logFlush(); /* (now: it's stopped) */
 }
 
 int rinc_atLimit(const char *e) { return strstr(e, "out of") || strstr(e, "too many") || strstr(e, "too complex") || strstr(e, "too deep"); }
@@ -1653,7 +1724,7 @@ static void rinc_overlayDraw(int strip) {
     }
   } else if (rinc_systemDown) {
     memset(rinc_overlay[0], 10, rinc_W); /* (a yellow edge) */
-    rinc_overlayText("Esc home Tab apps Q back R redo H help P perf L sleep", 2, 7);
+    rinc_overlayText("Esc home Tab apps Q back R redo H help O log L sleep", 2, 7);
   } else { /* the performance strip: the latest frame's time, then a bar a frame, the newest at the right: 8 high is 1/60 s */
     char text[24]; float ms = (float)rinc_frameMs[(rinc_frameAt - 1) & 255] / 100.0f;
     int pct = (int)(ms * 6.0f + 0.5f); /* (of 16.67 ms) */
@@ -1753,6 +1824,14 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
       rinc_cacheDrop(rinc_appRef);
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_appRef);
       go = 1;
+    } else if (pressed & rinc_SysKey_o) { /* this app's log, in the log app, which comes back here */
+      if (strcmp(rinc_appRef, "log")) {
+        rinc_logFlush();
+        snprintf(rinc_launchName, sizeof rinc_launchName, "log");
+        rinc_callArgsLen = snprintf(rinc_callArgs, sizeof rinc_callArgs, "%s", rinc_appRef);
+        rinc_calling = 1;
+        go = 1;
+      }
     } else if (pressed & rinc_SysKey_h) { /* this app's help, if it has any */
       if (rinc_hasHelp(rinc_appRef)) { /* (a project's own: its name with the +, then /README) */
         snprintf(rinc_helpTopicNow, sizeof rinc_helpTopicNow, "%.33s/README", rinc_appRef);
@@ -1874,7 +1953,9 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.helpRead", pc_helpRead_SIG, rinc_hostHelpRead) || rio_addFfi(vm, "pc.help", pc_help_SIG, rinc_hostHelp) ||
          rio_addFfi(vm, "pc.helpTopic", pc_helpTopic_SIG, rinc_hostHelpTopic) ||
          rio_addFfi(vm, "pc.stashWrite", pc_stashWrite_SIG, rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", pc_stashRead_SIG, rinc_hostStashRead) ||
-         rio_addFfi(vm, "pc.stashDelete", pc_stashDelete_SIG, rinc_hostStashDelete) || rio_addFfi(vm, "pc.boot", pc_boot_SIG, rinc_hostBoot) ||
+         rio_addFfi(vm, "pc.stashDelete", pc_stashDelete_SIG, rinc_hostStashDelete) ||
+         rio_addFfi(vm, "pc.cacheRead", pc_cacheRead_SIG, rinc_hostCacheRead) || rio_addFfi(vm, "pc.cacheWrite", pc_cacheWrite_SIG, rinc_hostCacheWrite) ||
+         rio_addFfi(vm, "pc.cacheDelete", pc_cacheDelete_SIG, rinc_hostCacheDelete) || rio_addFfi(vm, "pc.boot", pc_boot_SIG, rinc_hostBoot) ||
          rio_addFfi(vm, "pc.settingRead", pc_settingRead_SIG, rinc_hostSettingRead) || rio_addFfi(vm, "pc.settingWrite", pc_settingWrite_SIG, rinc_hostSettingWrite) || rio_addFfi(vm, "pc.theme", pc_theme_SIG, rinc_hostTheme) ||
          rio_addFfi(vm, "pc.pointer", pc_pointer_SIG, rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", pc_appInstall_SIG, rinc_hostAppInstall) ||
          rio_addFfi(vm, "pc.appCopy", pc_appCopy_SIG, rinc_hostAppCopy) ||
@@ -1906,6 +1987,7 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   rinc_themeLoad();
   rinc_consoleClear(rinc_themeColor(0));
   if (rinc_start(vm, space, size, put)) { rinc_say("can't start rio"); rinc_back(); return -1; }
+  rinc_logStart(name);
   rinc_callStart(name);
   rinc_setAppName(name);
   snprintf(rinc_callee, sizeof rinc_callee, "%s", name); /* (who'd be the caller, if this calls) */
@@ -1915,7 +1997,7 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   return 0;
 }
 void rinc_appFail(const char *name, const char *why) {
-  rinc_say(name); rinc_say(why); rinc_back();
+  rinc_say(name); rinc_say(why); rinc_logFlush(); rinc_back();
 }
 int (*rinc_native)(rio_Vm *vm);
 /* an app compiled (its source in memory, else read from path: host, the host's), or its image loaded:
@@ -2138,6 +2220,7 @@ int rinc_gameFrame(rio_Vm *vm) {
   if (pressed & rinc_Button_rb) rinc_textKey(9); /* (a controller's RB and LB type Tab and Shift+Tab too) */
   if (pressed & rinc_Button_lb) rinc_textKey(9 | rinc_Mod_shift);
   rinc_pointerFrame();
+  rinc_logTick();
   if (!rinc_game) return 1;
   t0 = rinc_time ? rinc_time() : 0;
   res = rinc_frame(vm);

@@ -39,7 +39,7 @@ static int rinc_systemKeys(void) {
   int mods = (m & 0x22 ? 1 : 0) | (m & 0x11 ? 2 : 0) | (m & 0x44 ? 4 : 0);
   int keys = (rinc_DOWN(HID_KEY_ESCAPE) || (rinc_padButtons & rinc_Button_back) ? rinc_SysKey_esc : 0) | (rinc_DOWN(HID_KEY_TAB) ? rinc_SysKey_tab : 0) |
              (rinc_DOWN(HID_KEY_Q) ? rinc_SysKey_q : 0) | (rinc_DOWN(HID_KEY_P) ? rinc_SysKey_p : 0) | (rinc_DOWN(HID_KEY_R) ? rinc_SysKey_r : 0) | (rinc_DOWN(HID_KEY_H) ? rinc_SysKey_h : 0) |
-             (rinc_DOWN(HID_KEY_L) ? rinc_SysKey_l : 0) |
+             (rinc_DOWN(HID_KEY_L) ? rinc_SysKey_l : 0) | (rinc_DOWN(HID_KEY_O) ? rinc_SysKey_o : 0) |
              (rinc_DOWN(HID_KEY_ENTER) || rinc_DOWN(HID_KEY_KEYPAD_ENTER) ? rinc_SysKey_enter : 0) |
              (rinc_padButtons & rinc_Button_rb ? rinc_SysKey_next : 0) | (rinc_padButtons & rinc_Button_lb ? rinc_SysKey_prev : 0) |
              rinc_pointerKeys(rinc_padButtons | rinc_DOWN(HID_KEY_ARROW_LEFT) * rinc_Button_left | rinc_DOWN(HID_KEY_ARROW_RIGHT) * rinc_Button_right |
