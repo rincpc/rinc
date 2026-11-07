@@ -2,7 +2,7 @@
 
 The screen is 320 by 240 pixels, `x` from the left and `y` from the top. Each pixel is a color number
 from 0 to 255, picked from Rinc's palette: the 16 PICO-8 colors first, then PICO-8's 16 secret colors,
-then a cube of 216 colors, then 8 grays. The screen keeps what's drawn until something draws over it, so a game usually starts its
+then a band of 16 for each of 12 hues, then 16 tints and 16 grays. The screen keeps what's drawn until something draws over it, so a game usually starts its
 `draw` with `pc.cls`.
 
 ```rio
@@ -25,21 +25,33 @@ Drawing off the screen is fine: it's cut off at the edges, and reading a pixel o
 |---|---|
 | 0 to 15 | PICO-8's: 0 black, 1 dark blue, 2 dark purple, 3 dark green, 4 brown, 5 dark gray, 6 light gray, 7 white, 8 red, 9 orange, 10 yellow, 11 green, 12 blue, 13 lavender, 14 pink, 15 peach |
 | 16 to 31 | PICO-8's secret palette, darker and in-between shades of those (see [the screen](../spec/screen.md#the-palette)) |
-| 32 to 247 | a color cube: `32 + 36 * r + 6 * g + b`, each of `r g b` from 0 to 5 |
-| 248 to 255 | grays, dark to light |
+| 32 to 223 | a band of 16 for each hue: red, orange, yellow, lime, green, teal, cyan, azure, blue, violet, magenta, crimson. Each is 8 vivid colors, dark to light, then 8 muted ones |
+| 224 to 239 | tints: 8 warm grays, then 8 cool ones, dark to light |
+| 240 to 255 | grays, black to white |
+
+The Colors app shows them that way, a band to a row, and says what each is.
 
 ```rio
-cube :: proc(r, g, b: Int) -> Int
-  return 32 + 36 * r + 6 * g + b
+RED :: 0      # the hues, in their order
+ORANGE :: 1
+BLUE :: 8
+vivid :: proc(hue, step: Int) -> Int    # step 0, darkest, to 7, lightest
+  return 32 + 16 * hue + step
 end
-for x in 0..<6
-  pc.rect({x * 20, 0}, {20, 20}, cube(5, x, 0))   # red through orange to yellow
+muted :: proc(hue, step: Int) -> Int
+  return 32 + 16 * hue + 8 + step
 end
-log(cube(5, 5, 5))
+gray :: proc(step: Int) -> Int          # 0, black, to 15, white
+  return 240 + step
+end
+for x in 0..<8
+  pc.rect({x * 20, 0}, {20, 20}, vivid(ORANGE, x))   # dark brown to light orange
+end
+log(vivid(RED, 0), muted(BLUE, 7), gray(15), pc.rgb(gray(15)))
 ```
 
 ```output
-247
+32 175 255 16777215
 ```
 
 ## Pictures as data

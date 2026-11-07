@@ -10,7 +10,7 @@
 #define rinc_H 240
 
 extern uint8_t rinc_screen[rinc_H][rinc_W]; /* 8 bits per pixel: an index into rinc_palette */
-extern uint16_t rinc_palette[256];        /* RGB565: PICO-8's 32, a 6x6x6 color cube, 8 grays */
+extern uint16_t rinc_palette[256];        /* RGB565: PICO-8's 32, 12 hues' bands, tints, grays */
 uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
 /* pictures as PNG files (png.c), in storage: indexed, with the palette as their colors and 0 see-through
    (pc.imageRead and imageWrite). pngWrite: w * h pixels, a byte each, row by row: 0, or -1. pngRead: into

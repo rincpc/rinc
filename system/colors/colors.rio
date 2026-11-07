@@ -1,91 +1,29 @@
 # Colors: Rinc's 256 colors, to look through and pick from
 #
-# Two views of them; V (or X) switches. The cube: PICO-8's 32 at the top, in pairs (each of 0 to 15 over
-# its partner, 16 to 31), then every gray, dark to light, then the 6x6x6 color cube: a face of it, the
-# column through it at the right (its depth), and all six of its slices, small, under the color picked.
-# The arrows (or the d-pad) move over all of them, Tab and Shift+Tab (RB and LB, Page Up and Page Down,
-# the wheel) go deeper and back out through the cube, and Space (Y, the secondary button) turns it, to
-# face another way. And by hue: all of them by how they look (OKLCH), hue across and light to dark down,
-# the grays at the left; the arrows move to the nearest color that way. A click or a drag picks. Called
-# with pc.call("colors", "pick"), or "pick 12" to start at a color, it's a picker: Enter (A, or a click
-# on the color picked) gives its number back as text (pc.done), Esc nothing.
+# One view: all 256 in their numbers' order, 16 a row, each row a band. PICO-8's 32 at the top (0 to 15,
+# and under each its partner, 16 to 31); then each hue's row, red round to crimson: 8 vivid, dark to
+# light, then 8 muted; then the tints (8 warm, 8 cool) and the grays, dark to light. The arrows (or the
+# d-pad) move over them, Tab (Y) goes between a hue's vivid and muted, the wheel goes up and down, and a
+# click or a drag picks. Called with pc.call("colors", "pick"), or "pick 12" to start at a color, it's a
+# picker: Enter (A, or a click on the color picked) gives its number back as text (pc.done), Esc nothing.
 
-BG :: 249             # a dark gray, behind the colors: every color shows against it, the black too
-SPAN :: 304           # PICO-8's colors and the grays, across
-CELL :: 26            # the cube's face: 6x6 of these
-HUE_CELL :: 11        # by hue: the grid, COLS x ROWS of these (tools/huegrid.py)
-COLS :: 26
-ROWS :: 14
-# where things are, each its top left
-picoPos := {8, 6}       # PICO-8's colors: 2 rows of 16, each picoCell
-picoCell := {19, 14}
-grayPos := {8, 40}      # the grays: 14 across the same width, 12 high
-facePos := {8, 60}      # the cube's face
-depthPos := {172, 60}   # the column through it, 18 wide
-panelPos := {198, 60}   # the color, big, what it is
-slicesPos := {198, 198} # and the slices
-huePos := {8, 6}        # by hue: the grid
-infoPos := {8, 170}     # under it, the color, big, and what it is
-# what a click can land on
-picoBox := pc.Rect.of(picoPos, {SPAN, 28})
-grayBox := pc.Rect.of(grayPos, {SPAN, 12})
-faceBox := pc.Rect.of(facePos, {6 * CELL, 6 * CELL})
-depthBox := pc.Rect.of(depthPos, {18, 6 * CELL})
-slicesBox := pc.Rect.of(slicesPos, {6 * 19, 18})
-hueBox := pc.Rect.of(huePos, {COLS, ROWS} * HUE_CELL)
-CUBE_VIEW :: 0        # the views
-HUE_VIEW :: 1
-PICO :: 0             # where the pick is, in the cube's view
-GRAYS :: 1
-CUBE :: 2
+CELL :: 12            # each color's square
+BAND_GAP :: 3         # between PICO-8's, the hues, and the tints and grays
+gridPos := {52, 12}   # the colors' top left
+infoPos := {256, 12}  # the color, big, and under it what it is
+infoSize := {58, 40}
+names := [16]String{"PICO-8", "secret", "red", "orange", "yellow", "lime", "green", "teal", "cyan", "azure",
+  "blue", "violet", "magenta", "crimson", "tints", "grays"}
 
-# colors: the theme's, for the screen and its text (the colors themselves sit on BG's gray)
+# colors: the theme's, for the screen and its text
 backColor := pc.theme(pc.Role.bg)
 textColor := pc.theme(pc.Role.text)
 softColor := pc.theme(pc.Role.soft)
 faintColor := pc.theme(pc.Role.faint)
 
-pico := [32]Int{
-  0x000000, 0x1D2B53, 0x7E2553, 0x008751, 0xAB5236, 0x5F574F, 0xC2C3C7, 0xFFF1E8,
-  0xFF004D, 0xFFA300, 0xFFEC27, 0x00E436, 0x29ADFF, 0x83769C, 0xFF77A8, 0xFFCCAA,
-  0x291814, 0x111D35, 0x422136, 0x125359, 0x742F29, 0x49333B, 0xA28879, 0xF3EF7D,
-  0xBE1250, 0xFF6C24, 0xA8E72E, 0x00B543, 0x065AB5, 0x754665, 0xFF6E59, 0xFF9D81,
-}
-levels := [6]Int{0, 95, 135, 175, 215, 255} # (each of the cube's steps)
-grays := [14]Int{32, 248, 249, 250, 251, 75, 252, 118, 253, 161, 254, 204, 255, 247} # (the cube's and the 8 grays, dark to light)
-grayLevels := [8]Int{19, 38, 57, 76, 115, 155, 195, 235} # (248 to 255: between the cube's)
-names := [3]String{"red", "green", "blue"}
-# by hue: each color's cell, row * COLS + column (made by tools/huegrid.py, from OKLCH: run it again if
-# the palette or the grid changes)
-hueCells := [256]Int{
-  338, 253, 258, 220, 185, 182, 52, 0, 181, 109, 57, 115, 121, 150, 102, 25,
-  260, 277, 283, 248, 236, 284, 160, 31, 259, 107, 86, 167, 250, 230, 81, 54,
-  339, 304, 278, 252, 251, 225, 218, 221, 223, 224, 198, 199, 217, 194, 222, 197,
-  172, 147, 191, 193, 195, 170, 171, 146, 140, 141, 168, 143, 118, 94, 63, 90,
-  91, 65, 66, 67, 262, 282, 281, 254, 228, 226, 215, 183, 227, 201, 200, 174,
-  216, 219, 196, 173, 148, 122, 165, 192, 169, 144, 120, 95, 139, 114, 142, 117,
-  119, 68, 62, 64, 38, 39, 40, 41, 237, 257, 256, 255, 229, 202, 213, 210,
-  178, 176, 175, 149, 214, 189, 130, 123, 97, 96, 190, 164, 166, 145, 69, 70,
-  138, 113, 88, 116, 92, 43, 61, 36, 37, 12, 14, 42, 211, 232, 231, 204,
-  203, 177, 212, 207, 180, 179, 151, 124, 188, 187, 132, 99, 98, 71, 163, 162,
-  137, 78, 45, 44, 111, 112, 87, 89, 93, 17, 60, 35, 9, 10, 13, 15,
-  184, 233, 206, 205, 152, 125, 186, 158, 129, 153, 126, 72, 161, 134, 80, 75,
-  73, 46, 136, 135, 82, 50, 21, 19, 110, 85, 84, 58, 27, 18, 59, 33,
-  34, 8, 11, 16, 159, 155, 154, 128, 127, 100, 133, 106, 103, 101, 74, 48,
-  108, 55, 77, 76, 49, 47, 56, 29, 28, 51, 23, 22, 83, 30, 3, 2,
-  24, 20, 32, 7, 6, 5, 4, 1, 286, 261, 234, 208, 156, 104, 53, 26,
-}
+picked := 37          # the color picked (red's sixth vivid step)
 
-view := CUBE_VIEW
-area := CUBE
-onPico := {0, 0}      # PICO-8's: which pair, and which row
-gray := 0
-pos := [3]Int{5, 1, 3} # the cube's: red, green and blue steps, 0 to 5
-axis := 0             # which of them is the depth: the face is the other two
-hue := 0              # by hue: the color picked
-
-include "parts/cube.rio"
-include "parts/hues.rio"
+include "parts/grid.rio"
 include "parts/keys.rio"
 include "parts/screen.rio"
 
@@ -105,14 +43,9 @@ if argsLen >= 4 and args[0..<4].asString() == "pick" # (pick, or pick 12)
 end
 back: Blob[..4]
 _ = pc.stashRead("pick", back)
-if back.len() >= 3
-  axis = back[1] % 3
-  pickColor(back[0], back[2] == CUBE)
-  if back.len() >= 4 and back[3] == HUE_VIEW
-    setView(HUE_VIEW)
-  end
+if back.len() >= 1
+  picked = back[0]
 end
 if start >= 0 and start < 256
-  pickColor(start, false)
-  hue = start
+  picked = start
 end

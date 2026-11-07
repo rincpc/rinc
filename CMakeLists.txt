@@ -203,8 +203,8 @@ else()
   add_test(NAME export_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/helps.rio -docs rinc=${CMAKE_CURRENT_LIST_DIR}/docs -export ${helps})
   add_test(NAME export_help_runs COMMAND ${helps} -frames 1 -data ${CMAKE_CURRENT_BINARY_DIR}/helps-data)
   set_tests_properties(export_help_runs PROPERTIES DEPENDS export_help PASS_REGULAR_EXPRESSION "rinc/SUMMARY true # Summary[\r\n]+true -1 -1")
-  # colors: moved over every part (down through PICO-8's and the grays into the cube, deeper, turned),
-  # then a color picked with nothing waiting for it
+  # colors: moved over them (up, down into the hues, across, to the other half and back), then a color
+  # picked with nothing waiting for it
   add_test(NAME app_colors COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/colors/colors.rio -frames 60
     -data ${CMAKE_CURRENT_BINARY_DIR}/colors-data -type "\\x1b[A\\x1b[B\\x1b[B\\x1b[B\\x1b[C\\t\\t \\x1b[Z\\n")
   # -hold: buttons held in the frames it names
@@ -298,8 +298,8 @@ else()
     # installing apps from a bundle (a zip, as a release's) and from an app's folder
     add_test(NAME install_bundle COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/bundle.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/bundle-data)
     set_tests_properties(install_bundle PROPERTIES PASS_REGULAR_EXPRESSION "bundles came through")
-    add_test(NAME colors_views COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/colors.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system/colors ${CMAKE_CURRENT_BINARY_DIR}/colors-views-data)
-    set_tests_properties(colors_views PROPERTIES PASS_REGULAR_EXPRESSION "colors came through")
+    add_test(NAME colors_moves COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/colors.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system/colors ${CMAKE_CURRENT_BINARY_DIR}/colors-moves-data)
+    set_tests_properties(colors_moves PROPERTIES PASS_REGULAR_EXPRESSION "colors came through")
   endif()
   # pc.rio, the host procs written out, is what pc_host.h has, and matches what rinc registers
   add_executable(rinc_pc_test tests/pc.c ${RIO_DIR}/src/header.c)

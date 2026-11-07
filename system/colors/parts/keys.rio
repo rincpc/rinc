@@ -49,42 +49,29 @@ end
 choose :: proc()
   if calledFor
     text.clear()
-    pushNumber(picked())
+    pushNumber(picked)
     finish(text[].asString())
   end
 end
 
-stashed: Blob[4]      # where it was: the color, the cube's turn, which of them (a gray's in the cube too), and the view
+stashed: Blob[1]      # where it was: the color
 saved := -1
 last := -1
 still := 0
 remember :: proc()   # (once it's rested a moment: not each step of a drag or a held arrow)
-  now := picked() + axis * 256 + area * 1024 + view * 4096
-  if now != last
-    last = now
+  if picked != last
+    last = picked
     still = 0
   end
   still += 1
-  if still == 30 and now != saved
-    saved = now
-    stashed[0] = picked()
-    stashed[1] = axis
-    stashed[2] = area
-    stashed[3] = view
+  if still == 30 and picked != saved
+    saved = picked
+    stashed[0] = picked
     ok := pc.stashWrite("pick", stashed[].asString())
   end
 end
 
 # ---------------------------------------------------------------- keys, buttons and the pointer
-
-# a step d: {-1, 0} left, {0, 1} down
-move :: proc(d: [2]Int)
-  if view == HUE_VIEW
-    moveInHues(d)
-  else
-    moveInCube(d)
-  end
-end
 
 # an arrow typed but not held as a button (a terminal's, say): the buttons, below, take the rest
 key :: proc(c: Int)
@@ -103,14 +90,12 @@ key :: proc(c: Int)
     return
   end
   switch c
-  case TAB, PAGE_DOWN
-    deeper(1)
-  case SHIFT_TAB, PAGE_UP
-    deeper(-1)
-  case ' '
-    turn()
-  case 'v'
-    setView(1 - view)
+  case TAB, SHIFT_TAB
+    otherHalf()
+  case PAGE_UP
+    move({0, -4})
+  case PAGE_DOWN
+    move({0, 4})
   case ENTER
     choose()
   case ESC
@@ -120,46 +105,8 @@ key :: proc(c: Int)
   end
 end
 
-# what's under point p, picked (true: something was)
-pointAt :: proc(p: [2]Int) -> Bool
-  if view == HUE_VIEW
-    return pointAtHue(p)
-  end
-  if picoBox.has(p)
-    area = PICO
-    onPico = {picoAt(p.x), (p.y - picoPos.y) / picoCell.y}
-  case grayBox.has(p)
-    area = GRAYS
-    gray = grayAt(p.x)
-  case faceBox.has(p)
-    area = CUBE
-    at := (p - facePos) / CELL
-    pos[across()] = at.x
-    pos[down()] = at.y
-  case depthBox.has(p)
-    area = CUBE
-    pos[axis] = (p.y - depthPos.y) / CELL
-  case slicesBox.has(p)
-    q := p - slicesPos
-    i := q.x % 19 / 3
-    if i < 6 # (not in the gap between slices)
-      area = CUBE
-      pos[axis] = q.x / 19
-      pos[across()] = i
-      pos[down()] = q.y / 3
-    end
-  else
-    return false
-  end
-  return true
-end
 # the big color: a click there chooses it
-onBig :: proc(p: [2]Int) -> Bool
-  if view == HUE_VIEW
-    return pc.Rect.of(infoPos, {60, 44}).has(p)
-  end
-  return p.x >= panelPos.x and p.y >= panelPos.y and p.y < panelPos.y + 64
-end
+onBig :: proc(p: [2]Int) -> Bool do return pc.Rect.of(infoPos, infoSize).has(p)
 
 held := 0
 repeat := 0
@@ -177,9 +124,8 @@ update* :: proc()
   if leaving
     return
   end
-  # the arrows and the d-pad, as buttons: a step a press, then more while it's held; Y turns the cube,
-  # X switches the view
-  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8 + pc.btn(7) * 16 + pc.btn(6) * 32
+  # the arrows and the d-pad, as buttons: a step a press, then more while it's held; Y, the other half
+  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8 + pc.btn(7) * 16
   pressed := bits & ~held
   step := false
   if bits & 15 != held & 15
@@ -197,29 +143,26 @@ update* :: proc()
     move({(bits & 2) / 2 - (bits & 1), (bits & 8) / 8 - (bits & 4) / 4})
   end
   if pressed & 16 != 0
-    turn()
-  end
-  if pressed & 32 != 0
-    setView(1 - view)
+    otherHalf()
   end
   # the pointer: held down over a color picks it (a drag goes through them); pressed on the one
-  # already picked, or the big one, chooses it; the secondary button turns the cube
+  # already picked, or the big one, chooses it; the secondary button, the other half
   click := pc.pointerDown(0) + pc.pointerDown(1) * 2
   p := pc.pointerAt()
   if click & 1 != 0
-    was := picked()
+    was := picked
     over := pointAt(p)
-    if clicked & 1 == 0 and ((over and picked() == was) or onBig(p))
+    if clicked & 1 == 0 and ((over and picked == was) or onBig(p))
       choose()
     end
   end
   if click & 2 != 0 and clicked & 2 == 0
-    turn()
+    otherHalf()
   end
   clicked = click
   s := pc.scroll(1)
   if s != 0
-    deeper(-s)
+    move({0, -s})
   end
   remember()
 end

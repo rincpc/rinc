@@ -44,13 +44,10 @@ app is a Rio program.
   also from flash) pushes out of the 16 KB cache they share. Check: whether video's and sound's hot
   paths are all in SRAM; whether a long busy loop in an app (no compiling) flickers too; and what the
   frame loop does after a slow frame.
-- A palette with a perceptual spread, in place of the 6x6x6 cube's many bright, saturated colors: a
-  script (tools/palette.rio) given a number of slots and colors pinned (PICO-8's 32, the secret 16
-  among them; 16 grays; maybe 16 more kept free), filling the rest by farthest-point sampling in OKLab
-  over the colors sRGB can show, weighted toward darker and moderate chroma, staying off the gray axis
-  (chroma under ~0.03) when grays are pinned. sRGB's own gamut gives the darker-blues, lighter-yellows
-  lean. Writes a preview PNG and the C table, to compare against the cube in real apps' screenshots
-  and what Paint and the themes need, before switching.
+- A palette with a perceptual spread, in place of the 6x6x6 cube's many bright, saturated colors:
+  done (2026-11-07): PICO-8's 32, then 12 OKLCH hue bands (8 vivid, 8 muted each), 16 tints and 16
+  pure grays, 16 a row (src/core/palette.h, made by tools/palette.py), and Colors showing them a band
+  to a row.
 - Themes: the gray theme (in progress) as the default; no theme called Rinc.
 - Display modes, maybe (not decided: one mode for every app has its appeal): 640x480 in 16 colors,
   drawn straight to what's shown (no second buffer: the same memory), for a text editor with more on

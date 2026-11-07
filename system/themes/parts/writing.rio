@@ -4,18 +4,24 @@
 
 # a color's name, for the comment after it in the file
 colorText: Blob[..24]
-levels := [6]Int{0, 95, 135, 175, 215, 255}
-grayLevels := [8]Int{19, 38, 57, 76, 115, 155, 195, 235}
-colorName :: proc(c: Int) -> String
+bandNames := [12]String{"red", "orange", "yellow", "lime", "green", "teal", "cyan", "azure", "blue", "violet",
+  "magenta", "crimson"}
+colorName :: proc(c: Int) -> String   # (the palette's bands: docs/spec/screen.md, 16 a band)
   if c < 32
     return picoNames[c]
   end
   colorText.clear()
-  if c < 248
-    k := c - 32
-    fine = colorText.print("cube ", levels[k / 36], " ", levels[k / 6 % 6], " ", levels[k % 6])
+  step := c % 8 + 1
+  if c >= 240
+    fine = colorText.print("gray ", c - 239, "/16")
+  case c >= 232
+    fine = colorText.print("cool tint ", step, "/8")
+  case c >= 224
+    fine = colorText.print("warm tint ", step, "/8")
+  case c % 16 < 8
+    fine = colorText.print(bandNames[(c - 32) / 16], " ", step, "/8")
   else
-    fine = colorText.print("gray ", grayLevels[c - 248])
+    fine = colorText.print("muted ", bandNames[(c - 32) / 16], " ", step, "/8")
   end
   return colorText[0..<colorText.len()].asString()
 end

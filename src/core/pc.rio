@@ -9,6 +9,7 @@ cls* :: host proc(c: Int)                           # fill the screen with color
 pset* :: host proc(pos: [2]Int, c: Int)             # one pixel
 pget* :: host proc(pos: [2]Int) -> Int
 rect* :: host proc(pos, size: [2]Int, c: Int)       # a filled rectangle: its top left, and its size
+rgb* :: host proc(c: Int) -> Int                    # color c of the palette, as 0xRRGGBB
 
 # a rectangle on the screen: its top left and its size, in pixels
 Rect* :: struct

@@ -1,0 +1,82 @@
+# Colors: where each color is, moving over them, and what a color is as OKLCH (part of colors.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- where they are
+
+# color c's square: 16 a row, a gap between the bands
+cellPos :: proc(c: Int) -> [2]Int
+  row := c / 16
+  return gridPos + [2]Int{c % 16, row} * CELL + {0, ((row >= 2).toInt() + (row >= 14).toInt()) * BAND_GAP}
+end
+cellRect :: proc(c: Int) -> pc.Rect do return pc.Rect.of(cellPos(c), {CELL - 1, CELL - 1})
+
+# the color under point p, picked (true: there was one)
+pointAt :: proc(p: [2]Int) -> Bool
+  for c in 0..<256
+    if pc.Rect.of(cellPos(c), {CELL, CELL}).has(p)
+      picked = c
+      return true
+    end
+  end
+  return false
+end
+
+# ---------------------------------------------------------------- moving
+
+# a step d: {-1, 0} left, {0, 1} down
+move :: proc(d: [2]Int)
+  col := clamp(picked % 16 + d.x, 0, 15)
+  row := clamp(picked / 16 + d.y, 0, 15)
+  picked = row * 16 + col
+end
+# between a hue's vivid and muted (the tints' warm and cool, the grays' dark and light): the same step
+otherHalf :: proc()
+  if picked % 16 < 8
+    picked += 8
+  else
+    picked -= 8
+  end
+end
+
+# ---------------------------------------------------------------- OKLCH: lightness, chroma, hue
+
+# a color as OKLCH (Björn Ottosson's OKLab, from sRGB, round): lightness 0 to 1, chroma (0.37 at most
+# here), and hue in degrees
+okL := 0.0
+okC := 0.0
+okH := 0.0
+linear :: proc(v: Int) -> Float
+  c := v.toFloat() / 255.0
+  if c <= 0.04045
+    return c / 12.92
+  end
+  return pow((c + 0.055) / 1.055, 2.4)
+end
+oklch :: proc(color: Int)
+  v := pc.rgb(color)
+  r := linear(v / 65536)
+  g := linear(v / 256 % 256)
+  b := linear(v % 256)
+  l := pow(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b, 1.0 / 3.0)
+  m := pow(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b, 1.0 / 3.0)
+  s := pow(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b, 1.0 / 3.0)
+  okL = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s
+  a := 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s
+  bb := 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+  okC = sqrt(a * a + bb * bb)
+  okH = atan2(bb, a) * 180.0 / 3.14159265
+  if okH < 0.0
+    okH += 360.0
+  end
+end
+
+# behind the colors: the palette's gray nearest a quarter light, so every color shows against it, the
+# black too (whatever the palette)
+behind := 0
+nearest := 1.0
+for c in 0..<256
+  oklch(c)
+  if okC < 0.02 and abs(okL - 0.25) < nearest
+    nearest = abs(okL - 0.25)
+    behind = c
+  end
+end

@@ -14,20 +14,9 @@ static void (*rinc_put)(const char *s, int n);
 static uint16_t rinc_rgb565(int r, int g, int b) { return (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | b >> 3); }
 
 /* color i of the palette as 0xRRGGBB (docs/spec/screen.md#the-palette): shown at 16 bits a pixel, RGB565,
-   and written as it is in PNG files */
-uint32_t rinc_rgb(int i) {
-  static const uint32_t pico8[16] = {0x000000, 0x1D2B53, 0x7E2553, 0x008751, 0xAB5236, 0x5F574F, 0xC2C3C7, 0xFFF1E8,
-                                     0xFF004D, 0xFFA300, 0xFFEC27, 0x00E436, 0x29ADFF, 0x83769C, 0xFF77A8, 0xFFCCAA};
-  static const uint32_t secret[16] = {0x291814, 0x111D35, 0x422136, 0x125359, 0x742F29, 0x49333B, 0xA28879, 0xF3EF7D,
-                                      0xBE1250, 0xFF6C24, 0xA8E72E, 0x00B543, 0x065AB5, 0x754665, 0xFF6E59, 0xFF9D81}; /* (PICO-8's 128-143) */
-  static const uint32_t level[6] = {0, 95, 135, 175, 215, 255};
-  static const uint32_t gray[8] = {19, 38, 57, 76, 115, 155, 195, 235}; /* (between the cube's: with them, 14 grays about 20 apart) */
-  i &= 255;
-  if (i < 16) return pico8[i];
-  if (i < 32) return secret[i - 16];
-  if (i < 248) return level[(i - 32) / 36] << 16 | level[(i - 32) / 6 % 6] << 8 | level[(i - 32) % 6];
-  return gray[i - 248] * 0x010101u;
-}
+   and written as it is in PNG files. palette.h is tools/palette.py's */
+#include "palette.h"
+uint32_t rinc_rgb(int i) { return rinc_colors[i & 255]; }
 static void rinc_initPalette(void) {
   int i;
   for (i = 0; i < 256; i++) {
@@ -42,6 +31,10 @@ static void rinc_hostPset(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
   if (x < rinc_W && y < rinc_H) rinc_screen[y][x] = (uint8_t)a[2].i;
+}
+static void rinc_hostRgb(rio_Vm *v, rio_Val *a) {
+  (void)v;
+  a[0].i = (int32_t)rinc_rgb((int)a[0].i);
 }
 static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
@@ -1942,7 +1935,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 #endif
 }
 int rinc_hostProcs(rio_Vm *vm) {
-  return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) ||
+  return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
          rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||

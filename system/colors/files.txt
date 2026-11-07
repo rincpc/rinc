@@ -1,6 +1,5 @@
 colors.rio
 help/README.md
-parts/cube.rio
-parts/hues.rio
+parts/grid.rio
 parts/keys.rio
 parts/screen.rio

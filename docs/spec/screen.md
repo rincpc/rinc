@@ -13,6 +13,7 @@ where what it logs shows until it draws, and where Rinc shows what went wrong if
 | `pc.pset({x, y}, c)` | pixel `x, y` becomes `c`; nothing happens off the screen |
 | `pc.pget({x, y}) -> Int` | pixel `x, y`, or 0 off the screen |
 | `pc.rect({x, y}, {w, h}, c)` | pixels from `x` up to `x + w`, and `y` up to `y + h`, become `c`; cut off at the screen's edges; nothing when `w` or `h` is 0 or less |
+| `pc.rgb(c) -> Int` | color `c` of the palette (0 to 255), as `0xRRGGBB` |
 | `pc.print(s, {x, y}, c)` | the text's characters, one every 6 pixels from `x`, drawn at `y` in color `c` |
 | `pc.blit(image, at, b?)` | a picture (a `pc.Image`: its `pixels`, a byte each, row by row, and its `size`; as `pc.imageRead` gives one, see [apps](apps.md#files)), its top left at `at`, or `b.size` of it from `b.from` (a 0 in `size`: the rest of it that way), each pixel `b.scale` wide and high (a 0: 1; negative mirrors it that way: `{-1, 1}` flips it left for right); its 0s are see-through. `b` is a `pc.Blit` (`from`, `size` and `scale`, each a `[2]Int`), so what's left out of `{...}` is 0, and `b` left out is all 0s: `pc.blit(image, {10, 20})` draws all of it at its size |
 
@@ -61,8 +62,9 @@ character, bit 0 the leftmost pixel.
 
 ## The palette
 
-Colors 0 to 15 are PICO-8's, 16 to 31 its secret palette (PICO-8's 128 to 143), 32 to 247 a 6x6x6 color
-cube, and 248 to 255 grays:
+The palette is 16 bands of 16 colors, a band to each row of 16 (as the Colors app shows them). Colors 0
+to 15 are PICO-8's, 16 to 31 its secret palette (PICO-8's 128 to 143); then a band for each of 12 hues;
+then 16 tints and 16 grays. PICO-8's are:
 
 | color | RGB | color | RGB |
 |---|---|---|---|
@@ -83,11 +85,41 @@ cube, and 248 to 255 grays:
 | 22 | `A28879` medium gray | 30 | `FF6E59` dark peach |
 | 23 | `F3EF7D` light yellow | 31 | `FF9D81` peach |
 
-- **The cube:** color `32 + 36 * r + 6 * g + b`, for `r`, `g` and `b` from 0 to 5, has each component at
-  the level 0, 95, 135, 175, 215 or 255.
-- **The grays:** colors 248 to 255 have each component at 19, 38, 57, 76, 115, 155, 195 and 235: the
-  steps between the cube's own grays (0, 95, 135, 175, 215, 255), so together they go from black to
-  white in 14 steps of about 20.
+The rest are made in OKLCH (Björn Ottosson's OKLab, as lightness, chroma and hue: a color space made so
+equal steps look equal), by `tools/palette.py`, which writes them as the table in
+[`src/core/palette.h`](https://github.com/rincpc/rinc/blob/main/src/core/palette.h):
+
+| colors | band | hue |
+|---|---|---|
+| 32 to 47 | red | 29 |
+| 48 to 63 | orange | 65 |
+| 64 to 79 | yellow | 100 |
+| 80 to 95 | lime | 121 |
+| 96 to 111 | green | 142 |
+| 112 to 127 | teal | 169 |
+| 128 to 143 | cyan | 195 |
+| 144 to 159 | azure | 229 |
+| 160 to 175 | blue | 264 |
+| 176 to 191 | violet | 296 |
+| 192 to 207 | magenta | 328 |
+| 208 to 223 | crimson | 359 |
+| 224 to 239 | tints: 8 warm, then 8 cool | 60, 250 |
+| 240 to 255 | grays | |
+
+- **A hue's band:** its first 8 are vivid, dark to light, then 8 muted, dark to light: `32 + 16 * k`
+  is hue `k`'s darkest vivid, and `+ 8` its darkest muted. The hues are sRGB's red, yellow, green,
+  cyan, blue and magenta (where OKLCH puts them, but a warmer yellow), and the hue halfway between each
+  two. The vivid steps run from lightness 0.28 to 0.88 (0.91 for orange to azure, most vivid when light), one of them where the
+  hue is most vivid, at nearly the most chroma sRGB has there, no step much more than its neighbours;
+  the muted ones from 0.36 to 0.86, at the same chroma, 0.07, for every hue.
+- **The tints:** warm grays (toward orange) and cool ones (toward blue), each 8 from lightness 0.18 to
+  0.92, at chroma 0.025.
+- **The grays:** pure grays, black to white, even in lightness as it looks: `000000`, `101010`,
+  `202020`, `303030`, `404040`, `4E4E4E`, `5E5E5E`, `6E6E6E`, `808080`, `919191`, `A2A2A2`, `B4B4B4`,
+  `C7C7C7`, `D9D9D9`, `EBEBEB`, `FFFFFF`. Color 240 is black, as 0 is, for when 0 is see-through.
+
+Each of the hues' and tints' colors is the one at 16 bits a pixel (below) nearest what OKLCH asked for,
+so what a Rinc shows keeps its hue.
 
 Every Rinc shows the palette at 16 bits a pixel, RGB565: each component's top 5, 6 and 5 bits. Where a
 display has more bits, a component `v` of `n` bits becomes `v * 255 / (2^n - 1)`, rounded down, so every
