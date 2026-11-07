@@ -7,6 +7,13 @@ key :: proc(k: Int)
   shift := k & SHIFT != 0
   ctrl := k & CTRL != 0
   alt := k & ALT != 0
+  if walking and not (base == 9 and ctrl) # (another key: Ctrl+Tab's list closes, nothing opened; Esc just that)
+    walking = false
+    walkStep = 0
+    if base == 27
+      return
+    end
+  end
   if mode != NONE
     promptKey(k)
     return
@@ -278,7 +285,11 @@ end
 
 update* :: proc()
   held := pc.modsHeld()
-  if walkStep > 0 and held >= 0 and held & CTRL == 0 # (Ctrl let go: Ctrl+Tab's walk is over)
+  if held >= 0 and held & CTRL == 0 # (Ctrl let go: Ctrl+Tab's walk is over, its pick opened)
+    if walking
+      walking = false
+      switchTo(walkStep)
+    end
     walkStep = 0
   end
   c := pc.key()

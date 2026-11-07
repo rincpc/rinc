@@ -230,18 +230,38 @@ end
 
 # Ctrl+Tab: the file it had before this one, where it was; again while Ctrl's still held, the one before
 # that, and so on, through the list as it was when the walk began (back, Ctrl+Shift+Tab: the other way,
-# from the one it had longest ago). Letting go of Ctrl, or another key, ends the walk (keys.rio sets
-# walkStep to 0), so Ctrl+Tab starts again from the latest: this one and the one before. Where Rinc
-# can't tell what's held (pc.modsHeld, -1), the walk goes on while the presses come within 1.5 seconds
+# from the one it had longest ago). While Ctrl's held, the list is on the screen (walking) and Tab just
+# moves its pick: letting go opens it (update, in keys.rio), and another key, Esc too, closes it. Where
+# Rinc can't tell what's held (pc.modsHeld, -1), each press opens its file, and the walk goes on while
+# the presses come within 1.5 seconds; another key ends it there too (keys.rio sets walkStep to 0)
 walk: Blob[..1024]
 walkStep := 0
 walkAt := 0.0
+walking := false
 switchTarget: Blob[..128]
-switchRecent :: proc(back: Bool)
-  if path.len() > 0
-    remember() # (this one's place, first)
+# line k of the walk's list, opened where it was (nothing, if it's this one)
+switchTo :: proc(k: Int)
+  line := lineIn(walk.asString(), k)
+  if line.len() == 0 or pathOf(line) == here()
+    return
   end
-  if walkStep == 0 or (pc.modsHeld() < 0 and pc.time() - walkAt > 1.5)
+  at := placeOf(line)
+  switchTarget.clear()
+  ok := switchTarget.pushAll(pathOf(line))
+  if load(switchTarget[0..<switchTarget.len()].asString())
+    cursor = min(at.x, textLen)
+    anchor = cursor
+    top = max(0, min(at.y, lineCount - 1))
+    wantCol = -1
+    remember()
+  end
+end
+switchRecent :: proc(back: Bool)
+  held := pc.modsHeld() >= 0
+  if not walking and (walkStep == 0 or (not held and pc.time() - walkAt > 1.5)) # (a walk begins)
+    if path.len() > 0
+      remember() # (this one's place, first)
+    end
     walk.clear()
     _ = pc.stashRead("recent", walk)
     walkStep = 0
@@ -258,22 +278,17 @@ switchRecent :: proc(back: Bool)
     k = walkStep
   end
   line := lineIn(walk.asString(), k)
-  if line.len() == 0 or (pathOf(line) == here() and k == walkStep)
+  if line.len() == 0 or (n < 2 and pathOf(line) == here())
     say("No other file lately", softColor)
     return
   end
-  at := placeOf(line)
-  switchTarget.clear()
-  ok := switchTarget.pushAll(pathOf(line))
-  if load(switchTarget[0..<switchTarget.len()].asString())
-    cursor = min(at.x, textLen)
-    anchor = cursor
-    top = max(0, min(at.y, lineCount - 1))
-    wantCol = -1
-    remember()
-  end
   walkStep = k
   walkAt = pc.time()
+  if held # (the pick, on the list: letting go of Ctrl opens it)
+    walking = true
+    return
+  end
+  switchTo(k)
 end
 
 # where the last app to stop with an error stopped (taken, so once): its file, opened, with what's

@@ -369,8 +369,10 @@ static int rinc_saveWav(const char *path, uint32_t frames) {
 
 /* -type: what to type, as fast as the app takes it (\n Enter, \e Esc, \t Tab, \\ a backslash, and \xHH
    a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right); and \s with t, e, q or r, the system
-   key with Tab, Esc, Q or R (held a frame, then let go: the typing waits for what it does) */
+   key with Tab, Esc, Q or R (held a frame, then let go: the typing waits for what it does); and \u, the
+   typing waiting there until -ctrl's Ctrl is let go */
 static const char *rinc_typing;
+static int rinc_ctrlFrames, rinc_frameNow; /* (-ctrl n: Ctrl held for the first n frames, as pc.modsHeld says) */
 static int rinc_typedSys, rinc_sysFrames; /* (\s: its keys, and the frames left of it: 2 held, 1 let go) */
 static int rinc_hex(int c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; }
 static void rinc_typeMore(void) {
@@ -379,6 +381,11 @@ static void rinc_typeMore(void) {
   while (rinc_typing && *rinc_typing && rinc_textRoom() > 0 && !rinc_sysFrames && !rinc_launch) {
     int c;
     if (rinc_typing[0] == '\\' && rinc_typing[1] == 's' && rinc_textRoom() < room) return;
+    if (rinc_typing[0] == '\\' && rinc_typing[1] == 'u') { /* (until Ctrl's let go) */
+      if (rinc_frameNow < rinc_ctrlFrames) return;
+      rinc_typing += 2;
+      continue;
+    }
     c = (unsigned char)*rinc_typing++;
     if (c == '\\' && *rinc_typing) {
       c = (unsigned char)*rinc_typing++;
@@ -778,8 +785,9 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-drop") && i + 1 < argc) drop = argv[++i]; /* (as if dropped on the window: for tests) */
     else if (!strcmp(argv[i], "-type") && i + 1 < argc) rinc_typing = argv[++i];
     else if (!strcmp(argv[i], "-hold") && i + 1 < argc) rinc_holding = argv[++i];
+    else if (!strcmp(argv[i], "-ctrl") && i + 1 < argc) rinc_ctrlFrames = atoi(argv[++i]);
     else if (argv[i][0] == '-' || napps == rinc_BUNDLE_MOST) {
-      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-hold buttons] [-i app.rioi]\n"
+      fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-hold buttons] [-ctrl frames] [-i app.rioi]\n"
                       "       rinc app.rio... -export program [-runner rinc] [-home name] [-name folder] [-docs name=folder]... [-files path=folder]...\n"
                       "       rinc app.rio... -web page.html [-home name]\n"
                       "       rinc -install name|app.rio...      (and -data folder with any of these: storage there)\n"
@@ -882,6 +890,8 @@ int main(int argc, char **argv) {
         if (rinc_systemKey(held, 0, 0, held ? rinc_typedSys : 0)) rinc_launch = 1;
         rinc_modsHeld = -1; /* (-type's modifiers come with its keys: whether one's held, it can't tell) */
       }
+      rinc_frameNow = i;
+      if (rinc_ctrlFrames) rinc_modsHeld = i < rinc_ctrlFrames ? 2 : 0;
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();
       if (wavout && i < 60 * 60) rinc_audioMix(rinc_wav + i * (rinc_RATE / 60) * 2, rinc_RATE / 60); /* (a frame's worth of sound) */

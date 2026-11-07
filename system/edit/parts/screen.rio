@@ -201,6 +201,48 @@ drawPalette :: proc()
   end
 end
 
+# Ctrl+Tab's list, while Ctrl's held: the files it had lately, the latest first, the pick lit; each its
+# name, then its folder (/rinc/ left off; its start, if it's long), dimmer
+drawWalk :: proc()
+  list := walk.asString()
+  n := linesIn(list)
+  h := 18 + n * 10
+  y0 := (240 - h) / 2
+  pc.rect({40, y0}, {240, h}, barColor)
+  pc.print("Let go of Ctrl to open:", {46, y0 + 4}, accentColor)
+  for i in 0..<n
+    p := pathOf(lineIn(list, i))
+    s := p.len() - 1
+    for s >= 0 and p[s] != 47
+      s -= 1
+    end
+    name := p[s + 1..<p.len()]
+    name = name[0..<min(name.len(), 36)]
+    folder := p[0..<max(s, 0)]
+    if folder.len() >= 5 and folder[0..<5] == "/rinc"
+      folder = folder[5..<folder.len()]
+    end
+    if folder.len() > 0 and folder[0] == 47
+      folder = folder[1..<folder.len()]
+    end
+    y := y0 + 16 + i * 10
+    color := softColor
+    if i == walkStep
+      pc.rect({44, y - 2}, {232, 10}, pickColor())
+      color = textColor
+    end
+    pc.print(name, {48, y}, color)
+    room := 36 - name.len() - 2 # (characters left for the folder)
+    if room >= 4 and folder.len() > 0
+      if folder.len() > room # (its end, which says the most)
+        folder = folder[folder.len() - room + 2..<folder.len()]
+        pc.print("..", {272 - (folder.len() + 2) * 6, y}, dimColor)
+      end
+      pc.print(folder, {272 - folder.len() * 6, y}, dimColor)
+    end
+  end
+end
+
 draw* :: proc()
   pc.cls(backColor)
   cl := lineOf(cursor)
@@ -297,5 +339,8 @@ draw* :: proc()
   end
   if mode == PALETTE
     drawPalette()
+  end
+  if walking
+    drawWalk()
   end
 end

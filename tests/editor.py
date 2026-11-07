@@ -16,8 +16,9 @@ def put(path, text):
 def get(path):
   path = os.path.join(data, *path.split('/'))
   return open(path, newline='').read() if os.path.exists(path) else None
-def typing(keys, frames=120):
-  return subprocess.run([rinc, '-data', data, '-app', 'edit', '-frames', str(frames), '-type', keys], capture_output=True, text=True, timeout=60).stdout
+def typing(keys, frames=120, ctrl=0): # (ctrl: Ctrl held for that many frames first, as pc.modsHeld says; \\u waits for it)
+  return subprocess.run([rinc, '-data', data, '-app', 'edit', '-frames', str(frames), '-type', keys] + (['-ctrl', str(ctrl)] if ctrl else []),
+                        capture_output=True, text=True, timeout=60).stdout
 def check(ok, why):
   if not ok: sys.exit('FAIL: ' + why)
 
@@ -44,6 +45,12 @@ typing(CTRL_TAB + 's' + SAVE) # (back again: a.rio, the one before now)
 check(get('projects/demo/parts/a.rio') == 'yaus :: 1\n', 'Ctrl+Tab back: %r' % get('projects/demo/parts/a.rio'))
 typing(CTRL_TAB + CTRL_TAB + 'r' + SAVE) # (twice in a row: two back, past demo.rio to b.rio)
 check(get('projects/demo/parts/b.rio') == 'yzra :: 1\n', 'Ctrl+Tab twice in a row: two back: %r' % get('projects/demo/parts/b.rio'))
+# with Ctrl held (as Rinc can tell, but a terminal can't), Ctrl+Tab lists them: Tab moves the pick, and
+# letting go of Ctrl opens it; Esc closes the list, nothing opened
+typing(CTRL_TAB + CTRL_TAB + '\\u' + 'p' + SAVE, 150, 40) # (two down the list: b.rio, demo.rio, a.rio)
+check(get('projects/demo/parts/a.rio') == 'yausp :: 1\n', 'Ctrl+Tab, Tab, then Ctrl let go: the pick opened: %r' % get('projects/demo/parts/a.rio'))
+typing(CTRL_TAB + '\\e' + '\\u' + 'o' + SAVE, 150, 40)
+check(get('projects/demo/parts/a.rio') == 'yauspo :: 1\n', 'Ctrl+Tab, then Esc: the list closed, nothing opened: %r' % get('projects/demo/parts/a.rio'))
 put('settings/active', 'live')
 typing('w' + SAVE)
 check(get('apps/live/live.rio') == 'log(2)\n' and get('projects/live/live.rio') == 'wlog(2)\n', "an installed app's file, saved in its project")
