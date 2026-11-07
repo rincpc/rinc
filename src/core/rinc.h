@@ -99,8 +99,8 @@ int rinc_atLimit(const char *error); /* is this compile error about running out 
    Ctrl and Shift tapped together, for the next combination. With it: Esc (or a controller's Back) home,
    Tab the switcher of recent apps (Tab and Shift+Tab move, and a controller's RB and LB; letting go,
    or Enter switches, Esc doesn't; no time limits), Q back to the app before (this one forgotten, its
-   stash dropped), R this app again (its stash dropped), P
-   the performance strip, Enter the whole display (rinc_fullscreen). And the locks: Shift, Ctrl or Alt
+   stash dropped), R this app again (its stash dropped), P the command list (the app's commandList*
+   and Rinc's own), M the performance strip, Enter the whole display (rinc_fullscreen). And the locks: Shift, Ctrl or Alt
    tapped twice locks it, for every key typed, until it's tapped again. Call each frame with what's down
    (mods: 1 Shift, 2 Ctrl, 4 Alt; otherDown: any other key, the system key's own aside; keys:
    rinc_SysKey_* bits): 1 to start rinc_launchName now. While the system key is on (rinc_systemHeld),
@@ -109,7 +109,8 @@ enum { rinc_SysKey_esc = 1, rinc_SysKey_tab = 2, rinc_SysKey_q = 4, rinc_SysKey_
        rinc_SysKey_next = 32, rinc_SysKey_prev = 64, rinc_SysKey_r = 128, /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
        rinc_SysKey_left = 256, rinc_SysKey_right = 512, rinc_SysKey_up = 1024, rinc_SysKey_down = 2048, /* the pointer's: the arrows (the d-pad) move it, */
        rinc_SysKey_a = 4096, rinc_SysKey_b = 8192, /* V and C (A and B) its buttons */
-       rinc_SysKey_pointer = 0x3f00, rinc_SysKey_h = 0x4000 /* H: the app's help */, rinc_SysKey_l = 0x8000 /* L: sleep */, rinc_SysKey_o = 0x10000 /* O: the app's log */ };
+       rinc_SysKey_pointer = 0x3f00, rinc_SysKey_h = 0x4000 /* H: the app's help */, rinc_SysKey_l = 0x8000 /* L: sleep */, rinc_SysKey_o = 0x10000 /* O: the app's log */,
+       rinc_SysKey_m = 0x20000 /* M: the performance strip (P: the command list) */ };
 /* the pointer's system keys from buttons held (rinc_Button_*: the arrows, V and C, a controller's d-pad, A and B) */
 static inline int rinc_pointerKeys(int buttons) {
   return (buttons & 1 ? rinc_SysKey_left : 0) | (buttons & 2 ? rinc_SysKey_right : 0) | (buttons & 4 ? rinc_SysKey_up : 0) |

@@ -6,7 +6,7 @@ editors. Ctrl+O opens one through Files, and Ctrl+Shift+S saves as another, thro
 asks where. Ctrl+R saves it and runs the app or project it's in, and the system key with Tab comes back
 to the editor. If the app stopped with an error, a compile error or a runtime one, the editor comes
 back at it: in the file it was in (one of the app's parts, say), the cursor on it, and what was wrong
-at the bottom. Ctrl+Shift+P lists every command, with its keys.
+at the bottom. Ctrl+Shift+P (or the system key with P) lists every command, with its keys.
 
 Projects are where apps are worked on: `chord+` is app `chord` in work, in `/rinc/projects`, with saves
 of its own (a copy of the app's), so trying things can't spoil the app's. An installed app's files are
@@ -25,7 +25,7 @@ with what's active (another app can pick one for it), else the file it had last,
 | Ctrl+O, Ctrl+S, Ctrl+Shift+S | open a file (Files picks it), save it, save it as another (Files picks where) |
 | Ctrl+Tab, Ctrl+Shift+Tab | the files had lately (the last 8), listed while Ctrl's held: Tab moves down it (Shift+Tab up), letting go of Ctrl opens the one picked where it was, and Esc closes it. A quick Ctrl+Tab goes back and forth between two |
 | Ctrl+R, Ctrl+N | save and run its app or project, start a new file |
-| Ctrl+Shift+P | every command, to type to narrow and pick one |
+| Ctrl+Shift+P | every command, to type to narrow and pick one (the system's list: the system key with P too) |
 | Ctrl+Z, Ctrl+Y (or Ctrl+Shift+Z) | undo, redo |
 | Ctrl+X, Ctrl+C, Ctrl+V | cut, copy, paste (the whole line, with nothing selected) |
 | Ctrl+A, Ctrl+L | select all, select the line (and the next, again) |

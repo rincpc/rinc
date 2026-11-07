@@ -61,4 +61,11 @@ typing('save\\nchord\\n' + NEW_FOLDER + 'level2\\n') # (typing narrows to it: th
 check(os.path.isdir(os.path.join(data, 'save', 'chord', 'level2')), 'making a folder')
 typing(NEW_FOLDER + 'top\\n')
 check(not there('top'), 'making a folder in /rinc itself')
+# the command list (the system key with P, or Ctrl+Shift+P here): its keys, and what the menu offers
+# for what's picked, by name (renaming: the name given to the prompt; then up a folder, by name too)
+LIST, CTRL_SHIFT_P = '\\sp', '\\x1b[27;6;112~'
+typing('save\\nchord\\nbest3' + LIST + 'rename\\n' + 'best4\\n') # (typing narrows the list to it)
+check(get('save/chord/best4') == '42' and not there('save/chord/best3'), 'renaming from the command list')
+typing('save\\nchord\\n' + CTRL_SHIFT_P + '\\w' + 'up a folder\\n' + 'chord' + LIST + 'copy\\n' + 'chord2\\n')
+check(there('save/chord2/best4'), 'Ctrl+Shift+P, up a folder, then copying, from the list')
 print('files came through')

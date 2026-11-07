@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include "rinc.h"
 #include "pc_host.h" /* (pc.rio as C, its source, structs and sigs: rinc -H src/core/pc_host.h src/core/pc.rio) */
@@ -171,6 +172,7 @@ const rinc_Fs *rinc_fs;
 static const uint8_t *rinc_bundle; static int rinc_bundleCount; /* (read where it is: on the Fruit Jam, flash) */
 static char rinc_bundleStorage[33], rinc_bundleHome[33] = "home";
 int rinc_launch; char rinc_launchName[rinc_REF];
+static int rinc_cmdWanted, rinc_cmdSettle; /* the command list: asked for (Sys+P, pc.showCommands); just closed, the buttons and pointer held then not the app's (below) */
 /* the bundle format (little-endian): "RINCBUN1", the file count (4 bytes), the storage folder's name and
    the home app's name (32 bytes each, 0-padded), then each file's entry: its path (96 bytes, 0-padded,
    as in storage without /rinc/: apps/chord/chord.rio), and where its bytes are (4, from the bundle's
@@ -614,7 +616,7 @@ static void rinc_hostLaunch(rio_Vm *v, rio_Val *a) {
 }
 void rinc_textEsc(void) { rinc_typed.esc = 0; rinc_queue(&rinc_typed, 27); }
 static rio_Vm rinc_nest; static int rinc_nestOn, rinc_nestTried; /* (below: Rio inside an app) */
-static void rinc_hostKey(rio_Vm *v, rio_Val *a) { a[0].i = rinc_dequeue(v == &rinc_nest ? &rinc_nestTyped : &rinc_typed); }
+static void rinc_hostKey(rio_Vm *v, rio_Val *a) { a[0].i = v == &rinc_nest ? rinc_dequeue(&rinc_nestTyped) : rinc_cmdWanted ? -1 : rinc_dequeue(&rinc_typed); } /* (the command list asked for: the rest is its) */
 static void rinc_hostModsHeld(rio_Vm *v, rio_Val *a) { /* (as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt, a locked one too; -1: it can't tell) */
   int m = rinc_modsHeld;
   (void)v;
@@ -1178,7 +1180,8 @@ static void rinc_hostRioLog(rio_Vm *v, rio_Val *a) {
   a[0].i = n;
 }
 static void rinc_hostRioIndent(rio_Vm *v, rio_Val *a) { const char *s = (const char *)rio_sliceBytes(v, a); a[0].i = s ? rio_replIndent(s, a[1].u) : 0; }
-static void rinc_hostBtn(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 16 ? rinc_buttons >> a[0].i & 1 : 0; }
+static void rinc_hostBtn(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 16 && !rinc_cmdSettle ? rinc_buttons >> a[0].i & 1 : 0; }
+static void rinc_hostShowCommands(rio_Vm *v, rio_Val *a) { (void)a; if (v != &rinc_nest) rinc_cmdWanted = 1; }
 /* stick(i) -> Float: 0 the left stick's x, 1 its y, 2 and 3 the right one's; -1 to 1, + right and down,
    0 when it's near the middle (it gets there on its own only roughly). trigger(i) -> Float: 0 left, 1
    right; 0 to 1 */
@@ -1665,7 +1668,7 @@ static uint16_t rinc_frameMs[256]; /* (in hundredths of a millisecond: 655 ms at
 static int rinc_frameAt, rinc_perfOn;
 static void rinc_perfNote(float ms) { rinc_frameMs[rinc_frameAt++ & 255] = (uint16_t)(ms < 0 ? 0 : ms > 655 ? 65500 : ms * 100.0f); }
 
-static int rinc_switching, rinc_pick; /* the switcher (Sys+Tab) is up, and which recent app it's on */
+static int rinc_switching, rinc_pick, rinc_switchHeld; /* the switcher (Sys+Tab) is up, which recent app it's on, and whether the system key's held (letting go switches) */
 
 static int rinc_sysLock; /* Ctrl+Shift tapped: the system key, for the next combination */
 int rinc_fullscreen;      /* Sys+Enter asked for the screen to fill the display, or not (rinc.h) */
@@ -1717,7 +1720,7 @@ static void rinc_overlayDraw(int strip) {
     }
   } else if (rinc_systemDown) {
     memset(rinc_overlay[0], 10, rinc_W); /* (a yellow edge) */
-    rinc_overlayText("Esc home Tab apps Q back R redo H help O log L sleep", 2, 7);
+    rinc_overlayText("Esc home Tab apps P commands H help O log L sleep", 2, 7);
   } else { /* the performance strip: the latest frame's time, then a bar a frame, the newest at the right: 8 high is 1/60 s */
     char text[24]; float ms = (float)rinc_frameMs[(rinc_frameAt - 1) & 255] / 100.0f;
     int pct = (int)(ms * 6.0f + 0.5f); /* (of 16.67 ms) */
@@ -1754,8 +1757,9 @@ static int rinc_hasHelp(const char *app) {
   return rinc_bundleFile(path) != 0;
 }
 int rinc_modsHeld = -1;
+static int rinc_sysDo(int pressed, int mods, int held); /* (below) */
 int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
-  static int now, down, seen, spoiled, startAt, lastTap, lastTapAt, again, wasKeys, wasOther, held;
+  static int now, down, seen, spoiled, startAt, lastTap, lastTapAt, again, wasKeys, wasOther;
   int pressed = keys & ~wasKeys, otherPressed = otherDown && !wasOther, go = 0, strip;
   now++;
   rinc_modsHeld = mods;
@@ -1795,18 +1799,34 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
       rinc_pick = (rinc_pick + (back ? n - 1 : 1)) % n;
     }
     if (pressed & rinc_SysKey_esc) rinc_switching = 0;
-    else if ((pressed & rinc_SysKey_enter) || (held && !sysDown)) {
+    else if ((pressed & rinc_SysKey_enter) || (rinc_switchHeld && !sysDown)) {
       rinc_switching = 0;
       if (rinc_pick > 0 && rinc_pick < n) { snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recent[rinc_pick]); go = 1; }
     }
   } else if ((sysDown || rinc_sysLock) && pressed && !(pressed & ~rinc_SysKey_pointer)) {
     /* the pointer's keys only: they move and click it (rinc_pointerFrame), and don't use up a locked system key */
   } else if ((sysDown || rinc_sysLock) && pressed) { /* (alone, the system key does nothing, so it isn't pressed by accident) */
+    go = rinc_sysDo(pressed, mods, sysDown);
+    rinc_sysLock = 0; /* (used up) */
+  } else if (rinc_sysLock && otherPressed && !down) rinc_sysLock = 0; /* (another key: no combination) */
+  rinc_systemDown = sysDown || rinc_sysLock || rinc_switching;
+  rinc_sysPointer = rinc_systemDown && !rinc_switching ? keys & rinc_SysKey_pointer : 0;
+  strip = !go && (rinc_systemDown || rinc_perfOn);
+  rinc_overlayOn = 0; /* (while it's redrawn) */
+  if (strip || rinc_locks || rinc_sysLock || rinc_noticeOn()) { rinc_overlayDraw(strip); rinc_overlayOn = 1; }
+  return go;
+}
+/* what the system key does with keys pressed (rinc_SysKey_* bits; mods: 1 Shift; held: the system key
+   is, so letting go of it ends the switcher): 1 to start rinc_launchName. The command list's own
+   entries do the same */
+static int rinc_sysDo(int pressed, int mods, int held) {
+  int go = 0;
+  {
     if (pressed & rinc_SysKey_esc) { snprintf(rinc_launchName, sizeof rinc_launchName, "home"); go = 1; }
     else if ((pressed & (rinc_SysKey_tab | rinc_SysKey_next | rinc_SysKey_prev)) && rinc_recentCount > 1) {
       int back = (pressed & rinc_SysKey_prev) || ((pressed & rinc_SysKey_tab) && (mods & 1));
       rinc_switching = 1; rinc_pick = back ? rinc_recentCount - 1 : 1;
-      held = sysDown;
+      rinc_switchHeld = held;
     } else if (pressed & rinc_SysKey_q) { /* back to the app before, this one forgotten, its stash too */
       rinc_stashDrop(rinc_appNow);
       rinc_recentDrop(0);
@@ -1831,16 +1851,11 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
         snprintf(rinc_launchName, sizeof rinc_launchName, "help");
         go = 1;
       } else rinc_noticeSay("No help for ", rinc_appRef);
-    } else if (pressed & rinc_SysKey_p) rinc_perfOn = !rinc_perfOn;
+    } else if (pressed & rinc_SysKey_p) rinc_cmdWanted = 1; /* (the command list: once the app's frame can ask it for its own) */
+    else if (pressed & rinc_SysKey_m) rinc_perfOn = !rinc_perfOn;
     else if (pressed & rinc_SysKey_l) rinc_sleeping = 1; /* (asleep: the display rests, until a key) */
     else if (pressed & rinc_SysKey_enter) rinc_fullscreen = !rinc_fullscreen;
-    rinc_sysLock = 0; /* (used up) */
-  } else if (rinc_sysLock && otherPressed && !down) rinc_sysLock = 0; /* (another key: no combination) */
-  rinc_systemDown = sysDown || rinc_sysLock || rinc_switching;
-  rinc_sysPointer = rinc_systemDown && !rinc_switching ? keys & rinc_SysKey_pointer : 0;
-  strip = !go && (rinc_systemDown || rinc_perfOn);
-  rinc_overlayOn = 0; /* (while it's redrawn) */
-  if (strip || rinc_locks || rinc_sysLock || rinc_noticeOn()) { rinc_overlayDraw(strip); rinc_overlayOn = 1; }
+  }
   return go;
 }
 
@@ -1914,7 +1929,7 @@ static void rinc_hostPointer(rio_Vm *v, rio_Val *a) { (void)v; rinc_pointerMode 
 static void rinc_hostPointerX(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX; }
 static void rinc_hostPointerAt(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX; a[1].i = (int)rinc_pointerY; } /* ({x, y}) */
 static void rinc_hostPointerY(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerY; }
-static void rinc_hostPointerDown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 3 ? rinc_pointerHeld >> a[0].i & 1 : 0; }
+static void rinc_hostPointerDown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 3 && !rinc_cmdSettle ? rinc_pointerHeld >> a[0].i & 1 : 0; }
 static void rinc_hostPointerShown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_pointerOnScreen; }
 static void rinc_hostScroll(rio_Vm *v, rio_Val *a) {
   int k;
@@ -1935,7 +1950,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 #endif
 }
 int rinc_hostProcs(rio_Vm *vm) {
-  return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
+  return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
          rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
@@ -2227,6 +2242,146 @@ int rinc_gameFrame(rio_Vm *vm) {
   return res;
 }
 
+/* the command list (docs/spec/apps.md#its-commands): the app's (its commandList*, pc.Command each), then
+   Rinc's own, narrowed by what's typed; a pick types its key for the app (or does what the system key
+   would). Up and down (and the d-pad, Page Up and Down) move, Enter picks (a controller's A), Esc
+   closes (B), a click picks one, and one outside closes it. While it's up, the app waits */
+typedef struct { rio_View label, keys; int32_t key; } rinc_Command; /* (pc.Command's layout) */
+typedef char rinc_Command_size[sizeof(rinc_Command) == 20 ? 1 : -1];
+static const struct { const char *label, *keys; int bit; } rinc_sysCommands[] = {
+  {"Home", "Sys+Esc", rinc_SysKey_esc}, {"Switch apps", "Sys+Tab", rinc_SysKey_tab}, {"This app's help", "Sys+H", rinc_SysKey_h},
+  {"This app's log", "Sys+O", rinc_SysKey_o}, {"Back to the app before", "Sys+Q", rinc_SysKey_q},
+  {"This app again, from the start", "Sys+R", rinc_SysKey_r}, {"Performance strip, shown or not", "Sys+M", rinc_SysKey_m},
+  {"Sleep: the display rests", "Sys+L", rinc_SysKey_l}, {"The whole display, or not", "Sys+Enter", rinc_SysKey_enter}};
+#define rinc_SYS_COMMANDS ((int)(sizeof rinc_sysCommands / sizeof rinc_sysCommands[0]))
+#define rinc_APP_COMMANDS 56
+#define rinc_CMD_ROWS 16
+/* the app's, as it gave them: its text stays where it is in the app's memory (the app waits, so it's as
+   it was), Rinc's own after them */
+static rinc_Command rinc_cmdApp[rinc_APP_COMMANDS];
+static rio_Vm *rinc_cmdVm;
+static uint8_t rinc_cmdShown[rinc_APP_COMMANDS + rinc_SYS_COMMANDS];
+static int rinc_cmdAppCount, rinc_cmdCount, rinc_cmdOn, rinc_cmdNShown, rinc_cmdPick, rinc_cmdFilterLen, rinc_cmdButtons, rinc_cmdRepeat, rinc_cmdClicked;
+static char rinc_cmdFilter[24];
+/* command i's label or keys (keys: 1), as text and its length, as much as shows (most) */
+static const char *rinc_cmdText(int i, int keys, int most, int *len) {
+  const char *s; int n;
+  if (i < rinc_cmdAppCount) {
+    rio_View v = keys ? rinc_cmdApp[i].keys : rinc_cmdApp[i].label;
+    s = (const char *)rio_viewBytes(rinc_cmdVm, v); n = s ? (int)v.len : 0;
+  } else {
+    s = keys ? rinc_sysCommands[i - rinc_cmdAppCount].keys : rinc_sysCommands[i - rinc_cmdAppCount].label; n = (int)strlen(s);
+  }
+  *len = n < most ? n : most;
+  return s;
+}
+static int rinc_cmdKeyOf(int i) { return i < rinc_cmdAppCount ? (rinc_cmdApp[i].key < 0 ? 0 : rinc_cmdApp[i].key) : -rinc_sysCommands[i - rinc_cmdAppCount].bit; }
+static int rinc_cmdHas(int i) { /* (what's typed, anywhere in its label, any case) */
+  int n, k, j; const char *s = rinc_cmdText(i, 0, 64, &n);
+  for (j = 0; j + rinc_cmdFilterLen <= n; j++) {
+    for (k = 0; k < rinc_cmdFilterLen && tolower((unsigned char)s[j + k]) == tolower((unsigned char)rinc_cmdFilter[k]); k++) {}
+    if (k == rinc_cmdFilterLen) return 1;
+  }
+  return 0;
+}
+static void rinc_cmdNarrow(void) {
+  int i;
+  rinc_cmdNShown = 0;
+  for (i = 0; i < rinc_cmdCount; i++) if (rinc_cmdHas(i)) rinc_cmdShown[rinc_cmdNShown++] = (uint8_t)i;
+  if (rinc_cmdPick >= rinc_cmdNShown) rinc_cmdPick = rinc_cmdNShown - 1;
+  if (rinc_cmdPick < 0) rinc_cmdPick = 0;
+}
+static int rinc_cmdOpen(rio_Vm *vm) { /* (the app's, asked now: -1 if that stopped with an error) */
+  int fn = rio_findProc(vm, "commandList");
+  rinc_cmdAppCount = 0; rinc_cmdVm = vm;
+  if (fn >= 0) {
+    rio_Val *r; uint32_t at, n;
+    if (rio_call(vm, fn)) return -1;
+    r = rio_procResult(vm, fn); at = r[0].u; n = r[1].u;
+    if (n > rinc_APP_COMMANDS) n = rinc_APP_COMMANDS;
+    if (at <= vm->memSize && n * sizeof(rinc_Command) <= vm->memSize - at) {
+      memcpy(rinc_cmdApp, vm->mem + at, n * sizeof(rinc_Command));
+      rinc_cmdAppCount = (int)n;
+    }
+  }
+  rinc_cmdCount = rinc_cmdAppCount + rinc_SYS_COMMANDS;
+  rinc_cmdFilterLen = rinc_cmdPick = 0;
+  rinc_cmdNarrow();
+  rinc_cmdButtons = rinc_buttons; rinc_cmdClicked = rinc_pointerHeld; /* (held already: not presses) */
+  rinc_cmdOn = 1;
+  return 0;
+}
+static void rinc_cmdRun(int i) { /* (a pick: its key typed for the app, or the system key's) */
+  int key = rinc_cmdKeyOf(i);
+  rinc_cmdOn = 0; rinc_cmdSettle = 1;
+  if (key > 0) { /* (first, before anything typed after it; as it is: no lock adds to it) */
+    int before = (rinc_typed.tail + rinc_TEXT_CAP - 1) % rinc_TEXT_CAP;
+    if (before != rinc_typed.head) { rinc_typed.q[before] = (uint16_t)key; rinc_typed.tail = before; }
+  } else if (key < 0 && rinc_sysDo(-key, 0, 0)) rinc_launch = 1;
+}
+static void rinc_cmdMove(int by) {
+  rinc_cmdPick += by;
+  if (rinc_cmdPick >= rinc_cmdNShown) rinc_cmdPick = rinc_cmdNShown - 1;
+  if (rinc_cmdPick < 0) rinc_cmdPick = 0;
+}
+static void rinc_cmdKey(int c) {
+  int k = c & 255;
+  if (c == 27) rinc_cmdOn = 0, rinc_cmdSettle = 1;
+  else if (k == 13) { if (rinc_cmdNShown) rinc_cmdRun(rinc_cmdShown[rinc_cmdPick]); }
+  else if (k == 8) { if (rinc_cmdFilterLen) rinc_cmdFilterLen--; rinc_cmdNarrow(); }
+  else if (c >= 32 && c < 127) { if (rinc_cmdFilterLen < (int)sizeof rinc_cmdFilter - 1) rinc_cmdFilter[rinc_cmdFilterLen++] = (char)c; rinc_cmdPick = 0; rinc_cmdNarrow(); }
+  else if (c < 1024 && k == 130 && !(rinc_buttons & rinc_Button_up)) rinc_cmdMove(-1); /* (an arrow typed, not held: held, it's a button, below) */
+  else if (c < 1024 && k == 131 && !(rinc_buttons & rinc_Button_down)) rinc_cmdMove(1);
+  else if (k == 9) rinc_cmdMove(c & 256 ? -1 : 1);
+  else if (k == 135) rinc_cmdMove(-(rinc_CMD_ROWS - 1));
+  else if (k == 136) rinc_cmdMove(rinc_CMD_ROWS - 1);
+  else if (k == 132) rinc_cmdMove(-rinc_cmdNShown);
+  else if (k == 133) rinc_cmdMove(rinc_cmdNShown);
+}
+static void rinc_cmdBox(int x, int y, int w, int h, int c) {
+  int j;
+  for (j = y; j < y + h && j < rinc_H; j++) if (j >= 0) memset(&rinc_screen[j][x], c, (size_t)w);
+}
+static void rinc_cmdPrint(const char *s, int n, int x, int y, int c) { /* (n characters of s: what isn't text, as ?) */
+  for (; n > 0; s++, n--, x += 6) rinc_char(*s >= 32 && *s < 127 ? (unsigned char)*s : '?', x, y, c, -1);
+}
+#define rinc_CMD_X 30
+#define rinc_CMD_Y 20
+#define rinc_CMD_W 260
+static void rinc_cmdFrame(void) {
+  int c, i, step = 0, from, held = rinc_buttons & (rinc_Button_up | rinc_Button_down), click = rinc_pointerHeld & ~rinc_cmdClicked & 1;
+  while (rinc_cmdOn && (c = rinc_dequeue(&rinc_typed)) >= 0) rinc_cmdKey(c);
+  if (!rinc_cmdOn) return;
+  /* up and down held (the d-pad's too): a step a press, then more while it's held */
+  if (held != (rinc_cmdButtons & (rinc_Button_up | rinc_Button_down))) { rinc_cmdRepeat = 15; step = held ? 1 : 0; }
+  else if (held && --rinc_cmdRepeat == 0) { rinc_cmdRepeat = 4; step = 1; }
+  if (step) rinc_cmdMove(held & rinc_Button_up ? -1 : 1);
+  rinc_cmdButtons = rinc_buttons;
+  rinc_cmdClicked = rinc_pointerHeld;
+  from = rinc_cmdPick - rinc_CMD_ROWS + 1 > 0 ? rinc_cmdPick - rinc_CMD_ROWS + 1 : 0;
+  if (click) { /* (a row: picked; outside the box: closed) */
+    int px = (int)rinc_pointerX, py = (int)rinc_pointerY, row = (py - (rinc_CMD_Y + 32)) / 10;
+    if (px < rinc_CMD_X || px >= rinc_CMD_X + rinc_CMD_W || py < rinc_CMD_Y || py >= rinc_CMD_Y + 36 + rinc_CMD_ROWS * 10) { rinc_cmdOn = 0; rinc_cmdSettle = 1; return; }
+    if (py >= rinc_CMD_Y + 32 && from + row < rinc_cmdNShown) { rinc_cmdRun(rinc_cmdShown[from + row]); return; }
+  }
+  { /* drawn over the app's screen, as it was */
+    int bar = rinc_themeColor(1), text = rinc_themeColor(2), soft = rinc_themeColor(3), dim = rinc_themeColor(4), accent = rinc_themeColor(6), pick = rinc_themeColor(8), back = rinc_themeColor(0);
+    rinc_cmdBox(rinc_CMD_X, rinc_CMD_Y, rinc_CMD_W, 36 + rinc_CMD_ROWS * 10, bar);
+    rinc_cmdPrint("Commands (type to narrow):", 26, rinc_CMD_X + 6, rinc_CMD_Y + 4, accent);
+    rinc_cmdBox(rinc_CMD_X + 4, rinc_CMD_Y + 14, rinc_CMD_W - 8, 11, back);
+    rinc_cmdPrint(rinc_cmdFilter, rinc_cmdFilterLen, rinc_CMD_X + 6, rinc_CMD_Y + 16, text);
+    rinc_cmdBox(rinc_CMD_X + 6 + rinc_cmdFilterLen * 6, rinc_CMD_Y + 15, 1, 9, accent);
+    for (i = 0; i < rinc_CMD_ROWS && from + i < rinc_cmdNShown; i++) {
+      int k = rinc_cmdShown[from + i], y = rinc_CMD_Y + 32 + i * 10, kn, ln, on = from + i == rinc_cmdPick;
+      const char *keys = rinc_cmdText(k, 1, 11, &kn), *label = rinc_cmdText(k, 0, (rinc_CMD_W - 16 - (kn ? kn * 6 + 6 : 0)) / 6, &ln);
+      if (on) rinc_cmdBox(rinc_CMD_X + 4, y - 2, rinc_CMD_W - 8, 10, pick);
+      rinc_cmdPrint(label, ln, rinc_CMD_X + 8, y, on ? text : soft);
+      rinc_cmdPrint(keys, kn, rinc_CMD_X + rinc_CMD_W - 8 - kn * 6, y, on ? text : dim);
+    }
+    if (!rinc_cmdNShown) rinc_cmdPrint("No such command", 15, rinc_CMD_X + 8, rinc_CMD_Y + 32, rinc_themeColor(5));
+  }
+}
+
 int rinc_frame(rio_Vm *vm) {
   int u = rio_findProc(vm, "update"), d = rio_findProc(vm, "draw");
   /* the left stick pushed well over also counts as the arrows, as on PICO-8 (but not in pointer mode:
@@ -2238,6 +2393,11 @@ int rinc_frame(rio_Vm *vm) {
     if (rinc_axes[1] > 16000) rinc_buttons |= rinc_Button_down;
   }
   if (u < 0 && d < 0) return 1;
+  if (vm != &rinc_nest) { /* (the command list: while it's up, the app waits) */
+    if (rinc_cmdWanted) { rinc_cmdWanted = 0; if (rinc_cmdOpen(vm)) return -1; }
+    if (rinc_cmdOn) { rinc_cmdFrame(); return 0; }
+    if (rinc_cmdSettle && !rinc_buttons && !rinc_pointerHeld) rinc_cmdSettle = 0;
+  }
   if (u >= 0 && rio_call(vm, u)) return -1;
   if (d >= 0 && rio_call(vm, d)) return -1;
   return 0;

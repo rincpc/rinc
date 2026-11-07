@@ -3,7 +3,6 @@
 # ---------------------------------------------------------------- prompts
 
 NONE :: 0
-PALETTE :: 1
 NAMING :: 2
 FIND :: 3
 GO_TO :: 4
@@ -19,27 +18,10 @@ lower :: proc(c: Int) -> Int
   return c
 end
 
-has :: proc(s: String, f: Blob) -> Bool
-  for p in 0..<s.len() - f.len() + 1
-    k := 0
-    for k < f.len() and lower(s[p + k]) == lower(f[k])
-      k += 1
-    end
-    if k == f.len()
-      return true
-    end
-  end
-  return false
-end
-
-# every command, for the list Ctrl+Shift+P shows
-COMMANDS :: 27
-Command :: struct
-  label: String   # what it does
-  keys: String    # its keys, as shown
-  key: Int        # the key it is, as typed (-1: help, -2: home)
-end
-commands := [COMMANDS]Command{
+# every command, for the system's list (Sys+P, or Ctrl+Shift+P here): each the key it is, as typed
+COMMANDS :: 25
+NUMBERS_COMMAND :: 4096 # (one of its own, with no key: line numbers, shown or not)
+commands := [COMMANDS]pc.Command{
   {label = "Open a file", keys = "^O", key = 15},
   {label = "The file before this one", keys = "^Tab", key = 9 | CTRL},
   {label = "The file longest ago (round them all)", keys = "^Shift+Tab", key = 9 | CTRL | SHIFT},
@@ -64,52 +46,25 @@ commands := [COMMANDS]Command{
   {label = "Move the lines down", keys = "Alt+Down", key = DOWN | ALT},
   {label = "Indent", keys = "Tab", key = 9},
   {label = "Outdent", keys = "Shift+Tab", key = 9 | SHIFT},
-  {label = "Line numbers, shown or not", keys = "", key = -3},
-  {label = "Help", keys = "", key = -1},
-  {label = "Home", keys = "Sys+Esc", key = -2},
+  {label = "Line numbers, shown or not", keys = "", key = NUMBERS_COMMAND},
 }
-listed: [COMMANDS]Int
-nlisted := 0
-pick := 0
-
-narrow :: proc()
-  nlisted = 0
-  for i in 0..<COMMANDS
-    if has(commands[i].label, input[0..<input.len()])
-      listed[nlisted] = i
-      nlisted += 1
-    end
-  end
-  pick = max(0, min(pick, nlisted - 1))
+commandList* :: proc() -> []pc.Command
+  return commands[0..<COMMANDS]
 end
 
 startPrompt :: proc(m: Int)
   mode = m
   input.clear()
-  if m == PALETTE
-    pick = 0
-    narrow()
-  end
 end
 
-# a command from the list
-queued := 0
-command :: proc(i: Int)
-  mode = NONE
-  if commands[i].key == -1
-    pc.help("edit/README")
-  case commands[i].key == -2
-    pc.launch("home")
-  case commands[i].key == -3 # (and kept, for next time)
-    showNumbers(not numbers)
-    v := "0"
-    if numbers
-      v = "1"
-    end
-    saved := pc.saveWrite("numbers", v)
-  else
-    queued = commands[i].key # (as typed: update does it)
+# line numbers, shown or not (and kept, for next time)
+toggleNumbers :: proc()
+  showNumbers(not numbers)
+  v := "0"
+  if numbers
+    v = "1"
   end
+  saved := pc.saveWrite("numbers", v)
 end
 
 # Ctrl+F's text, found after the selection (or from the start, after the end), and selected
@@ -144,11 +99,7 @@ end
 promptDone :: proc()
   m := mode
   s := input[0..<input.len()].asString()
-  if m == PALETTE
-    if nlisted > 0
-      command(listed[pick])
-    end
-  case m == NAMING # (a new file, as a new project's main file)
+  if m == NAMING # (a new file, as a new project's main file)
     ok := true
     for c in s
       ok = ok and ((c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45)
@@ -214,12 +165,5 @@ promptKey :: proc(k: Int)
     end
   case k >= 32 and k < 127 and input.len() < 32
     _ = input.push(k)
-  case mode == PALETTE and (k & 255) == UP
-    pick = max(0, pick - 1)
-  case mode == PALETTE and (k & 255) == DOWN
-    pick = min(nlisted - 1, pick + 1)
-  end
-  if mode == PALETTE
-    narrow()
   end
 end

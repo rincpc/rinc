@@ -1,0 +1,61 @@
+# Files: its commands, for the system's list (Sys+P, or Ctrl+Shift+P here), as things are when it's asked: in
+# the list, its keys, then what the menu (Space) offers for what's picked; viewing a file, moving through
+# it (part of files.rio, included there, in order: the names it uses are declared before it)
+
+ACT :: 4096           # (a command of its own: 4096 + one of the menu's, on what's picked)
+listKeys := [10]pc.Command{
+  {label = "Open what's picked", keys = "Enter", key = 13},
+  {label = "Up a folder", keys = "Alt+Up", key = 130 | 1024},
+  {label = "What else can be done with it", keys = "Space", key = 32},
+  {label = "New project", keys = "^N", key = 14},
+  {label = "New folder here", keys = "^Shift+N", key = 14 | 256},
+  {label = "The first", keys = "Home", key = 132},
+  {label = "The last", keys = "End", key = 133},
+  {label = "A page up", keys = "Page Up", key = 135},
+  {label = "A page down", keys = "Page Down", key = 136},
+  {label = "Back: what's typed cleared, or up", keys = "Esc", key = 27},
+}
+viewKeys := [5]pc.Command{
+  {label = "Back to the list", keys = "Esc", key = 27},
+  {label = "A page up", keys = "Page Up", key = 135},
+  {label = "A page down", keys = "Page Down", key = 136},
+  {label = "The start", keys = "Home", key = 132},
+  {label = "The end", keys = "End", key = 133},
+}
+# one of the menu's, from the command list (4096 + its id), on what's picked: as its letter would
+actOn :: proc(id: Int)
+  k := picked()
+  if picking or not fillItems(k)
+    return
+  end
+  target = k
+  for i in 0..<itemCount
+    if items[i] == id
+      act(i)
+      return
+    end
+  end
+end
+menuKeys := [9]String{"Space O", "Space E", "Space R", "Space C", "Space N", "Space D", "Space I", "Space V", "Space F"}
+listed: [19]pc.Command
+commandList* :: proc() -> []pc.Command
+  if mode == VIEW
+    return viewKeys[0..<5]
+  end
+  n := 0
+  for i in 0..<10
+    if not picking or i == 0 or i == 1 or i >= 5 # (picking: no menu, nothing new)
+      listed[n] = listKeys[i]
+      n += 1
+    end
+  end
+  if mode == NONE and not picking and fillItems(picked())
+    for i in 0..<itemCount
+      if itemOk[i] and items[i] != FOLDER_IT and items[i] != OPEN_IT # (those are Ctrl+Shift+N and Enter, above)
+        listed[n] = {label = LABELS[items[i]], keys = menuKeys[items[i]], key = ACT + items[i]}
+        n += 1
+      end
+    end
+  end
+  return listed[0..<n]
+end

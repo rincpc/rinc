@@ -21,6 +21,10 @@ key :: proc(k: Int)
   if completing and completeKey(k)
     return
   end
+  if k == NUMBERS_COMMAND # (from the command list)
+    toggleNumbers()
+    return
+  end
   if base != 14 and base != 15 and not (base == 9 and ctrl)
     confirm = 0 # (a warning stands only until the next key)
     walkStep = 0 # (and Ctrl+Tab's walk back, only while it's Ctrl+Tab again)
@@ -155,7 +159,7 @@ key :: proc(k: Int)
       callFiles("pick")
     end
   case base == 16 and shift # Ctrl+Shift+P: every command
-    startPrompt(PALETTE)
+    pc.showCommands()
   case base == 14 # Ctrl+N
     if modified() and confirm != 14
       say("Unsaved changes: Ctrl+N again drops them", warnColor)
@@ -236,16 +240,7 @@ pointer :: proc()
     offerPick = max(0, min(offerPick - 3 * s, shownCount - 1))
   end
   if down == 1 and clicked == 0
-    if mode == PALETTE
-      from := max(0, pick - LIST_ROWS + 1)
-      row := (py - 52) / 10
-      if px >= 44 and px < 276 and py >= 52 and row < min(nlisted - from, LIST_ROWS)
-        pick = from + row
-        promptKey(13)
-      case px < 40 or px >= 280 or py < 24 or py >= 64 + LIST_ROWS * 10
-        promptKey(27)
-      end
-    case mode == NONE and py < 229
+    if mode == NONE and py < 229
       moveTo(textAt(px, py), false)
       wantCol = -1
       dragging = true
@@ -327,10 +322,6 @@ update* :: proc()
     c = -1
     if not leaving # (gone to Files: the rest typed is its)
       c = pc.key()
-    end
-    if c < 0 and queued != 0 and not leaving # (a command picked from the list: its key)
-      c = queued
-      queued = 0
     end
   end
   pointer()

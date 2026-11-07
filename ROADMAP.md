@@ -11,7 +11,11 @@ app is a Rio program.
 - Freeze `pc`: names and arguments (images bind host procs by name, and a struct or a proc may grow at
   its end), once its long calls are settled: `blit` takes a `pc.Blit` now, and the rest are weighed in
   notes/pc-long-calls.md.
-- `pc.print` reads UTF-8, for fonts beyond ASCII.
+- `pc.print` reads UTF-8, for fonts beyond ASCII; and text measured (a `pc.textWidth`, say) rather
+  than counted at 6 pixels a character, which the apps' layouts (and the command list's "38
+  characters") assume today; and whether a font is the app's or the system's. Decide these before
+  `pc` is frozen. Later, and not breaking: the fonts themselves (glyphs past ASCII, a second size)
+  and the system apps' text in other languages.
 - Points and rects, to discuss: a `pc.Point` (a struct of x and y, or `[2]Float`) and a `pc.Rect` (two
   points, or a point and a size) used across `pc` (rect, blit's source, clipping, hit tests) and kept by
   apps as values, if they're not much slower, since they could make drawing code easier to write and

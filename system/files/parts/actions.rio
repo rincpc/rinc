@@ -25,13 +25,12 @@ addItem :: proc(id: Int, ok: Bool)
   itemCount += 1
 end
 
-openMenu :: proc()
-  k := picked()
-  if k < 0 or kind[k] == UP
-    return
-  end
-  target = k
+# what the menu offers for entry k (false: nothing, for ..), into items
+fillItems :: proc(k: Int) -> Bool
   itemCount = 0
+  if k < 0 or kind[k] == UP
+    return false
+  end
   ref := appRef(k)
   isApp := ref.len() > 0
   change := canChange(k)
@@ -60,6 +59,14 @@ openMenu :: proc()
     addItem(DELETE_IT, change)
   end
   addItem(FOLDER_IT, true) # (as Ctrl+Shift+N, which a browser may keep for itself)
+  return true
+end
+openMenu :: proc()
+  k := picked()
+  if not fillItems(k)
+    return
+  end
+  target = k
   menuPick = 0
   mode = MENU
 end

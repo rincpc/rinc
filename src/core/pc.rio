@@ -52,7 +52,8 @@ print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in 
 btn* :: host proc(i: Int) -> Int
 # the next key typed, or -1: 32-126 as typed, 13 Enter, 8 Backspace, 9 Tab, 27 Esc, Ctrl+letter as 1-26,
 # and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down;
-# a key that isn't a character with the modifiers held added on: 256 Shift, 512 Ctrl, 1024 Alt
+# a key that isn't a character with the modifiers held added on: 256 Shift, 512 Ctrl, 1024 Alt; and
+# 4096 + n, a command of the app's own picked from its list (Command, below)
 key* :: host proc() -> Int
 # the modifiers held now, as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt (one locked, tapped twice, too);
 # -1 where it can't tell (in a terminal): for a walk that goes on while Ctrl is held, as Ctrl+Tab's
@@ -61,6 +62,16 @@ modsHeld* :: host proc() -> Int
 stick* :: host proc(i: Int) -> Float
 trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1
 time* :: host proc() -> Float                       # seconds since start
+# a command, in the list the system key with P shows (or showCommands): an app's own come from its
+# commandList* :: proc() -> []pc.Command, asked each time the list opens (up to 56 of them), and
+# Rinc's are after them. Picking one types its key, as key() gives it next; while the list is up, the
+# app waits (no update or draw)
+Command* :: struct
+  label: String # what it does: "Flip the sprite sideways" (38 characters show)
+  keys: String  # its keys, as shown at the right: "H" ("" for none; 11 show)
+  key: Int      # what picking it types: a key as key() gives it, or 4096 + n, a command of its own
+end
+showCommands* :: host proc()                        # the command list, after this frame (an app's own key for it)
 # the pointer, which Rinc draws while it's shown: a mouse moving it or pressing a button shows it; typing,
 # the arrows (the d-pad's too) and a controller's center buttons hide it. What it's for, pointer(mode):
 Pointer* :: enum

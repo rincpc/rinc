@@ -57,6 +57,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_stick_SIG "i>f"
 #define pc_trigger_SIG "i>f"
 #define pc_time_SIG ">f"
+#define pc_showCommands_SIG ""
 #define pc_pointer_SIG "Enum{game,ui,none}"
 #define pc_pointerAt_SIG ">ii"
 #define pc_pointerX_SIG ">i"
@@ -150,6 +151,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(stick, pc_stick_SIG) \
   X(trigger, pc_trigger_SIG) \
   X(time, pc_time_SIG) \
+  X(showCommands, pc_showCommands_SIG) \
   X(pointer, pc_pointer_SIG) \
   X(pointerAt, pc_pointerAt_SIG) \
   X(pointerX, pc_pointerX_SIG) \
@@ -229,7 +231,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x11a94a82u /* (rio_hashText of the source) */
+#define pc_HASH 0x2d1c429du /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -285,7 +287,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "btn* :: host proc(i: Int) -> Int\n" \
   "# the next key typed, or -1: 32-126 as typed, 13 Enter, 8 Backspace, 9 Tab, 27 Esc, Ctrl+letter as 1-26,\n" \
   "# and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down;\n" \
-  "# a key that isn't a character with the modifiers held added on: 256 Shift, 512 Ctrl, 1024 Alt\n" \
+  "# a key that isn't a character with the modifiers held added on: 256 Shift, 512 Ctrl, 1024 Alt; and\n" \
+  "# 4096 + n, a command of the app's own picked from its list (Command, below)\n" \
   "key* :: host proc() -> Int\n" \
   "# the modifiers held now, as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt (one locked, tapped twice, too);\n" \
   "# -1 where it can't tell (in a terminal): for a walk that goes on while Ctrl is held, as Ctrl+Tab's\n" \
@@ -294,6 +297,16 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "stick* :: host proc(i: Int) -> Float\n" \
   "trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1\n" \
   "time* :: host proc() -> Float                       # seconds since start\n" \
+  "# a command, in the list the system key with P shows (or showCommands): an app's own come from its\n" \
+  "# commandList* :: proc() -> []pc.Command, asked each time the list opens (up to 56 of them), and\n" \
+  "# Rinc's are after them. Picking one types its key, as key() gives it next; while the list is up, the\n" \
+  "# app waits (no update or draw)\n" \
+  "Command* :: struct\n" \
+  "  label: String # what it does: \"Flip the sprite sideways\" (38 characters show)\n" \
+  "  keys: String  # its keys, as shown at the right: \"H\" (\"\" for none; 11 show)\n" \
+  "  key: Int      # what picking it types: a key as key() gives it, or 4096 + n, a command of its own\n" \
+  "end\n" \
+  "showCommands* :: host proc()                        # the command list, after this frame (an app's own key for it)\n" \
   "# the pointer, which Rinc draws while it's shown: a mouse moving it or pressing a button shows it; typing,\n" \
   "# the arrows (the d-pad's too) and a controller's center buttons hide it. What it's for, pointer(mode):\n" \
   "Pointer* :: enum\n" \

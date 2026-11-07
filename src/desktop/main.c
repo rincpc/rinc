@@ -381,6 +381,11 @@ static void rinc_typeMore(void) {
   while (rinc_typing && *rinc_typing && rinc_textRoom() > 0 && !rinc_sysFrames && !rinc_launch) {
     int c;
     if (rinc_typing[0] == '\\' && rinc_typing[1] == 's' && rinc_textRoom() < room) return;
+    if (rinc_typing[0] == '\\' && rinc_typing[1] == 'w') { /* (until what's typed before it is taken: the rest is for the app's next frame) */
+      if (rinc_textRoom() < room) return;
+      rinc_typing += 2;
+      continue;
+    }
     if (rinc_typing[0] == '\\' && rinc_typing[1] == 'u') { /* (until Ctrl's let go) */
       if (rinc_frameNow < rinc_ctrlFrames) return;
       rinc_typing += 2;
@@ -392,7 +397,7 @@ static void rinc_typeMore(void) {
       if (c == 'e') { rinc_textEsc(); continue; }
       if (c == 's' && *rinc_typing) {
         c = (unsigned char)*rinc_typing++;
-        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : c == 'l' ? rinc_SysKey_l : c == 'o' ? rinc_SysKey_o : 0;
+        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : c == 'l' ? rinc_SysKey_l : c == 'o' ? rinc_SysKey_o : c == 'p' ? rinc_SysKey_p : c == 'm' ? rinc_SysKey_m : 0;
         rinc_sysFrames = 2;
         return;
       }
@@ -686,7 +691,7 @@ static int rinc_window(const char *title) {
       for (s = 0; s < SDL_SCANCODE_COUNT; s++)
         other |= k[s] && (s < SDL_SCANCODE_LCTRL || s > SDL_SCANCODE_RGUI); /* (all but the modifiers) */
       int keys = (k[SDL_SCANCODE_ESCAPE] || (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_BACK)) ? rinc_SysKey_esc : 0) |
-                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) | (k[SDL_SCANCODE_H] ? rinc_SysKey_h : 0) | (k[SDL_SCANCODE_L] ? rinc_SysKey_l : 0) | (k[SDL_SCANCODE_O] ? rinc_SysKey_o : 0) |
+                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) | (k[SDL_SCANCODE_H] ? rinc_SysKey_h : 0) | (k[SDL_SCANCODE_L] ? rinc_SysKey_l : 0) | (k[SDL_SCANCODE_O] ? rinc_SysKey_o : 0) | (k[SDL_SCANCODE_M] ? rinc_SysKey_m : 0) |
                  (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER] ? rinc_SysKey_enter : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? rinc_SysKey_next : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? rinc_SysKey_prev : 0) |

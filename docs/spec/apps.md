@@ -410,7 +410,8 @@ on, what's typed isn't the app's. It's:
 | system + O | this app's log, in the Log app (see [its cache, and its log](#its-cache-and-its-log)); Esc there comes back |
 | system + arrows (or the d-pad) | move the pointer, faster the longer they're held |
 | system + V, C (or A, B) | the pointer's primary and secondary buttons |
-| system + P | the performance strip, on or off |
+| system + P | the command list: this app's commands, then the system's own (see [its commands](#its-commands)) |
+| system + M | the performance strip, on or off |
 | system + L | sleep: the screen black and the sound silent, and on a board the video signal stopped, so the monitor goes to standby; the app goes on. Once every key's let go, any key or button wakes it (that key isn't the app's). Nothing's locked |
 | system + Enter | the whole display, or a window again, where the Rinc can (the desktop's F11 too). The whole display keeps the mouse on Rinc's screen; on the web, where the browser lets a page have Esc and its own Ctrl+N, Ctrl+T, Ctrl+W (Chrome, Edge: holding Esc leaves), after a click there. Alt+Tab and Cmd+Tab are always the system's |
 
@@ -430,6 +431,37 @@ around them.
 The performance strip shows how long each frame's `update*` and `draw*` take, against the 1/60 s a
 frame has: the latest, and a bar for each of the last few seconds' frames, 8 pixels high for the whole
 1/60 s (green under half of it, yellow up to all of it, red over).
+
+## Its commands
+
+The system key with P shows a list of what the app can do, over its screen: the app's own commands,
+then the system's (home, switching apps, this app's help and log, and the rest of the system key's).
+An app may also show it with a key of its own (the editor's Ctrl+Shift+P), with `pc.showCommands()`.
+Typing narrows the list to the commands with that in their names; up and down (or the d-pad) move,
+Enter (a controller's A) does the one picked, as does a click on it; Esc (B), or a click outside,
+closes it. While it's up, the app waits: no `update*` or `draw*`.
+
+An app gives its commands with `commandList*`, which Rinc asks each time the list opens, so it can say
+what makes sense then:
+
+```rio fragment
+commands := [2]pc.Command{
+  {label = "Flip the sprite sideways", keys = "H", key = 'h'},
+  {label = "Grid, shown or not", keys = "G", key = 'g'},
+}
+commandList* :: proc() -> []pc.Command
+  return commands[0..<2]
+end
+```
+
+| `pc.Command` | |
+|---|---|
+| `label` | what it does (38 characters show) |
+| `keys` | its keys, as shown at the right ("" for none; 11 characters show) |
+| `key` | what picking it types: the key, as `pc.key()` gives it next (before anything typed after), so a command is just its key; or `4096 + n`, a command of the app's own with no key |
+
+Up to 56 of an app's are listed. A key or button still held as the list closes isn't the app's until
+it's let go.
 
 ## The console
 

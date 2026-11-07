@@ -5,7 +5,7 @@
 # goes up), edits an app's main file (it becomes the active app, and the editor opens it) or shows a
 # file's text; Backspace goes up too. Typing narrows the list. Space (or the secondary button, or Y)
 # shows what else can be done, each with a letter. Ctrl+N starts a new project, Ctrl+Shift+N makes a
-# folder here. Esc closes what's open,
+# folder here. Ctrl+Shift+P (or the system key with P) lists every command. Esc closes what's open,
 # else clears what's typed. /rinc is the root; changing is only inside it. Called with
 # pc.call("files", "pick"), it's a picker: Enter on a file gives its path back (pc.done), Esc nothing.
 # Called with "save", it picks where to save: a name typed, in the folder shown (Enter on a file takes
@@ -76,6 +76,7 @@ end
 
 include "parts/folder.rio"
 include "parts/actions.rio"
+include "parts/commands.rio"
 include "parts/input.rio"
 include "parts/screen.rio"
 

@@ -117,6 +117,10 @@ listKey :: proc(c: Int)
     return
   end
   switch # (the arrows are buttons too: they're handled as buttons, below)
+  case c >= ACT and c < ACT + 9 # (one of the menu's, from the command list)
+    actOn(c - ACT)
+  case c == 16 | 256 # Ctrl+Shift+P: every command, the system's list
+    pc.showCommands()
   case k == 27
     back()
   case c == 13

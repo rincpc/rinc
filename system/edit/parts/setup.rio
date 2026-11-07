@@ -10,7 +10,6 @@ ROWS :: 24            # text rows, 9 pixels each
 COLS :: 48            # characters in a row, after the line numbers
 TOP_Y :: 12
 TEXT_X :: 30          # where the text starts, with line numbers (else in a slim gutter, at 6)
-LIST_ROWS :: 16       # commands shown in the list
 
 numbers := false      # line numbers shown (the palette's Line numbers); else a slim gutter marks the cursor's line
 textX := 6            # where the text starts, and the columns it has: as numbers has them (showNumbers)

@@ -109,7 +109,7 @@ int main(void) {
     if (strcmp(out, "65\n258\n896\n99\n")) { printf("FAIL: locked keys gave\n%s", out); return 1; }
     if (rinc_overlayOn) { printf("FAIL: the overlay stays with no locks\n"); return 1; }
   }
-  { /* recent apps: started a, then b. Sys+Tab, then Enter: a. Sys+Q (in b): back to a, b forgotten. Sys+P:
+  { /* recent apps: started a, then b. Sys+Tab, then Enter: a. Sys+Q (in b): back to a, b forgotten. Sys+M:
        the performance strip, up while nothing's held. Sys+Enter: the whole display */
     int f, go = 0;
     rinc_appBegin(&vm, space, sizeof space, "a", put);
@@ -127,7 +127,7 @@ int main(void) {
     rinc_systemKey(0, 0, 0, 0); rinc_systemKey(0, 3, 0, 0); rinc_systemKey(0, 0, 0, 0);
     if (rinc_systemKey(0, 0, 1, rinc_SysKey_tab) || rinc_systemHeld()) { printf("FAIL: a switcher with b forgotten\n"); return 1; }
     rinc_systemKey(0, 0, 0, 0); rinc_systemKey(0, 3, 0, 0); rinc_systemKey(0, 0, 0, 0);
-    rinc_systemKey(0, 0, 1, rinc_SysKey_p);
+    rinc_systemKey(0, 0, 1, rinc_SysKey_m);
     for (f = 0; f < 60; f++) rinc_systemKey(0, 0, 0, 0);
     if (!rinc_overlayOn || rinc_overlay[0][0] != 5) { printf("FAIL: no performance strip\n"); return 1; }
     rinc_systemKey(0, 3, 0, 0); rinc_systemKey(0, 0, 0, 0);

@@ -14,6 +14,7 @@ or where it was last. A yellow mark at the left is the active app or project, wh
 | Space (or Y, or the secondary button) | what else can be done with it, each by its letter |
 | Ctrl+N | a new project: its name, then the editor |
 | Ctrl+Shift+N | a new folder, here (inside `/rinc`'s folders) |
+| Ctrl+Shift+P (or the system key with P) | every command: these, and what can be done with the one picked, each by name |
 | Esc | close what's open, else clear what's typed, else up a folder |
 
 With a mouse, a click picks one, a click on the one picked opens it, and the wheel scrolls. A file's

@@ -32,14 +32,14 @@ static void rinc_put(const char *s, int n) { fwrite(s, 1, (size_t)n, stdout); ff
 #define rinc_DOWN(k) (rinc_keysDown[(k) >> 3] >> ((k) & 7) & 1)
 
 /* the system key (rinc_systemKey): the Windows key, a controller's Xbox button, or Ctrl and Shift tapped
-   together; and the locks. With Esc (or the controller's Back), Tab, Q, P or Enter: 1 to start
+   together; and the locks. With Esc (or the controller's Back), Tab, Q, R, H, O, L, P, M or Enter: 1 to start
    rinc_launchName */
 static int rinc_systemKeys(void) {
   int k, other = rinc_padButtons != 0, m = rinc_keysDown[0xE0 >> 3]; /* (the modifiers: Ctrl Shift Alt GUI, left then right) */
   int mods = (m & 0x22 ? 1 : 0) | (m & 0x11 ? 2 : 0) | (m & 0x44 ? 4 : 0);
   int keys = (rinc_DOWN(HID_KEY_ESCAPE) || (rinc_padButtons & rinc_Button_back) ? rinc_SysKey_esc : 0) | (rinc_DOWN(HID_KEY_TAB) ? rinc_SysKey_tab : 0) |
              (rinc_DOWN(HID_KEY_Q) ? rinc_SysKey_q : 0) | (rinc_DOWN(HID_KEY_P) ? rinc_SysKey_p : 0) | (rinc_DOWN(HID_KEY_R) ? rinc_SysKey_r : 0) | (rinc_DOWN(HID_KEY_H) ? rinc_SysKey_h : 0) |
-             (rinc_DOWN(HID_KEY_L) ? rinc_SysKey_l : 0) | (rinc_DOWN(HID_KEY_O) ? rinc_SysKey_o : 0) |
+             (rinc_DOWN(HID_KEY_L) ? rinc_SysKey_l : 0) | (rinc_DOWN(HID_KEY_O) ? rinc_SysKey_o : 0) | (rinc_DOWN(HID_KEY_M) ? rinc_SysKey_m : 0) |
              (rinc_DOWN(HID_KEY_ENTER) || rinc_DOWN(HID_KEY_KEYPAD_ENTER) ? rinc_SysKey_enter : 0) |
              (rinc_padButtons & rinc_Button_rb ? rinc_SysKey_next : 0) | (rinc_padButtons & rinc_Button_lb ? rinc_SysKey_prev : 0) |
              rinc_pointerKeys(rinc_padButtons | rinc_DOWN(HID_KEY_ARROW_LEFT) * rinc_Button_left | rinc_DOWN(HID_KEY_ARROW_RIGHT) * rinc_Button_right |

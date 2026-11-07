@@ -1,0 +1,25 @@
+# the command list (docs/spec/apps.md#its-commands): an app's own, from commandList*, then Rinc's; a
+# pick types its key for the app (tests/commands.py types at it, and reads what this logs)
+commands := [3]pc.Command{
+  {label = "Flip the sprite sideways", keys = "H", key = 'h'},
+  {label = "Turn it", keys = "T", key = 't'},
+  {label = "Something of its own", keys = "", key = 4096 + 1},
+}
+asked := 0
+commandList* :: proc() -> []pc.Command
+  asked += 1
+  return commands[0..<3]
+end
+update* :: proc()
+  k := pc.key()
+  for k >= 0
+    log("key", k, "asked", asked)
+    if k == 'p' # (the app's own key for the list)
+      pc.showCommands()
+    end
+    k = pc.key()
+  end
+end
+draw* :: proc()
+  pc.cls(1)
+end

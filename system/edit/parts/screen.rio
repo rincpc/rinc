@@ -176,31 +176,6 @@ drawOffers :: proc()
   listBox = {x, y, w, rows}
 end
 
-# Ctrl+Shift+P's list of commands, narrowed by what's typed
-drawPalette :: proc()
-  pc.rect({40, 24}, {240, 40 + LIST_ROWS * 10}, barColor)
-  pc.print("Every command (type to narrow):", {46, 28}, accentColor)
-  pc.rect({44, 38}, {232, 11}, backColor)
-  pc.print(input[0..<input.len()].asString(), {46, 40}, textColor)
-  pc.rect({46 + input.len() * 6, 39}, {1, 9}, accentColor)
-  from := max(0, pick - LIST_ROWS + 1)
-  for row in 0..<min(nlisted - from, LIST_ROWS)
-    i := from + row
-    k := listed[i]
-    y := 54 + row * 10
-    color := softColor
-    if i == pick
-      pc.rect({44, y - 2}, {232, 10}, pickColor())
-      color = textColor
-    end
-    pc.print(commands[k].label, {48, y}, color)
-    pc.print(commands[k].keys, {272 - commands[k].keys.len() * 6, y}, dimColor)
-  end
-  if nlisted == 0
-    pc.print("No such command", {48, 54}, faintColor)
-  end
-end
-
 # Ctrl+Tab's list, while Ctrl's held: the files it had lately, the latest first, the pick lit; each its
 # name, then its folder (/rinc/ left off; its start, if it's long), dimmer
 drawWalk :: proc()
@@ -336,9 +311,6 @@ draw* :: proc()
   end
   if completing and mode == NONE
     drawOffers()
-  end
-  if mode == PALETTE
-    drawPalette()
   end
   if walking
     drawWalk()
