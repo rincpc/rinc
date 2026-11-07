@@ -667,42 +667,91 @@ static int rinc_savePath(rio_Vm *v, rio_Val *file, char *path, size_t cap) {
 }
 /* every file in folder from, copied to the same places in folder to (but not a top-level folder named
    skip): 0, or -1 if any couldn't be. Names gather in rinc_tree as each folder's listed */
-static char rinc_tree[512]; static int rinc_treeUsed;
+/* a folder's entries, a run of them at a time (the room's shared by the folders inside it, as they're
+   walked): 'd' or 'f' and each name, or 'x' for one whose name's too long to have a path. A walk skips
+   the first skip it's given, and says if there were more than there was room for (full) */
+static char rinc_tree[512]; static int rinc_treeUsed, rinc_treeCap = (int)sizeof rinc_tree; /* (cap: where this level's run stops, below) */
+typedef struct { int skip, seen, full; } rinc_TreeWalk;
 static void rinc_treeFound(const char *name, int dir, void *ud) {
-  size_t n = strlen(name);
-  (void)ud;
-  if (n > 47 || rinc_treeUsed + (int)n + 2 > (int)sizeof rinc_tree) return;
-  rinc_tree[rinc_treeUsed++] = dir ? 'd' : 'f';
-  memcpy(rinc_tree + rinc_treeUsed, name, n + 1); rinc_treeUsed += (int)n + 1;
+  rinc_TreeWalk *w = (rinc_TreeWalk *)ud; size_t n = strlen(name);
+  if (w && (w->seen++ < w->skip || w->full)) return; /* (once one doesn't fit, none after it: a run is unbroken, so the next run starts right after it) */
+  if (n > 95) n = 0, dir = 'x'; /* (no path for it: counted, and it can't be done) */
+  if (rinc_treeUsed + (int)n + 2 > rinc_treeCap) { if (w) w->full = 1; return; }
+  rinc_tree[rinc_treeUsed++] = (char)(dir == 'x' ? 'x' : dir ? 'd' : 'f');
+  memcpy(rinc_tree + rinc_treeUsed, name, n); rinc_tree[rinc_treeUsed + (int)n] = 0; rinc_treeUsed += (int)n + 1;
 }
-static int rinc_copyTree(const char *from, const char *to, const char *skip, int depth) {
-  int start = rinc_treeUsed, end, at, bad = 0; char a[128], b[128];
-  if (!rinc_fs || depth > 4 || rinc_fs->list(from, rinc_treeFound, 0)) { rinc_treeUsed = start; return -1; }
-  end = rinc_treeUsed;
-  for (at = start; at < end; at += (int)strlen(rinc_tree + at + 1) + 2) {
-    const char *name = rinc_tree + at + 1;
-    if (snprintf(a, sizeof a, "%s/%s", from, name) >= (int)sizeof a || snprintf(b, sizeof b, "%s/%s", to, name) >= (int)sizeof b) { bad = 1; continue; }
-    if (rinc_tree[at] == 'd') { if (!(skip && !strcmp(name, skip)) && rinc_copyTree(a, b, 0, depth + 1)) bad = 1; }
-    else if (rinc_fs->copy(a, b)) bad = 1;
-    rinc_treeUsed = end;
-  }
-  rinc_treeUsed = start;
-  return bad ? -1 : 0;
+#define rinc_TREE_DEEP 12
+/* a level's room: half of what's left, so the folders in it have the rest (but one long name, at least) */
+static void rinc_treeRoom(int start) {
+  int left = (int)sizeof rinc_tree - start, half = left / 2;
+  rinc_treeCap = start + (half > 98 ? half : left < 98 ? left : 98);
 }
-/* every file and folder in folder dir, and it: 0, or -1 if any couldn't be removed */
-static int rinc_removeTree(const char *dir, int depth) {
-  int start = rinc_treeUsed, end, at, bad = 0; char a[128];
-  if (!rinc_fs || depth > 4) return -1;
-  if (!rinc_fs->list(dir, rinc_treeFound, 0)) {
+/* the paths being walked, each level's /name added on, and taken off after: here, not on the stack, which
+   on a board is small (4 KB, the interpreter's calls too), so a folder 12 deep is no danger */
+static char rinc_treeFrom[128], rinc_treeTo[128];
+static int rinc_treeAdd(char *path, int len, const char *name) { /* (path/name: its length, or -1 if it's too long) */
+  int n = (int)strlen(name);
+  if (len + 1 + n >= 128) return -1;
+  path[len] = '/'; memcpy(path + len + 1, name, (size_t)n + 1);
+  return len + 1 + n;
+}
+static int rinc_copyAt(int fromLen, int toLen, const char *skip, int depth) {
+  int start = rinc_treeUsed, end, at, bad = 0, done = 0; rinc_TreeWalk w;
+  if (!rinc_fs || depth > rinc_TREE_DEEP) return -1;
+  for (;;) { /* (a run of its entries at a time: those before done, skipped) */
+    w.skip = done; w.seen = w.full = 0; rinc_treeUsed = start;
+    rinc_treeRoom(start);
+    rinc_treeFrom[fromLen] = 0;
+    if (rinc_fs->list(rinc_treeFrom, rinc_treeFound, &w)) { rinc_treeUsed = start; rinc_treeCap = (int)sizeof rinc_tree; return -1; }
     end = rinc_treeUsed;
-    for (at = start; at < end; at += (int)strlen(rinc_tree + at + 1) + 2) {
-      if (snprintf(a, sizeof a, "%s/%s", dir, rinc_tree + at + 1) >= (int)sizeof a) { bad = 1; continue; }
-      if (rinc_tree[at] == 'd' ? rinc_removeTree(a, depth + 1) : rinc_fs->remove(a)) bad = 1;
+    if (end == start) { bad |= w.full; break; } /* (none, or not even one fits) */
+    for (at = start; at < end; at += (int)strlen(rinc_tree + at + 1) + 2, done++) {
+      const char *name = rinc_tree + at + 1;
+      int f = rinc_tree[at] == 'x' ? -1 : rinc_treeAdd(rinc_treeFrom, fromLen, name), t = f < 0 ? -1 : rinc_treeAdd(rinc_treeTo, toLen, name);
+      if (f < 0 || t < 0) bad = 1;
+      else if (rinc_tree[at] == 'd') { if (!(skip && !strcmp(name, skip)) && rinc_copyAt(f, t, 0, depth + 1)) bad = 1; }
+      else if (rinc_fs->copy(rinc_treeFrom, rinc_treeTo)) bad = 1;
+      rinc_treeFrom[fromLen] = rinc_treeTo[toLen] = 0;
       rinc_treeUsed = end;
     }
+    if (!w.full) break;
   }
-  rinc_treeUsed = start;
-  return rinc_fs->remove(dir) || bad ? -1 : 0;
+  rinc_treeUsed = start; rinc_treeCap = (int)sizeof rinc_tree;
+  return bad ? -1 : 0;
+}
+static int rinc_copyTree(const char *from, const char *to, const char *skip, int depth) {
+  int f = snprintf(rinc_treeFrom, sizeof rinc_treeFrom, "%s", from), t = snprintf(rinc_treeTo, sizeof rinc_treeTo, "%s", to);
+  return f < 0 || t < 0 || f >= (int)sizeof rinc_treeFrom || t >= (int)sizeof rinc_treeTo ? -1 : rinc_copyAt(f, t, skip, depth);
+}
+/* every file and folder in folder dir, and it: 0, or -1 if any couldn't be removed. What's removed is
+   gone from the next run's listing, so each run skips just what couldn't be */
+static int rinc_removeAt(int len, int depth) {
+  int start = rinc_treeUsed, end, at, kept = 0, r; rinc_TreeWalk w;
+  if (!rinc_fs || depth > rinc_TREE_DEEP) return -1;
+  for (;;) {
+    w.skip = kept; w.seen = w.full = 0; rinc_treeUsed = start;
+    rinc_treeRoom(start);
+    rinc_treeFrom[len] = 0;
+    if (rinc_fs->list(rinc_treeFrom, rinc_treeFound, &w)) break;
+    end = rinc_treeUsed;
+    if (end == start) { kept += w.full; break; }
+    for (at = start; at < end; at += (int)strlen(rinc_tree + at + 1) + 2) {
+      int f = rinc_tree[at] == 'x' ? -1 : rinc_treeAdd(rinc_treeFrom, len, rinc_tree + at + 1);
+      if (f < 0) { kept++; continue; }
+      r = rinc_tree[at] == 'd' ? rinc_removeAt(f, depth + 1) : rinc_fs->remove(rinc_treeFrom);
+      rinc_treeFrom[len] = 0;
+      if (r) kept++;
+      rinc_treeUsed = end;
+    }
+    if (!w.full) break;
+  }
+  rinc_treeUsed = start; rinc_treeCap = (int)sizeof rinc_tree;
+  rinc_treeFrom[len] = 0;
+  return rinc_fs->remove(rinc_treeFrom) || kept ? -1 : 0;
+}
+static int rinc_removeTree(const char *dir, int depth) {
+  int n = snprintf(rinc_treeFrom, sizeof rinc_treeFrom, "%s", dir);
+  return n < 0 || n >= (int)sizeof rinc_treeFrom ? -1 : rinc_removeAt(n, depth);
 }
 /* an app's folder, or its project's (chord+): 0 if the name's no good */
 static int rinc_appFolder(const char *name, char *out, size_t cap) {

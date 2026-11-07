@@ -177,6 +177,17 @@ update* :: proc()
       start()
     case c == 13 | 512 # Ctrl+Enter
       edit()
+    case c & 255 >= 132 and c & 255 <= 136 and c & 255 != 134 and nshown > 0 # Home, End, Page Up, Page Down
+      k := c & 255
+      if k == 132
+        pick = 0
+      case k == 133
+        pick = nshown - 1
+      case k == 135
+        pick = max(0, pick - (ROWS - 1))
+      else
+        pick = min(nshown - 1, pick + ROWS - 1)
+      end
     else
       if c == 8
         if filter.len() > 0

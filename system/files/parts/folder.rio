@@ -64,6 +64,7 @@ end
 # what's selected (as well as the one picked, which the arrows move): entries of the folder shown
 marked: [MOST]Bool
 markCount := 0
+markStamp := 0        # (each change to what's selected: for keeping it, in clip.rio)
 anchor := 0           # a range's other end (Shift): a row of what's shown
 markable :: proc(k: Int) -> Bool do return k >= 0 and kind[k] != UP and not picking
 clearMarks :: proc()
@@ -71,10 +72,12 @@ clearMarks :: proc()
     marked[k] = false
   end
   markCount = 0
+  markStamp += 1
 end
 setMark :: proc(k: Int, on: Bool)
   if markable(k) and marked[k] != on
     marked[k] = on
+    markStamp += 1
     if on
       markCount += 1
     else

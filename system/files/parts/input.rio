@@ -283,4 +283,5 @@ update* :: proc()
   if s != 0 and (mode == NONE or mode == VIEW)
     move(-s * 2)
   end
+  keepView()
 end

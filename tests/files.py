@@ -15,8 +15,9 @@ def there(path): return os.path.exists(os.path.join(data, *path.split('/')))
 def get(path):
   path = os.path.join(data, *path.split('/'))
   return open(path).read() if os.path.exists(path) else None
-def typing(keys, app=None, frames=200, extra=()): # (extra: more of rinc's options, as -hold and -shift)
-  shutil.rmtree(os.path.join(data, 'stash'), ignore_errors=True) # (each from /rinc)
+def typing(keys, app=None, frames=200, extra=(), keep=False): # (extra: more of rinc's options, as -hold and -shift; keep: where it was, its stash)
+  if not keep:
+    shutil.rmtree(os.path.join(data, 'stash'), ignore_errors=True) # (each from /rinc)
   shutil.rmtree(os.path.join(data, 'cache'), ignore_errors=True) # (and /rinc as it was: apps, projects, save; not the last run's log)
   args = [rinc, '-data', data] + (['-app', app] if app else [files]) + ['-frames', str(frames), '-type', keys] + list(extra)
   return subprocess.run(args, capture_output=True, text=True, timeout=60).stdout
@@ -105,4 +106,27 @@ check(get('save/edit/song2.jpg') == 'tune', 'F2, End, Backspace: the extension e
 for name in ('p1', 'p2', 'p3'): put('save/pad/' + name, name)
 typing('save\\npad\\n' + DOWN + '\\w' + '\\f' * 6 + CTRL_X + ALT_UP + 'dest\\n' + CTRL_V, extra=['-hold', 'lt 1-12, down 3-4']) # (\f: a frame passes)
 check(there('save/dest/p1') and there('save/dest/p2') and not there('save/dest/p3'), 'the left trigger and the d-pad: a run selected')
+# deleting a folder: all of it, folders in folders too, its name typed; and among several selected
+put('save/tree/top', '1'); put('save/tree/a/mid', '2'); put('save/tree/a/b/deep', '3')
+typing('save\\ntree' + DEL + 'tree\\n')
+check(not there('save/tree') and there('save/dest'), 'a folder deleted, all that was in it')
+put('save/trees/t1/a/x', '1'); put('save/trees/t2/y', '2'); put('save/trees/keep', '3')
+typing('save\\ntrees\\n' + DOWN + SHIFT_DOWN + DEL + 'delete\\n')
+check(not there('save/trees/t1') and not there('save/trees/t2') and there('save/trees/keep'), 'several folders deleted, as selected')
+# where it was, kept: started again (as after going to another app and back), the same folder, the
+# same one picked and the same selected, so Ctrl+X takes what was selected
+for name in ('v1', 'v2', 'v3'): put('save/view/' + name, name)
+typing('save\\nview\\n' + DOWN + SHIFT_DOWN)
+typing(CTRL_X + ALT_UP + 'dest\\n' + CTRL_V, keep=True)
+check(there('save/dest/v1') and there('save/dest/v2') and not there('save/dest/v3'), 'started again: the folder, the pick and what was selected')
+# a big folder, copied and deleted whole: more names than a listing at a time holds (60, longish), one
+# over 47 characters, and folders 7 deep
+for i in range(60): put('save/big/file-with-a-longish-name-%02d' % i, str(i))
+for i in range(30): put('save/big/z%02d' % i, str(i)) # (short names after long ones: a run that's full of long ones has room for a short one, which mustn't be taken out of turn)
+put('save/big/' + 'n' * 60, 'long')
+put('save/big/d1/d2/d3/d4/d5/d6/d7/deep', 'deep')
+typing('save\\nbig' + CTRL_C + '\\e' + 'dest\\n' + CTRL_V) # (Esc: what's typed cleared)
+check(len(os.listdir(os.path.join(data, 'save', 'dest', 'big'))) == 92 and get('save/dest/big/d1/d2/d3/d4/d5/d6/d7/deep') == 'deep', 'a big folder copied whole')
+typing('save\\nbig' + DEL + 'big\\n')
+check(not there('save/big'), 'a big folder deleted whole')
 print('files came through')

@@ -7,6 +7,7 @@ has, in storage and built in, in order of their titles, each with what it does.
 |---|---|
 | typing | narrow the list to the apps whose name or title has what's typed |
 | up, down (or the d-pad) | pick an app |
+| Page Up, Page Down, Home, End | a page up or down, the first, the last |
 | Enter (or A) | start it |
 | Esc | clear what's typed |
 | Ctrl+Enter | make it the active app (or project, `chord+`) and open it in the editor: a yellow mark at its left shows the active one |

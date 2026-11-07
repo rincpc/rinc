@@ -68,6 +68,85 @@ chosen :: proc(k: Int) -> Bool
   return k == picked()
 end
 
+# ---------------------------------------------------------------- where it was, kept
+
+# the folder shown, as it's left: the row at the top, the one picked and what's selected (by name), kept
+# in the stash once it's rested a moment (not each step of a held arrow), and found again on starting
+view: Blob[..2048]
+viewWas: [4]Int
+viewSaved: [4]Int
+viewStill := 0
+keepView :: proc()
+  now := [4]Int{pick, top, markStamp, path.len()}
+  if now != viewWas
+    viewWas = now
+    viewStill = 0
+  end
+  viewStill += 1
+  if viewStill != 15 or now == viewSaved or picking
+    return
+  end
+  viewSaved = now
+  view.clear()
+  _ = view.print(here(), "\n", top, "\n")
+  if picked() >= 0
+    ok := view.pushAll(nameOf(picked()))
+  end
+  ok := view.push(10)
+  for k in 0..<count
+    if marked[k] and view.len() + nameLen[k] + 1 < 2048
+      ok = view.pushAll(nameOf(k))
+      ok = view.push(10)
+    end
+  end
+  saved := pc.stashWrite("view", view[0..<view.len()].asString())
+end
+# a line of view's: line n (from 0), "" past its end
+viewLine :: proc(n: Int) -> String
+  at := 0
+  k := 0
+  for i in 0..<view.len()
+    if view[i] == 10
+      if k == n
+        return view[at..<i].asString()
+      end
+      k += 1
+      at = i + 1
+    end
+  end
+  return ""
+end
+# as it was kept, if it's of the folder shown
+restoreView :: proc()
+  view.clear()
+  if pc.stashRead("view", view) < 0 or viewLine(0) != here()
+    return
+  end
+  t := 0
+  for c in viewLine(1)
+    t = t * 10 + c - 48
+  end
+  name := viewLine(2)
+  clearMarks()
+  for i in 0..<nshown
+    if nameOf(shown[i]) == name
+      pick = i
+    end
+  end
+  n := 3
+  for viewLine(n).len() > 0
+    for k in 0..<count
+      if nameOf(k) == viewLine(n)
+        setMark(k, true)
+      end
+    end
+    n += 1
+  end
+  anchor = pick
+  top = max(0, min(t, nshown - 1))
+  reveal()
+end
+
 # ---------------------------------------------------------------- cut, copy and paste
 
 # what's cut or copied: their paths, a line each, after "x" (cut) or "c" (copied) and a line; kept in the
