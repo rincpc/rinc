@@ -389,6 +389,7 @@ void rinc_HOT rinc_audioMix(int16_t *out, int frames) {
       else rinc_mixVoice(v, n);
     }
     if (rinc_master != 32768) { int32_t m = rinc_master; for (f = 0; f < n * 2; f++) rinc_sums[f] = (int32_t)((int64_t)rinc_sums[f] * m >> 15); }
+    if (rinc_sleeping) memset(rinc_sums, 0, (size_t)n * 2 * sizeof rinc_sums[0]); /* (asleep: silent, the voices going on) */
     for (f = 0; f < n * 2; f++) out[f] = (int16_t)(rinc_sums[f] < -32768 ? -32768 : rinc_sums[f] > 32767 ? 32767 : rinc_sums[f]);
     out += n * 2; frames -= n;
   }

@@ -1605,6 +1605,8 @@ static int rinc_switching, rinc_pick; /* the switcher (Sys+Tab) is up, and which
 
 static int rinc_sysLock; /* Ctrl+Shift tapped: the system key, for the next combination */
 int rinc_fullscreen;      /* Sys+Enter asked for the screen to fill the display, or not (rinc.h) */
+int rinc_sleeping;        /* Sys+L (rinc.h) */
+static int rinc_waking;   /* woken, until every key's let go: what's still down isn't the app's */
 
 /* the locks on, as badges at the bottom right */
 /* a notice at the bottom left, over the screen, for a few seconds (no help for this app, say) */
@@ -1651,7 +1653,7 @@ static void rinc_overlayDraw(int strip) {
     }
   } else if (rinc_systemDown) {
     memset(rinc_overlay[0], 10, rinc_W); /* (a yellow edge) */
-    rinc_overlayText("Esc home Tab switch Q back R redo H help P perf", 2, 7);
+    rinc_overlayText("Esc home Tab apps Q back R redo H help P perf L sleep", 2, 7);
   } else { /* the performance strip: the latest frame's time, then a bar a frame, the newest at the right: 8 high is 1/60 s */
     char text[24]; float ms = (float)rinc_frameMs[(rinc_frameAt - 1) & 255] / 100.0f;
     int pct = (int)(ms * 6.0f + 0.5f); /* (of 16.67 ms) */
@@ -1693,6 +1695,18 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
   int pressed = keys & ~wasKeys, otherPressed = otherDown && !wasOther, go = 0, strip;
   now++;
   rinc_modsHeld = mods;
+  { /* asleep: once nothing's down, anything wakes it; and until it's all let go, nothing's the app's */
+    static int armed;
+    int any = sysDown || otherDown || mods || keys;
+    if (rinc_sleeping && !any) armed = 1;
+    else if (rinc_sleeping && armed) { rinc_sleeping = 0; rinc_waking = 1; armed = 0; }
+    else if (rinc_waking && !any) rinc_waking = 0;
+    if (rinc_sleeping || rinc_waking) {
+      wasKeys = keys; wasOther = otherDown;
+      rinc_systemDown = 1;
+      return 0;
+    }
+  }
   wasKeys = keys;
   wasOther = otherDown;
   mods &= 7; /* (1 Shift, 2 Ctrl, 4 Alt) */
@@ -1746,6 +1760,7 @@ int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
         go = 1;
       } else rinc_noticeSay("No help for ", rinc_appRef);
     } else if (pressed & rinc_SysKey_p) rinc_perfOn = !rinc_perfOn;
+    else if (pressed & rinc_SysKey_l) rinc_sleeping = 1; /* (asleep: the display rests, until a key) */
     else if (pressed & rinc_SysKey_enter) rinc_fullscreen = !rinc_fullscreen;
     rinc_sysLock = 0; /* (used up) */
   } else if (rinc_sysLock && otherPressed && !down) rinc_sysLock = 0; /* (another key: no combination) */

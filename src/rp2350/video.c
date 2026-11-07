@@ -186,6 +186,16 @@ void __not_in_flash_func(rinc_hdmiSound)(const int16_t *stereo, int frames) {
   }
 }
 
+/* asleep (rinc_sleeping): the HDMI pins let go of, so there's no signal and the monitor rests; the video
+   goes on inside, so waking is the pins taken back */
+void rinc_videoSleep(int on) {
+  static int was;
+  int i;
+  if (on == was) return;
+  was = on;
+  for (i = 12; i <= 19; i++) gpio_set_function((uint)i, on ? GPIO_FUNC_NULL : GPIO_FUNC_HSTX);
+}
+
 void rinc_videoStart(void) {
   dma_channel_config c; int lane, i;
   rinc_copy = dma_claim_unused_channel(true);

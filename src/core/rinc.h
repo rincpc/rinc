@@ -109,7 +109,7 @@ enum { rinc_SysKey_esc = 1, rinc_SysKey_tab = 2, rinc_SysKey_q = 4, rinc_SysKey_
        rinc_SysKey_next = 32, rinc_SysKey_prev = 64, rinc_SysKey_r = 128, /* (next, prev: a controller's RB and LB, as Tab and Shift+Tab) */
        rinc_SysKey_left = 256, rinc_SysKey_right = 512, rinc_SysKey_up = 1024, rinc_SysKey_down = 2048, /* the pointer's: the arrows (the d-pad) move it, */
        rinc_SysKey_a = 4096, rinc_SysKey_b = 8192, /* V and C (A and B) its buttons */
-       rinc_SysKey_pointer = 0x3f00, rinc_SysKey_h = 0x4000 /* H: the app's help */ };
+       rinc_SysKey_pointer = 0x3f00, rinc_SysKey_h = 0x4000 /* H: the app's help */, rinc_SysKey_l = 0x8000 /* L: sleep */ };
 /* the pointer's system keys from buttons held (rinc_Button_*: the arrows, V and C, a controller's d-pad, A and B) */
 static inline int rinc_pointerKeys(int buttons) {
   return (buttons & 1 ? rinc_SysKey_left : 0) | (buttons & 2 ? rinc_SysKey_right : 0) | (buttons & 4 ? rinc_SysKey_up : 0) |
@@ -125,6 +125,10 @@ void rinc_mouseWheel(float dx, float dy);
 void rinc_mouseGone(void); /* it left the window: the pointer hides, unless a button's held (dragging) */
 int rinc_systemHeld(void);
 extern int rinc_fullscreen; /* whether the screen should fill the display (Sys+Enter): a platform that can, follows */
+/* Sys+L: asleep, for the display to rest (nothing's locked or turned off; apps go on): the screen black
+   (rinc_shownAt), the sound silent (rinc_audioMix), and on a board the video signal stopped, so the
+   monitor goes to standby. Once every key's let go, any key or button wakes it, and isn't the app's */
+extern int rinc_sleeping;
 /* the overlay: Rinc's own over the screen's bottom rows, apart from the app's screen: a strip while the
    system key is on (what it does; the switcher) or the performance strip is, and the locks' badges.
    Where it's rinc_SEE_THROUGH, the screen shows; a platform shows each pixel as rinc_shownAt gives it */
@@ -138,6 +142,7 @@ extern int rinc_pointerAtX, rinc_pointerAtY;
 extern uint8_t rinc_pointerImage[8][8];
 static inline uint8_t rinc_shownAt(int x, int y) {
   uint8_t o;
+  if (rinc_sleeping) return 0; /* (black) */
   if (rinc_pointerOnScreen && (unsigned)(x - rinc_pointerAtX) < 8 && (unsigned)(y - rinc_pointerAtY) < 8 &&
       (o = rinc_pointerImage[y - rinc_pointerAtY][x - rinc_pointerAtX]) != rinc_SEE_THROUGH) return o;
   if (!rinc_overlayOn || y < rinc_H - rinc_OVERLAY_H) return rinc_screen[y][x];

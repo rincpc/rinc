@@ -47,7 +47,7 @@ static int rinc_savePpm(const char *path) { /* the screen through the palette, a
   fprintf(f, "P6 %d %d 255\n", rinc_W, rinc_H);
   for (y = 0; y < rinc_H; y++)
     for (x = 0; x < rinc_W; x++) {
-      uint16_t c = rinc_palette[rinc_screen[y][x]];
+      uint16_t c = rinc_palette[rinc_sleeping ? 0 : rinc_screen[y][x]]; /* (asleep: black, as it's shown) */
       unsigned char rgb[3];
       rgb[0] = (unsigned char)((c >> 11) * 255 / 31); rgb[1] = (unsigned char)((c >> 5 & 63) * 255 / 63); rgb[2] = (unsigned char)((c & 31) * 255 / 31);
       fwrite(rgb, 1, 3, f);
@@ -368,8 +368,8 @@ static int rinc_saveWav(const char *path, uint32_t frames) {
 }
 
 /* -type: what to type, as fast as the app takes it (\n Enter, \e Esc, \t Tab, \\ a backslash, and \xHH
-   a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right); and \s with t, e, q or r, the system
-   key with Tab, Esc, Q or R (held a frame, then let go: the typing waits for what it does); and \u, the
+   a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right); and \s with t, e, q, r or l, the system
+   key with Tab, Esc, Q, R or L (held a frame, then let go: the typing waits for what it does); and \u, the
    typing waiting there until -ctrl's Ctrl is let go */
 static const char *rinc_typing;
 static int rinc_ctrlFrames, rinc_frameNow; /* (-ctrl n: Ctrl held for the first n frames, as pc.modsHeld says) */
@@ -392,7 +392,7 @@ static void rinc_typeMore(void) {
       if (c == 'e') { rinc_textEsc(); continue; }
       if (c == 's' && *rinc_typing) {
         c = (unsigned char)*rinc_typing++;
-        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : 0;
+        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : c == 'l' ? rinc_SysKey_l : 0;
         rinc_sysFrames = 2;
         return;
       }
@@ -686,7 +686,7 @@ static int rinc_window(const char *title) {
       for (s = 0; s < SDL_SCANCODE_COUNT; s++)
         other |= k[s] && (s < SDL_SCANCODE_LCTRL || s > SDL_SCANCODE_RGUI); /* (all but the modifiers) */
       int keys = (k[SDL_SCANCODE_ESCAPE] || (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_BACK)) ? rinc_SysKey_esc : 0) |
-                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) | (k[SDL_SCANCODE_H] ? rinc_SysKey_h : 0) |
+                 (k[SDL_SCANCODE_TAB] ? rinc_SysKey_tab : 0) | (k[SDL_SCANCODE_Q] ? rinc_SysKey_q : 0) | (k[SDL_SCANCODE_P] ? rinc_SysKey_p : 0) | (k[SDL_SCANCODE_R] ? rinc_SysKey_r : 0) | (k[SDL_SCANCODE_H] ? rinc_SysKey_h : 0) | (k[SDL_SCANCODE_L] ? rinc_SysKey_l : 0) |
                  (k[SDL_SCANCODE_RETURN] || k[SDL_SCANCODE_KP_ENTER] ? rinc_SysKey_enter : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? rinc_SysKey_next : 0) |
                  (rinc_pad && SDL_GetGamepadButton(rinc_pad, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? rinc_SysKey_prev : 0) |

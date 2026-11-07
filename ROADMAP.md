@@ -56,9 +56,10 @@ app is a Rio program.
   the screen in a bigger font; and half and quarter resolutions (160x120, 80x60) for apps that want
   big pixels. Each would need the HDMI line code (video.c) to read a different layout, apps a call to
   pick one, and the desktop and web players the same modes.
-- Sleep, Sys+L: the screen dark and the monitor let sleep (HSTX's output stopped, so it sees no signal and
-  goes to standby; sound paused, the app not run) until a key or button wakes it; a lock (a PIN, say) on
-  waking can come later on the same path.
+- Sleep, Sys+L: done (2026-11-06): the screen black and the sound silent everywhere, and on the board
+  the HDMI pins let go of, so the monitor sees no signal and goes to standby; the app goes on; any key
+  or button wakes it, once everything's been let go. Later: a lock (a PIN, say) on waking, on the same
+  path, said plainly to be no real security (anyone with the board has its card).
 - Commands for every serious app, as the editor has them: an app declares its list (label, keys, what
   it does), and Rinc draws and filters the list the same way for all of them. Ctrl+Shift+P stays the
   key (as most editors have it), with Sys+P opening the same list from any app; the editor's own list

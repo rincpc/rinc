@@ -394,6 +394,7 @@ on, what's typed isn't the app's. It's:
 | system + arrows (or the d-pad) | move the pointer, faster the longer they're held |
 | system + V, C (or A, B) | the pointer's primary and secondary buttons |
 | system + P | the performance strip, on or off |
+| system + L | sleep: the screen black and the sound silent, and on a board the video signal stopped, so the monitor goes to standby; the app goes on. Once every key's let go, any key or button wakes it (that key isn't the app's). Nothing's locked |
 | system + Enter | the whole display, or a window again, where the Rinc can (the desktop's F11 too). The whole display keeps the mouse on Rinc's screen; on the web, where the browser lets a page have Esc and its own Ctrl+N, Ctrl+T, Ctrl+W (Chrome, Edge: holding Esc leaves), after a click there. Alt+Tab and Cmd+Tab are always the system's |
 
 While the system key is on, a strip across the bottom of the screen shows these, apart from the app's
