@@ -187,6 +187,10 @@ appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1
 appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1
 appInstall* :: host proc(name: String) -> Int              # project name* installed as app name: 0, or -1
 appCopy* :: host proc(from: String, to: String) -> Int     # app or project from, as new project to (to*): 0, or -1
+# the installed apps that open files ending .ext (as each one's opens.txt says: a line each, the
+# extension, then what such a file is), into out a line each, "name what": how many. The one picked for
+# them is the setting files/appreg/ext; an app is given one as pc.call(name, "open /its/path")
+appsFor* :: host proc(ext: String, out: Blob[..]) -> Int
 appRename* :: host proc(from: String, to: String) -> Int   # project from (from*) as new project to (to*): 0, or -1
 
 # ---------------------------------------------------------------- files, by path, for a file browser

@@ -1,4 +1,5 @@
 edit.rio
+opens.txt
 help/README.md
 parts/complete.rio
 parts/editing.rio

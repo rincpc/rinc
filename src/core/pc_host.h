@@ -101,6 +101,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_appDelete_SIG "s>i"
 #define pc_appInstall_SIG "s>i"
 #define pc_appCopy_SIG "ss>i"
+#define pc_appsFor_SIG "sB>i"
 #define pc_appRename_SIG "ss>i"
 #define pc_dir_SIG "sB>i"
 #define pc_fileRead_SIG "sB>i"
@@ -195,6 +196,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(appDelete, pc_appDelete_SIG) \
   X(appInstall, pc_appInstall_SIG) \
   X(appCopy, pc_appCopy_SIG) \
+  X(appsFor, pc_appsFor_SIG) \
   X(appRename, pc_appRename_SIG) \
   X(dir, pc_dir_SIG) \
   X(fileRead, pc_fileRead_SIG) \
@@ -231,7 +233,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x6fb27b68u /* (rio_hashText of the source) */
+#define pc_HASH 0x4c209b47u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -422,6 +424,10 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1\n" \
   "appInstall* :: host proc(name: String) -> Int              # project name* installed as app name: 0, or -1\n" \
   "appCopy* :: host proc(from: String, to: String) -> Int     # app or project from, as new project to (to*): 0, or -1\n" \
+  "# the installed apps that open files ending .ext (as each one's opens.txt says: a line each, the\n" \
+  "# extension, then what such a file is), into out a line each, \"name what\": how many. The one picked for\n" \
+  "# them is the setting files/appreg/ext; an app is given one as pc.call(name, \"open /its/path\")\n" \
+  "appsFor* :: host proc(ext: String, out: Blob[..]) -> Int\n" \
   "appRename* :: host proc(from: String, to: String) -> Int   # project from (from*) as new project to (to*): 0, or -1\n" \
   "\n" \
   "# ---------------------------------------------------------------- files, by path, for a file browser\n" \

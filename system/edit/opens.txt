@@ -1,0 +1,6 @@
+rio Rio source
+md text, in Markdown
+txt text
+json text, in JSON
+csv text, comma-separated
+cfg text, settings

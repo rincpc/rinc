@@ -1083,9 +1083,46 @@ static void rinc_hostStashDelete(rio_Vm *v, rio_Val *a) {
    "active": the app or project being worked on, chord or chord+). settingRead(key, out) -> Int: as much
    as fits, and its whole length, or -1 if there's none; settingWrite(key, data) -> Int: 0, or -1. Keys
    are named as save files are */
+/* a setting's file: its key a name, or names with / between (files/appreg/png), each as a save file's is */
 static int rinc_settingPath(rio_Vm *v, rio_Val *key, char *path, size_t cap) {
-  char own[33];
-  return rinc_argName(v, key, own, 1) && snprintf(path, cap, "/rinc/settings/%s", own) < (int)cap;
+  const char *s = (const char *)rio_sliceBytes(v, key); int n = (int)key[1].u, at = 0, i;
+  if (!s || n < 1 || n > 48) return 0;
+  for (i = 0; i <= n; i++)
+    if (i == n || s[i] == '/') {
+      if (!rinc_nameOk(s + at, i - at, 1)) return 0;
+      at = i + 1;
+    }
+  return snprintf(path, cap, "/rinc/settings/%.*s", n, s) < (int)cap;
+}
+/* appsFor(ext, out) -> Int: the apps that open files ending .ext, as their opens.txt says (a line each:
+   the extension, then what such a file is), into out a line each, the app's name and what, in order of
+   name: how many. The apps' own folders say, so installing one is all that registers it */
+#define rinc_opens rinc_tree /* (an opens.txt, read: into the folder walks' room, which no walk is using now) */
+static void rinc_hostAppsFor(rio_Vm *v, rio_Val *a) {
+  const char *ext = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u, i, found = 0; rinc_Out o;
+  a[0].i = 0;
+  if (!ext || n < 1 || n > 16 || !rinc_into(v, a + 2, &o)) return;
+  rinc_findApps();
+  for (i = 0; i < rinc_appCount; i++) {
+    char path[112]; uint32_t total; const char *p, *end;
+    if (strchr(rinc_appNames[i], rinc_PROJECT)) continue; /* (installed apps: a project opens as its app does, once it's installed) */
+    snprintf(path, sizeof path, "/rinc/apps/%s/opens.txt", rinc_appNames[i]);
+    if (rinc_readFile(path, rinc_opens, sizeof rinc_opens - 1, &total)) continue;
+    rinc_opens[total < sizeof rinc_opens - 1 ? total : sizeof rinc_opens - 1] = 0;
+    for (p = rinc_opens; *p; p = *end ? end + 1 : end) {
+      const char *w = p, *what; int k;
+      end = strchr(p, '\n'); if (!end) end = p + strlen(p);
+      while (w < end && (*w == ' ' || *w == '.')) w++;
+      for (k = 0; k < n && w + k < end && tolower((unsigned char)w[k]) == tolower((unsigned char)ext[k]); k++) {}
+      if (k < n || (w + k < end && w[k] != ' ' && w[k] != '\t' && w[k] != '\r')) continue;
+      for (what = w + k; what < end && (*what == ' ' || *what == '\t'); what++) {}
+      { char line[96]; int len = snprintf(line, sizeof line, "%s %.*s\n", rinc_appNames[i], (int)(end - what - (end > what && end[-1] == '\r')), what);
+        if (len > 0 && len < (int)sizeof line && (uint32_t)len <= o.room) { memcpy(o.end, line, (size_t)len); rinc_outAdd(v, &o, (uint32_t)len); } } /* (outAdd moves on past it) */
+      found++;
+      break;
+    }
+  }
+  a[0].i = found;
 }
 static void rinc_hostSettingRead(rio_Vm *v, rio_Val *a) {
   char path[64]; int named = rinc_settingPath(v, a, path, sizeof path);
@@ -2004,7 +2041,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 #endif
 }
 int rinc_hostProcs(rio_Vm *vm) {
-  return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
+  return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.appsFor", pc_appsFor_SIG, rinc_hostAppsFor) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
          rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||

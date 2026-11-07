@@ -219,7 +219,7 @@ end
 
 # each frame: the check, when the text's changed and typing has paused
 idleCheck :: proc()
-  if checkedEdits != edits and not completing and mode == NONE and pc.time() - editedAt > 0.6 + checkCost * 4.0
+  if checkedEdits != edits and not completing and mode == NONE and isRio() and pc.time() - editedAt > 0.6 + checkCost * 4.0
     checkErrors()
   end
 end
@@ -274,6 +274,9 @@ end
 # as it's typed (quietly)
 complete :: proc(how: Int)
   completing = false
+  if not isRio() # (text: no Rio to complete)
+    return
+  end
   p := cursor
   for p > 0 and isWord(text[p - 1])
     p -= 1

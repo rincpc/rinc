@@ -64,6 +64,7 @@ NEW :: 4
 DELETE :: 5
 VIEW :: 6
 NEW_FOLDER :: 7
+OPEN_WITH :: 8
 mode := NONE
 target := -1          # what it's about
 input: Blob[..60]
@@ -79,6 +80,7 @@ end
 # ---------------------------------------------------------------- its parts
 
 include "parts/folder.rio"
+include "parts/opening.rio"
 include "parts/actions.rio"
 include "parts/clip.rio"
 include "parts/commands.rio"

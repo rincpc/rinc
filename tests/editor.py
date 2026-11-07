@@ -97,4 +97,13 @@ check(screen('rsright 5-85') == screen(''), 'a short line: nothing to scroll to'
 put('settings/active', 'place+')
 typing('\\x07' + '57' + '\\x1b[D' + '\\x08' + '2' + '\\n' + 'Q' + SAVE)
 check('\nQline26\n' in get('projects/place/place.rio'), 'Ctrl+G, edited: to line 27')
+# text that isn't Rio (a .md file) isn't completed as Rio: Ctrl+Space, then Enter, is just a new line;
+# in a .rio file the same keys put a completion in
+CTRL_SPACE = '\\x1b[27;5;32~'
+for name in ('notes.md', 'code.rio'):
+  put('projects/place/' + name, 'pc.')
+  put('save/edit/last', '/rinc/projects/place/%s 3 0 3 0' % name) # (the editor starts where it was: in it, at its end)
+  typing(CTRL_SPACE + '\\n' + SAVE)
+check(get('projects/place/notes.md') == 'pc.\n', 'a .md file: no Rio completion: %r' % get('projects/place/notes.md'))
+check(get('projects/place/code.rio') != 'pc.\n', 'a .rio file: completed: %r' % get('projects/place/code.rio'))
 print('the editor came through')

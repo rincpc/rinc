@@ -1,0 +1,179 @@
+# Files: a file opened in the app for its kind, and Open with (part of files.rio, included there, in order: the names it uses are declared before it)
+
+# ---------------------------------------------------------------- the apps for a file's kind
+
+# the apps that open files of an extension (pc.appsFor: each one's opens.txt says), a line each, "name
+# what"; and each one's name and what, by where they are in that
+OW_MOST :: 8
+owList: Blob[..512]
+owAt: [OW_MOST]Int
+owNameLen: [OW_MOST]Int
+owCount := 0          # (the text view comes after them, in Open with)
+owPick := 0
+owFirst := false      # (none picked for its kind yet: the one picked in Open with becomes it)
+owTarget := -1
+owExt: Blob[..16]     # the extension, lowercase
+
+# a name's extension: what's after its last dot ("" for none, or a name starting with its only dot)
+extOf :: proc(name: String) -> String
+  for i in 1..<name.len()
+    j := name.len() - i
+    if name[j] == 46
+      return name[j + 1..<name.len()]
+    end
+  end
+  return ""
+end
+# the apps for files of entry k's kind, into owList (false: it has no extension)
+appsFor :: proc(k: Int) -> Bool
+  owCount = 0
+  owExt.clear()
+  e := extOf(nameOf(k))
+  if e.len() == 0 or e.len() > 16
+    return false
+  end
+  for c in e
+    ok := owExt.push(lower(c))
+  end
+  owList.clear()
+  n := min(pc.appsFor(owExt[0..<owExt.len()].asString(), owList), OW_MOST)
+  at := 0
+  for i in 0..<owList.len()
+    if owList[i] == 10 and owCount < n
+      owAt[owCount] = at
+      owNameLen[owCount] = 0
+      for at + owNameLen[owCount] < i and owList[at + owNameLen[owCount]] != 32
+        owNameLen[owCount] += 1
+      end
+      owCount += 1
+      at = i + 1
+    end
+  end
+  return true
+end
+owApp :: proc(i: Int) -> String do return owList[owAt[i]..<owAt[i] + owNameLen[i]].asString()
+owWhat :: proc(i: Int) -> String # (what it calls such a file)
+  e := owAt[i] + owNameLen[i] + 1
+  for j in e..<owList.len()
+    if owList[j] == 10
+      return owList[min(e, j)..<j].asString()
+    end
+  end
+  return ""
+end
+# the setting for the extension's app: files/appreg/png
+regKey: Blob[..32]
+regFor :: proc() -> String
+  regKey.clear()
+  ok := regKey.pushAll("files/appreg/")
+  ok = regKey.pushAll(owExt[0..<owExt.len()])
+  return regKey[0..<regKey.len()].asString()
+end
+
+# entry k, in app i of owList's (called: the system key with Q comes back here)
+callArgs: Blob[..112]
+openIn :: proc(i: Int, k: Int)
+  callArgs.clear()
+  ok := callArgs.pushAll("open ")
+  ok = callArgs.pushAll(pathTo(nameOf(k)))
+  mode = NONE
+  leaving = true
+  pc.call(owApp(i), callArgs[0..<callArgs.len()].asString())
+end
+# Open with, on entry k (first: none picked for its kind yet)
+startOpenWith :: proc(k: Int, first: Bool)
+  if k < 0 or kind[k] != FILE
+    return
+  end
+  if not appsFor(k)
+    owCount = 0
+  end
+  owTarget = k
+  owFirst = first
+  owPick = 0
+  mode = OPEN_WITH
+end
+# Enter on a file: the app picked for its kind, else the only one there is, else (two or more, none
+# picked yet) Open with, where the one picked becomes it; none, its text
+chosenApp: Blob[..34]
+openFile :: proc(k: Int)
+  if not appsFor(k) or owCount == 0
+    showFile(k)
+    return
+  end
+  chosenApp.clear()
+  if pc.settingRead(regFor(), chosenApp) > 0
+    for i in 0..<owCount
+      if owApp(i) == chosenApp[0..<chosenApp.len()].asString()
+        openIn(i, k)
+        return
+      end
+    end
+  end
+  if owCount == 1
+    openIn(0, k)
+    return
+  end
+  startOpenWith(k, true)
+end
+# the one picked: opened (and, always, the app for its kind from now on); past the apps, its text
+openWith :: proc(i: Int, always: Bool)
+  mode = NONE
+  if i >= owCount
+    showFile(owTarget)
+    return
+  end
+  if (always or owFirst) and owExt.len() > 0
+    saved := pc.settingWrite(regFor(), owApp(i))
+  end
+  openIn(i, owTarget)
+end
+openWithKey :: proc(c: Int)
+  k := c & 255
+  switch
+  case k == 27
+    mode = NONE
+  case c == 13
+    openWith(owPick, false)
+  case c == 13 | 512 # Ctrl+Enter: and always, for its kind
+    openWith(owPick, true)
+  case k == 9 # (Tab: the next)
+    owPick = (owPick + 1) % (owCount + 1)
+  end
+end
+# Open with, drawn: the apps, then the text view, the one picked lit
+OW_X :: 70
+OW_Y :: 50
+owAt2 :: proc(px: Int, py: Int) -> Int # (the row at a point: -1, none)
+  i := (py - OW_Y - 14) / 11
+  if px < OW_X or px >= OW_X + 220 or py < OW_Y + 14 or i > owCount
+    return -1
+  end
+  return i
+end
+drawOpenWith :: proc()
+  h := 36 + (owCount + 1) * 11
+  pc.rect({OW_X - 2, OW_Y - 2}, {224, h + 4}, barColor)
+  pc.rect({OW_X, OW_Y}, {220, h}, selectColor)
+  pc.print("Open with:", {OW_X + 4, OW_Y + 3}, accentColor)
+  pc.print(nameOf(owTarget)[0..<min(nameLen[owTarget], 24)], {OW_X + 70, OW_Y + 3}, textColor)
+  for i in 0..<owCount + 1
+    y := OW_Y + 14 + i * 11
+    if i == owPick
+      pc.rect({OW_X + 2, y - 1}, {216, 10}, pickColor)
+    end
+    if i < owCount
+      pc.print(owApp(i), {OW_X + 5, y + 1}, textColor)
+      w := owWhat(i)
+      pc.print(w[0..<min(w.len(), 34 - owNameLen[i])], {OW_X + 11 + owNameLen[i] * 6, y + 1}, dimColor)
+    else
+      pc.print("the text, here", {OW_X + 5, y + 1}, softColor)
+    end
+  end
+  hint := "Enter open  ^Enter always for ."
+  if owFirst
+    hint = "Enter: open, and always for ."
+  end
+  pc.print(hint, {OW_X + 4, OW_Y + h - 10}, faintColor)
+  pc.print(owExt[0..<owExt.len()].asString(), {OW_X + 4 + hint.len() * 6, OW_Y + h - 10}, faintColor)
+end

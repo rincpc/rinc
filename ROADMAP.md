@@ -27,8 +27,10 @@ app is a Rio program.
   folder, its project's or as installed; for reading). Next with it: run from the desktop's own files
   (rinc mygame/), the same path reads from there; and tools/send.py sending binary files (a PNG, a WAV)
   with the console's put, as hex (today it sends text only, so a picture arrives broken).
-- Apps for file types, sooner (from Later): Files opens a .png in Paint, a .snd in Sound, .rio in the
-  editor, and Ctrl+O in the editor starts in the current project's folder.
+- Apps for file types: done (2026-11-07): each app's opens.txt, pc.appsFor, the setting
+  files/appreg/<ext>, Files' Enter and Open with (asking when two apps open a kind and none's picked),
+  apps given a file as "open /its/path", and the editor editing any text. Left: Ctrl+O in the editor
+  starting in the current project's folder.
 - Where an app's messages go: done (2026-11-06): each app's log in its cache space, and the Log app
   (Sys+O). Was: its log, and Rinc's lines about it (imageRead's "needs N bytes of room",
   runtime errors short of stopping it), go to the platform's output (serial, stdout, the browser's

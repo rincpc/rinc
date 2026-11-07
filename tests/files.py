@@ -129,4 +129,26 @@ typing('save\\nbig' + CTRL_C + '\\e' + 'dest\\n' + CTRL_V) # (Esc: what's typed 
 check(len(os.listdir(os.path.join(data, 'save', 'dest', 'big'))) == 92 and get('save/dest/big/d1/d2/d3/d4/d5/d6/d7/deep') == 'deep', 'a big folder copied whole')
 typing('save\\nbig' + DEL + 'big\\n')
 check(not there('save/big'), 'a big folder deleted whole')
+# files opened in the app for their kind (each app's opens.txt): one app, it; two, Open with, where the
+# one picked becomes the kind's (the setting files/appreg/png); Open with (Space W) again, Ctrl+Enter
+# makes another it; none, the text, here
+opened = 'out: Blob[..112]\n_ = pc.args(out)\nlog("%s got", out.asString())\n'
+for name, opens in (('pa', 'png pictures\n'), ('pb', 'png sprite sheets\n'), ('tx', '.txt text\n')):
+  put('apps/%s/%s.rio' % (name, name), opened % name)
+  put('apps/%s/opens.txt' % name, opens)
+put('save/opentest/x.txt', 'x'); put('save/opentest/y.png', 'y'); put('save/opentest/z.zzz', 'z')
+out = typing('save\\nopentest\\nx.txt\\n')
+check('tx got open /rinc/save/opentest/x.txt' in out, 'one app for its kind: opened in it: %r' % out)
+out = typing('save\\nopentest\\ny.png\\n')
+check('got' not in out, 'two apps for its kind, none picked: Open with, nothing opened yet: %r' % out)
+out = typing('save\\nopentest\\ny.png\\n\\n')
+check('pa got open /rinc/save/opentest/y.png' in out and get('settings/files/appreg/png') == 'pa', 'Open with, the first: opened, and the kind\'s from now on: %r' % out)
+out = typing('save\\nopentest\\ny.png\\n')
+check('pa got open' in out, 'the kind\'s app, picked: opened in it at once: %r' % out)
+out = typing('save\\nopentest\\ny.png w' + DOWN + '\\x1b[27;5;13~')
+check('pb got open' in out and get('settings/files/appreg/png') == 'pb', 'Open with (Space W), Ctrl+Enter: that one, from now on: %r' % out)
+out = typing('save\\nopentest\\ny.png' + LIST + 'open with\\n' + '\\w' + '\\n')
+check('pa got open' in out and get('settings/files/appreg/png') == 'pb', 'Open with, from the command list: its first, this time (pb stays the kind\'s): %r' % out)
+out = typing('save\\nopentest\\nz.zzz\\n')
+check('got' not in out, 'no app for its kind: its text, here: %r' % out)
 print('files came through')

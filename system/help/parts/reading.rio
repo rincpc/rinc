@@ -264,7 +264,12 @@ open :: proc(name: Blob, anchor: Blob) -> Bool
     contents()
   else
     got: Blob[..] = src[0..<SRC]
-    n := pc.helpRead(name.asString(), got)
+    n := 0
+    if name[0] == 47 # (a file's path: Files, opening a .md file here)
+      n = pc.fileRead(name.asString(), got)
+    else
+      n = pc.helpRead(name.asString(), got)
+    end
     if n < 0
       say("No help text there")
       return false

@@ -8,7 +8,7 @@ or where it was last. A yellow mark at the left is the active app or project, wh
 | keys | |
 |---|---|
 | up, down, Page Up, Page Down, Home, End (or the d-pad) | pick one |
-| Enter (or A) | open a folder (`..` goes up); edit an app's main file (`chord.rio` in its folder: it becomes the active one, and the editor opens it); show any other file's text |
+| Enter (or A) | open a folder (`..` goes up); edit an app's main file (`chord.rio` in its folder: it becomes the active one, and the editor opens it); open any other file in the app for its kind (a `.png` in Paint, say), or show its text if there's none |
 | Backspace, Alt+Up (or B) | up a folder |
 | typing | narrow the list to the names with what's typed |
 | Space (or Y, or the secondary button) | what else can be done with it, each by its letter |
@@ -55,6 +55,11 @@ text shows its first 16 KB, bytes that aren't text as dots; Esc goes back.
 | D | delete it, after typing its whole name: all of it, for good (a project's own saves too; an app's saves, in `/rinc/save`, stay) |
 | I | install a project as its app |
 | F | a new folder, here, as Ctrl+Shift+N (which a browser may keep for itself) |
+| W | open with: the apps that open a file of its kind, then its text, here. Enter opens it in the one picked; Ctrl+Enter makes that one its kind's from now on |
+
+Which app opens a kind of file is each app's own to say (its `opens.txt`). With two for a kind (a `.md`
+file: the editor, or Help), the first Enter on one asks, in Open with, and the one picked opens such
+files from then on; Open with changes it.
 
 Changes happen only inside `/rinc`'s folders, not to them (`apps`, `save` and the like). Copying and
 renaming refuse a name that's taken.

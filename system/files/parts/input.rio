@@ -91,7 +91,7 @@ listKey :: proc(c: Int)
     return
   end
   switch # (the arrows are buttons too: they're handled as buttons, below)
-  case c >= ACT and c < ACT + 9 # (one of the menu's, from the command list)
+  case c >= ACT and c < ACT + LABELS.len() # (one of the menu's, from the command list)
     actOn(c - ACT)
   case c == 16 | 256 # Ctrl+Shift+P: every command, the system's list
     pc.showCommands()
@@ -171,6 +171,8 @@ key :: proc(c: Int)
   end
   if prompting()
     promptKey(c)
+  case mode == OPEN_WITH
+    openWithKey(c)
   case mode == MENU
     menuKey(c)
   case mode == VIEW
@@ -246,7 +248,14 @@ update* :: proc()
   if click & ~clicked != 0
     px := pc.pointerX()
     py := pc.pointerY()
-    if mode == MENU
+    if mode == OPEN_WITH # (a click on one opens it in that; outside, closes it)
+      i := owAt2(px, py)
+      if i >= 0 and click & 1 != 0
+        openWith(i, false)
+      case i < 0
+        mode = NONE
+      end
+    case mode == MENU
       i := menuAt(px, py)
       if i >= 0 and click & 1 != 0
         act(i)

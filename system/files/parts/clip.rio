@@ -20,6 +20,8 @@ end
 move :: proc(by: Int)
   if mode == VIEW
     viewScroll(by)
+  case mode == OPEN_WITH
+    owPick = (owPick + by + (owCount + 1) * 8) % (owCount + 1)
   case mode == MENU
     menuPick = (menuPick + by + itemCount * 8) % itemCount
   case mode == NONE and nshown > 0

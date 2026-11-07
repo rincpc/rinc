@@ -45,6 +45,8 @@ callingLen := pc.stashRead("calling", calling)
 picked: Blob[128]
 pickedIn: Blob[..] = picked
 pickedLen := pc.result(pickedIn)
+opening: Blob[..112]
+_ = pc.args(opening)
 activeBuf: Blob[..34]
 _ = pc.settingRead("active", activeBuf)
 if callingLen > 0
@@ -69,6 +71,8 @@ if callingLen > 0
   case pickedLen > 0
     loaded := load(picked[0..<min(pickedLen, 128)].asString())
   end
+  reveal()
+case opening.len() > 5 and opening[0..<5].asString() == "open " and load(opening[5..<opening.len()].asString()) # (called to open a file: Files, for one of its kind)
   reveal()
 case goToError() # (back from an app that stopped with an error: at the error)
   reveal()

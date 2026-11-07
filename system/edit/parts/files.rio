@@ -11,6 +11,10 @@ RECENT :: 8
 here :: proc() -> String
   return path[0..<path.len()].asString()
 end
+# is it Rio (a new file, unnamed yet, is), so checked, completed and laid out as Rio
+isRio :: proc() -> Bool
+  return path.len() == 0 or (path.len() >= 4 and path[path.len() - 4..<path.len()].asString() == ".rio")
+end
 
 startsWith :: proc(s: String, start: String) -> Bool
   return s.len() >= start.len() and s[0..<start.len()] == start

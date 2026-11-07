@@ -44,7 +44,7 @@ actOn :: proc(id: Int)
     end
   end
 end
-menuKeys := [9]String{"Space O", "Space E", "Space R", "Space C", "Space N", "Space D", "Space I", "Space V", "Space F"}
+menuKeys := [10]String{"Space O", "Space E", "Space R", "Space C", "Space N", "Space D", "Space I", "Space V", "Space F", "Space W"}
 listed: [26]pc.Command
 commandList* :: proc() -> []pc.Command
   if mode == VIEW

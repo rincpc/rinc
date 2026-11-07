@@ -209,6 +209,28 @@ log(pc.fileDelete("/rinc/save/demo2"))
 0
 ```
 
+## The app for a file
+
+An app says which files it opens in `opens.txt` in its folder (listed in its `files.txt`, so it
+installs with it): a line each, the extension, then what such a file is.
+
+```
+png  picture or sprite sheet
+```
+
+So installing an app is all that registers it, and removing it takes it away. `pc.appsFor(ext, out) ->
+Int` gives the installed apps that open files ending `.ext`, into `out` a line each, `name what`, in
+order of name: how many. The one picked for them is the setting `files/appreg/<ext>`; with one app for
+a kind, that one, picked or not. An app is given a file as `pc.call(name, "open /its/path")`, so it
+reads `pc.args` as it starts, and opens that (the system key with Q comes back, to Files, say).
+
+Files opens a file with Enter in its kind's app: the one picked, else the only one. With two or more
+and none picked, it asks, in Open with, and the one picked there becomes the kind's. Open with (the menu's
+W) lists them all, then Files' own view of the file's text: Enter opens it in the one picked, this time;
+Ctrl+Enter makes it the kind's from now on. A file no app opens shows its text. Rinc's own apps open
+these: the editor `rio`, `md`, `txt`, `json`, `csv` and `cfg` (text that isn't `.rio` is edited as
+plain text: no Rio checking or completing); Help `md` too (read, as help is); Paint `png`; Sound `snd`.
+
 ## Calling an app
 
 An app can start another for something, such as a file picked, and have the answer back. `pc.call(name,
@@ -255,7 +277,8 @@ end
 
 The whole Rinc's settings, not any one app's, are in `/rinc/settings`, a file a key, and any app can
 read and change them: `pc.settingRead(key, out) -> Int` (added to `out`, as much as fits: its whole length, or -1 if
-there's none) and `pc.settingWrite(key, data) -> Int` (0, or -1). Keys are named as save files are.
+there's none) and `pc.settingWrite(key, data) -> Int` (0, or -1). Keys are named as save files are, or
+are such names with `/` between them, for settings in folders (`files/appreg/png`).
 
 `active` is the app or project being worked on: `chord`, or its project, `chord+` (an installed app
 can be active too, to read its source). The editor makes what it opens active, and starts with what's
@@ -267,6 +290,9 @@ makes the app picked there active and opens the editor, and marks the active one
 for a home app of another name. Without it, home is the app named `home`.
 
 `theme` names the theme in use, `rinc/slate` say (see themes).
+
+`files/appreg/<ext>` names the app picked to open files ending `.ext`: `files/appreg/png` holding
+`paint`, say (see [the app for a file](#the-app-for-a-file)).
 
 ## Themes
 

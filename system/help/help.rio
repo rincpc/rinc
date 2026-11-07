@@ -81,7 +81,11 @@ for k in 0..<topicLen
     hash = k
   end
 end
-if topicLen > 0 and open(topic[0..<hash], topic[min(hash + 1, topicLen)..<topicLen])
+opening: Blob[..112]   # (or called with "open /a/path", a .md file: Files, opening one here)
+_ = pc.args(opening)
+if opening.len() > 5 and opening[0..<5].asString() == "open " and open(opening[5..<opening.len()], opening[0..<0])
+  histLen = 0
+case topicLen > 0 and open(topic[0..<hash], topic[min(hash + 1, topicLen)..<topicLen])
   histLen = 0 # (opened at a topic: a fresh history, from there)
 else
   if not restorePlace()

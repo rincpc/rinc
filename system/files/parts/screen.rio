@@ -188,4 +188,7 @@ draw* :: proc()
   if mode == MENU
     drawMenu()
   end
+  if mode == OPEN_WITH
+    drawOpenWith()
+  end
 end

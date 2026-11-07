@@ -12,10 +12,11 @@ DELETE_IT :: 5
 INSTALL_IT :: 6
 VIEW_IT :: 7
 FOLDER_IT :: 8
-LABELS := [9]String{"Open", "Edit", "Run", "Copy", "Rename", "Delete", "Install as its app", "View", "New folder here"}
-KEYS := [9]Int{111, 101, 114, 99, 110, 100, 105, 118, 102} # o e r c n d i v f
-items: [9]Int
-itemOk: [9]Bool
+OPEN_WITH_IT :: 9
+LABELS := [10]String{"Open", "Edit", "Run", "Copy", "Rename", "Delete", "Install as its app", "View", "New folder here", "Open with"}
+KEYS := [10]Int{111, 101, 114, 99, 110, 100, 105, 118, 102, 119} # o e r c n d i v f w
+items: [10]Int
+itemOk: [10]Bool
 itemCount := 0
 menuPick := 0
 
@@ -50,6 +51,7 @@ fillItems :: proc(k: Int) -> Bool
     end
   else
     addItem(VIEW_IT, true)
+    addItem(OPEN_WITH_IT, not picking)
     if isApp
       addItem(EDIT_IT, true)
       addItem(RUN_IT, true)
@@ -110,6 +112,8 @@ act :: proc(i: Int)
     startPrompt(RENAME)
   case id == DELETE_IT
     startPrompt(DELETE)
+  case id == OPEN_WITH_IT
+    startOpenWith(k, false)
   case id == FOLDER_IT
     startPrompt(NEW_FOLDER)
   case id == INSTALL_IT
@@ -303,7 +307,7 @@ enter :: proc(k: Int)
     finish(pathTo(nameOf(k)))
   case appRef(k).len() > 0
     edit(appRef(k))
-  else
-    showFile(k)
+  else # (in the app for its kind)
+    openFile(k)
   end
 end
