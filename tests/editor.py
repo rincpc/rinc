@@ -68,6 +68,15 @@ check(get('projects/oops/parts/b.rio') == 'x := 1\ny := xq + 1\n', 'no error: ba
 put('projects/oops/parts/b.rio', 'x := 1\ni := 5\nif true\n  zs: [2]Int\n  log(zs[i])\nend\n') # (a runtime error: its line, from its indent)
 typing(RUN + '\\st' + '#' + SAVE, 180)
 check(get('projects/oops/parts/b.rio') == 'x := 1\ni := 5\nif true\n  zs: [2]Int\n  #log(zs[i])\nend\n', 'back at a runtime error: %r' % get('projects/oops/parts/b.rio'))
+# where it was, kept as it goes (not only on saving): another app, then back (a fresh start), finds the
+# cursor, the selection and the scroll as they were
+put('projects/place/place.rio', ''.join('line%d\n' % i for i in range(100)))
+put('settings/active', 'place+')
+typing('\\x1b[1;5F' + '\\x1b[A' * 2 + '\\x1b[1;2C' * 3) # (Ctrl+End, up 2: line98's start; Shift+Right 3: "lin")
+last = get('save/edit/last') or ''
+check(last.startswith('/rinc/projects/place/place.rio ') and int(last.split()[2]) > 50, 'its place kept unsaved, scrolled down: %r' % last)
+typing('Z' + SAVE)
+check(get('projects/place/place.rio').endswith('line97\nZe98\nline99\n'), 'back: the selection as it was, typed over: %r' % get('projects/place/place.rio')[-30:])
 # scrolled sideways (the right stick, as a wheel tilted): a long line's far part comes into view, and
 # no further than the longest line shown
 def screen(hold):

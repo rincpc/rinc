@@ -2,7 +2,7 @@
 
 # ---------------------------------------------------------------- files
 
-last: Blob[..128] # the file it had last, and where: "path cursor top" (its save file "last")
+last: Blob[..128] # the file it had last, and where: "path cursor top anchor left" (its save file "last")
 # the files it had lately, the latest first, a line each as last is (its stash "recent"), for Ctrl+Tab
 recent: Blob[..1024]
 recentWas: Blob[..1024]
@@ -45,29 +45,53 @@ readOnly :: proc() -> Bool
   return p.len() > 0 and (not startsWith(p, "/rinc/") or startsWith(p, "/rinc/apps/"))
 end
 
-# a line of recent's (or last): its path, what's before its last two spaces; and its cursor and top
+# a line of recent's (or last): its path, what's before the numbers at its end (up to 4: older lines have
+# 2); and where it was: its cursor, top line, anchor and left column (an older line's anchor: its cursor)
+isNumber :: proc(s: String) -> Bool
+  for i in 0..<s.len()
+    if s[i] < 48 or s[i] > 57
+      return false
+    end
+  end
+  return s.len() > 0
+end
 pathOf :: proc(line: String) -> String
   e := line.len()
-  for _ in 0..<2
-    e -= 1
-    for e > 0 and line[e] != 32
-      e -= 1
+  for _ in 0..<4
+    s := e - 1
+    for s >= 0 and line[s] != 32
+      s -= 1
     end
+    if s < 0 or not isNumber(line[s + 1..<e])
+      return line[0..<e]
+    end
+    e = s
   end
-  return line[0..<max(e, 0)]
+  return line[0..<e]
 end
-placeOf :: proc(line: String) -> [2]Int
-  r: [2]Int
-  part := 0
-  for i in pathOf(line).len() + 1..<line.len()
+placeOf :: proc(line: String) -> [4]Int
+  r := [4]Int{0, 0, -1, 0}
+  part := -1
+  for i in pathOf(line).len()..<line.len()
     c := line[i]
     if c == 32
-      part = 1
-    case c >= 48 and c <= 57
-      r[part] = r[part] * 10 + c - 48
+      part += 1
+    case c >= 48 and c <= 57 and part >= 0 and part < 4
+      r[part] = max(r[part], 0) * 10 + c - 48
     end
   end
+  if r[2] < 0
+    r[2] = r[0]
+  end
   return r
+end
+# where a line of recent's (or last) says it was, again: cursor, selection, and scrolled as it was
+restore :: proc(at: [4]Int)
+  cursor = min(at[0], textLen)
+  anchor = min(at[2], textLen)
+  top = max(0, min(at[1], lineCount - 1))
+  left = max(at[3], 0)
+  wantCol = -1
 end
 # line k of a list of recent's lines (from 0): "" if there's none; and how many lines it has
 lineIn :: proc(list: String, k: Int) -> String
@@ -99,7 +123,7 @@ end
 remember :: proc()
   last.clear()
   ok := last.pushAll(path[0..<path.len()])
-  _ = last.print(" ", cursor, " ", top)
+  _ = last.print(" ", cursor, " ", top, " ", anchor, " ", left)
   saved := pc.saveWrite("last", last[0..<last.len()].asString())
   if path.len() > 0
     recentWas.clear()
@@ -249,10 +273,7 @@ switchTo :: proc(k: Int)
   switchTarget.clear()
   ok := switchTarget.pushAll(pathOf(line))
   if load(switchTarget[0..<switchTarget.len()].asString())
-    cursor = min(at.x, textLen)
-    anchor = cursor
-    top = max(0, min(at.y, lineCount - 1))
-    wantCol = -1
+    restore(at)
     remember()
   end
 end

@@ -283,6 +283,24 @@ pointer :: proc()
   end
 end
 
+# where it is (cursor, selection, scrolled), kept once it's rested a moment (not each step of a held
+# arrow), so leaving for another app and coming back finds it so
+placeWas: [5]Int
+placeSaved: [5]Int
+placeStill := 0
+keepPlace :: proc()
+  now := [5]Int{cursor, anchor, top, left, path.len()}
+  if now != placeWas
+    placeWas = now
+    placeStill = 0
+  end
+  placeStill += 1
+  if placeStill == 15 and now != placeSaved and path.len() > 0 and not leaving
+    placeSaved = now
+    remember()
+  end
+end
+
 update* :: proc()
   held := pc.modsHeld()
   if held >= 0 and held & CTRL == 0 # (Ctrl let go: Ctrl+Tab's walk is over, its pick opened)
@@ -317,4 +335,5 @@ update* :: proc()
   end
   pointer()
   idleCheck()
+  keepPlace()
 end
