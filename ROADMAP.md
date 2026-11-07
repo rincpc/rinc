@@ -47,7 +47,17 @@ app is a Rio program.
 - A palette with a perceptual spread, in place of the 6x6x6 cube's many bright, saturated colors:
   done (2026-11-07): PICO-8's 32, then 12 OKLCH hue bands (8 vivid, 8 muted each), 16 tints and 16
   pure grays, 16 a row (src/core/palette.h, made by tools/palette.py), and Colors showing them a band
-  to a row.
+  to a row. Tried on 25 photos and game screenshots (people of many skin colors, skies, foliage, food,
+  night, a reef): it holds up well; retuning (a sky-blue azure, darker muted steps) gained ~2.5% and
+  cost near-duplicates, so it stays. What any 256 colors can't do is smooth gradients (skies band to
+  the nearest color): that wants dithering, below.
+- Dithered image reading: an option on pc.imageRead (in pc.ImageRead, say) to map a full-color PNG to
+  the palette with error diffusion (Floyd-Steinberg, the error carried in OKLab) instead of the nearest
+  color, so photos' gradients come out smooth; on a board, a row of error at a time, within imageRead's
+  (w + 1) * h of room.
+- Paint: dithering tools for gradients: a gradient fill between two colors (or along a ramp of the
+  palette's bands) drawn with ordered (Bayer) dithering, so it stays clean as pixel art, and a dither
+  brush or pattern fill.
 - Themes: the gray theme (in progress) as the default; no theme called Rinc.
 - Display modes, maybe (not decided: one mode for every app has its appeal): 640x480 in 16 colors,
   drawn straight to what's shown (no second buffer: the same memory), for a text editor with more on

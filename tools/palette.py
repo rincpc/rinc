@@ -20,8 +20,9 @@ palette.h this wrote; newest first), then PICO-8's 32. It also says how near the
 The table says how it was made. With no options, it makes the palette Rinc has.
 
   python tools/palette.py [preview.png] [table.h] [--yellow 100] [--hue-list 29,65,...] [--steps 8] [--muted 0.07]
-                          [--tints 16] [--low 0.28] [--high 0.88] [--pale 0.91] [--pale-chroma 0.78] [--pale-cap 0.11]
-                          [--smooth 1.1] [--before earlier.h ...] [--twins]
+                          [--muted-low 0.36] [--muted-high 0.86] [--tints 16] [--warm 60] [--cool 250]
+                          [--tint-chroma 0.025] [--low 0.28] [--high 0.88] [--pale 0.91] [--pale-chroma 0.78]
+                          [--pale-cap 0.11] [--smooth 1.1] [--before earlier.h ...] [--twins]
 """
 import math, struct, sys, zlib
 
@@ -40,6 +41,8 @@ PALE_CAP = opt('--pale-cap', 0.11) # (and no more chroma than this: yellow and l
 YELLOW = opt('--yellow', 100.0) # (yellow's hue: sRGB's, 110, reads lemon; the halves on either side follow it)
 HUES = len(HUE_LIST) if HUE_LIST else 12
 STEPS, MUTED, TINTS = opt('--steps', 8), opt('--muted', 0.07), opt('--tints', 16) # (muted: its chroma, the same for every hue)
+WARM, COOL, TINT_C = opt('--warm', 60.0), opt('--cool', 250.0), opt('--tint-chroma', 0.025) # the tints' hues, and their chroma
+M_LOW, M_HIGH = opt('--muted-low', 0.36), opt('--muted-high', 0.86) # the muted ramps' darkest and lightest
 L_LOW, L_HIGH = opt('--low', 0.28), opt('--high', 0.88) # the ramps' darkest and lightest (black and near-black: PICO-8's and the grays')
 VIVID = 0.95             # of the most chroma sRGB has, at that lightness and hue
 SMOOTH = opt('--smooth', 1.1) # a vivid step's chroma, at most this times its neighbours' mean (0: as much as sRGB has)
@@ -101,7 +104,7 @@ def bent(h, low, high):  # STEPS lightnesses, low to high, one of them at h's cu
 def palette():
   colors = list(pico)
   for h in HUE_LIST:
-    inner = [0.36 + (0.86 - 0.36) * i / (STEPS - 1) for i in range(STEPS)] # (the muted ramps': inside the vivid's, where there's chroma for both)
+    inner = [M_LOW + (M_HIGH - M_LOW) * i / (STEPS - 1) for i in range(STEPS)] # (the muted ramps': inside the vivid's, where there's chroma for both)
     light = cusp(h) > 0.75 # (orange to azure: its lightest step paler, toward white)
     steps = bent(h, L_LOW, PALE if light else L_HIGH)
     for vivid in (True, False): # (vivid: as much as sRGB has there; muted: MUTED, or 60% of that, if less)
@@ -114,10 +117,10 @@ def palette():
       for L, C in zip(Ls, Cs):
         colors.append(lch_rgb(L, C, h)[0])
   half = TINTS // 2
-  for hue, n in ((60.0, half), (250.0, TINTS - half)): # (warm: toward orange; cool: toward blue)
+  for hue, n in ((WARM, half), (COOL, TINTS - half)): # (warm: toward orange; cool: toward blue)
     for i in range(n):
       L = 0.18 + 0.74 * i / max(1, n - 1)
-      colors.append(lch_rgb(L, 0.025, hue)[0])
+      colors.append(lch_rgb(L, TINT_C, hue)[0])
   for i in range(GRAYS):
     colors.append(gray(toe_inverse(i / (GRAYS - 1))))
   assert len(colors) == 256, len(colors)
@@ -192,7 +195,7 @@ new = palette()
 befores = [table(sys.argv[k + 1]) for k, a in enumerate(sys.argv) if a == '--before'] # (newest first)
 for k, b in enumerate(befores): stats('before %d' % (k + 1), b)
 stats('this', new)
-valued = {'--hue-list', '--steps', '--muted', '--tints', '--low', '--high', '--pale', '--pale-chroma', '--pale-cap', '--yellow', '--smooth', '--before'} # (the options that take a value: --twins doesn't)
+valued = {'--hue-list', '--steps', '--muted', '--tints', '--low', '--high', '--pale', '--pale-chroma', '--pale-cap', '--yellow', '--smooth', '--warm', '--cool', '--tint-chroma', '--muted-low', '--muted-high', '--before'} # (the options that take a value: --twins doesn't)
 args = [a for k, a in enumerate(sys.argv[1:], 1) if not a.startswith('--') and sys.argv[k - 1] not in valued]
 def parts(colors):  # its ramps, each a row, then the tints and grays, 16 a row
   return [colors[32 + k * 2 * STEPS:32 + (k + 1) * 2 * STEPS] for k in range(HUES)] + [colors[k:k + 16] for k in range(32 + HUES * 2 * STEPS, 256, 16)]
