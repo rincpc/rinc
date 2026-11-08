@@ -229,7 +229,8 @@ and none picked, it asks, in Open with, and the one picked there becomes the kin
 W) lists them all, then Files' own view of the file's text: Enter opens it in the one picked, this time;
 Ctrl+Enter makes it the kind's from now on. A file no app opens shows its text. Rinc's own apps open
 these: the editor `rio`, `md`, `txt`, `json`, `csv` and `cfg` (text that isn't `.rio` is edited as
-plain text: no Rio checking or completing); Help `md` too (read, as help is); Paint `png`; Sound `snd`.
+plain text: no Rio checking or completing); Help `md` too (read, as help is); Paint `png`; Sound `snd`;
+Maps `map`; Music `mus`.
 
 ## Calling an app
 
