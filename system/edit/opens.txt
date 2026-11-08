@@ -4,3 +4,4 @@ txt text
 json text, in JSON
 csv text, comma-separated
 cfg text, settings
+* any file, as text

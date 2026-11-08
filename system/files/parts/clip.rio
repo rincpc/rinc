@@ -74,7 +74,7 @@ end
 
 # the folder shown, as it's left: the row at the top, the one picked and what's selected (by name), kept
 # in the stash once it's rested a moment (not each step of a held arrow), and found again on starting
-view: Blob[..2048]
+kept: Blob[..2048]
 viewWas: [4]Int
 viewSaved: [4]Int
 viewStill := 0
@@ -89,28 +89,28 @@ keepView :: proc()
     return
   end
   viewSaved = now
-  view.clear()
-  _ = view.print(here(), "\n", top, "\n")
+  kept.clear()
+  _ = kept.print(here(), "\n", top, "\n")
   if picked() >= 0
-    ok := view.pushAll(nameOf(picked()))
+    ok := kept.pushAll(nameOf(picked()))
   end
-  ok := view.push(10)
+  ok := kept.push(10)
   for k in 0..<count
-    if marked[k] and view.len() + nameLen[k] + 1 < 2048
-      ok = view.pushAll(nameOf(k))
-      ok = view.push(10)
+    if marked[k] and kept.len() + nameLen[k] + 1 < 2048
+      ok = kept.pushAll(nameOf(k))
+      ok = kept.push(10)
     end
   end
-  saved := pc.stashWrite("view", view[0..<view.len()].asString())
+  saved := pc.stashWrite("view", kept[0..<kept.len()].asString())
 end
-# a line of view's: line n (from 0), "" past its end
+# a line of kept's: line n (from 0), "" past its end
 viewLine :: proc(n: Int) -> String
   at := 0
   k := 0
-  for i in 0..<view.len()
-    if view[i] == 10
+  for i in 0..<kept.len()
+    if kept[i] == 10
       if k == n
-        return view[at..<i].asString()
+        return kept[at..<i].asString()
       end
       k += 1
       at = i + 1
@@ -120,8 +120,8 @@ viewLine :: proc(n: Int) -> String
 end
 # as it was kept, if it's of the folder shown
 restoreView :: proc()
-  view.clear()
-  if pc.stashRead("view", view) < 0 or viewLine(0) != here()
+  kept.clear()
+  if pc.stashRead("view", kept) < 0 or viewLine(0) != here()
     return
   end
   t := 0

@@ -218,6 +218,10 @@ installs with it): a line each, the extension, then what such a file is.
 png  picture or sprite sheet
 ```
 
+A line `*` says it opens any file (the editor's: `* any file, as text`). Such an app is listed in
+Files' Open with for every file, after the apps for its kind, but Enter opens a file in it only once
+it's been picked for that kind there.
+
 So installing an app is all that registers it, and removing it takes it away. `pc.appsFor(ext, out) ->
 Int` gives the installed apps that open files ending `.ext`, into `out` a line each, `name what`, in
 order of name: how many. The one picked for them is the setting `files/appreg/<ext>`; with one app for

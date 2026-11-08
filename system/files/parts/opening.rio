@@ -24,22 +24,53 @@ extOf :: proc(name: String) -> String
   end
   return ""
 end
-# the apps for files of entry k's kind, into owList (false: it has no extension)
-appsFor :: proc(k: Int) -> Bool
-  owCount = 0
-  owExt.clear()
-  e := extOf(nameOf(k))
-  if e.len() == 0 or e.len() > 16
-    return false
-  end
-  for c in e
-    ok := owExt.push(lower(c))
-  end
-  owList.clear()
-  n := min(pc.appsFor(owExt[0..<owExt.len()].asString(), owList), OW_MOST)
+# whether app's in owList already
+listed :: proc(app: String) -> Bool
   at := 0
   for i in 0..<owList.len()
-    if owList[i] == 10 and owCount < n
+    if owList[i] == 10
+      if i - at > app.len() and owList[at..<at + app.len()].asString() == app and owList[at + app.len()] == 32
+        return true
+      end
+      at = i + 1
+    end
+  end
+  return false
+end
+# the apps for files of entry k's kind, into owList (false: it has no extension): first those for its
+# kind (owExact of them), then those for any file (opens.txt's "*": a text editor, say), in Open with only
+owExact := 0
+owAny: Blob[..256]
+appsFor :: proc(k: Int) -> Bool
+  owCount = 0
+  owExact = 0
+  owExt.clear()
+  owList.clear()
+  e := extOf(nameOf(k))
+  if e.len() > 0 and e.len() <= 16
+    for c in e
+      ok := owExt.push(lower(c))
+    end
+    owExact = min(pc.appsFor(owExt[0..<owExt.len()].asString(), owList), OW_MOST)
+  end
+  owAny.clear()
+  _ = pc.appsFor("*", owAny)
+  from := 0
+  for i in 0..<owAny.len()
+    if owAny[i] == 10
+      sp := from
+      for sp < i and owAny[sp] != 32
+        sp += 1
+      end
+      if not listed(owAny[from..<sp].asString())
+        ok := owList.pushAll(owAny[from..<i + 1])
+      end
+      from = i + 1
+    end
+  end
+  at := 0
+  for i in 0..<owList.len()
+    if owList[i] == 10 and owCount < OW_MOST
       owAt[owCount] = at
       owNameLen[owCount] = 0
       for at + owNameLen[owCount] < i and owList[at + owNameLen[owCount]] != 32
@@ -49,7 +80,7 @@ appsFor :: proc(k: Int) -> Bool
       at = i + 1
     end
   end
-  return true
+  return owExt.len() > 0
 end
 owApp :: proc(i: Int) -> String do return owList[owAt[i]..<owAt[i] + owNameLen[i]].asString()
 owWhat :: proc(i: Int) -> String # (what it calls such a file)
@@ -85,19 +116,18 @@ startOpenWith :: proc(k: Int, first: Bool)
   if k < 0 or kind[k] != FILE
     return
   end
-  if not appsFor(k)
-    owCount = 0
-  end
+  _ = appsFor(k)
   owTarget = k
   owFirst = first
   owPick = 0
   mode = OPEN_WITH
 end
-# Enter on a file: the app picked for its kind, else the only one there is, else (two or more, none
-# picked yet) Open with, where the one picked becomes it; none, its text
+# Enter on a file: the app picked for its kind (in Open with, any listed there), else the only one for its
+# kind, else (two or more, none picked yet) Open with, where the one picked becomes it; none for its kind,
+# its text
 chosenApp: Blob[..34]
 openFile :: proc(k: Int)
-  if not appsFor(k) or owCount == 0
+  if not appsFor(k) or owExact == 0
     showFile(k)
     return
   end
@@ -110,7 +140,7 @@ openFile :: proc(k: Int)
       end
     end
   end
-  if owCount == 1
+  if owExact == 1
     openIn(0, k)
     return
   end
