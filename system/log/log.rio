@@ -71,10 +71,10 @@ show :: proc(k: Int)
   for i in 0..<text.len() + 1
     if i == text.len() or text[i] == 10
       if i < text.len() or i > at # (a line, not the nothing after the last: its rows, COLS characters each)
-        for k in 0..<max(1, (i - at + COLS - 1) / COLS)
+        for r in 0..<max(1, (i - at + COLS - 1) / COLS)
           if rowCount < 1024
-            rowAt[rowCount] = at + k * COLS
-            rowLen[rowCount] = min(COLS, i - at - k * COLS)
+            rowAt[rowCount] = at + r * COLS
+            rowLen[rowCount] = min(COLS, i - at - r * COLS)
             rowCount += 1
           end
         end
