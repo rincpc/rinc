@@ -161,6 +161,8 @@ int rinc_frame(rio_Vm *vm);
 extern int rinc_game;    /* the app has frames to run (update*, draw*) */
 extern int rinc_showLog; /* what's logged goes on the screen too: while an app starts, and once it's stopped */
 int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void (*put)(const char *s, int n));
+/* the app running, about to give way (rinc_appBegin calls it), or Rinc about to stop (the desktop's window closed): its leaving*, to keep where it is (docs/spec/apps.md#leaving) */
+void rinc_appLeave(rio_Vm *vm);
 int rinc_appRun(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image);
 int rinc_appRunHost(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *path);
 /* or, for an app by name (after rinc_appBegin): from storage, else the bundle, through its cached

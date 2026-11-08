@@ -159,3 +159,9 @@ update* :: proc()
     placeWait -= 1
   end
 end
+# leaving for another app (the system key's Tab, say): where it is, kept now, not a second after scrolling
+leaving* :: proc()
+  if placeDirty or top != placeTop
+    savePlace()
+  end
+end

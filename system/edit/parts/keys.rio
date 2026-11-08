@@ -290,9 +290,20 @@ keepPlace :: proc()
     placeStill = 0
   end
   placeStill += 1
-  if placeStill == 15 and now != placeSaved and path.len() > 0 and not leaving
+  if placeStill == 15 and now != placeSaved and path.len() > 0 and not toFiles
     placeSaved = now
     remember()
+  end
+end
+# leaving for another app (the system key's Tab, say): where it is, kept now, not after the moment's rest;
+# and what's not saved, as a draft (as for Files), to have again on coming back
+leaving* :: proc()
+  placeStill = 14
+  keepPlace()
+  if modified() and not toFiles
+    ok := pc.stashWrite("draft", text[0..<textLen].asString())
+    ok = pc.stashWrite("draftPath", here())
+    ok = pc.stashWrite("calling", "away")
   end
 end
 
@@ -320,7 +331,7 @@ update* :: proc()
       reveal()
     end
     c = -1
-    if not leaving # (gone to Files: the rest typed is its)
+    if not toFiles # (gone to Files: the rest typed is its)
       c = pc.key()
     end
   end

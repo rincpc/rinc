@@ -744,6 +744,7 @@ static int rinc_window(const char *title) {
     SDL_RenderPresent(r);
     if (!rinc_game) SDL_Delay(16);
   }
+  rinc_appLeave(&rinc_vm); /* (the window closed: the app keeps where it is, as when it gives way) */
   SDL_Quit();
   return 0;
 }
@@ -912,6 +913,7 @@ int main(int argc, char **argv) {
       if (rinc_launch) rinc_switch();
       if (wavout && i < 60 * 60) rinc_audioMix(rinc_wav + i * (rinc_RATE / 60) * 2, rinc_RATE / 60); /* (a frame's worth of sound) */
     }
+    rinc_appLeave(&rinc_vm); /* (Rinc stopping: the app keeps where it is, as when it gives way) */
     if (wavout && rinc_saveWav(wavout, (uint32_t)(frames < 3600 ? frames : 3600) * (rinc_RATE / 60))) { fprintf(stderr, "rinc: can't write %s\n", wavout); return 1; }
   } else {
     int c;

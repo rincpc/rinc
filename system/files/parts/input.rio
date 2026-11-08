@@ -211,7 +211,7 @@ update* :: proc()
     message.clear()
     key(c)
     c = -1
-    if not leaving # (gone back to its caller: the rest typed is its)
+    if not gone # (gone back to its caller: the rest typed is its)
       c = pc.key()
     end
   end

@@ -221,17 +221,17 @@ scanThemes :: proc(folder: String, owner: String, where: Int)
 end
 
 # every folder of a top folder (/rinc/apps, /rinc/projects, /rinc/save), each one's themes
-top: Blob[4096]
+topListing: Blob[4096]
 ownerBuf: Blob[..40]
 folderBuf: Blob[..80]
 scanAll :: proc(root: String, where: Int)
-  got: Blob[..] = top
+  got: Blob[..] = topListing
   n := pc.dir(root, got)
   at := 0
   for i in 0..<got.len()
-    if n > 0 and top[i] == 10
-      if top[at] == 100
-        e := top[at + 2..<i].asString()
+    if n > 0 and topListing[i] == 10
+      if topListing[at] == 100
+        e := topListing[at + 2..<i].asString()
         ownerBuf.clear()
         fine = ownerBuf.pushAll(e)
         if where == PROJECTS

@@ -25,7 +25,7 @@ extOf :: proc(name: String) -> String
   return ""
 end
 # whether app's in owList already
-listed :: proc(app: String) -> Bool
+owListed :: proc(app: String) -> Bool
   at := 0
   for i in 0..<owList.len()
     if owList[i] == 10
@@ -62,7 +62,7 @@ appsFor :: proc(k: Int) -> Bool
       for sp < i and owAny[sp] != 32
         sp += 1
       end
-      if not listed(owAny[from..<sp].asString())
+      if not owListed(owAny[from..<sp].asString())
         ok := owList.pushAll(owAny[from..<i + 1])
       end
       from = i + 1
@@ -108,7 +108,7 @@ openIn :: proc(i: Int, k: Int)
   ok := callArgs.pushAll("open ")
   ok = callArgs.pushAll(pathTo(nameOf(k)))
   mode = NONE
-  leaving = true
+  gone = true
   pc.call(owApp(i), callArgs[0..<callArgs.len()].asString())
 end
 # Open with, on entry k (first: none picked for its kind yet)

@@ -72,6 +72,9 @@ if callingLen > 0
     loaded := load(picked[0..<min(pickedLen, 128)].asString())
   end
   reveal()
+  if calling[0..<callingLen].asString() == "away" and opening.len() > 5 and opening[0..<5].asString() == "open " # (left unsaved, then called to open a file: the draft first)
+    say("Unsaved changes kept: open that file again to drop them", warnColor)
+  end
 case opening.len() > 5 and opening[0..<5].asString() == "open " and load(opening[5..<opening.len()].asString()) # (called to open a file: Files, for one of its kind)
   reveal()
 case goToError() # (back from an app that stopped with an error: at the error)

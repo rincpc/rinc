@@ -351,7 +351,7 @@ end
 # Files, called to pick a file to open, or a place to save as: what it has kept in its stash meanwhile
 # (unsaved too), to have again when it comes back (with what was picked, or nothing)
 argsBuf: Blob[..128]
-leaving := false
+toFiles := false
 callFiles :: proc(how: String)
   if sourceLen("files") < 0
     say("There's no Files app here", errorColor)
@@ -361,7 +361,7 @@ callFiles :: proc(how: String)
   ok = pc.stashWrite("draftPath", here())
   ok = pc.stashWrite("calling", how)
   remember()
-  leaving = true # (what's typed next is Files')
+  toFiles = true # (what's typed next is Files')
   argsBuf.clear()
   pushed := argsBuf.pushAll(how)
   pushed = argsBuf.push(32)

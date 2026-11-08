@@ -71,9 +71,9 @@ input: Blob[..60]
 field := pc.Field{text = input} # (edited as a text box is: renaming, its name to start, the extension left out of what's selected)
 
 # back to its caller, with what was picked (what's typed after is the caller's)
-leaving := false
+gone := false
 finish :: proc(result: String)
-  leaving = true
+  gone = true
   pc.done(result)
 end
 

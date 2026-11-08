@@ -103,6 +103,11 @@ keepView :: proc()
   end
   saved := pc.stashWrite("view", kept[0..<kept.len()].asString())
 end
+# leaving for another app (the system key's Tab, say): where it is, kept now, not after the moment's rest
+leaving* :: proc()
+  viewStill = 14
+  keepView()
+end
 # a line of kept's: line n (from 0), "" past its end
 viewLine :: proc(n: Int) -> String
   at := 0

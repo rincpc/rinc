@@ -231,14 +231,14 @@ deleteForward :: proc(ctrl: Bool)
   end
 end
 
-# the lines the selection is on (or the cursor's): into first and last
+# the lines the selection is on (or the cursor's): into first and lastLine
 first := 0
-last := 0
+lastLine := 0
 selectedLines :: proc()
   first = lineOf(selStart())
-  last = lineOf(selEnd())
-  if last > first and lineAt[last] == selEnd()
-    last -= 1
+  lastLine = lineOf(selEnd())
+  if lastLine > first and lineAt[lastLine] == selEnd()
+    lastLine -= 1
   end
 end
 
@@ -246,11 +246,11 @@ end
 indentLines :: proc(dir: Int)
   selectedLines()
   a := lineAt[first]
-  b := lineEnd(last)
+  b := lineEnd(lastLine)
   had := cursor != anchor
   c := cursor
   built.clear()
-  for l in first..=last
+  for l in first..=lastLine
     p := lineAt[l]
     e := lineEnd(l)
     if dir > 0 and e > p
@@ -268,14 +268,14 @@ indentLines :: proc(dir: Int)
       return
     end
     _ = built.pushAll(text[p..<e])
-    if l < last
+    if l < lastLine
       _ = built.push(10)
     end
   end
   delta := built.len() - (b - a)
   merging = 0
   ok := edit(a, b, built[0..<built.len()].asString(), 0)
-  if had or first != last
+  if had or first != lastLine
     anchor = a
     cursor = a + built.len()
   else
@@ -291,7 +291,7 @@ toggleComment :: proc()
   selectedLines()
   least := -1
   all := true
-  for l in first..=last
+  for l in first..=lastLine
     p := indentEnd(l)
     if p < lineEnd(l)
       if least < 0 or p - lineAt[l] < least
@@ -304,11 +304,11 @@ toggleComment :: proc()
     return
   end
   a := lineAt[first]
-  b := lineEnd(last)
+  b := lineEnd(lastLine)
   had := cursor != anchor
   c := cursor
   built.clear()
-  for l in first..=last
+  for l in first..=lastLine
     p := lineAt[l]
     e := lineEnd(l)
     if built.len() + (e - p) + 3 > BUILT
@@ -330,14 +330,14 @@ toggleComment :: proc()
       _ = built.pushAll("# ")
       _ = built.pushAll(text[p + least..<e])
     end
-    if l < last
+    if l < lastLine
       _ = built.push(10)
     end
   end
   delta := built.len() - (b - a)
   merging = 0
   ok := edit(a, b, built[0..<built.len()].asString(), 0)
-  if had or first != last
+  if had or first != lastLine
     anchor = a
     cursor = a + built.len()
   case c < a + least # (in the indent: stays)
@@ -369,12 +369,12 @@ end
 # the selected lines (or the cursor's) moved up (dir -1) or down past their neighbor
 moveLines :: proc(dir: Int)
   selectedLines()
-  if (dir < 0 and first == 0) or (dir > 0 and last == lineCount - 1)
+  if (dir < 0 and first == 0) or (dir > 0 and lastLine == lineCount - 1)
     return
   end
   a := lineAt[first]
-  b := lineEnd(last)
-  o := last + 1 # the neighbor
+  b := lineEnd(lastLine)
+  o := lastLine + 1 # the neighbor
   if dir < 0
     o = first - 1
   end
@@ -409,7 +409,7 @@ end
 deleteLines :: proc()
   selectedLines()
   a := lineAt[first]
-  b := lineEnd(last)
+  b := lineEnd(lastLine)
   if b < textLen
     b += 1 # (the newline after)
   case a > 0
@@ -429,14 +429,14 @@ end
 # #. The cursor goes where the first two lines met
 joinLines :: proc()
   selectedLines()
-  if last == first
-    last = first + 1
+  if lastLine == first
+    lastLine = first + 1
   end
-  if last >= lineCount
+  if lastLine >= lineCount
     return
   end
   a := lineAt[first]
-  b := lineEnd(last)
+  b := lineEnd(lastLine)
   if b - a + 1 > BUILT
     say("Too much to join at once", errorColor)
     return
@@ -448,7 +448,7 @@ joinLines :: proc()
   end
   _ = built.pushAll(text[a..<e])
   at := -1
-  for l in first + 1..=last
+  for l in first + 1..=lastLine
     p := indentEnd(l)
     e = lineEnd(l)
     for e > p and text[e - 1] == 32

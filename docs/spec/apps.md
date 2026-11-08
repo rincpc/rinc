@@ -351,6 +351,23 @@ the Rinc drops all of an app's stash when it's told to start the app afresh: the
 | `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
 | `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
 
+### Leaving
+
+An app that keeps its stash only now and then (once it's rested a moment, say, not each step of a held
+arrow) can have a `leaving* :: proc()`. The Rinc calls it just before the app gives way to another
+(the system key with Tab, Esc or H, an app called, `pc.launch`), and before it stops (the desktop's
+window closed), so the app can keep where it is then, and coming back finds it as it was. Not when the
+app's being forgotten (the system key with Q or R: its stash dropped). It can't draw or wait: the next
+app's on its way. Rinc's own apps have one, and the editor keeps changes not yet saved with it, as a
+draft, to have again.
+
+```rio
+place: Blob[..64]
+leaving* :: proc()
+  ok := pc.stashWrite("place", place.asString())
+end
+```
+
 ## Its cache, and its log
 
 What an app can always make again (thumbnails, an index, a download) goes in its cache space,

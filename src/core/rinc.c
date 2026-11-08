@@ -1849,6 +1849,7 @@ static int rinc_hasHelp(const char *app) {
 }
 int rinc_modsHeld = -1;
 static int rinc_sysDo(int pressed, int mods, int held); /* (below) */
+static int rinc_forgetting; /* (this app, forgotten as it gives way: no leaving*, rinc_appLeave) */
 int rinc_systemKey(int sysDown, int mods, int otherDown, int keys) {
   static int now, down, seen, spoiled, startAt, lastTap, lastTapAt, again, wasKeys, wasOther;
   int pressed = keys & ~wasKeys, otherPressed = otherDown && !wasOther, go = 0, strip;
@@ -1920,11 +1921,13 @@ static int rinc_sysDo(int pressed, int mods, int held) {
       rinc_switchHeld = held;
     } else if (pressed & rinc_SysKey_q) { /* back to the app before, this one forgotten, its stash too */
       rinc_stashDrop(rinc_appNow);
+      rinc_forgetting = 1;
       rinc_recentDrop(0);
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recentCount ? rinc_recent[0] : "home");
       go = 1;
     } else if (pressed & rinc_SysKey_r) { /* this app again, fresh: its stash dropped, and its compiled image */
       rinc_stashDrop(rinc_appNow);
+      rinc_forgetting = 1;
       rinc_cacheDrop(rinc_appRef);
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_appRef);
       go = 1;
@@ -2079,7 +2082,17 @@ int rinc_hostProcs(rio_Vm *vm) {
    part at a time from its file, or its image loaded). Whatever goes wrong goes on the screen, with the way home
    (and, when it ran out of something, how near each limit it came) */
 static rio_Usage rinc_usage;
+/* the app running, about to give way to another (docs/spec/apps.md#leaving): its leaving*, if it has
+   one, to keep where it is in its stash. Not when it's being forgotten (the system key with Q or R: its
+   stash dropped, and staying so) */
+
+void rinc_appLeave(rio_Vm *vm) {
+  int fn = rinc_forgetting || vm == &rinc_nest ? -1 : rio_findProc(vm, "leaving");
+  rinc_forgetting = 0;
+  if (fn >= 0) (void)rio_call(vm, fn); /* (what goes wrong there, it's too late to show: the next app starts) */
+}
 int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void (*put)(const char *s, int n)) {
+  rinc_appLeave(vm);
   rinc_game = 0;
   rinc_showLog = 1;
   rinc_put = put;

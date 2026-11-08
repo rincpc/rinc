@@ -146,3 +146,7 @@ update* :: proc()
     remember()
   end
 end
+# leaving for another app (the system key's Tab, say): where it is, kept now, not after the moment's rest
+leaving* :: proc()
+  remember()
+end

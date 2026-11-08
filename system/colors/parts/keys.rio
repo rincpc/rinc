@@ -14,9 +14,9 @@ PAGE_DOWN :: 136
 # ---------------------------------------------------------------- called, and the stash
 
 calledFor := false    # (a caller waits for a color)
-leaving := false
+gone := false
 finish :: proc(result: String)
-  leaving = true
+  gone = true
   pc.done(result)
 end
 # text, made up: numbers onto it in decimal, and in hex
@@ -70,6 +70,12 @@ remember :: proc()   # (once it's rested a moment: not each step of a drag or a 
     ok := pc.stashWrite("pick", stashed[].asString())
   end
 end
+# leaving for another app (the system key's Tab, say): the color, kept now, not after the moment's rest
+leaving* :: proc()
+  last = picked
+  still = 29
+  remember()
+end
 
 # ---------------------------------------------------------------- keys, buttons and the pointer
 
@@ -117,11 +123,11 @@ update* :: proc()
   for c >= 0
     key(c)
     c = -1
-    if not leaving # (gone back to its caller: the rest typed is its)
+    if not gone # (gone back to its caller: the rest typed is its)
       c = pc.key()
     end
   end
-  if leaving
+  if gone
     return
   end
   # the arrows and the d-pad, as buttons: a step a press, then more while it's held; Y, the other half
