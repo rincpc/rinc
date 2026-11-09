@@ -625,9 +625,9 @@ layerName :: proc(kind: Int, n: Int, out: Blob[..])
   end
 end
 # a new layer of kind after one (-1: first), with its sheet: a tiles layer as big as the nearest tiles
-# layer (after's, or before or after it) and where it is, empty; a things layer, with none. False if
-# there's no room
-Map.addLayer* :: proc(after: Int, kind: Int) -> Bool
+# layer (after's, or before or after it) and where it is, empty (or size, if it's given); a things
+# layer, with none. False if there's no room
+Map.addLayer* :: proc(after: Int, kind: Int, size?: [2]Int) -> Bool
   if self.count == 0 or self.count >= self.layers.len()
     return false
   end
@@ -644,6 +644,9 @@ Map.addLayer* :: proc(after: Int, kind: Int) -> Bool
     if t >= 0
       n.size = self.layers[t].size
       n.at = self.layers[t].at
+    end
+    if size.x > 0 and size.y > 0
+      n.size = min(size, {MOST_SIDE, MOST_SIDE})
     end
     if self.used() + n.size.x * n.size.y * 2 > self.room.len()
       return false

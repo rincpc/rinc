@@ -160,7 +160,7 @@ A layer's cells are where its `start` says: a layer moved (`moveLayer`) moves no
 | `m.thingOver(layer, p) -> Int` | the last-drawn thing over the map's pixel `p` (-1: none), as an editor picks one |
 | `m.find(name) -> [2]Int` | the first thing of that name: its layer and its number (`{-1, -1}`: none) |
 | `m.layerNamed(name) -> Int`, `m.nameLayer(layer, name) -> Bool`, `tilemap.nameOk(s) -> Bool` | layers by name |
-| `m.addLayer(after, kind) -> Bool` | a layer after one (-1: first): a tiles layer as big as the nearest tiles layer, and where it is, empty; a things layer, with none. False if there's no room |
+| `m.addLayer(after, kind, size?) -> Bool` | a layer after one (-1: first): a tiles layer as big as the nearest tiles layer (or `size`), and where it is, empty; a things layer, with none. False if there's no room |
 | `m.removeLayer(layer) -> Bool`, `m.moveLayer(layer, to)` | a layer taken out (never the last), or moved to be number `to` |
 | `m.reshape(layer, size, shift) -> Bool` | a tiles layer made `size`, its cells moved `shift`, what's past its new edges gone, its offset moved back as far (so its cells stay where they were on the map): false if it doesn't fit |
 | `tilemap.sizeIn(s) -> [2]Int`, `tilemap.notedSize(path) -> [2]Int` | `"8"` or `"8x16"` as a size; a sheet's sprites' size as Paint's notes in it say (else 8 by 8) |

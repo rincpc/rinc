@@ -72,6 +72,8 @@ assert(m.layerNamed("ground") == 1 and m.layers[3].kind == tilemap.TILES and m.a
 assert(m.nameLayer(3, "sky") and m.layerNamed("sky") == 3 and not m.nameLayer(3, "bad name"), "named (not with a space)")
 assert(m.removeLayer(0) and m.count == 3 and m.find("hero") == {1, 0} and m.at(0, {1, 1}) == 0, "the actors taken out: their things and names gone")
 assert(m.used() == 4 * 2 * 2 + 10 + 5, "their room given back")
+assert(m.addLayer(0, tilemap.TILES, {3, 1}) and m.layers[1].size == {3, 1} and m.at(1, {2, 0}) == E and m.used() == 4 * 2 * 2 + 10 + 5 + 6, "a tiles layer of the size given")
+assert(m.removeLayer(1) and m.used() == 4 * 2 * 2 + 10 + 5, "taken out again")
 assert(m.removeLayer(2) and m.removeLayer(1) and not m.removeLayer(0), "the last one left, never")
 
 # a tiles layer reshaped: grown left and up (its offset back), then fitted again; wider; too big
