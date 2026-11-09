@@ -108,7 +108,7 @@ static void rinc_hostPrint(rio_Vm *v, rio_Val *a) { /* print(s, x, y, c): text a
    buttons as they're held: an app reads whichever it wants. A nested session (pc.rioStart) has a queue
    of its own, which its app fills with pc.rioType */
 #define rinc_TEXT_CAP 64
-typedef struct { uint16_t q[rinc_TEXT_CAP]; int head, tail, esc, escn, escp[3]; } rinc_Text;
+typedef struct { uint16_t q[rinc_TEXT_CAP]; int head, tail, esc, escn, escp[3], event; } rinc_Text;
 static rinc_Text rinc_typed, rinc_nestTyped;
 /* the modifiers locked (tapped twice: rinc_systemKey), as rinc_Mod_* bits; what they do to a key typed:
    Shift capitalizes letters, Ctrl makes a letter Ctrl+letter, and on a key that isn't a character each
@@ -145,21 +145,35 @@ int rinc_textMods(int shift, int ctrl, int alt) { return (shift ? rinc_Mod_shift
    Enter, Backspace, a letter for Ctrl+letter, a space or / for Ctrl+Space or Ctrl+/) with modifiers m.
    ESC [ Z is Shift+Tab. A NUL byte (a terminal's Ctrl+Space) is Ctrl+Space, 32 with rinc_Mod_ctrl, and
    31 (its Ctrl+/, as Ctrl+_) is Ctrl+/, 47 with it. ESC [ 57361 u is Print Screen (as kitty's keyboard
-   protocol sends it): the screen saved (rinc_shotAsk), not typed */
+   protocol sends it): the screen saved (rinc_shotAsk), not typed. And kitty's presses and releases, a
+   key's modifiers then :1 or :3 (ESC [ 1 ; 1 : 1 C, right pressed; ESC [ 1 ; 1 : 3 C, let go; ESC [ 118 ;
+   1 : 1 u, V), hold a game's buttons as a controller would (rinc_typedButtons): the arrows, and V, C,
+   X, Z (A, B, X, Y); a press is typed too, a release isn't. A terminal sends none of them unasked:
+   they're for a developer's tools, to play a game over serial */
 static int rinc_shotWanted;
+int rinc_typedButtons;
 void rinc_shotAsk(void) { rinc_shotWanted = 1; }
 void rinc_textPush(int c) {
   rinc_Text *t = &rinc_typed;
   if (t->esc == 1) {
-    if (c == '[' || c == 'O') { t->esc = 2; t->escn = 0; t->escp[0] = t->escp[1] = t->escp[2] = 0; return; }
+    if (c == '[' || c == 'O') { t->esc = 2; t->escn = 0; t->escp[0] = t->escp[1] = t->escp[2] = 0; t->event = 0; return; }
     t->esc = 0; rinc_queue(t, 27); /* (a lone ESC: Esc itself, then c) */
   } else if (t->esc == 2) {
     int n = t->escp[0], m = t->escp[1] > 1 ? t->escp[1] - 1 : 0, mods = rinc_textMods(m & 1, m & 4, m & 2), k = t->escp[2], c0;
     if (c >= '0' && c <= '9') { if (t->escp[t->escn] < 100000) t->escp[t->escn] = t->escp[t->escn] * 10 + c - '0'; return; }
     if (c == ';') { if (t->escn < 2) t->escn++; return; }
+    if (c == ':') { t->event = 1; t->escp[2] = 0; t->escn = 2; return; } /* (the event: after the modifiers, as escp[2]) */
     t->esc = 0;
     c0 = c;
     if (c == 'u' && n == 57361) { rinc_shotWanted = 1; return; }
+    if (t->event) { /* (a press or a release: a button's) */
+      int ev = t->escp[2], b = c == 'A' ? rinc_Button_up : c == 'B' ? rinc_Button_down : c == 'C' ? rinc_Button_right : c == 'D' ? rinc_Button_left :
+        c != 'u' ? 0 : n == 'v' ? rinc_Button_a : n == 'c' ? rinc_Button_b : n == 'x' ? rinc_Button_x : n == 'z' ? rinc_Button_y : 0;
+      t->event = 0;
+      if (ev == 3) { rinc_typedButtons &= ~b; return; }
+      rinc_typedButtons |= b;
+      if (c == 'u') { if (n >= 'a' && n <= 'z') rinc_queue(t, n); return; }
+    }
     if (c == '~' && n == 27) { /* (xterm's modifyOtherKeys) */
       if (k >= 'A' && k <= 'Z') k += 32;
       c = k == 9 || k == 13 || k == 32 || k == '/' ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
@@ -288,6 +302,7 @@ static char rinc_appRef[rinc_REF] = "app"; /* and as it was started: chord, or i
 static int rinc_appProject; /* (it's a project: its own save space) */
 void rinc_setAppName(const char *name) {
   size_t n = strlen(name);
+  rinc_typedButtons = 0; /* (a release lost over serial: not held into the next app) */
   if (n >= sizeof rinc_appRef) n = sizeof rinc_appRef - 1;
   memcpy(rinc_appRef, name, n); rinc_appRef[n] = 0;
   if (strchr(rinc_appRef, '/')) n = (size_t)(strchr(rinc_appRef, '/') - rinc_appRef); /* (another of its files, run as it: edit/test is edit) */
@@ -2621,6 +2636,7 @@ int rinc_frame(rio_Vm *vm) {
     if (rinc_axes[1] < -16000) rinc_buttons |= rinc_Button_up;
     if (rinc_axes[1] > 16000) rinc_buttons |= rinc_Button_down;
   }
+  rinc_buttons |= rinc_typedButtons & (rinc_lettersAsButtons() ? 0xff : 15); /* (held over serial: above) */
   if (u < 0 && d < 0) return 1;
   if (vm != &rinc_nest) { /* (the command list: while it's up, the app waits) */
     if (rinc_cmdWanted) { rinc_cmdWanted = 0; if (rinc_cmdOpen(vm)) return -1; }

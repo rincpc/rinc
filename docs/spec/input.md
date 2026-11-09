@@ -22,6 +22,12 @@ The keyboard and the controller are both player 1: a button is held if either ho
 buttons are named and placed as on an Xbox controller, in order of importance, so an app that needs
 one button uses A.
 
+Over serial, where a terminal sends keys only as they're typed, a developer's tool can hold buttons
+the way kitty's keyboard protocol says when keys go down and up: `ESC [ 1 ; 1 : 1 C` presses right,
+`ESC [ 1 ; 1 : 3 C` lets it go (A, B, D: up, down, left), and `ESC [ 118 ; 1 : 1 u` and `: 3 u` V, the A
+button (`99` C, `120` X, `122` Z). A press is typed too, a release isn't; a button still held when
+another app starts is let go. So a test can play a game on a board.
+
 ## Sticks and triggers
 
 `pc.stick(i)` is a stick's position from -1 to 1: `i` 0 is the left stick's x (+ right), 1 its y

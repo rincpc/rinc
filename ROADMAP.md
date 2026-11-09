@@ -30,9 +30,10 @@ app is a Rio program.
 - Priorities (2026-11-09, after making Cloudlamp), in order:
   1. Done (2026-11-09): Print Screen saves the screen, /rinc/shots/<app>-<n>.png (desktop, board, web;
      over serial ESC [ 57361 u, kitty's code for it), and the REPL's `get path` sends a file back as
-     hex (tests/shot.py). Seen with it: arrows typed over serial are typed keys, not buttons, so a
-     game reading pc.btn can't be played over serial; a way to hold a button over serial would let
-     tests play games.
+     hex (tests/shot.py). And buttons held over serial (done the same day): kitty's presses and
+     releases (ESC [ 1 ; 1 : 1 C ... : 3 C) hold the arrows and V, C, X, Z as a controller would
+     (tests/typedbuttons.py), so a test plays a game on the board: Cloudlamp, walked to its lamp and
+     lit, seen in a shot fetched back.
   2. A song player in the library.
   3. Studio: a new file named up front (or Files' save taking a typed path).
   4. Studio: state kept per file, not per app.
