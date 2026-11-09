@@ -38,6 +38,7 @@ void rinc_mkdirsFor(const char *file) {
 static int rinc_open(const char *path, int how) {
   char local[1024];
   if (rinc_file) { fclose(rinc_file); rinc_file = 0; }
+  if (how == rinc_READ && rinc_hostOwn(path, local, sizeof local) && (rinc_file = fopen(local, "rb"))) return 0; /* (an app run from its folder: its files there) */
   if (rinc_local(path, local, sizeof local)) return -1;
   if (how != rinc_READ) { rinc_mkdirsFor(local); rinc_storageChanged(path); }
   if (how == rinc_UPDATE && (rinc_file = fopen(local, "r+b"))) return 0;

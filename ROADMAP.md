@@ -27,6 +27,19 @@ app is a Rio program.
 
 ## Next
 
+- From making Cloudlamp (apps/cloudlamp, 2026-11-09: its sheet, map, sounds and song made with studio's
+  apps on the board, typed at over its serial port; the game needs only Rinc):
+  - Done: an app run from its folder (rinc game/) reads its own files there, as installed (pc.fileRead,
+    fileReadAt, imageRead: tests/folderfiles.py); it read storage's only, so a game's map and sheet
+    weren't found.
+  - A song player in the library (below: "one for songs"): Cloudlamp reads .snd and .mus itself, 60
+    lines a game shouldn't need.
+  - A screen capture over serial (the console's `shot`, as a PNG): the board's screen can't be seen
+    from the computer, so testing over serial is blind but for the files an app saves; bug reports too.
+  - A card's /rinc/lib copy wins over the built-in one, and goes stale: the card had an older tilemap.
+    Listing /rinc/lib (below) could say when a card's copy is older than the one built in.
+- Next (2026-11-09): /rinc/lib listed in Files and the editor, the library built in shown there (and
+  pc.rio, to read); memory for apps, the next big step (code in flash, or a bigger app space: see Later).
 - Rinc's library (library/, as /rinc/lib, installed with the system apps): done (2026-11-08):
   `tilemap`, tile maps read, written and drawn, pure Rio, the app owning its maps' memory (spec/maps.md),
   which studio's Maps uses; and pc.blit a row at a time when it isn't scaled or mirrored across (a screen
@@ -175,6 +188,9 @@ app is a Rio program.
 
 ## Later
 
+- Apps prebuilt into a firmware (their images run in place from flash, freeing their code's RAM): later, and
+  never in the default firmware, which stays free of apps; a build option for a board of its own (a game
+  console, say). Meanwhile, code in RAM; libraries built in (as source) already.
 - The card as a USB drive (branch `usb-drive`), or USB thumb drives.
 - Installing bundles on the web and onto a card; zip bundles everywhere.
 - Saving into the active project; apps registered for file types.

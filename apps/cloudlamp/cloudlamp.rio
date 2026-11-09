@@ -1,0 +1,209 @@
+# Cloudlamp: a lighthouse on an island that floats above a sea of clouds. Its lamp has gone dark. The
+# keeper waits by the path, and a gull says what gulls say. Walk east along the path to the lighthouse's
+# yard, and light the lamp.
+#
+# The arrows (or the d-pad) walk; walking into someone talks to them. Its files are its own, beside it:
+# the sheet (cloudlamp.png, Paint's), the map (cloudlamp.map, Maps': two screens, island and yard, each
+# with a things layer of its folk, by name), the sounds (cloudlamp.snd, Sound's: a step, a chirp, a tune
+# and its bass) and the song (cloudlamp.mus, Music's). Made with studio's apps on a Fruit Jam, typed at
+# over its serial port; it needs only rinc (and rinc's library, tilemap) to run.
+
+import tilemap
+
+GRASS :: 0            # the sheet's sprites, as Paint drew them
+PATH :: 1
+ROCK :: 2
+CLOUD :: 3
+PLAYER :: 4
+SIDE :: 16            # a cell on the screen: 8 pixels, twice
+
+sheetRoom: [2]tilemap.Sheet
+layerRoom: [6]tilemap.Layer
+room: Blob[2000]
+m := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[]}
+fine := m.load("cloudlamp.map")
+pixels: Blob[..(64 + 1) * 8]
+sheet := pc.imageRead("cloudlamp.png", pixels)
+grounds := [2]Int{m.layerNamed("island"), m.layerNamed("yard")}
+folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
+
+# the sounds: Sound's file, a line a sound after its first: its speed and loop (2 hex digits each), then
+# 32 notes, 5 hex digits each (pitch 2, wave, volume, effect); each kept as the synth takes it, to its
+# last note with a volume
+text: Blob[..6000]
+notes: Blob[4 * 32 * 4]
+counts: [4]Int
+speeds: [4]Int
+hex :: proc(c: Int) -> Int
+  if c >= 'a'
+    return c - 'a' + 10
+  end
+  return c - '0'
+end
+readSounds :: proc()
+  n := pc.fileRead("cloudlamp.snd", text)
+  at := 13 # (after "rinc sound 1")
+  for s in 0..<4
+    if at + 6 + 32 * 5 > n
+      return
+    end
+    speeds[s] = hex(text[at]) * 16 + hex(text[at + 1])
+    for k in 0..<32
+      p := at + 6 + k * 5
+      b := s * 128 + k * 4
+      notes[b] = hex(text[p]) * 16 + hex(text[p + 1])
+      notes[b + 1] = hex(text[p + 2])
+      notes[b + 2] = hex(text[p + 3])
+      notes[b + 3] = hex(text[p + 4])
+      if notes[b + 2] > 0
+        counts[s] = k + 1
+      end
+    end
+    at += 6 + 32 * 5 + 1
+  end
+end
+readSounds()
+play :: proc(voice: Int, s: Int)
+  if counts[s] > 0
+    pc.synth(voice, notes[s * 128..<s * 128 + counts[s] * 4], speeds[s])
+  end
+end
+# the song: Music's file, its first pattern's channels (two hex digits each, -- none), played on voices
+# 1 to 4 over and over
+song: [4]Int
+songText: Blob[..200]
+_ = pc.fileRead("cloudlamp.mus", songText)
+for line in 0..<4
+  song[line] = -1
+end
+patternAt := 0
+for i in 0..<songText.len()
+  if patternAt == 0 and i > 0 and songText[i - 1] == 10 and songText[i] != 's' and songText[i] != 'r'
+    patternAt = i
+  end
+end
+if patternAt > 0
+  for c in 0..<4
+    if songText[patternAt + c * 3] != '-'
+      song[c] = hex(songText[patternAt + c * 3]) * 16 + hex(songText[patternAt + c * 3 + 1])
+    end
+  end
+end
+
+screen := 0           # 0 the island, 1 the yard
+at := {3, 7}          # where the player is, in cells
+said: Blob[..60]
+saidFor := 0          # frames it's shown for yet
+lit := false
+wait := 0
+say :: proc(s: String)
+  said.clear()
+  fine = said.pushAll(s)
+  saidFor = 240
+end
+say("Cloudlamp. The lamp is dark: walk east.")
+
+# who's in cell p of this screen: their name, into whom ("" for none)
+whom: Blob[..15]
+who :: proc(p: [2]Int)
+  whom.clear()
+  for j in 0..<m.things(folks[screen])
+    t := m.thing(folks[screen], j)
+    if t.at / 8 == p
+      fine = whom.pushAll(t.name.asString())
+    end
+  end
+end
+talk :: proc(name: String)
+  play(0, 1)
+  if name == "keeper" and lit
+    say("Keeper: the airships see us again. Thank you!")
+  case name == "keeper"
+    say("Keeper: our lamp went out. Its yard is east.")
+  case name == "gull"
+    say("Gull: Kree! Clouds below, stars above. Kree!")
+  case name == "lamp" and not lit
+    lit = true
+    say("The lamp burns! Far off, an airship turns home.")
+  case name == "lamp"
+    say("The lamp burns bright.")
+  end
+end
+step :: proc(d: [2]Int)
+  to := at + d
+  if to.x >= 20 and screen == 0 # (the path's east end: the yard)
+    screen = 1
+    to.x = 0
+  case to.x < 0 and screen == 1
+    screen = 0
+    to.x = 19
+  end
+  if to.x < 0 or to.y < 0 or to.x >= 20 or to.y >= 15
+    return
+  end
+  who(to)
+  if whom.len() > 0
+    talk(whom.asString())
+    return
+  end
+  t := m.at(grounds[screen], to)
+  if t == ROCK or t == CLOUD or t == tilemap.EMPTY
+    return
+  end
+  at = to
+  play(0, 0)
+end
+
+update* :: proc()
+  if pc.soundPlaying(1) == 0 # (the song, again)
+    for c in 0..<2
+      if song[c] >= 0
+        play(1 + c, song[c])
+      end
+    end
+  end
+  d := {pc.btn(1) - pc.btn(0), pc.btn(3) - pc.btn(2)}
+  if d == {0, 0}
+    wait = 0
+  case wait == 0
+    if d.x != 0
+      d.y = 0
+    end
+    step(d)
+    wait = 9
+  else
+    wait -= 1
+  end
+  if saidFor > 0
+    saidFor -= 1
+  end
+end
+
+sprite :: proc(layer: Int, t: Int, p: [2]Int)
+  pc.blit(sheet, p, {from = m.spriteAt(layer, t, sheet.size.x), size = {8, 8}, scale = {2, 2}})
+end
+draw* :: proc()
+  pc.cls(1)
+  g := grounds[screen]
+  for y in 0..<15
+    for x in 0..<20
+      t := m.at(g, {x, y})
+      if t != tilemap.EMPTY
+        sprite(g, t, {x, y} * SIDE)
+      end
+    end
+  end
+  f := folks[screen]
+  for j in 0..<m.things(f)
+    t := m.thing(f, j)
+    if lit and t.name.asString() == "lamp" # (its light)
+      pc.rect(t.at * 2 - 6, {SIDE + 12, SIDE + 12}, 10)
+    end
+    sprite(f, t.sprite, t.at * 2)
+  end
+  sprite(g, PLAYER, at * SIDE)
+  if saidFor > 0
+    pc.rect({0, 220}, {320, 20}, 0)
+    pc.print(said.asString(), {4, 226}, 7)
+  end
+end

@@ -186,6 +186,9 @@ extern int rinc_cacheTrust;
    isn't there), not storage */
 extern int (*rinc_hostRead)(const char *path, char *buf, uint32_t at, uint32_t n);
 extern char rinc_hostFolder[512];
+/* an app's own file (/rinc/apps/<app>/...), when it runs from the host's folder: where it is there, into out
+   (storage's reads look there first); 0 for any other */
+int rinc_hostOwn(const char *path, char *out, uint32_t cap);
 void rinc_storageChanged(const char *path);
 void rinc_cacheDrop(const char *name);
 extern const char rinc_buildId[];

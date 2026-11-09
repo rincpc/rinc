@@ -395,6 +395,18 @@ static int rinc_readBundled(const char *path, char *buf, uint32_t cap, uint32_t 
   *total = f->len;
   return 0;
 }
+/* one of the app's own files (/rinc/apps/<app>/...) when it runs from the host's (rinc game/: its files
+   beside it, there): where it is there, into out; 0 if it isn't the app's own, or the app isn't the host's */
+int rinc_hostOwn(const char *path, char *out, uint32_t cap) {
+#ifdef rio_NO_COMPILER
+  (void)path; (void)out; (void)cap;
+  return 0;
+#else
+  size_t n = strlen(rinc_appNow);
+  if (!rinc_hostFolder[0] || rinc_appProject || strncmp(path, "/rinc/apps/", 11) || strncmp(path + 11, rinc_appNow, n) || path[11 + n] != '/') return 0;
+  return snprintf(out, cap, "%s/%s", rinc_hostFolder, path + 12 + n) < (int)cap;
+#endif
+}
 /* a file, from storage, else the bundle: as much as fits in buf (cap), and its whole length (total) */
 static int rinc_readFile(const char *path, char *buf, uint32_t cap, uint32_t *total) {
   char chunk[256]; int got;
