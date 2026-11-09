@@ -1,7 +1,7 @@
 // node webdrop.mjs page.html bundle.zip [reset]: a page made by rinc -web, run as a browser would (its
 // script, with a stand-in for the DOM and localStorage), a bundle of apps dropped on it, and some frames
 // run; then (reset) its Reset button clicked, and yes to its question. Prints what the page logged, then
-// each storage key, a line each
+// each storage key, a line each (with RINC_VALUES set, each key's value too, after a tab, as JSON)
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
@@ -49,4 +49,4 @@ if (reset) {
   logged += reloaded ? "reset, reloaded\n" : "reset, not reloaded\n";
 } else if (!resetEl.hidden) logged += "a Reset button\n";
 console.log(logged + (errEl.hidden ? "" : "error: " + errEl.textContent + "\n") + "keys:");
-for (const k of [...store.keys()].sort()) console.log(k);
+for (const k of [...store.keys()].sort()) console.log(process.env.RINC_VALUES ? k + "\t" + JSON.stringify(store.get(k)) : k);

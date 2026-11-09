@@ -27,7 +27,17 @@ app is a Rio program.
   `tilemap`, tile maps read, written and drawn, pure Rio, the app owning its maps' memory (spec/maps.md),
   which studio's Maps uses; and pc.blit a row at a time when it isn't scaled or mirrored across (a screen
   of 8 by 8 tiles, 25 ms on the Fruit Jam before, 9 now). Next: one for songs, as studio's Music plays
-  them; and libraries in the firmware's bundle (lib/...), for a board with no card.
+  them; and libraries in the firmware's bundle, for a board with no card and to save apps' memory:
+  - Mounted read-only as /rinc/lib (the bundle's lib/ entries, read in place in flash, as its apps are
+    now), sources too, so the editor and help can open them; a card's /rinc/lib file of the same name
+    wins, so a library can still change without new firmware.
+  - Compiled once, the bytecode kept in flash and run from there, so an app pays only for the library's
+    data (tilemap: ~17 KB of an app's 256 KB now, 13 KB of it code). Needs from Rio: a module compiled
+    on its own, its tables kept and copied into each compile (Rio's roadmap, compiler speed), and a
+    second, read-only code segment the VM calls into (apps' code is in their memory now). Kept by its
+    source's hash, so a card's newer source is compiled as now. Its constants and strings stay in RAM
+    (~3 KB for tilemap) unless the VM can read those from flash too. Check what running from flash, through
+    the 16 KB cache, costs a library's hot loops and core 1.
 - An app's own files by relative path: in (pc's file procs: a path not starting with / is in the app's
   folder, its project's or as installed; for reading). Next with it: run from the desktop's own files
   (rinc mygame/), the same path reads from there; and tools/send.py sending binary files (a PNG, a WAV)

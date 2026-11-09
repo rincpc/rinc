@@ -106,6 +106,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_dir_SIG "sB>i"
 #define pc_fileRead_SIG "sB>i"
 #define pc_fileWrite_SIG "ss>i"
+#define pc_fileReadAt_SIG "siB>i"
+#define pc_fileWriteAt_SIG "sis>i"
 #define pc_fileDelete_SIG "s>i"
 #define pc_fileCopy_SIG "ss>i"
 #define pc_fileRename_SIG "ss>i"
@@ -122,6 +124,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_saveDelete_SIG "s>i"
 #define pc_stashWrite_SIG "ss>i"
 #define pc_stashRead_SIG "sB>i"
+#define pc_stashReadAt_SIG "siB>i"
+#define pc_stashWriteAt_SIG "sis>i"
 #define pc_stashDelete_SIG "s>i"
 #define pc_cacheRead_SIG "sB>i"
 #define pc_cacheWrite_SIG "ss>i"
@@ -201,6 +205,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(dir, pc_dir_SIG) \
   X(fileRead, pc_fileRead_SIG) \
   X(fileWrite, pc_fileWrite_SIG) \
+  X(fileReadAt, pc_fileReadAt_SIG) \
+  X(fileWriteAt, pc_fileWriteAt_SIG) \
   X(fileDelete, pc_fileDelete_SIG) \
   X(fileCopy, pc_fileCopy_SIG) \
   X(fileRename, pc_fileRename_SIG) \
@@ -217,6 +223,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(saveDelete, pc_saveDelete_SIG) \
   X(stashWrite, pc_stashWrite_SIG) \
   X(stashRead, pc_stashRead_SIG) \
+  X(stashReadAt, pc_stashReadAt_SIG) \
+  X(stashWriteAt, pc_stashWriteAt_SIG) \
   X(stashDelete, pc_stashDelete_SIG) \
   X(cacheRead, pc_cacheRead_SIG) \
   X(cacheWrite, pc_cacheWrite_SIG) \
@@ -233,7 +241,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x4c209b47u /* (rio_hashText of the source) */
+#define pc_HASH 0x237727a4u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -439,6 +447,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "dir* :: host proc(path: String, out: Blob[..]) -> Int      # its entries, folders first, a line each (\"d name\", \"f name\"): how many, or -1\n" \
   "fileRead* :: host proc(path: String, out: Blob[..]) -> Int # its whole length, or -1\n" \
   "fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1\n" \
+  "fileReadAt* :: host proc(path: String, at: Int, out: Blob[..]) -> Int # from byte at on, added: its whole length, or -1\n" \
+  "fileWriteAt* :: host proc(path: String, at: Int, data: String) -> Int # over it from byte at on (-1: its end), made if need be: where it went, or -1\n" \
   "fileDelete* :: host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1\n" \
   "fileCopy* :: host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1\n" \
   "fileRename* :: host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1\n" \
@@ -491,6 +501,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "# written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space\n" \
   "stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1\n" \
   "stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none\n" \
+  "stashReadAt* :: host proc(key: String, at: Int, out: Blob[..]) -> Int # as fileReadAt, what's kept under key\n" \
+  "stashWriteAt* :: host proc(key: String, at: Int, data: String) -> Int # as fileWriteAt\n" \
   "stashDelete* :: host proc(key: String) -> Int               # 0, or -1\n" \
   "# ---------------------------------------------------------------- this app's cache: /rinc/cache/<app>\n" \
   "\n" \

@@ -53,24 +53,30 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
   let file = null;
   const keys_ = () => { try { const a = []; for (let i = 0; i < localStorage.length; i++) a.push(localStorage.key(i)); return a; } catch (e) { return []; } };
   const getItem = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-  env.fs_open = (p, n, write) => {
-    const k = text(p, n), v = write ? "" : getItem(k);
+  env.fs_open = (p, n, how) => { // how: 0 reading, 1 writing it anew, 2 reading and writing it as it is (made empty if it isn't there)
+    const k = text(p, n), v = how === 1 ? "" : getItem(k) ?? (how === 2 ? "" : null);
     if (v === null) return -1;
-    file = write ? { k, parts: [] } : { k, bytes: Uint8Array.from(v, c => c.charCodeAt(0)), at: 0 };
+    file = how === 1 ? { k, parts: [] } : { k, bytes: Uint8Array.from(v, c => c.charCodeAt(0)), at: 0, len: v.length, update: how === 2 };
     return 0;
   };
   env.fs_read = (p, n) => {
     if (!file || !file.bytes) return -1;
-    const m = Math.min(n, file.bytes.length - file.at);
+    const m = Math.max(0, Math.min(n, file.len - file.at));
     new Uint8Array(ex.memory.buffer, p, m).set(file.bytes.subarray(file.at, file.at + m)); file.at += m;
     return m;
   };
   env.fs_seek = at => { // reading on from byte at (its end, at most)
     if (!file || !file.bytes) return -1;
-    file.at = Math.min(at >>> 0, file.bytes.length);
+    file.at = Math.min(at >>> 0, file.len);
     return 0;
   };
+  env.fs_size = () => !file ? -1 : file.bytes ? file.len : file.parts.reduce((t, s) => t + s.length, 0);
   env.fs_write = (p, n) => {
+    if (file && file.update) { // (in place, from where it's at, growing it past its end)
+      if (file.at + n > file.bytes.length) { const g = new Uint8Array(Math.max(file.at + n, file.bytes.length * 2)); g.set(file.bytes.subarray(0, file.len)); file.bytes = g; }
+      file.bytes.set(new Uint8Array(ex.memory.buffer, p, n), file.at); file.at += n; file.len = Math.max(file.len, file.at);
+      return n;
+    }
     if (!file || !file.parts) return -1;
     const b = new Uint8Array(ex.memory.buffer, p, n);
     for (let i = 0; i < n; i += 8192) file.parts.push(String.fromCharCode(...b.subarray(i, i + 8192)));
@@ -80,6 +86,7 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     const f = file; file = null;
     if (!f) return -1;
     if (f.parts) try { localStorage.setItem(f.k, f.parts.join("")); } catch (e) { return -1; }
+    if (f.update) try { let t = ""; for (let i = 0; i < f.len; i += 8192) t += String.fromCharCode(...f.bytes.subarray(i, Math.min(i + 8192, f.len))); localStorage.setItem(f.k, t); } catch (e) { return -1; }
     return 0;
   };
   env.fs_list = (p, n, o, cap) => { // each name under a folder: "d name" or "f name", a line each

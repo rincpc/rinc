@@ -202,6 +202,8 @@ appRename* :: host proc(from: String, to: String) -> Int   # project from (from*
 dir* :: host proc(path: String, out: Blob[..]) -> Int      # its entries, folders first, a line each ("d name", "f name"): how many, or -1
 fileRead* :: host proc(path: String, out: Blob[..]) -> Int # its whole length, or -1
 fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1
+fileReadAt* :: host proc(path: String, at: Int, out: Blob[..]) -> Int # from byte at on, added: its whole length, or -1
+fileWriteAt* :: host proc(path: String, at: Int, data: String) -> Int # over it from byte at on (-1: its end), made if need be: where it went, or -1
 fileDelete* :: host proc(path: String) -> Int              # a file, or a folder and all in it: 0, or -1
 fileCopy* :: host proc(from: String, to: String) -> Int    # a file or a folder, to a path not taken: 0, or -1
 fileRename* :: host proc(from: String, to: String) -> Int  # to a path not taken: 0, or -1
@@ -254,6 +256,8 @@ saveDelete* :: host proc(file: String) -> Int               # 0, or -1
 # written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space
 stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
 stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none
+stashReadAt* :: host proc(key: String, at: Int, out: Blob[..]) -> Int # as fileReadAt, what's kept under key
+stashWriteAt* :: host proc(key: String, at: Int, data: String) -> Int # as fileWriteAt
 stashDelete* :: host proc(key: String) -> Int               # 0, or -1
 # ---------------------------------------------------------------- this app's cache: /rinc/cache/<app>
 

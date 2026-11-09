@@ -19,6 +19,7 @@ rinc_IMPORT(fs_read) extern int js_fsRead(char *buf, int n);
 rinc_IMPORT(fs_write) extern int js_fsWrite(const char *buf, int n);
 rinc_IMPORT(fs_close) extern int js_fsClose(void);
 rinc_IMPORT(fs_seek) extern int js_fsSeek(uint32_t at);
+rinc_IMPORT(fs_size) extern int32_t js_fsSize(void);
 rinc_IMPORT(fs_list) extern int js_fsList(const char *key, int n, char *out, int cap); /* "d name\n" or "f name\n" each: how long, or -1 */
 rinc_IMPORT(fs_remove) extern int js_fsRemove(const char *key, int n);
 rinc_IMPORT(fs_copy) extern int js_fsCopy(const char *from, int n, const char *to, int m);
@@ -42,15 +43,16 @@ static int rinc_key(const char *path, char *key, int cap) { /* /rinc/apps/x -> r
   if (strncmp(path, "/rinc/", 6) || strstr(path, "..")) return -1;
   return snprintf(key, (size_t)cap, "%s/%s", rinc_store, path + 6);
 }
-static int rinc_open(const char *path, int write) {
+static int rinc_open(const char *path, int how) {
   char k[160]; int n = rinc_key(path, k, sizeof k);
-  if (write) rinc_storageChanged(path);
-  return n < 0 ? -1 : js_fsOpen(k, n, write);
+  if (how != rinc_READ) rinc_storageChanged(path);
+  return n < 0 ? -1 : js_fsOpen(k, n, how);
 }
 static int rinc_read(char *buf, int n) { return js_fsRead(buf, n); }
 static int rinc_write(const char *buf, int n) { return js_fsWrite(buf, n); }
 static int rinc_close(void) { return js_fsClose(); }
 static int rinc_seek(uint32_t at) { return js_fsSeek(at); }
+static int32_t rinc_size(void) { return js_fsSize(); }
 static int rinc_list(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
   static char out[4096]; char k[160], *p, *e; int n = rinc_key(dir, k, sizeof k), got;
   if (n < 0 || (got = js_fsList(k, n, out, (int)sizeof out - 1)) < 0) return -1;
@@ -80,7 +82,7 @@ static int rinc_makeDir(const char *path) { /* (storage here is files: a folder,
   if (js_fsOpen(k, n, 1)) return -1;
   return js_fsClose();
 }
-static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename, rinc_makeDir, rinc_seek};
+static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename, rinc_makeDir, rinc_seek, rinc_size};
 
 /* ------------------------------------------------------------------ apps */
 

@@ -157,6 +157,8 @@ Each gives 0, or -1, unless it says otherwise:
 | `pc.dir(path, out) -> Int` | a folder's entries, added to `out`, folders first, then by name, a line each (`d name`, `f name`): how many, or -1 if it's no folder |
 | `pc.fileRead(path, out) -> Int` | a file, added to `out`, as much as fits: its whole length, or -1 |
 | `pc.fileWrite(path, data) -> Int` | a file's contents, its folders made |
+| `pc.fileReadAt(path, at, out) -> Int` | a file from byte `at` on, added to `out`, as much as fits: its whole length, or -1 |
+| `pc.fileWriteAt(path, at, data) -> Int` | `data` written over a file from byte `at` on (-1: at its end, adding to it; past its end, no), the file made if it isn't there (its folders too): where it went, or -1 |
 | `pc.fileDelete(path) -> Int` | a file, or a folder and everything in it |
 | `pc.fileCopy(from, to) -> Int` | a file, or a folder and everything in it, to a path not taken |
 | `pc.fileRename(from, to) -> Int` | to a path not taken |
@@ -175,6 +177,23 @@ log(pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"), pc.fileDelete(
 2 d copy
 d notes
 
+-1 0
+```
+
+`fileReadAt` and `fileWriteAt` read and change a part of a file, so a big one (a log, a level) needn't
+all be in memory at once. Each opens the file and closes it again, so what's written is on the card
+when it says so, even if the power goes then.
+
+```rio
+log(pc.fileWriteAt("/rinc/save/demo/log", -1, "abc"), pc.fileWriteAt("/rinc/save/demo/log", -1, "def"), pc.fileWriteAt("/rinc/save/demo/log", 1, "XY"))
+out: Blob[..4]
+log(pc.fileReadAt("/rinc/save/demo/log", 2, out), out.asString())
+log(pc.fileWriteAt("/rinc/save/demo/log", 9, "?"), pc.fileDelete("/rinc/save/demo"))
+```
+
+```output
+0 3 1
+6 Ydef
 -1 0
 ```
 
@@ -348,6 +367,7 @@ the Rinc drops all of an app's stash when it's told to start the app afresh: the
 |---|---|
 | `pc.stashWrite(key, data) -> Int` | `data` becomes what's kept under `key`: 0, or -1 |
 | `pc.stashRead(key, out) -> Int` | what's kept under `key`, added to `out`, as much as fits: its whole length, or -1 if there's none |
+| `pc.stashReadAt(key, at, out) -> Int`, `pc.stashWriteAt(key, at, data) -> Int` | as `fileReadAt` and `fileWriteAt`, what's kept under `key`: a part of it, for a stash too big to hold at once (an undo log, say) |
 | `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
 | `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
 

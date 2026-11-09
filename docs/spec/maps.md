@@ -90,3 +90,156 @@ A game that draws its own way, edges worked out from the cells around each one, 
 with `at` and draws as it likes; or works them out once, as a level loads, into a layer of its own
 that `draw` then draws. On the Fruit Jam, a screen of 8 by 8 tiles (41 by 31 in view) takes about 9
 ms to draw, about half a frame.
+
+## Draft: `rinc map 3`, with things
+
+Not built yet: the plan, to settle before it is. Studio's Maps, as it would be with it: its
+`maps/help-next.md`. Version 2 stays readable until its maps are converted (Maps, saving one, writes
+version 3); then it goes, as version 1 did.
+
+### What changes
+
+- **Sheets listed once**, at the top, each a path and its sprites' size; layers name one by number.
+  The same PNG can be listed twice with different sprite sizes, so version 2's layers (each with its
+  own path and size) always convert.
+- **Any number of layers**, as many as the app gives room for, each with a name.
+- **Two kinds of layer:** `tiles`, a grid of cells (as now), and `things`, a list of sprites placed at
+  pixel positions, each one sprite or a rectangle of them, with a name if it needs one. Things are for
+  what a level places rather than paves: the player's start, enemies, items, doors, signs, triggers.
+- **One room for the bytes:** the app gives a map one `Blob`, for its cells, its things and their
+  names together, laid out in it as the map's read. So the room a map needs is still one number, the
+  `Blob[n]` Maps shows. Sheets and layers are structs, in arrays of the app's.
+
+### The file
+
+```
+rinc map 3
+sheet 1 /rinc/save/paint/cave.png 8 across 16
+sheet 2 /rinc/save/paint/chars.png 8x16 across 5
+layer 1 ground tiles 1
+size 32 16
+offset 0 0
+000001002...
+layer 2 actors things 2
+offset 0 0
+thing 012 at 40 64 name player
+thing 007 at 120 64
+thing 003 at 64 96 span 2 1
+thing --- at 200 0 span 2 4 name exit
+```
+
+- `sheet`: its number (from 1), its path, its sprites' size (`8`, or `8x16` for 8 across and 16 down;
+  4 to 64 each) and `across`, how many sprites it had across when the map was saved. A sheet can be any
+  width and height: its sprites are the whole ones across and down (pixels past the last whole sprite,
+  at its right or bottom, aren't one), numbered from 0 across each row.
+- `layer`: its number (from 1, in the order they're drawn, the first at the bottom), its name, its kind
+  (`tiles` or `things`) and its sheet's number. A `tiles` layer's `size` follows (cells across and
+  down, 1024 at most each), its `offset` (where its first cell is, in the map's pixels) and its rows,
+  three hex digits a cell, as in version 2. A `things` layer has an `offset` and no size: its things
+  can be anywhere.
+- `thing`: its sprite, three hex digits (`---`: none, for a trigger or a spawn point), `at` (pixels
+  from its layer's offset, -32768 to 32767 each), then, only when they aren't the usual: `span`, how
+  many sprites across and down it is from its sprite at the top left (1 to 16 each; `1 1` left out),
+  and `name`. Listed in the order they're drawn.
+- A name, a layer's or a thing's: 1 to 15 bytes of letters, digits, `_`, `-` and `.`. No spaces, so a
+  line reads only one way. Two things can share a name (`find` finds the first).
+
+### The library's structs
+
+```rio fragment
+Sheet* :: struct
+  path: Blob[..96]
+  sprite: [2]Int     # its sprites' size, in pixels
+  across: Int        # sprites across, when the map was saved (-1: not known)
+end
+Layer* :: struct
+  name: Blob[..15]
+  kind: Int          # TILES or THINGS
+  sheet: Int         # which of the map's sheets (from 0)
+  at: [2]Int         # its offset, in pixels
+  size: [2]Int       # TILES: in cells
+  start: Int         # where its cells, or its things, start in the room
+  count: Int         # THINGS: how many
+end
+Thing* :: struct     # one thing, unpacked (in the room it's packed: below)
+  at: [2]Int         # pixels, from its layer's offset
+  sprite: Int        # its top-left sprite, or EMPTY
+  span: [2]Int       # sprites across and down
+  name: Blob[..15]   # "" for most: a copy, so it stays good as the map changes
+end
+Map* :: struct
+  sheets: [..]Sheet  # the app's arrays, as many as it has room for
+  layers: [..]Layer
+  room: Blob         # the app's room: the cells, the things and their names
+end
+```
+
+In the room, in order:
+
+1. each `tiles` layer's cells, 2 bytes a cell, row by row (as now);
+2. each `things` layer's things, 10 bytes each: x and y (2 bytes each, signed), the sprite (2), the
+   span less 1 (a byte: 4 bits across, 4 down), a byte kept for later (flags, say), and where its name
+   is (2 bytes: 0xFFFF for none);
+3. the names: a length byte, then its bytes, each.
+
+So 200 things take 2 KB, and their names only what they spell.
+
+### In a game
+
+```rio fragment
+import tilemap
+sheetRoom: [4]tilemap.Sheet
+layerRoom: [8]tilemap.Layer
+room: Blob[12000]
+text: Blob[..20000]
+level := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[]}
+if level.load("/rinc/save/maps/cave.map", text)
+  actors := level.layerNamed("actors")       # -1: none
+  for i in 0..<level.things(actors)
+    t := level.thing(actors, i)
+    if t.name.asString() == "player"
+      start(t.at)
+    case t.sprite != tilemap.EMPTY
+      spawn(t.at, t.sprite, t.span)
+    end
+  end
+end
+```
+
+| (planned) | |
+|---|---|
+| `m.load`, `m.read`, `m.write`, `m.at`, `m.set`, `m.draw`, `m.refit`, `m.reshape` | as now (`draw` draws a things layer's sprites too, in order; a thing with none isn't drawn) |
+| `m.things(layer) -> Int`, `m.thing(layer, i) -> Thing` | a things layer's count, and its thing `i`, unpacked |
+| `m.find(name) -> [2]Int` | the first thing of that name: its layer and its number (`{-1, -1}`: none) |
+| `m.layerNamed(name) -> Int` | a layer by its name (-1: none) |
+| `m.place(layer, t) -> Bool`, `m.change(layer, i, t) -> Bool`, `m.takeOut(layer, i)` | a thing added (drawn last), changed, or taken out: false if the room's full |
+| `m.thingAt(layer, p) -> Int` | the last-drawn thing over the map's pixel `p` (-1: none), as an editor picks one |
+| `m.addLayer(after, kind) -> Bool`, `m.removeLayer(layer)`, `m.moveLayer(layer, to)`, `m.nameLayer(layer, name) -> Bool` | layers, any number of them, as the app's array has room |
+| `m.compact()` | the room's names packed together again (names renamed or taken out leave theirs until then) |
+| `tilemap.roomIn(text) -> Room`, `m.needs() -> Room` | what a map needs: `bytes` (the room's), `sheets` and `layers` (how many) |
+
+`load`'s log says which falls short: `Blob[n]` for the room, or how many sheets or layers.
+
+### Issues to watch
+
+- **The sprite limit.** Three hex digits number 4,095 sprites, `---` taking the last. A 320 by 256
+  sheet of 4 by 4 sprites has 5,120, and those past 4,094 can't be placed. Rare; Maps says so when a
+  sheet has more.
+- **Pixel limits.** A thing's x and y are 16 bits (to 32,767), but a layer 1,024 cells of 64 pixels is
+  65,536 across. Things stay inside what fits (place says no past it).
+- **Sheets changing width.** `across` renumbers cells as now, and things' sprites the same way. A
+  thing's span stays: a rectangle that now runs past the sheet's right edge draws as missing past it.
+- **One sheet a things layer.** A level whose things come from two sheets uses two things layers.
+- **Moving bytes.** Cells, things and names share one room, so a layer that grows moves what's after
+  it (as cells move for later layers now). Things and names go after all the cells, since cells grow
+  most while drawing; but moving 32 KB a byte at a time in Rio, on the board, needs measuring.
+- **Sheets by reference.** A `Sheet` is 27 words (its path), past Rio's 16 for a copy, so code reaches
+  one by number, `&level.sheets[i]`, not with `for s in`.
+- **Names left behind.** Renaming a thing, or taking it out, leaves its old name in the room until the
+  map's written and read again or `compact` runs (as `place` does when the room fills). `thing` hands
+  back a copy, so a name a game holds never goes stale.
+- **Order.** Things draw in their list's order. Games that sort by y (a thing lower down drawn over
+  one higher) sort them themselves.
+- **The text's room.** A thing's line is about 30 bytes: 1,000 things, 30 KB more text to read and
+  write. `pc` reads and writes files whole, so the app's text room holds it all; a `pc.fileAppend`, or
+  reading a file in parts, would let a map be written and read a piece at a time.

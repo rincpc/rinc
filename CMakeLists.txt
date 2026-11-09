@@ -40,7 +40,7 @@ endif()
 include(${RIO_DIR}/library.cmake)
 # the most host procs a vm holds, on every Rinc (rio_MAX_FFI, below; tools/web.py's too):
 # the pc test fails if rinc registers more
-set(RINC_MAX_FFI 96)
+set(RINC_MAX_FFI 100)
 # rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
 # so an app behaves the same everywhere: its log lines and error texts as long, say
 target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})
@@ -294,6 +294,8 @@ else()
     set_tests_properties(home_keys PROPERTIES PASS_REGULAR_EXPRESSION "home came through")
     add_test(NAME opening COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/opening.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system ${CMAKE_CURRENT_BINARY_DIR}/opening-data)
     add_test(NAME leaving COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/leaving.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system ${CMAKE_CURRENT_BINARY_DIR}/leaving-data)
+    add_test(NAME file_parts COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/fileparts.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/file-parts-data)
+    set_tests_properties(file_parts PROPERTIES PASS_REGULAR_EXPRESSION "file parts came through")
     add_test(NAME tilemap COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/tilemap.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/library ${CMAKE_CURRENT_BINARY_DIR}/tilemap-data)
     set_tests_properties(tilemap PROPERTIES PASS_REGULAR_EXPRESSION "tilemap came through")
     set_tests_properties(opening PROPERTIES PASS_REGULAR_EXPRESSION "opening came through")

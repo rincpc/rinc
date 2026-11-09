@@ -407,6 +407,36 @@ static int rinc_readFile(const char *path, char *buf, uint32_t cap, uint32_t *to
   rinc_fs->close();
   return got < 0 ? -1 : 0;
 }
+/* a file from byte at on, from storage, else the bundle: as much as fits in buf (cap), how much that was
+   (got), and its whole length, or -1 */
+static int32_t rinc_fileFrom(const char *path, uint32_t at, char *buf, uint32_t cap, uint32_t *got) {
+  int32_t size; int k;
+  *got = 0;
+  if (!rinc_fs || rinc_fs->open(path, rinc_READ)) {
+    const rinc_File *f = strncmp(path, "/rinc/", 6) ? 0 : rinc_bundleFile(path + 6);
+    if (!f) return -1;
+    if (at < f->len) { *got = f->len - at < cap ? f->len - at : cap; memcpy(buf, f->data + at, *got); }
+    return (int32_t)f->len;
+  }
+  if ((size = rinc_fs->size()) >= 0 && at < (uint32_t)size && cap) {
+    if (rinc_fs->seek(at)) size = -1;
+    while (size >= 0 && *got < cap && (k = rinc_fs->read(buf + *got, (int)(cap - *got))) != 0) {
+      if (k < 0) size = -1; else *got += (uint32_t)k;
+    }
+  }
+  rinc_fs->close();
+  return size;
+}
+/* n bytes written over a file from byte at on (-1: at its end; past its end, no), the file made if it
+   isn't there (its folders too), and closed again, so it's all on the card: where they went, or -1 */
+static int32_t rinc_fileOver(const char *path, int32_t at, const char *data, int n) {
+  int32_t size; int bad;
+  if (!rinc_fs || n < 0 || (n && !data) || rinc_fs->open(path, rinc_UPDATE)) return -1;
+  size = rinc_fs->size();
+  if (at == -1) at = size;
+  bad = size < 0 || at < 0 || at > size || rinc_fs->seek((uint32_t)at) || (n && rinc_fs->write(data, n) != n);
+  return rinc_fs->close() || bad ? -1 : at;
+}
 /* an app's source, or its project's (chord+) */
 static int rinc_appPath(const char *name, char *path, size_t cap) {
   int n = (int)strlen(name), project = n > 1 && name[n - 1] == rinc_PROJECT;
@@ -920,6 +950,23 @@ static void rinc_hostFileWrite(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_argPath(v, a, path, 1);
   if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
 }
+/* fileReadAt(path, at, out) -> Int: from byte at on, added to out, as much as fits: its whole length,
+   or -1; fileWriteAt(path, at, data) -> Int: data over the file from byte at on (-1: at its end), the
+   file made if it isn't there: where it went, or -1 (at past its end, say) */
+static void rinc_readAtOut(rio_Vm *v, rio_Val *a, int named, const char *path) { /* (a[2] at, a + 3 out) */
+  rinc_Out o; uint32_t got;
+  if (!named || a[2].i < 0 || !rinc_into(v, a + 3, &o)) { a[0].i = -1; return; }
+  a[0].i = rinc_fileFrom(path, (uint32_t)a[2].i, (char *)o.end, o.room, &got);
+  rinc_outAdd(v, &o, got);
+}
+static void rinc_hostFileReadAt(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_argPath(v, a, path, 0);
+  rinc_readAtOut(v, a, named, path);
+}
+static void rinc_hostFileWriteAt(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_argPath(v, a, path, 1);
+  a[0].i = named ? rinc_fileOver(path, a[2].i, (const char *)rio_sliceBytes(v, a + 3), (int)a[4].u) : -1;
+}
 /* pictures in files (png.c; only PNGs so far): imageLoad(path, pixels) -> [2]Int (pc.imageRead's): the
    picture's pixels, a byte each, row by row, added to pixels; its width and height, or {0, 0} (pixels needs
    room past its length for the PNG's rows as they come: (w + 1) * h for one of the palette's; without it,
@@ -1087,6 +1134,21 @@ static void rinc_hostStashWrite(rio_Vm *v, rio_Val *a) {
 static void rinc_hostStashRead(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
   a[0].i = named ? rinc_readOut(v, a + 2, path) : -1;
+}
+/* stashReadAt(key, at, out) -> Int and stashWriteAt(key, at, data) -> Int: as fileReadAt and
+   fileWriteAt, in the stash */
+static void rinc_hostStashReadAt(rio_Vm *v, rio_Val *a) {
+  char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
+  rinc_readAtOut(v, a, named, path);
+}
+static void rinc_hostStashWriteAt(rio_Vm *v, rio_Val *a) {
+  char path[96], folder[64]; int named = rinc_stashPath(v, a, path, sizeof path), n = (int)a[4].u; int32_t at = a[2].i;
+  const char *data = (const char *)rio_sliceBytes(v, a + 3);
+  if (!named) { a[0].i = -1; return; }
+  if ((a[0].i = rinc_fileOver(path, at, data, n)) < 0 && rinc_fs) { /* (a stash from before keys, a file where its folder goes: dropped, and again) */
+    snprintf(folder, sizeof folder, "/rinc/stash/%.32s", rinc_appNow);
+    if (!rinc_fs->open(folder, rinc_READ)) { rinc_fs->close(); rinc_fs->remove(folder); a[0].i = rinc_fileOver(path, at, data, n); }
+  }
 }
 static void rinc_hostStashDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
@@ -2067,7 +2129,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.helps", pc_helps_SIG, rinc_hostHelps) ||
          rio_addFfi(vm, "pc.helpRead", pc_helpRead_SIG, rinc_hostHelpRead) || rio_addFfi(vm, "pc.help", pc_help_SIG, rinc_hostHelp) ||
          rio_addFfi(vm, "pc.helpTopic", pc_helpTopic_SIG, rinc_hostHelpTopic) ||
-         rio_addFfi(vm, "pc.stashWrite", pc_stashWrite_SIG, rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", pc_stashRead_SIG, rinc_hostStashRead) ||
+         rio_addFfi(vm, "pc.stashWrite", pc_stashWrite_SIG, rinc_hostStashWrite) || rio_addFfi(vm, "pc.stashRead", pc_stashRead_SIG, rinc_hostStashRead) || rio_addFfi(vm, "pc.stashWriteAt", pc_stashWriteAt_SIG, rinc_hostStashWriteAt) || rio_addFfi(vm, "pc.stashReadAt", pc_stashReadAt_SIG, rinc_hostStashReadAt) ||
          rio_addFfi(vm, "pc.stashDelete", pc_stashDelete_SIG, rinc_hostStashDelete) ||
          rio_addFfi(vm, "pc.cacheRead", pc_cacheRead_SIG, rinc_hostCacheRead) || rio_addFfi(vm, "pc.cacheWrite", pc_cacheWrite_SIG, rinc_hostCacheWrite) ||
          rio_addFfi(vm, "pc.cacheDelete", pc_cacheDelete_SIG, rinc_hostCacheDelete) || rio_addFfi(vm, "pc.boot", pc_boot_SIG, rinc_hostBoot) ||
@@ -2078,7 +2140,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.done", pc_done_SIG, rinc_hostDone) || rio_addFfi(vm, "pc.result", pc_result_SIG, rinc_hostResult) ||
          rio_addFfi(vm, "pc.appError", pc_appError_SIG, rinc_hostAppError) ||
          rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
-         rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.imageLoad", pc_imageLoad_SIG, rinc_hostImageLoad) || rio_addFfi(vm, "pc.imageWrite", pc_imageWrite_SIG, rinc_hostImageWrite) || rio_addFfi(vm, "pc.imageNotes", pc_imageNotes_SIG, rinc_hostImageNotes) ||
+         rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileReadAt", pc_fileReadAt_SIG, rinc_hostFileReadAt) || rio_addFfi(vm, "pc.fileWriteAt", pc_fileWriteAt_SIG, rinc_hostFileWriteAt) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.imageLoad", pc_imageLoad_SIG, rinc_hostImageLoad) || rio_addFfi(vm, "pc.imageWrite", pc_imageWrite_SIG, rinc_hostImageWrite) || rio_addFfi(vm, "pc.imageNotes", pc_imageNotes_SIG, rinc_hostImageNotes) ||
          rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) || rio_addFfi(vm, "pc.pointerAt", pc_pointerAt_SIG, rinc_hostPointerAt) ||
          rio_addFfi(vm, "pc.pointerY", pc_pointerY_SIG, rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", pc_pointerDown_SIG, rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", pc_pointerShown_SIG, rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", pc_scroll_SIG, rinc_hostScroll) ||

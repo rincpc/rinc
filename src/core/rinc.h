@@ -233,16 +233,18 @@ void rinc_themeLoad(void);
 int rinc_themeColor(int role);
 
 /* files, where the platform has storage (else rinc_fs is NULL): one open at a time. open: 0 or -1
-   (writing makes the directories along the path, and replaces the file); read: bytes read, 0 at its
-   end, -1 failed; write: n, or -1; seek: reading on from byte at (its end, at most): 0 or -1; list: each
-   entry of a directory, with whether it's one too.
+   (how: rinc_READ; rinc_REPLACE, writing it anew; rinc_UPDATE, reading and writing it as it is, made
+   empty if it isn't there. Writing makes the directories along the path); read: bytes read, 0 at its
+   end, -1 failed; write: n, or -1; seek: reading or writing on from byte at (its end, at most): 0 or
+   -1; size: the open file's length, or -1; list: each entry of a directory, with whether it's one too.
    Apps live in /rinc/apps/<name>/<name>.rio */
 /* an app's name, 1 to 32 letters, digits, _ and -: the installed app, /rinc/apps/<name>; with a +
    after it (chord+), its project, /rinc/projects/<name>, the app in work. rinc_REF holds either */
 #define rinc_REF 34
 #define rinc_PROJECT '+' /* what marks a project's name: chord+ */
+enum { rinc_READ, rinc_REPLACE, rinc_UPDATE };
 typedef struct {
-  int (*open)(const char *path, int write);
+  int (*open)(const char *path, int how);
   int (*read)(char *buf, int n);
   int (*write)(const char *buf, int n);
   int (*close)(void);
@@ -252,6 +254,7 @@ typedef struct {
   int (*rename)(const char *from, const char *to); /* a file or a directory, to a name not taken (in a directory there): 0 or -1 */
   int (*mkdir)(const char *path); /* a directory, the ones along the way too: 0 or -1 */
   int (*seek)(uint32_t at);
+  int32_t (*size)(void);
 } rinc_Fs;
 extern const rinc_Fs *rinc_fs;
 /* an app asked to switch (pc.launch): to the app named rinc_launchName, which may be a built-in one,
