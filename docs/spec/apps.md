@@ -490,6 +490,11 @@ on, what's typed isn't the app's. It's:
 | system + L | sleep: the screen black and the sound silent, and on a board the video signal stopped, so the monitor goes to standby; the app goes on. Once every key's let go, any key or button wakes it (that key isn't the app's). Nothing's locked |
 | system + Enter | the whole display, or a window again, where the Rinc can (the desktop's F11 too). The whole display keeps the mouse on Rinc's screen; on the web, where the browser lets a page have Esc and its own Ctrl+N, Ctrl+T, Ctrl+W (Chrome, Edge: holding Esc leaves), after a click there. Alt+Tab and Cmd+Tab are always the system's |
 
+Print Screen (no system key: the app never sees it) saves the screen as the app drew it, as
+`/rinc/shots/<app>-<n>.png` (the next number free), and says so at the bottom. Over serial it's
+`ESC [ 57361 u`, as a terminal speaking kitty's keyboard protocol sends it; the console's `get` brings
+the file back (see [the Fruit Jam](../guide/fruit-jam.md)).
+
 While the system key is on, a strip across the bottom of the screen shows these, apart from the app's
 own screen (which it doesn't change), and the app gets none of the keys or buttons that make them. In
 the switcher, Tab and Shift+Tab (RB and LB) move along the recent apps; Enter, or letting go of a held

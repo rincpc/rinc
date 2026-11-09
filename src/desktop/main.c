@@ -699,6 +699,7 @@ static int rinc_window(const char *title) {
     while (SDL_PollEvent(&e)) {
       if (e.type == SDL_EVENT_QUIT) running = 0;
       if (e.type == SDL_EVENT_DROP_FILE && e.drop.data) rinc_drop(e.drop.data);
+      if (e.type == SDL_EVENT_KEY_UP && e.key.key == SDLK_PRINTSCREEN) { rinc_shotAsk(); continue; } /* (the screen saved; on its release, which Windows always sends) */
       if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_F11 && !e.key.repeat) { rinc_fullscreen = !rinc_fullscreen; continue; } /* (the window's own: apps get the other F keys) */
       if (rinc_systemHeld() && (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_TEXT_INPUT)) continue; /* (a system combination: not the app's) */
       if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) rinc_textEsc(); /* (Esc is the app's: closing the window quits) */

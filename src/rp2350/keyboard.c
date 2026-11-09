@@ -40,6 +40,7 @@ static int rinc_editing(uint8_t key, uint8_t mods) {
     key == HID_KEY_ARROW_LEFT ? 'D' : key == HID_KEY_HOME ? 'H' : key == HID_KEY_END ? 'F' : 0;
   char seq[24];
   if (key >= HID_KEY_F1 && key <= HID_KEY_F12) { static const uint8_t fn[12] = {11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 23, 24}; n = fn[key - HID_KEY_F1]; } /* (n ~, as a console sends them) */
+  else if (key == HID_KEY_PRINT_SCREEN) { rinc_push(27); for (k = 0; "[57361u"[k]; k++) rinc_push("[57361u"[k]); return 1; } /* (as kitty's keyboard protocol sends it: the screen saved) */
   else if (key == HID_KEY_DELETE) n = 3;
   else if (key == HID_KEY_PAGE_UP) n = 5;
   else if (key == HID_KEY_PAGE_DOWN) n = 6;

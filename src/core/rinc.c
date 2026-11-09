@@ -144,7 +144,10 @@ int rinc_textMods(int shift, int ctrl, int alt) { return (shift ? rinc_Mod_shift
    them: ESC [ 1 ; 5 C is Ctrl+right, ESC [ 3 ; 2 ~ Shift+Delete, and ESC [ 27 ; m ; k ~ key k (Tab,
    Enter, Backspace, a letter for Ctrl+letter, a space or / for Ctrl+Space or Ctrl+/) with modifiers m.
    ESC [ Z is Shift+Tab. A NUL byte (a terminal's Ctrl+Space) is Ctrl+Space, 32 with rinc_Mod_ctrl, and
-   31 (its Ctrl+/, as Ctrl+_) is Ctrl+/, 47 with it */
+   31 (its Ctrl+/, as Ctrl+_) is Ctrl+/, 47 with it. ESC [ 57361 u is Print Screen (as kitty's keyboard
+   protocol sends it): the screen saved (rinc_shotAsk), not typed */
+static int rinc_shotWanted;
+void rinc_shotAsk(void) { rinc_shotWanted = 1; }
 void rinc_textPush(int c) {
   rinc_Text *t = &rinc_typed;
   if (t->esc == 1) {
@@ -152,10 +155,11 @@ void rinc_textPush(int c) {
     t->esc = 0; rinc_queue(t, 27); /* (a lone ESC: Esc itself, then c) */
   } else if (t->esc == 2) {
     int n = t->escp[0], m = t->escp[1] > 1 ? t->escp[1] - 1 : 0, mods = rinc_textMods(m & 1, m & 4, m & 2), k = t->escp[2], c0;
-    if (c >= '0' && c <= '9') { if (t->escp[t->escn] < 10000) t->escp[t->escn] = t->escp[t->escn] * 10 + c - '0'; return; }
+    if (c >= '0' && c <= '9') { if (t->escp[t->escn] < 100000) t->escp[t->escn] = t->escp[t->escn] * 10 + c - '0'; return; }
     if (c == ';') { if (t->escn < 2) t->escn++; return; }
     t->esc = 0;
     c0 = c;
+    if (c == 'u' && n == 57361) { rinc_shotWanted = 1; return; }
     if (c == '~' && n == 27) { /* (xterm's modifyOtherKeys) */
       if (k >= 'A' && k <= 'Z') k += 32;
       c = k == 9 || k == 13 || k == 32 || k == '/' ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
@@ -1022,7 +1026,7 @@ static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
   a[0].i = -1;
   if (!named || !p || w <= 0 || h <= 0 || (uint64_t)w * (uint32_t)h > im.pixels.len || o.notes.len > rinc_PNG_NOTES) return;
   if (!o.format && !(k > 4 && path[k - 4] == '.' && (path[k - 3] | 32) == 'p' && (path[k - 2] | 32) == 'n' && (path[k - 1] | 32) == 'g')) return; /* (fromName) */
-  a[0].i = rinc_pngWrite(path, p, w, h, (const char *)rio_viewBytes(v, o.notes), (int)o.notes.len);
+  a[0].i = rinc_pngWrite(path, p, w, h, (const char *)rio_viewBytes(v, o.notes), (int)o.notes.len, 0);
 }
 static void rinc_hostImageNotes(rio_Vm *v, rio_Val *a) {
   char path[96]; rinc_Out o; int named = rinc_argPath(v, a, path, 0), n = named && rinc_into(v, a + 2, &o) ? rinc_pngNotes(path, (char *)o.end, o.room) : -1;
@@ -2594,6 +2598,19 @@ static void rinc_cmdFrame(void) {
   }
 }
 
+/* Print Screen: the screen as the app drew it, saved as /rinc/shots/<app>-<n>.png (the next n not taken),
+   and a notice saying so */
+static void rinc_shot(void) {
+  char path[96]; int n;
+  rinc_shotWanted = 0;
+  if (rinc_fs) rinc_fs->mkdir("/rinc/shots");
+  for (n = 1; n < 1000; n++) {
+    snprintf(path, sizeof path, "/rinc/shots/%s-%d.png", rinc_appNow, n);
+    if (!rinc_exists(path)) break;
+  }
+  if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_W, rinc_H, "", 0, 1)) rinc_noticeSay("Can't save ", path + 6);
+  else rinc_noticeSay("Saved ", path + 6);
+}
 int rinc_frame(rio_Vm *vm) {
   int u = rio_findProc(vm, "update"), d = rio_findProc(vm, "draw");
   /* the left stick pushed well over also counts as the arrows, as on PICO-8 (but not in pointer mode:
@@ -2612,6 +2629,7 @@ int rinc_frame(rio_Vm *vm) {
   }
   if (u >= 0 && rio_call(vm, u)) return -1;
   if (d >= 0 && rio_call(vm, d)) return -1;
+  if (rinc_shotWanted) rinc_shot();
   return 0;
 }
 
@@ -2878,6 +2896,24 @@ static void rinc_putFile(rinc_Repl *r, const char *s, int n) {
   rinc_replSay(r, "putting "); rinc_replSay(r, path); rinc_replSay(r, ": hex digits, then Ctrl-D (Ctrl-C gives up)\r\n");
   r->saving = 1; r->hex = 1; r->half = -1; r->saved = 0; r->nout = 0;
 }
+/* get path: a file under /rinc (as put takes it), its bytes as hex, 64 a line, then how many there were
+   (a screen saved with Print Screen, say, back to the computer) */
+static void rinc_getFile(rinc_Repl *r, const char *s, int n) {
+  static const char digits[] = "0123456789abcdef";
+  char path[112], chunk[64], line[130], said[48]; int got, i; uint32_t total = 0;
+  if (n < 1 || n > 100) { rinc_replSay(r, "a path under /rinc\r\n"); return; }
+  snprintf(path, sizeof path, "/rinc/%.*s", n, s);
+  if (!rinc_fs || rinc_fs->open(path, 0)) { rinc_replSay(r, "no file "); rinc_replSay(r, path); rinc_replSay(r, "\r\n"); return; }
+  while ((got = rinc_fs->read(chunk, sizeof chunk)) > 0) {
+    for (i = 0; i < got; i++) { line[i * 2] = digits[(uint8_t)chunk[i] >> 4]; line[i * 2 + 1] = digits[chunk[i] & 15]; }
+    line[got * 2] = 13; line[got * 2 + 1] = 10;
+    r->put(line, got * 2 + 2);
+    total += (uint32_t)got;
+  }
+  rinc_fs->close();
+  snprintf(said, sizeof said, got < 0 ? "couldn't read all of it\r\n" : "got %lu bytes\r\n", (unsigned long)total);
+  rinc_replSay(r, said);
+}
 /* a command line? (only as a whole input of its own) */
 static int rinc_command(rinc_Repl *r) {
   const char *s = r->acc; int n = r->n, w;
@@ -2895,6 +2931,7 @@ static int rinc_command(rinc_Repl *r) {
   if (n > w + 1 && ((w == 4 && !memcmp(s, "load", 4)) || (w == 3 && !memcmp(s, "run", 3)))) { rinc_load(r, s + w + 1, n - w - 1, w == 3); return 1; }
   if (n > w + 1 && w == 4 && !memcmp(s, "save", 4)) { rinc_save(r, s + w + 1, n - w - 1); return 1; }
   if (n > w + 1 && w == 3 && !memcmp(s, "put", 3)) { rinc_putFile(r, s + w + 1, n - w - 1); return 1; }
+  if (n > w + 1 && w == 3 && !memcmp(s, "get", 3)) { rinc_getFile(r, s + w + 1, n - w - 1); return 1; }
   if (n > w + 1 && w == 7 && !memcmp(s, "install", 7)) { /* project name+ as the app name */
     char name[33], from[64], to[64]; int k = n - w - 1;
     if (!rinc_nameOk(s + w + 1, k, 0)) { rinc_replSay(r, "names are letters, digits, _ and -\r\n"); return 1; }

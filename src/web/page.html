@@ -228,7 +228,7 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     const c = e.key.length === 1 ? e.key.charCodeAt(0) : 0;
     if (c && c < 127 && !e.ctrlKey && !e.metaKey) ex.typed(c);
   });
-  addEventListener("keyup", e => { held.delete(e.code); if (heldAs[e.code]) { ex.held(heldAs[e.code], 0); delete heldAs[e.code]; } if (keys[e.code]) buttons &= ~keys[e.code]; if (e.key === "Alt") e.preventDefault(); });
+  addEventListener("keyup", e => { if (e.key === "PrintScreen") ex.shot(); held.delete(e.code); if (heldAs[e.code]) { ex.held(heldAs[e.code], 0); delete heldAs[e.code]; } if (keys[e.code]) buttons &= ~keys[e.code]; if (e.key === "Alt") e.preventDefault(); });
   addEventListener("blur", () => { buttons = 0; held.clear(); for (const c in heldAs) delete heldAs[c]; ex.held(-1, 0); ex.mouseButtons(0); });
   // the mouse, in screen pixels (Rinc draws the pointer): e.buttons is already 1 primary, 2 secondary, 4 middle.
   // Fullscreen, where the keyboard's locked too (so Esc stays Rinc's: holding it lets go), a click locks

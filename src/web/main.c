@@ -171,6 +171,7 @@ rinc_EXPORT(fullscreen) int rinc_webFullscreen(void) { return rinc_fullscreen; }
 /* a character typed, and an editing key (rinc_Key_*, Ctrl+letter), for key(): not while the system key
    is held */
 rinc_EXPORT(typed) void rinc_webTyped(int c) { if (!rinc_systemHeld()) rinc_textPush(c); }
+rinc_EXPORT(shot) void rinc_webShot(void) { rinc_shotAsk(); }
 rinc_EXPORT(key) void rinc_webKey(int k) { if (!rinc_systemHeld()) { if (k == 27) rinc_textEsc(); else rinc_textKey(k); } }
 /* the mouse, over the canvas: where (in screen pixels), the buttons held (1 primary, 2 secondary, 4
    middle), its wheel (steps, + right and up) */

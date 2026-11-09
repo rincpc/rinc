@@ -89,7 +89,7 @@ static const uint8_t *rinc_pngPixels;
 static uint32_t rinc_pngW;
 static int rinc_pngData(uint32_t k) { uint32_t col = k % (rinc_pngW + 1); return col ? rinc_pngPixels[k / (rinc_pngW + 1) * rinc_pngW + col - 1] : 0; }
 
-int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n0) {
+int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n0, int solid) {
   static const uint8_t signature[8] = {137, 'P', 'N', 'G', 13, 10, 26, 10};
   uint8_t head[13], plte[768], trns[1] = {0};
   uint32_t n, k, d, i;
@@ -101,7 +101,7 @@ int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const c
   rinc_pngChunk("IHDR", head, 13);
   for (i = 0; i < 256; i++) { uint32_t c = rinc_rgb((int)i); plte[i * 3] = (uint8_t)(c >> 16); plte[i * 3 + 1] = (uint8_t)(c >> 8); plte[i * 3 + 2] = (uint8_t)c; }
   rinc_pngChunk("PLTE", plte, 768);
-  rinc_pngChunk("tRNS", trns, 1); /* (color 0: see-through) */
+  if (!solid) rinc_pngChunk("tRNS", trns, 1); /* (color 0: see-through, but for a solid picture: the screen) */
   if (n0 > 0) { /* the app's notes: text, named Rinc (in plte's room, done with) */
     memcpy(plte, "Rinc", 5);
     memcpy(plte + 5, notes, (size_t)n0);

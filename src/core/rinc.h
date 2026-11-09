@@ -20,9 +20,10 @@ uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
    come, each with its filter byte, (w + 1) * h bytes for one of the palette's).
    notes: an app's text about the picture (a sprite sheet's sprite size, say), kept in the PNG in a tEXt
    chunk named Rinc (up to rinc_PNG_NOTES bytes; n 0: none), which other programs keep or ignore;
-   pngNotes reads them back into out: how many bytes, or -1 (no such file, not a PNG, or none) */
+   pngNotes reads them back into out: how many bytes, or -1 (no such file, not a PNG, or none). solid:
+   color 0 drawn as the rest are (the screen), not see-through (a sprite sheet) */
 #define rinc_PNG_NOTES 512
-int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n);
+int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n, int solid);
 int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 /* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */
@@ -159,6 +160,8 @@ static inline uint8_t rinc_shownAt(int x, int y) {
 /* one frame of a game: the app's update* and then draw* (each optional). 0: ran, 1: the app has
    neither (it isn't a game), -1: a runtime error (rio_error says) */
 int rinc_frame(rio_Vm *vm);
+/* Print Screen, as a platform sees it: the screen saved after this frame (/rinc/shots/<app>-<n>.png) */
+void rinc_shotAsk(void);
 /* starting an app, the same on every Rinc: rinc_appBegin (0, or -1), then rinc_appRun with its source
    in memory or its image (or rinc_appRunHost, its main file in rinc_hostFolder; 0: running, or done; -1). rinc_appFail is a reason it can't start (name, then why). What goes wrong goes on the screen
    (rinc_say: and to put), with the way home. Each frame after, rinc_gameFrame: a game's frame, and its

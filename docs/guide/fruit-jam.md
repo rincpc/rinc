@@ -74,7 +74,8 @@ them onto the card's top level.
 
 With no home app on the card, the board starts in the firmware's own console, on the screen and over
 serial: Rio, with `ls`, `save`, `delete`, `home`, and `put path`, any file under `/rinc` as hex (how
-`install.py` sends them). With no console app, Ctrl-C opens it too.
+`install.py` sends them); `get path` sends one back the same way (a screen saved with Print Screen,
+`get shots/<app>-1.png`). With no console app, Ctrl-C opens it too.
 
 Apps on the card are managed from the console app with `ls`, `run`, `load`, `save`, `delete` and `home`
 (see [the console](../spec/apps.md#the-console)). From a PC, `uv run tools/send.py apps/bounce.rio`
