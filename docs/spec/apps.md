@@ -371,6 +371,13 @@ the Rinc drops all of an app's stash when it's told to start the app afresh: the
 | `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
 | `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
 
+Rinc keeps an app's stash when the app changes (a newer one installed, a project edited), so its drafts
+aren't lost; Sys+Q and Sys+R are what drop it. So an app that stashes something in a layout of its own,
+in bytes especially (an undo log, say), starts it with that layout's version, and checks it as it reads
+it back: one it doesn't know, from a version of the app before or after it, it leaves be and starts
+again. Checking what it reads as it goes (Maps' undo checks each step against the map) also catches a
+file cut short, or a card that's failing.
+
 ### Leaving
 
 An app that keeps its stash only now and then (once it's rested a moment, say, not each step of a held
