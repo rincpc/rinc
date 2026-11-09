@@ -30,9 +30,10 @@ folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
 
 # the song and its sounds (Music's file, and Sound's it names, beside it): sounds 0 to 3 a step, a chirp,
 # the tune and its bass; the song on voices 4 to 7, round and round, the game's sounds on 0
-fine = song.load("cloudlamp.mus")
-song.voice = 4
-play :: proc(voice: Int, s: Int) do song.sound(voice, s)
+notes: Blob[4 * song.SOUND_BYTES] # (its 4 sounds: as Music says, at its top right)
+tune := song.Song{notes = notes[], voice = 4}
+fine = tune.load("cloudlamp.mus")
+play :: proc(voice: Int, s: Int) do tune.sound(voice, s)
 
 screen := 0           # 0 the island, 1 the yard
 at := {3, 7}          # where the player is, in cells
@@ -99,10 +100,10 @@ step :: proc(d: [2]Int)
 end
 
 update* :: proc()
-  if not song.playing # (the song, again)
-    fine = song.play(0, false)
+  if not tune.playing # (the song, again)
+    fine = tune.play(0, false)
   end
-  song.tick()
+  tune.tick()
   d := {pc.btn(1) - pc.btn(0), pc.btn(3) - pc.btn(2)}
   if d == {0, 0}
     wait = 0

@@ -855,6 +855,13 @@ int main(int argc, char **argv) {
     if (!napps) { rinc_webEmpty = 1; rinc_nested = 1; home = "home"; } /* (an empty page: the player with the compiler, for what's dropped) */
     rinc_storageStart("rinc");
     if (!(size = rinc_makeBundle(apps, napps, home, storage, docs, ndocs, carry, ncarry))) return 1;
+#ifdef _WIN32
+    if (exp && !runner) { /* (a Windows program: game.exe, for a name with no extension of its own) */
+      static char withExe[1100]; const char *base = exp + strlen(exp);
+      while (base > exp && base[-1] != '/' && base[-1] != '\\') base--;
+      if (!strchr(base, '.') && snprintf(withExe, sizeof withExe, "%s.exe", exp) < (int)sizeof withExe) exp = withExe;
+    }
+#endif
     if (exp && rinc_exportNative(exp, runner, size)) return 1;
     if (web) { rinc_bundleRead(rinc_bundleBuf, size); return rinc_exportWeb(web, rinc_appFor("home"), size); }
     return 0;

@@ -1,8 +1,10 @@
 """python song.py path/to/rinc work-folder: rinc's song library (library/song.rio): a song of Music's read, and
 its sounds (Sound's file, read a line at a time) from the path it names, or of that name beside the song
 when that path isn't there (a game's, its files together); a file that isn't a song refused, the song
-as it was; the patterns played in turn, a loop's end going back to its start, a stop stopping it; the
-song on the voices from song.voice on; a sound on its own (a game's effects)."""
+as it was; the room its sounds need (as many read as there's room for, a load refused and logged when
+its song needs more, or the file isn't there or isn't a song); the patterns played in turn, a loop's end
+going back to its start, a stop stopping it; the song on the voices from its voice on; a sound on its own
+(a game's effects)."""
 import os, shutil, subprocess, sys
 
 rinc, work = os.path.abspath(sys.argv[1]), sys.argv[2]
@@ -20,19 +22,25 @@ put('game/loops.mus', 'rinc music 1\nsounds /rinc/save/sound/elsewhere/notes.snd
 put('game/stops.mus', 'rinc music 1\r\nsounds notes.snd\r\n00 -- -- -- -\r\n01 -- -- -- s\r\n00 -- -- -- -\r\n')
 put('game/game.rio', '''
 import song
-log("loops", song.load("loops.mus"), song.count, song.hasSounds, song.soundsPath.asString())
-log("chans", song.chans[0], song.chans[1], song.chans[2], song.chans[3], song.chans[4], song.flags[0], song.flags[1], song.flags[2])
-log("sound 1", song.speeds[1], song.notesOf(0), song.notesOf(1), song.notesOf(2), song.loopAs[2], song.loopBs[2], song.notes[128], song.notes[129], song.notes[130], song.notes[131])
-log("not a song", song.readSong("rinc music 1\\nsounds x\\n"), song.readSong("hello"), song.count)
-song.voice = 4
-fine := song.play(0, false)
+notes: Blob[song.ALL_SOUNDS]
+tune := song.Song{notes = notes[], voice = 4}
+log("loops", tune.load("loops.mus"), tune.count, tune.hasSounds, tune.soundsPath.asString(), tune.needs())
+log("chans", tune.chans[0], tune.chans[1], tune.chans[2], tune.chans[3], tune.chans[4], tune.flags[0], tune.flags[1], tune.flags[2])
+log("sound 1", tune.speeds[1], tune.notesOf(0), tune.notesOf(1), tune.notesOf(2), tune.loopAs[2], tune.loopBs[2], notes[128], notes[129], notes[130], notes[131])
+log("not a song", tune.readSong("rinc music 1\\nsounds x\\n"), tune.readSong("hello"), tune.count)
+few: Blob[2 * song.SOUND_BYTES]
+small := song.Song{notes = few[]}
+loaded := [3]Bool{small.load("loops.mus"), small.load("none.mus"), small.load("game.rio")}
+log("small", loaded[0], loaded[1], loaded[2])
+log("two sounds", small.loadSounds("notes.snd"), small.sounds, small.notesOf(1), small.notesOf(2))
+fine := tune.play(0, false)
 frame := 0
 was := -1
 rows: Blob[..40]
 update* :: proc()
-  song.tick()
-  if song.playing and song.playRow != was
-    was = song.playRow
+  tune.tick()
+  if tune.playing and tune.playRow != was
+    was = tune.playRow
     fine = rows.print(was, " ")
   end
   frame += 1
@@ -41,13 +49,13 @@ update* :: proc()
   end
   if frame == 80
     log("loops played", rows.asString())
-    fine = song.load("stops.mus") and song.play(0, false)
+    fine = tune.load("stops.mus") and tune.play(0, false)
     rows.clear()
     was = -1
   end
   if frame == 160
-    log("stops played", rows.asString(), song.playing)
-    song.sound(1, 1)
+    log("stops played", rows.asString(), tune.playing)
+    tune.sound(1, 1)
   end
   if frame == 161
     log("a sound", pc.soundPlaying(1))
@@ -58,10 +66,15 @@ r = subprocess.run([rinc, os.path.join(work, 'game') + '/', '-data', os.path.joi
 out = (r.stdout + r.stderr).replace('\r', '')
 lines = out.split('\n')
 want = [
-  'loops true 3 true notes.snd', # (its sounds: not at the path it names, but beside it)
+  'loops true 3 true notes.snd 384', # (its sounds: not at the path it names, but beside it; sounds 0 to 2 its patterns')
   'chans 0 1 255 2 0 0 1 2',
   'sound 1 3 4 2 3 1 3 30 3 7 1',
   'not a song false false 3',
+  'loops.mus: its sounds need notes Blob[384] (has 256)', # (the log says why, room too small)
+  'none.mus: no such file',
+  "game.rio: not a song of Music's",
+  'small false false false',
+  'two sounds true 2 2 0',             # (as many as its room has: the first two)
   'voices 0 1 1 0 1',              # (pattern 0: channels 0, 1 and 3 on voices 4, 5 and 7)
   'stops played 0 1  false',
   'a sound 1']

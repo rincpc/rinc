@@ -2,21 +2,26 @@
 # Music alike: read, and played on 4 of Rinc's 8 voices, a pattern after another; and a file's sounds,
 # one at a time, for a game's sound effects.
 #
+# The sounds' notes are in the app's own Blob, 128 bytes a sound (SOUND_BYTES): as many of the file's
+# sounds as it has room for are read, from the first, so a game with a few sounds keeps a few. Music
+# shows the room a song needs (its top right), Sound a file's. Files are read a line at a time: a game
+# needs no room for their text.
+#
 #   import song
-#   if song.load("tune.mus")                 (the song, and its sounds: song.hasSounds)
-#     song.voice = 4                         (its voices: 4 to 7; 0 to 3 a game's own)
-#     _ = song.play(0, false)                (from its first pattern, on to its last, or its loops)
+#   notes: Blob[4 * song.SOUND_BYTES]        (sounds 0 to 3; song.ALL_SOUNDS for all 32)
+#   tune := song.Song{notes = notes[], voice = 4} (its voices: 4 to 7; 0 to 3 the game's own)
+#   if tune.load("tune.mus")                 (the song, and its sounds; else the log says why)
+#     _ = tune.play(0, false)                (from its first pattern, on to its last, or its loops)
 #   end
 #   update* :: proc()
-#     song.tick()                            (each frame: on to the next pattern when one's done)
-#     song.sound(0, 2)                       (sound 2 of the song's file, once, on voice 0)
+#     tune.tick()                            (each frame: on to the next pattern when one's done)
+#     tune.sound(0, 2)                       (sound 2 of the song's file, once, on voice 0)
 #   end
 #
 # A song is up to 64 patterns, played in turn; a pattern plays up to 4 of the sound file's 32 sounds at
 # once, one on each channel, and lasts as long as the longest that doesn't loop. A pattern can start a
 # loop (LOOP_BEGINS), end one (LOOP_ENDS: back to where it started) or stop the song (STOPS). The files:
-# studio's music/help/README and sound/help/README. It keeps one song (one file of sounds), in its own
-# memory: about 4.8 KB, and 1.3 KB for a song's text (text: an app's own to use between its calls).
+# studio's music/help/README and sound/help/README.
 
 PATTERNS* :: 64           # a song's, at most
 CHANNELS* :: 4            # a pattern's
@@ -26,25 +31,29 @@ LOOP_ENDS* :: 2
 STOPS* :: 4
 SOUNDS* :: 32             # a sound file's, each of 32 notes
 NOTES* :: 32
+SOUND_BYTES* :: NOTES * 4 # a sound's notes, as pc.synth takes them: pitch, wave, volume, effect each
+ALL_SOUNDS* :: SOUNDS * SOUND_BYTES
 LINE :: 166               # a sound's line in its file: 6 hex digits (speed, loop start, loop end), then 5 a note
 TEXT* :: 1300             # a song's text, at most: 64 patterns and their flags
 
-chans*: Blob[PATTERNS * CHANNELS] # each pattern's sound on each channel (SILENT: none)
-flags*: Blob[PATTERNS]
-count* := 0               # patterns
-notes*: Blob[SOUNDS * NOTES * 4] # each sound's notes, as pc.synth takes them: pitch, wave, volume, effect
-speeds*: Blob[SOUNDS]     # each sound's speed (120ths of a second a note), and its loop (loopB 0: none)
-loopAs*: Blob[SOUNDS]
-loopBs*: Blob[SOUNDS]
-hasSounds* := false
-soundsPath*: Blob[..96]   # the song's file of sounds (kept, though it isn't there)
-text*: Blob[..TEXT]       # a song's file's text, as load reads it (and as Music writes it)
-voice* := 0               # the first of the 4 voices songs play on
-playing* := false
-playRow* := 0             # the pattern playing
-playAlone := false        # (just the one pattern)
-patternAt := 0.0          # when it started (pc.time)
-patternLasts := 0.0       # and how long it plays
+Song* :: struct
+  notes: Blob             # the app's: the sounds' notes, SOUND_BYTES a sound, from the first
+  voice: Int              # the first of the 4 voices it plays on
+  chans: Blob[PATTERNS * CHANNELS] # each pattern's sound on each channel (SILENT: none)
+  flags: Blob[PATTERNS]
+  count: Int              # patterns
+  sounds: Int             # the file's sounds read (as many as notes has room for)
+  speeds: Blob[SOUNDS]    # each sound's speed (120ths of a second a note), and its loop (loopB 0: none)
+  loopAs: Blob[SOUNDS]
+  loopBs: Blob[SOUNDS]
+  hasSounds: Bool
+  soundsPath: Blob[..96]  # its file of sounds (kept, though it isn't there)
+  playing: Bool
+  playRow: Int            # the pattern playing
+  playAlone: Bool         # (just the one pattern)
+  patternAt: Float        # when it started (pc.time)
+  patternLasts: Float     # and how long it plays
+end
 fine := true
 
 hexDigit :: proc(c: Int) -> Int
@@ -59,7 +68,7 @@ hexDigit :: proc(c: Int) -> Int
 end
 hexAt :: proc(s: String, k: Int) -> Int do return max(hexDigit(s[k]), 0) * 16 + max(hexDigit(s[k + 1]), 0)
 
-# ---------------------------------------------------------------- sounds
+# ---------------------------------------------------------------- reading, a line at a time
 
 line: Blob[..LINE + 8]
 lineEnd := 0
@@ -83,150 +92,191 @@ lineAt :: proc(p: String, at: Int) -> Int
   lineEnd = line.len() # (the last, with no break)
   return at + line.len()
 end
-# a file of Sound's, read a line at a time (into notes, speeds and the loops): false if it isn't one,
-# and hasSounds false
-loadSounds* :: proc(p: String) -> Bool
+why: Blob[..160]          # why the last load failed (it logs it)
+# a file of Sound's, read a line at a time: as many of its sounds as notes has room for; false if it
+# isn't one (hasSounds false)
+Song.loadSounds* :: proc(p: String) -> Bool
   at := lineAt(p, 0)
-  hasSounds = false
-  if at < 0 or line[0..<lineEnd].asString() != "rinc sound 1"
+  self.hasSounds = false
+  self.sounds = 0
+  why.clear()
+  if at < 0
+    _ = why.print("sounds ", p, ": no such file")
+    return false
+  case line[0..<lineEnd].asString() != "rinc sound 1"
+    _ = why.print("sounds ", p, ": not a file of Sound's")
     return false
   end
-  for s in 0..<SOUNDS
+  room := min(SOUNDS, self.notes.len() / SOUND_BYTES)
+  for s in 0..<room
     at = lineAt(p, at)
     if at < 0 or lineEnd < LINE
+      _ = why.print("sounds ", p, ": not a file of Sound's")
       return false
     end
     d := line[0..<LINE].asString()
-    speeds[s] = max(1, hexAt(d, 0))
-    loopAs[s] = min(NOTES - 1, hexAt(d, 2))
-    loopBs[s] = min(NOTES, hexAt(d, 4))
+    self.speeds[s] = max(1, hexAt(d, 0))
+    self.loopAs[s] = min(NOTES - 1, hexAt(d, 2))
+    self.loopBs[s] = min(NOTES, hexAt(d, 4))
     for n in 0..<NOTES
       j := 6 + n * 5
-      k := (s * NOTES + n) * 4
-      notes[k] = min(63, hexAt(d, j))
-      notes[k + 1] = max(hexDigit(d[j + 2]), 0) % 8
-      notes[k + 2] = max(hexDigit(d[j + 3]), 0) % 8
-      notes[k + 3] = max(hexDigit(d[j + 4]), 0) % 8
+      k := s * SOUND_BYTES + n * 4
+      self.notes[k] = min(63, hexAt(d, j))
+      self.notes[k + 1] = max(hexDigit(d[j + 2]), 0) % 8
+      self.notes[k + 2] = max(hexDigit(d[j + 3]), 0) % 8
+      self.notes[k + 3] = max(hexDigit(d[j + 4]), 0) % 8
     end
   end
-  hasSounds = true
-  if p != soundsPath.asString()
-    soundsPath.clear()
-    fine = soundsPath.pushAll(p)
+  self.sounds = room
+  self.hasSounds = true
+  if p != self.soundsPath.asString()
+    self.soundsPath.clear()
+    fine = self.soundsPath.pushAll(p)
   end
   return true
 end
-# how many notes sound s plays: to its loop's end, or its last note heard
-notesOf* :: proc(s: Int) -> Int
-  if loopBs[s] > 0
-    return loopBs[s]
+# how many notes sound s plays: to its loop's end, or its last note heard (0: not read)
+Song.notesOf* :: proc(s: Int) -> Int
+  if s < 0 or s >= self.sounds
+    return 0
+  end
+  if self.loopBs[s] > 0
+    return self.loopBs[s]
   end
   last := 0
   for n in 0..<NOTES
-    if notes[(s * NOTES + n) * 4 + 2] > 0
+    if self.notes[s * SOUND_BYTES + n * 4 + 2] > 0
       last = n + 1
     end
   end
   return last
 end
+# the room a song's sounds need: SOUND_BYTES for each, to the last one its patterns play
+Song.needs* :: proc() -> Int
+  most := 0
+  for i in 0..<self.count * CHANNELS
+    if self.chans[i] < SOUNDS
+      most = max(most, self.chans[i] + 1)
+    end
+  end
+  return most * SOUND_BYTES
+end
 # sound s on voice v (once, or round its loop until stopped)
-sound* :: proc(v: Int, s: Int)
-  if not hasSounds or s < 0 or s >= SOUNDS or notesOf(s) == 0
+Song.sound* :: proc(v: Int, s: Int)
+  n := self.notesOf(s)
+  if n == 0
     return
   end
-  pc.synth(v, notes[s * NOTES * 4..<(s * NOTES + notesOf(s)) * 4], speeds[s])
-  if loopBs[s] > 0
-    pc.soundLoop(v, loopAs[s], loopBs[s])
+  pc.synth(v, self.notes[s * SOUND_BYTES..<s * SOUND_BYTES + n * 4], self.speeds[s])
+  if self.loopBs[s] > 0
+    pc.soundLoop(v, self.loopAs[s], self.loopBs[s])
   end
 end
 
 # ---------------------------------------------------------------- songs
 
-# the song's folder (load's file's, to its last /: "" for none), and a file of that name in it
-songFolder: Blob[..96]
+# a song's lines, in order: line k, l, read into it; false if it shows it isn't a song (its first two
+# lines). named: the sounds line's path; pending: the patterns read
+named: Blob[..96]
+pending := 0
+ended := false            # (a line that isn't a pattern: the patterns' end)
+Song.songLine :: proc(k: Int, l: String) -> Bool
+  if k == 0
+    pending = 0
+    ended = false
+    named.clear()
+    return l == "rinc music 1"
+  case k == 1
+    if l.len() < 7 or l[0..<7] != "sounds "
+      return false
+    end
+    fine = named.pushAll(l[7..<l.len()])
+    return true
+  case ended or pending >= PATTERNS or l.len() < 12
+    ended = true
+    return true
+  end
+  n := pending
+  for c in 0..<CHANNELS
+    a := hexDigit(l[c * 3])
+    b := hexDigit(l[c * 3 + 1])
+    self.chans[n * CHANNELS + c] = SILENT
+    if a >= 0 and b >= 0
+      self.chans[n * CHANNELS + c] = min(a * 16 + b, SOUNDS - 1)
+    end
+  end
+  self.flags[n] = 0
+  for j in 12..<l.len()
+    switch l[j]
+    case 'b'
+      self.flags[n] = self.flags[n] | LOOP_BEGINS
+    case 'e'
+      self.flags[n] = self.flags[n] | LOOP_ENDS
+    case 's'
+      self.flags[n] = self.flags[n] | STOPS
+    end
+  end
+  pending += 1
+  return true
+end
+# a file of p's name in folder (to its last /: "" for none)
 besidePath: Blob[..200]
-beside :: proc(p: String) -> String
+beside :: proc(folder: String, p: String) -> String
   k := p.len()
   for k > 0 and p[k - 1] != '/'
     k -= 1
   end
   besidePath.clear()
-  fine = besidePath.pushAll(songFolder.asString()) and besidePath.pushAll(p[k..<p.len()])
+  fine = besidePath.pushAll(folder) and besidePath.pushAll(p[k..<p.len()])
   return besidePath.asString()
 end
-# a song's text (a .mus file's): its patterns, and its sounds read from the file it names, or one of its
-# name beside the song (a game's song and sounds, together in its folder; hasSounds: whether they were);
-# false if it isn't a song (and the song's as it was)
-readSong* :: proc(t: String) -> Bool
+# once its lines are read: its patterns counted, and its sounds read from the file named, or one of its
+# name beside the song (in folder: a game's song and sounds, together in its folder); false with none
+Song.songEnd :: proc(folder: String) -> Bool
+  if pending == 0
+    why.clear()
+    _ = why.print("not a song of Music's")
+    return false
+  end
+  self.count = pending
+  p := named.asString()
+  if p.len() > 0 and not self.loadSounds(p) and not self.loadSounds(beside(folder, p))
+    self.soundsPath.clear()
+    fine = self.soundsPath.pushAll(p) # (kept, though it's not there now)
+  end
+  return true
+end
+# a song's text (Music keeps one in its stash): read into it, false if it isn't a song (and the song's as
+# it was); its sounds from the file it names (hasSounds: whether they were)
+Song.readSong* :: proc(t: String) -> Bool
   at := 0
   k := 0
-  n := 0
-  done := false
-  namedAt := 0          # (the sounds line's path, in t)
-  namedTo := 0
   for i in 0..<t.len() + 1
     if i == t.len() or t[i] == 10
       e := i
       if e > at and t[e - 1] == 13
         e -= 1
       end
-      l := t[at..<e]
-      if k == 0 and l != "rinc music 1"
+      if not self.songLine(k, t[at..<e])
         return false
-      case k == 1 and (l.len() < 7 or l[0..<7] != "sounds ")
-        return false
-      case k == 1
-        namedAt = at + 7
-        namedTo = e
-      case k >= 2 and not done and n < PATTERNS and l.len() >= 12
-        for c in 0..<CHANNELS
-          a := hexDigit(l[c * 3])
-          b := hexDigit(l[c * 3 + 1])
-          chans[n * CHANNELS + c] = SILENT
-          if a >= 0 and b >= 0
-            chans[n * CHANNELS + c] = min(a * 16 + b, SOUNDS - 1)
-          end
-        end
-        flags[n] = 0
-        for j in 12..<l.len()
-          switch l[j]
-          case 'b'
-            flags[n] = flags[n] | LOOP_BEGINS
-          case 'e'
-            flags[n] = flags[n] | LOOP_ENDS
-          case 's'
-            flags[n] = flags[n] | STOPS
-          end
-        end
-        n += 1
-      case k >= 2
-        done = true
       end
       k += 1
       at = i + 1
     end
   end
-  if n == 0
-    return false
-  end
-  count = n
-  named := t[namedAt..<namedTo]
-  if named.len() > 0 and not loadSounds(named) and not loadSounds(beside(named))
-    soundsPath.clear()
-    fine = soundsPath.pushAll(named) # (kept, though it's not there now)
-  end
-  return true
+  return k >= 2 and self.songEnd("")
 end
+
 # pattern p's length, in seconds: its longest sound that doesn't loop (all looping: the longest, once
 # round; none: as long as a sound at speed 16)
-lengthOf* :: proc(p: Int) -> Float
+Song.lengthOf* :: proc(p: Int) -> Float
   most := 0
   looping := 0
   for c in 0..<CHANNELS
-    s := chans[p * CHANNELS + c]
-    if s < SOUNDS and notesOf(s) > 0
-      ticks := notesOf(s) * speeds[s]
-      if loopBs[s] > 0
+    s := self.chans[p * CHANNELS + c]
+    if self.notesOf(s) > 0
+      ticks := self.notesOf(s) * self.speeds[s]
+      if self.loopBs[s] > 0
         looping = max(looping, ticks)
       else
         most = max(most, ticks)
@@ -241,67 +291,94 @@ lengthOf* :: proc(p: Int) -> Float
   end
   return most.toFloat() / 120.0
 end
-startPattern :: proc(p: Int)
-  playRow = p
-  patternAt = pc.time()
-  patternLasts = lengthOf(p)
+Song.startPattern :: proc(p: Int)
+  self.playRow = p
+  self.patternAt = pc.time()
+  self.patternLasts = self.lengthOf(p)
   for c in 0..<CHANNELS
-    s := chans[p * CHANNELS + c]
-    if s < SOUNDS and hasSounds and notesOf(s) > 0
-      sound(voice + c, s)
+    s := self.chans[p * CHANNELS + c]
+    if self.notesOf(s) > 0
+      self.sound(self.voice + c, s)
     else
-      pc.soundStop(voice + c)
+      pc.soundStop(self.voice + c)
     end
   end
 end
 # the song from pattern from on (alone: just that one): false with no sounds to play
-play* :: proc(from: Int, alone: Bool) -> Bool
-  if not hasSounds or from < 0 or from >= count
+Song.play* :: proc(from: Int, alone: Bool) -> Bool
+  if not self.hasSounds or from < 0 or from >= self.count
     return false
   end
-  playing = true
-  playAlone = alone
-  startPattern(from)
+  self.playing = true
+  self.playAlone = alone
+  self.startPattern(from)
   return true
 end
-stop* :: proc()
-  if playing
+Song.stop* :: proc()
+  if self.playing
     for c in 0..<CHANNELS
-      pc.soundStop(voice + c)
+      pc.soundStop(self.voice + c)
     end
   end
-  playing = false
+  self.playing = false
 end
 # each frame: on to the next pattern when one's done (back to its loop's start, after one that ends it;
 # stopped after the last, or one that stops it)
-tick* :: proc()
-  if not playing or pc.time() - patternAt < patternLasts
+Song.tick* :: proc()
+  if not self.playing or pc.time() - self.patternAt < self.patternLasts
     return
   end
-  p := playRow
-  if playAlone or flags[p] & STOPS != 0 or (flags[p] & LOOP_ENDS == 0 and p + 1 >= count)
-    stop()
+  p := self.playRow
+  if self.playAlone or self.flags[p] & STOPS != 0 or (self.flags[p] & LOOP_ENDS == 0 and p + 1 >= self.count)
+    self.stop()
     return
   end
-  if flags[p] & LOOP_ENDS != 0
-    for p > 0 and flags[p] & LOOP_BEGINS == 0
+  if self.flags[p] & LOOP_ENDS != 0
+    for p > 0 and self.flags[p] & LOOP_BEGINS == 0
       p -= 1
     end
-    startPattern(p)
+    self.startPattern(p)
     return
   end
-  startPattern(p + 1)
+  self.startPattern(p + 1)
 end
-# a .mus file, and its sounds: false if it isn't a song
-load* :: proc(p: String) -> Bool
-  stop()
+# a .mus file, read a line at a time, and its sounds: false if it can't be, and the log says why (the
+# room its sounds need, say)
+Song.load* :: proc(p: String) -> Bool
+  self.stop()
   k := p.len()
   for k > 0 and p[k - 1] != '/'
     k -= 1
   end
-  songFolder.clear()
-  fine = songFolder.pushAll(p[0..<k])
-  text.clear()
-  n := pc.fileRead(p, text)
-  return n >= 0 and n <= text.len() and readSong(text.asString())
+  ok := true
+  at := 0
+  n := 0
+  for ok
+    at = lineAt(p, at)
+    if at < 0
+      break
+    end
+    ok = self.songLine(n, line[0..<lineEnd].asString())
+    n += 1
+  end
+  why.clear()
+  if n == 0
+    _ = why.print("no such file")
+  case not ok or n < 2
+    _ = why.print("not a song of Music's")
+  end
+  ok = ok and n >= 2 and self.songEnd(p[0..<k])
+  if ok and not self.hasSounds
+    ok = false # (why: loadSounds')
+  case ok and self.needs() > self.notes.len()
+    why.clear()
+    _ = why.print("its sounds need notes Blob[", self.needs(), "] (has ", self.notes.len(), ")")
+    ok = false
+  end
+  if not ok
+    said: Blob[..300]
+    _ = said.print(p, ": ", why.asString())
+    log(said.asString())
+  end
+  return ok
 end

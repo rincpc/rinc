@@ -309,12 +309,33 @@ int rinc_inflateRaw(int (*read)(char *buf, int n), uint32_t size, uint8_t *out, 
   return bad ? -1 : (int)end;
 }
 
+/* a PNG to read: from storage, else the bundle (an exported game's, read in place): 0, or -1 if neither
+   has it; and closed again */
+static const char *rinc_pngBundled; static uint32_t rinc_pngBundledLeft;
+static int rinc_pngFromBundle(char *buf, int n) {
+  if ((uint32_t)n > rinc_pngBundledLeft) n = (int)rinc_pngBundledLeft;
+  memcpy(buf, rinc_pngBundled, (size_t)n);
+  rinc_pngBundled += n; rinc_pngBundledLeft -= (uint32_t)n;
+  return n;
+}
+static int rinc_pngOpen(const char *path) {
+  const rinc_File *f;
+  if (rinc_fs && !rinc_fs->open(path, 0)) return 0;
+  if (strncmp(path, "/rinc/", 6) || !(f = rinc_bundleFile(path + 6))) return -1;
+  rinc_pngBundled = f->data; rinc_pngBundledLeft = f->len;
+  rinc_pngReader = rinc_pngFromBundle;
+  return 0;
+}
+static void rinc_pngClose(void) {
+  if (rinc_pngReader == rinc_pngFromBundle) rinc_pngReader = 0;
+  else rinc_fs->close();
+}
 /* the app's notes (the tEXt chunk named Rinc), before the pixels: into out, how many bytes; or -1 */
 int rinc_pngNotes(const char *path, char *out, uint32_t cap) {
   uint32_t len, type, i;
   int n = -1;
   uint8_t sig[8];
-  if (!rinc_fs || rinc_fs->open(path, 0)) return -1;
+  if (rinc_pngOpen(path)) return -1;
   rinc_pngBad = 0; rinc_pngInLen = rinc_pngInAt = 0;
   for (i = 0; i < 8; i++) sig[i] = (uint8_t)rinc_pngByteIn();
   while (!memcmp(sig, "\211PNG\r\n\032\n", 8)) {
@@ -332,7 +353,7 @@ int rinc_pngNotes(const char *path, char *out, uint32_t cap) {
     }
     for (i = 0; i < len + 4; i++) rinc_pngByteIn(); /* (another: skipped, its CRC too) */
   }
-  rinc_fs->close();
+  rinc_pngClose();
   return rinc_pngBad ? -1 : n;
 }
 
@@ -342,14 +363,14 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2],
   int depth = 0, kind = -1, channels, pixelBytes, i, b;
   uint8_t sig[8];
   size[0] = size[1] = 0; *need = 0;
-  if (!rinc_fs || !out || rinc_fs->open(path, 0)) return -1;
+  if (!out || rinc_pngOpen(path)) return -1;
   rinc_pngBad = 0; rinc_pngInLen = rinc_pngInAt = 0; rinc_pngLeft = 0;
   for (i = 0; i < 8; i++) sig[i] = (uint8_t)rinc_pngByteIn();
-  if (memcmp(sig, "\211PNG\r\n\032\n", 8)) { rinc_fs->close(); return -1; }
+  if (memcmp(sig, "\211PNG\r\n\032\n", 8)) { rinc_pngClose(); return -1; }
   for (i = 0; i < 256; i++) map[i] = (uint8_t)i;
   for (;;) { /* chunks, up to the first IDAT */
     len = rinc_png32(); type = rinc_png32();
-    if (rinc_pngBad) { rinc_fs->close(); return -1; }
+    if (rinc_pngBad) { rinc_pngClose(); return -1; }
     if (type == 0x49484452u) { /* IHDR */
       uint8_t hd[13];
       for (i = 0; i < 13; i++) hd[i] = (uint8_t)rinc_pngByteIn();
@@ -357,7 +378,7 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2],
       h = (uint32_t)hd[4] << 24 | (uint32_t)hd[5] << 16 | (uint32_t)hd[6] << 8 | hd[7];
       depth = hd[8]; kind = hd[9];
       if (hd[12] || !w || !h || w > 4096 || h > 4096 || (kind == 3 ? depth > 8 : depth != 8) || (kind != 0 && kind != 2 && kind != 3 && kind != 4 && kind != 6)) {
-        rinc_fs->close(); return -1; /* (interlaced, 16 bits, or the like: not read) */
+        rinc_pngClose(); return -1; /* (interlaced, 16 bits, or the like: not read) */
       }
       rinc_png32();
     } else if (type == 0x504C5445u) { /* PLTE: each color, the palette's nearest */
@@ -372,18 +393,18 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2],
       rinc_png32();
     } else if (type == 0x49444154u) { rinc_pngLeft = len; break; } /* IDAT */
     else { for (x = 0; x < len + 4; x++) rinc_pngByteIn(); } /* (any other: skipped, its CRC too) */
-    if (rinc_pngBad || (!len && type == 0x49454E44u)) { rinc_fs->close(); return -1; } /* (IEND, before any IDAT) */
+    if (rinc_pngBad || (!len && type == 0x49454E44u)) { rinc_pngClose(); return -1; } /* (IEND, before any IDAT) */
   }
-  if (kind < 0) { rinc_fs->close(); return -1; }
+  if (kind < 0) { rinc_pngClose(); return -1; }
   channels = kind == 2 ? 3 : kind == 4 ? 2 : kind == 6 ? 4 : 1;
   rowBytes = (w * (uint32_t)channels * (uint32_t)depth + 7) / 8;
   pixelBytes = (channels * depth + 7) / 8;
   size[0] = w; size[1] = h;
   *need = h * ((rowBytes > w ? rowBytes : w) + 1); /* (the rows as they come, as its end) */
   base = *need - h * (rowBytes + 1);
-  if (*need > cap) { rinc_fs->close(); return -2; }
-  if (rinc_inflate(out, base, *need, &end) || end - base < h * (rowBytes + 1)) { rinc_fs->close(); return -1; }
-  rinc_fs->close();
+  if (*need > cap) { rinc_pngClose(); return -2; }
+  if (rinc_inflate(out, base, *need, &end) || end - base < h * (rowBytes + 1)) { rinc_pngClose(); return -1; }
+  rinc_pngClose();
   for (y = 0; y < h; y++) { /* the filters, undone, in place */
     uint8_t *row = out + base + y * (rowBytes + 1), *up = y ? row - (rowBytes + 1) : 0;
     int f = row[0];

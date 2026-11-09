@@ -54,6 +54,9 @@ app is a Rio program.
   - Done: an app run from its folder (rinc game/) reads its own files there, as installed (pc.fileRead,
     fileReadAt, imageRead: tests/folderfiles.py); it read storage's only, so a game's map and sheet
     weren't found.
+  - Done: exported, as a program and as a page (2026-11-09): pc.imageRead and pc.imageNotes read an
+    app's picture from the bundle too (they read storage's only: an exported game's sheet was empty;
+    tests/bundleimage.py), and on Windows, -export to a name with no extension makes name.exe.
   - Done: a song player in the library (song, above): Cloudlamp read .snd and .mus itself, 60
     lines a game shouldn't need.
   - A screen capture over serial (the console's `shot`, as a PNG): the board's screen can't be seen

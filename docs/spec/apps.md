@@ -594,22 +594,25 @@ carries all of its folder. The system apps are made this way, each a main file a
 Built into every Rinc (and installed in `/rinc/lib` with the system apps, where a newer one can go):
 
 - `tilemap`: tile maps, read, written and drawn, as studio's Maps makes them ([maps](maps.md)).
-- `song`: songs as studio's Music makes them, and their sounds (Sound's file): read, and played on 4
-  of the 8 voices (`song.voice` the first), a pattern after another, round their loops; and a sound
-  of the file on its own, for a game's effects. The sounds come from the path the song names, or a
-  file of that name beside the song, so a game keeps its song and sounds together in its folder.
-  Music plays songs with it, so a game plays them just as Music does.
+- `song`: songs as studio's Music makes them, and their sounds (Sound's file): read a line at a time,
+  and played on 4 of the 8 voices (from its `voice`), a pattern after another, round their loops; and
+  a sound of the file on its own, for a game's effects. The app gives it room for the sounds' notes,
+  128 bytes a sound (`song.SOUND_BYTES`), as many as it likes from the first: Music shows what a song
+  needs, Sound what a file's sounds do, and `load` logs it when there isn't enough. The sounds come
+  from the path the song names, or a file of that name beside the song, so a game keeps its song and
+  sounds together in its folder. Music plays songs with it, so a game plays them just as Music does.
 
 ```rio fragment
 import song
-if song.load("tune.mus")                  # its sounds too (song.hasSounds)
-  song.voice = 4                          # voices 4 to 7: 0 to 3 the game's own
-  _ = song.play(0, false)                 # from its first pattern (true: that one alone)
+notes: Blob[4 * song.SOUND_BYTES]         # sounds 0 to 3 (song.ALL_SOUNDS: all 32)
+tune := song.Song{notes = notes[], voice = 4} # voices 4 to 7: 0 to 3 the game's own
+if tune.load("tune.mus")                  # its sounds too; else the log says why
+  _ = tune.play(0, false)                 # from its first pattern (true: that one alone)
 end
 update* :: proc()
-  song.tick()                             # each frame: on to the next pattern when one's done
+  tune.tick()                             # each frame: on to the next pattern when one's done
 end
-song.sound(0, 2)                          # sound 2, once, on voice 0
+tune.sound(0, 2)                          # sound 2, once, on voice 0
 ```
 
 - `undolog`: undo and redo kept on the card, in the app's stash, so they reach back as far as the app
