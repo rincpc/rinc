@@ -1,0 +1,50 @@
+# tilemap (library/tilemap.rio): a map's text read and written back as it was, a map of before read too,
+# one too big for its room refused (and the map as it was), cells looked up and changed, a layer
+# reshaped (its offset moved back), layers added and taken out, tiles renumbered for a wider sheet.
+# Then drawn: tests/tilemap.py checks the screen. Its sheet's at /rinc/save/t.png (the test puts it)
+import tilemap
+cellRoom: Blob[64 * 2]
+scratch: Blob[64 * 2]
+m := tilemap.Map{cells = cellRoom[]}
+out: Blob[..2000]
+E :: tilemap.EMPTY
+
+two := "rinc map 2\nlayer 1\ntiles /rinc/save/t.png 8\nacross 2\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2\ntiles /rinc/save/t.png 8\nacross 2\nsize 2 1\noffset 4 16\n001---\n"
+assert(m.read(two), "a map of two layers, read")
+assert(m.count == 2 and m.layers[1].size == {2, 1} and m.layers[1].at == {4, 16} and m.layers[0].tile == {8, 8}, "its layers' sizes, offsets and tiles")
+assert(m.at(0, {1, 0}) == 1 and m.at(0, {2, 0}) == E and m.at(1, {0, 0}) == 1 and m.at(0, {5, 5}) == E, "its cells (past an edge: empty)")
+assert(m.sheetPath(1) == "/rinc/save/t.png", "a layer's sheet")
+assert(m.write(out) and out.asString() == two, "written back as it was")
+
+assert(not m.read("rinc map 2\nlayer 1\ntiles a.png 8\nacross 1\nsize 10 10\noffset 0 0\n"), "more cells than its room: refused")
+assert(m.count == 2 and m.at(0, {1, 0}) == 1, "and the map as it was")
+assert(not m.read("rinc map 3\n"), "not a map: refused")
+
+assert(m.read("rinc map 1\nsize 3 1\ntiles /rinc/save/t.png 8\n01--00\n"), "a map of before (rinc map 1)")
+assert(m.count == 1 and m.at(0, {0, 0}) == 1 and m.at(0, {1, 0}) == E and m.layers[0].across == -1, "its one layer, two digits a cell")
+
+assert(m.read(two), "")
+m.set(0, {2, 0}, 3)
+assert(m.at(0, {2, 0}) == 3 and m.at(1, {0, 0}) == 1, "a cell changed, the next layer's as they were")
+assert(m.reshape(0, {4, 3}, {1, 1}, scratch[]), "a layer grown left and up")
+assert(m.layers[0].size == {4, 3} and m.layers[0].at == {-8, -8} and m.at(0, {2, 1}) == 1 and m.at(0, {0, 0}) == E, "its cells moved, its offset back")
+assert(m.at(1, {0, 0}) == 1 and m.layers[1].start == 12, "the next layer's cells moved on, as they were")
+assert(not m.reshape(0, {10, 10}, {0, 0}, scratch[]), "too big for its room: refused")
+assert(m.addLayer(0) and m.count == 3 and m.layers[1].size == {4, 3} and m.at(1, {0, 0}) == E and m.at(2, {0, 0}) == 1, "a layer added after the first: empty, the last as it was")
+assert(m.removeLayer(1) and m.count == 2 and m.at(1, {0, 0}) == 1 and m.at(0, {2, 1}) == 1, "and taken out")
+assert(m.refit(0, 24) == 0 and m.at(0, {2, 1}) == 1 and m.at(0, {3, 1}) == 4 and m.layers[0].across == 3, "renumbered for a sheet 3 across: each where it was (3, row 1, column 1, now 4)")
+
+# drawn: tests/tilemap.py checks layer 0 at the screen's top left (its offset -8, -8: from cell 1, 1) and
+# layer 1 over it, 4 pixels right and 16 down of the map's corner; a missing tile (past the sheet) a box
+assert(m.read(two), "")
+m.set(0, {0, 1}, 9)
+sheetRoom: Blob[..1024] # (room for the file's rows as they come, too)
+sheet := pc.imageRead("/rinc/save/t.png", sheetRoom)
+assert(sheet.size == {16, 8}, "the sheet")
+draw* :: proc()
+  pc.cls(1)
+  m.draw(0, sheet, {0, 0}, {missing = 7})
+  m.draw(1, sheet, {0, 0})
+  m.draw(0, sheet, {4, 0}, {at = {0, 100}}) # (again, lower, 4 pixels on: its first tile half off the screen's left)
+end
+log("tilemap came through")

@@ -50,7 +50,7 @@ int rinc_zipInstall(rinc_Zip *z) {
     name[nameLen] = 0;
     at += 46 + nameLen + skip;
     rel = strncmp(name, "rinc/", 5) ? name : name + 5;
-    if (!*rel || rel[strlen(rel) - 1] == '/' || (strncmp(rel, "apps/", 5) && strncmp(rel, "help/", 5))) continue; /* (folders, and anything but apps and help) */
+    if (!*rel || rel[strlen(rel) - 1] == '/' || (strncmp(rel, "apps/", 5) && strncmp(rel, "help/", 5) && strncmp(rel, "lib/", 4))) continue; /* (folders, and anything but apps, help and the library) */
     if (strstr(rel, "..") || strchr(rel, '\\') || strchr(rel, ':') || strlen(name) != nameLen) { rinc_zipTell(z, "rinc: %s names %s: not installed\n", name); bad = 1; break; }
     if (method != 0 && method != 8) { rinc_zipTell(z, "rinc: %s: %s is packed a way Rinc doesn't read (stored or deflated only)\n", name); bad = 1; break; }
     if (usize > z->cap || (!method && csize != usize)) { rinc_zipTell(z, "rinc: %s: %s is too big to install here\n", name); bad = 1; break; }

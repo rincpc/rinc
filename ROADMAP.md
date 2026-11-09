@@ -23,6 +23,11 @@ app is a Rio program.
 
 ## Next
 
+- Rinc's library (library/, as /rinc/lib, installed with the system apps): done (2026-11-08):
+  `tilemap`, tile maps read, written and drawn, pure Rio, the app owning its maps' memory (spec/maps.md),
+  which studio's Maps uses; and pc.blit a row at a time when it isn't scaled or mirrored across (a screen
+  of 8 by 8 tiles, 25 ms on the Fruit Jam before, 9 now). Next: one for songs, as studio's Music plays
+  them; and libraries in the firmware's bundle (lib/...), for a board with no card.
 - An app's own files by relative path: in (pc's file procs: a path not starting with / is in the app's
   folder, its project's or as installed; for reading). Next with it: run from the desktop's own files
   (rinc mygame/), the same path reads from there; and tools/send.py sending binary files (a PNG, a WAV)

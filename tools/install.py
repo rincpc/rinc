@@ -4,14 +4,15 @@
 """Put Rinc's apps and help texts on the board's SD card, over USB serial, or into a folder (an SD card
 in a reader on this computer, say). The firmware carries none of them (docs/spec/apps.md#bundles).
 
-  uv run tools/install.py                 everything: the system apps, the demos, and Rinc's and Rio's
+  uv run tools/install.py                 everything: the system apps and the library, the demos, and Rinc's and Rio's
                                           docs (as help texts), over COM3
   uv run tools/install.py COM5            another port
   uv run tools/install.py home chord      just these apps, by name (system apps and demos)
-  uv run tools/install.py --system        the system apps and the docs (rinc-system-apps.zip in a release)
+  uv run tools/install.py --system        the system apps, the library and the docs (rinc-system-apps.zip in a release)
   uv run tools/install.py --demos         the demos (rinc-demo-apps.zip in a release)
   uv run tools/install.py --apps          all the apps, no docs
   uv run tools/install.py --docs          just the docs
+  uv run tools/install.py --lib           just the library (/rinc/lib: tilemap.rio, ...)
   uv run tools/install.py --to E:         into E:/rinc instead (or any folder), no serial port needed
 
 Over serial, Ctrl-B opens the firmware's own console, whatever is running (it needs no apps on the
@@ -54,6 +55,10 @@ def demoApps():
   names += [os.path.splitext(os.path.basename(p))[0] for p in glob.glob(os.path.join(ROOT, 'apps', '*.rio'))]
   return sorted(set(names))
 
+def libFiles():
+  """Rinc's library, for every app to import: lib/tilemap.rio, ..."""
+  return [('lib/%s' % os.path.basename(p), p) for p in sorted(glob.glob(os.path.join(ROOT, 'library', '*.rio')))]
+
 def docFiles():
   """Rinc's and Rio's docs, as help texts: help/rinc/..., help/rio/..."""
   return [('help/%s/%s' % (prefix, rel(p, folder)), p)
@@ -64,7 +69,7 @@ to = args[args.index('--to') + 1] if '--to' in args else None
 words = [a for i, a in enumerate(args) if not a.startswith('--') and not (i and args[i - 1] == '--to')]
 port = next((a for a in words if re.fullmatch(r'COM[0-9]+', a, re.I) or a.startswith('/dev/')), 'COM3')
 names = [a for a in words if a != port]
-picked = [f for f in ('--system', '--demos', '--apps', '--docs') if f in args]
+picked = [f for f in ('--system', '--demos', '--apps', '--docs', '--lib') if f in args]
 everything = not picked and not names
 system = everything or '--system' in args or '--apps' in args
 demos = everything or '--demos' in args or '--apps' in args
@@ -75,6 +80,7 @@ for name in (names or (systemApps() if system else []) + (demoApps() if demos el
   got = appFiles(name)
   if got is None: sys.exit('install.py: no app named %s (in system/ or apps/)' % name)
   files += got
+if system or '--lib' in args: files += libFiles()
 if docs: files += docFiles()
 
 if to:

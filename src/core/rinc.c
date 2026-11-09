@@ -63,6 +63,19 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   if (sy < 0) { h += sy; y0 -= sy * ky; sy = 0; }
   if (w > pw - sx) w = pw - sx;
   if (h > ph - sy) h = ph - sy;
+  if (kx == 1 && ky == 1 && !flipX) { /* (the usual: a pixel for a pixel, a row at a time; a map's tiles are many) */
+    int i0 = x0 < 0 ? -x0 : 0, i1 = x0 + w > rinc_W ? rinc_W - x0 : w;
+    for (j = 0; j < h; j++) {
+      int y = y0 + j;
+      const uint8_t *row = p + (sy + (flipY ? h - 1 - j : j)) * pw + sx;
+      uint8_t *out;
+      if (y < 0 || y >= rinc_H) continue;
+      out = rinc_screen[y];
+      for (i = i0; i < i1; i++)
+        if (row[i]) out[x0 + i] = row[i];
+    }
+    return;
+  }
   for (j = 0; j < h; j++) {
     const uint8_t *row = p + (sy + (flipY ? h - 1 - j : j)) * pw + sx; /* (mirrored: the rows from the bottom) */
     int y = y0 + j * ky, ya = y < 0 ? 0 : y, yb = y + ky > rinc_H ? rinc_H : y + ky;

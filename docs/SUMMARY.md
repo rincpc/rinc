@@ -23,6 +23,7 @@
 - [Sound](spec/sound.md)
 - [Memory](spec/memory.md)
 - [Apps and storage](spec/apps.md)
+- [Tile maps](spec/maps.md)
 - [Rio inside an app](spec/rio.md)
 
 # Guide to this Rinc
