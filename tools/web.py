@@ -21,8 +21,18 @@ def build_wasm(path, full):
   # the build's id (rinc_buildId, as tools/buildid.cmake makes it): another build's cached app images go
   build_id = os.path.join(tempfile.mkdtemp(), 'build_id.c')
   with open(build_id, 'w') as f: f.write('const char rinc_buildId[] = "%s";\n' % time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
+  # Rinc's library, built in (as tools/library.cmake makes it): only the player with the compiler needs it,
+  # for an app's import, but both have it (an empty table where nothing compiles)
+  library = os.path.join(os.path.dirname(build_id), 'library.c')
+  with open(library, 'w') as f:
+    libs = sorted(n for n in os.listdir(os.path.join(root, 'library')) if n.endswith('.rio')) if full else []
+    f.write('#include "rinc.h"\n')
+    for i, n in enumerate(libs):
+      data = open(os.path.join(root, 'library', n), 'rb').read()
+      f.write('static const char rinc_lib%d[] = {%s0};\n' % (i, ''.join('%d,' % b for b in data)))
+    f.write('const rinc_File rinc_library[] = {\n%s  {0, 0, 0}};\n' % ''.join('  {"%s", rinc_lib%d, %d},\n' % (n, i, len(open(os.path.join(root, 'library', n), 'rb').read())) for i, n in enumerate(libs)))
   # (pc.rio, the pc module, is built in through src/core/pc_host.h: only the player with the compiler keeps it)
-  sources = [os.path.join(root, 'src', 'web', 'main.c'), build_id] + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c', 'png.c', 'zip.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
+  sources = [os.path.join(root, 'src', 'web', 'main.c'), build_id, library] + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c', 'png.c', 'zip.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
   # (rio_MAX_FFI: CMakeLists.txt's RINC_MAX_FFI)
   subprocess.run(['zig', 'cc', '-target', 'wasm32-wasi', '-mexec-model=reactor', '-Oz', '-Drio_SMALL', '-Drio_MAX_FFI=104'] + ([] if full else ['-Drio_NO_COMPILER']) +
                  ['-I' + os.path.join(rio, 'src'), '-I' + os.path.join(root, 'src', 'core'), '-Wl,--strip-all', '-o', path] + sources, check=True)

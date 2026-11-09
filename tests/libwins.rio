@@ -1,0 +1,4 @@
+# rinc's library, built in: a card's own /rinc/lib file wins (tests/libwins.py puts one, with WINS, that the
+# library built in hasn't got)
+import tilemap
+log("the card's own:", tilemap.WINS)

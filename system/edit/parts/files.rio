@@ -166,7 +166,6 @@ fresh :: proc()
   wantCol = -1
   rebuildLines()
   forgetAll()
-  savedTop = 0
 end
 
 setPath :: proc(p: String)
@@ -244,6 +243,9 @@ load :: proc(p: String) -> Bool
       n = pc.fileRead(p, got)
     end
     settle(min(n, CAP))
+    if u.resume("undo", p) # (its log, as it was, if it's this file's: the file as saved, where undo is)
+      savedAt = u.at
+    end
     if not readOnly()
       sayName("", ": ^S saves, ^R runs", softColor)
     case appOf(here()).len() > 0
@@ -430,8 +432,13 @@ save :: proc() -> Bool
     sayName("Couldn't save ", "", errorColor)
     return false
   end
-  savedTop = recTop
+  savedAt = u.at
   merging = 0
+  if u.about.asString() != here() # (saved as another: its log goes with it)
+    u.retitle(here())
+  end
+  u.flush()
+  keepSaved()
   sayName("Saved ", "", okColor)
   remember()
   return true

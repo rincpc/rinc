@@ -1,0 +1,133 @@
+# rinc's library, undolog: undo and redo kept on the card (tests/undolog.py runs it, the library as
+# /rinc/lib/undolog.rio). A document of 8 numbers; each step, a number changed: where, what it was, what
+# it became (a byte each)
+import undolog
+
+doc: [8]Int
+room: Blob[..256]
+u := undolog.Log{room = room, version = 1}
+apply :: callback proc(step: String, back: Bool) -> Bool
+  if step.len() != 3 or step[0] > 7
+    return false
+  end
+  from := step[1]
+  to := step[2]
+  if back
+    from = step[2]
+    to = step[1]
+  end
+  if doc[step[0]] != from # (the document isn't as the step left it, or found it)
+    return false
+  end
+  doc[step[0]] = to
+  return true
+end
+bytes: Blob[..3]
+change :: proc(i: Int, v: Int)
+  bytes.clear()
+  fine := bytes.push(i) and bytes.push(doc[i]) and bytes.push(v)
+  assert(u.step(bytes.asString()), "a step taken")
+  doc[i] = v
+end
+same :: proc(want: [8]Int) -> Bool
+  for i in 0..<8
+    if doc[i] != want[i]
+      return false
+    end
+  end
+  return true
+end
+
+u.start("undo", "doc.a")
+u.group()
+change(0, 5)
+change(1, 6)
+u.group()
+change(2, 7)
+assert(same({5, 6, 7, 0, 0, 0, 0, 0}), "")
+assert(u.undo(apply) and same({5, 6, 0, 0, 0, 0, 0, 0}), "undone: the last group")
+assert(u.undo(apply) and same({0, 0, 0, 0, 0, 0, 0, 0}), "undone: the group before, its two steps")
+assert(not u.undo(apply) and not u.broke, "nothing more to undo: the log's head")
+assert(u.redo(apply) and same({5, 6, 0, 0, 0, 0, 0, 0}), "redone: a group")
+assert(u.redo(apply) and u.redo(apply) == false and same({5, 6, 7, 0, 0, 0, 0, 0}), "redone: the next, then nothing more")
+assert(u.undo(apply), "")
+u.group()
+change(3, 9) # (a new change: what could be redone, gone)
+assert(not u.redo(apply) and same({5, 6, 0, 9, 0, 0, 0, 0}), "a new step: no redoing what was undone before it")
+
+# kept: another Log (as after another app's run) takes it on, if it's about the same and of the version
+u.flush()
+room2: Blob[..256]
+v := undolog.Log{room = room2, version = 1}
+assert(v.resume("undo", "doc.a"), "taken on: about the same, the same version")
+assert(v.undo(apply) and same({5, 6, 0, 0, 0, 0, 0, 0}) and v.undo(apply) and same({0, 0, 0, 0, 0, 0, 0, 0}), "and undone, as far back as it goes")
+assert(v.redo(apply) and same({5, 6, 0, 0, 0, 0, 0, 0}), "and redone")
+v.flush()
+w := undolog.Log{room = room2, version = 2}
+assert(not w.resume("undo", "doc.a"), "another version's: not taken on")
+x := undolog.Log{room = room2, version = 1}
+assert(not x.resume("undo", "doc.b"), "about something else: not taken on (a new log)")
+assert(not x.undo(apply), "a new log: nothing to undo")
+
+# a step bigger than room: refused (the change, the app's to make or not)
+big: Blob[..300]
+for i in 0..<260
+  fine := big.push(1)
+end
+assert(not x.step(big.asString()), "a step bigger than room: refused")
+
+# a step that doesn't fit the document (it's changed since): not undone, and the log starts again
+doc = {0, 0, 0, 0, 0, 0, 0, 0}
+y := undolog.Log{room = room2, version = 1}
+y.start("undo", "doc.c")
+y.group()
+bytes.clear()
+fine := bytes.push(4) and bytes.push(0) and bytes.push(3)
+assert(y.step(bytes.asString()), "")
+doc[4] = 8 # (not what the step made it)
+assert(not y.undo(apply) and y.broke and doc[4] == 8, "a step that doesn't fit: not undone, the log started again")
+assert(not y.undo(apply) and not y.broke, "and it's empty")
+
+# a damaged step (its last byte): not read, the log starts again
+y.group()
+change2 :: proc(log: &undolog.Log, i: Int, v: Int)
+  bytes.clear()
+  ok := bytes.push(i) and bytes.push(doc[i]) and bytes.push(v)
+  ok = log.step(bytes.asString())
+  doc[i] = v
+end
+change2(&y, 5, 2)
+y.flush()
+fine = pc.stashWriteAt("undo", y.at - 1, "z") >= 0
+assert(not y.undo(apply) and y.broke and doc[5] == 2, "a damaged step: not undone, the log started again")
+
+# swapping: a step holds what was there (a byte), and undo or redo trades it with what's there now
+z := undolog.Log{room = room2, version = 1}
+swapped :: callback proc(step: String, back: Bool) -> Bool
+  was := doc[7]
+  doc[7] = step[0]
+  bytes.clear()
+  fine := bytes.push(was)
+  z.rewrite(bytes.asString())
+  return true
+end
+z.start("undo", "doc.d")
+doc[7] = 1
+z.group()
+bytes.clear()
+fine = bytes.push(doc[7])
+assert(z.step(bytes.asString()), "")
+doc[7] = 2
+assert(z.undo(swapped) and doc[7] == 1, "swapped back")
+assert(z.redo(swapped) and doc[7] == 2, "and forward again: what undo kept, rewritten in its place")
+assert(z.undo(swapped) and doc[7] == 1, "and back")
+# retitled (a file saved under another name): taken on by what it's about now, not what it was
+z.flush()
+z.retitle("doc.e")
+z.flush()
+r2 := undolog.Log{room = room2, version = 1}
+assert(r2.resume("undo", "doc.e") and r2.at == z.at and r2.upTo == z.upTo, "retitled: taken on by its new name, where it was")
+r2.flush()
+r3 := undolog.Log{room = room2, version = 1}
+assert(not r3.resume("undo", "doc.d"), "not by its old one")
+log("undolog came through")

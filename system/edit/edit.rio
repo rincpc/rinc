@@ -20,6 +20,7 @@
 
 # ---------------------------------------------------------------- its parts
 
+import undolog      # (rinc's library: undo and redo kept on the card)
 include "parts/setup.rio"
 include "parts/text.rio"
 include "parts/editing.rio"
@@ -60,9 +61,13 @@ if callingLen > 0
   settle(draft.len())
   sizeOnly: Blob[..] = one[0..<0]
   disk := pc.fileRead(here(), sizeOnly)
-  savedTop = recTop
-  if path.len() == 0 or disk != textLen # (changed from what's saved: shown as changed)
-    savedTop = -1
+  if u.resume("undo", here()) # (its log, as it was, and where it was saved)
+    savedAt = savedKept()
+  else
+    savedAt = u.at
+    if path.len() == 0 or disk != textLen # (changed from what's saved: shown as changed)
+      savedAt = -1
+    end
   end
   restore(place)
   if pickedLen > 0 and calling[0..<callingLen].asString() == "save"

@@ -2,8 +2,6 @@
 
 CAP :: 32768          # the most text
 MAX_LINES :: 4096
-UNDOS :: 256          # edits remembered
-UNDO_BYTES :: 16384   # the text they changed
 CLIP :: 16384
 BUILT :: 8192         # lines being remade (indenting, moving)
 ROWS :: 24            # text rows, 9 pixels each

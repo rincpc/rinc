@@ -76,5 +76,6 @@ comma to put it over lines, and take it off, with Ctrl+Shift+J on the opening br
 bring it back. Code between `# nofmt` and `# /nofmt` comment lines is left as it is. Ctrl+Z undoes
 the layout.
 
-Undo groups typing by words, and remembers the last 256 changes (or 16 KB of what they changed). When
+Undo groups typing by words, and goes back as far as the file was opened: it's kept on the card (the
+editor's stash), so it's there after another app has run, or Rinc has started again. When
 there's an app with unsaved changes, opening another or starting a new one asks first.

@@ -1583,6 +1583,11 @@ static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
     if (host) continue;
     snprintf(name, sizeof name, "%s%s", bundleBase, tryPath);
     if (*bundleBase && (f = rinc_bundleFile(name))) { out->src = f->data; out->len = f->len; out->isDir = k; out->name = f->path; return 0; }
+    if (kind & rio_LoadKind_package) { /* (and the library built in: a card's own, or the bundle's, first) */
+      int j;
+      for (j = 0; rinc_library[j].path; j++)
+        if (!strcmp(rinc_library[j].path, tryPath)) { out->src = rinc_library[j].data; out->len = rinc_library[j].len; out->isDir = k; out->name = rinc_library[j].path; return 0; }
+    }
   }
   return 1;
 }

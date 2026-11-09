@@ -300,6 +300,8 @@ end
 leaving* :: proc()
   placeStill = 14
   keepPlace()
+  u.flush() # (undo's steps onto the card, and where it was saved)
+  keepSaved()
   if modified() and not toFiles
     ok := pc.stashWrite("draft", text[0..<textLen].asString())
     ok = pc.stashWrite("draftPath", here())

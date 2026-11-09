@@ -106,4 +106,27 @@ for name in ('notes.md', 'code.rio'):
   typing(CTRL_SPACE + '\\n' + SAVE)
 check(get('projects/place/notes.md') == 'pc.\n', 'a .md file: no Rio completion: %r' % get('projects/place/notes.md'))
 check(get('projects/place/code.rio') != 'pc.\n', 'a .rio file: completed: %r' % get('projects/place/code.rio'))
+# undo kept on the card (rinc's undolog, the stash's "undo"): typed and saved in one run, undone (and
+# saved) in the next, redone in the one after; an edit left unsaved (a draft) undone after coming back;
+# a paste bigger than a step (2000 bytes: in pieces, one group) undone at once, in the next run
+UNDO, REDO = '\\x1a', '\\x19'
+put('projects/undo/undo.rio', 'a\n')
+put('settings/active', 'undo+')
+put('save/edit/last', '/rinc/projects/undo/undo.rio 0 0 0 0')
+typing('bc' + SAVE)
+typing(UNDO + SAVE)
+check(get('projects/undo/undo.rio') == 'a\n', 'typed and saved, then undone in the next run: %r' % get('projects/undo/undo.rio'))
+typing(REDO + SAVE)
+check(get('projects/undo/undo.rio') == 'bca\n', 'and redone in the run after that: %r' % get('projects/undo/undo.rio'))
+typing('X') # (unsaved: a draft, as the editor's left)
+typing(UNDO + SAVE)
+check(get('projects/undo/undo.rio') == 'bca\n', 'unsaved, left, then undone on coming back: %r' % get('projects/undo/undo.rio'))
+put('projects/undo/undo.rio', 'a\n')
+put('save/edit/last', '/rinc/projects/undo/undo.rio 0 0 0 0')
+put('clipboard', 'x' * 3000) # (the clipboard, as the editor keeps it, /rinc/clipboard: 3000 bytes, two steps' worth)
+typing('\\x16' + SAVE)
+pasted = get('projects/undo/undo.rio')
+typing(UNDO + SAVE)
+check(pasted is not None and len(pasted) > 2000 and get('projects/undo/undo.rio') == 'a\n',
+      'a paste of 3000 bytes (in pieces) undone at once, in the next run: %r %r' % (pasted and len(pasted), get('projects/undo/undo.rio')))
 print('the editor came through')

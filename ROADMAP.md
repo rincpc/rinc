@@ -35,6 +35,10 @@ app is a Rio program.
   - Mounted read-only as /rinc/lib (the bundle's lib/ entries, read in place in flash, as its apps are
     now), sources too, so the editor and help can open them; a card's /rinc/lib file of the same name
     wins, so a library can still change without new firmware.
+  - Done (2026-11-09), for imports: the library built into every Rinc (desktop, web, board: tools/library.cmake),
+    after a card's own and the bundle's. Left: its files listed in /rinc/lib (Files, the editor, help), and
+    pc.rio there too, to read.
+  - Done (2026-11-09): undolog, undo and redo kept on the card (spec/apps.md: Rinc's library).
   - Compiled once, the bytecode kept in flash and run from there, so an app pays only for the library's
     data (tilemap: ~17 KB of an app's 256 KB now, 13 KB of it code). Needs from Rio: a module compiled
     on its own, its tables kept and copied into each compile (Rio's roadmap, compiler speed), and a

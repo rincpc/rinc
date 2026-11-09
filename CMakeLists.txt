@@ -49,8 +49,14 @@ set(RINC_BUILD_ID ${CMAKE_BINARY_DIR}/build_id.c)
 execute_process(COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake)
 add_custom_target(rinc_build_id COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake
                   BYPRODUCTS ${RINC_BUILD_ID})
+# Rinc's library (library/*.rio), built in: what an app imports when the card hasn't its own (tools/library.cmake)
+file(GLOB RINC_LIBS ${CMAKE_CURRENT_LIST_DIR}/library/*.rio)
+set(RINC_LIBRARY ${CMAKE_BINARY_DIR}/library.c)
+add_custom_command(OUTPUT ${RINC_LIBRARY}
+  COMMAND ${CMAKE_COMMAND} -DLIB=${CMAKE_CURRENT_LIST_DIR}/library -DOUT=${RINC_LIBRARY} -P ${CMAKE_CURRENT_LIST_DIR}/tools/library.cmake
+  DEPENDS ${RINC_LIBS} tools/library.cmake VERBATIM)
 # (pc.rio, the pc module every app sees, is built in through src/core/pc_host.h, which rinc -H makes)
-add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c src/core/png.c src/core/zip.c ${RINC_BUILD_ID})
+add_library(rinccore STATIC src/core/rinc.c src/core/console.c src/core/font.c src/core/audio.c src/core/png.c src/core/zip.c ${RINC_BUILD_ID} ${RINC_LIBRARY})
 add_dependencies(rinccore rinc_build_id)
 target_include_directories(rinccore PUBLIC src/core)
 target_link_libraries(rinccore PUBLIC riocore)
@@ -298,6 +304,12 @@ else()
     set_tests_properties(file_parts PROPERTIES PASS_REGULAR_EXPRESSION "file parts came through")
     add_test(NAME tilemap COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/tilemap.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/library ${CMAKE_CURRENT_BINARY_DIR}/tilemap-data)
     set_tests_properties(tilemap PROPERTIES PASS_REGULAR_EXPRESSION "tilemap came through")
+    # undolog: undo and redo kept on the card
+    add_test(NAME undolog COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/undolog.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/library ${CMAKE_CURRENT_BINARY_DIR}/undolog-data)
+    set_tests_properties(undolog PROPERTIES PASS_REGULAR_EXPRESSION "undolog came through")
+    # the library built in: imported with nothing on the card; a card's own file first
+    add_test(NAME library_builtin COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/libwins.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/libwins-data)
+    set_tests_properties(library_builtin PROPERTIES PASS_REGULAR_EXPRESSION "the library built in, and the card.s own first")
     set_tests_properties(opening PROPERTIES PASS_REGULAR_EXPRESSION "opening came through")
     add_test(NAME image_room COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/imageroom.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/imageroom-data)
     set_tests_properties(image_room PROPERTIES PASS_REGULAR_EXPRESSION "image room came through")

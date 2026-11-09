@@ -568,7 +568,9 @@ The help app shows them, and follows their links; its own help text, `help/READM
 An app can be more files than one, in its folder: `include "parts/a.rio"` makes another file part of
 this one, and `import .shapes` makes a module of `shapes.rio` (or `shapes/shapes.rio`), both from the
 app's own folder; `import tween` is from the library, `/rinc/lib` (`tween.rio`, or `tween/tween.rio`),
-shared by every app. Storage's files come first, then the bundle's (`apps/<app>/...`, `lib/...`). An app
+shared by every app. Storage's files come first, then the bundle's (`apps/<app>/...`, `lib/...`), then,
+for the library, Rinc's own, built into every Rinc (its `library` folder: `tilemap` and `undolog`), so
+those are there with no card, or none installed; a card's own file of the same name wins. An app
 is at most 16 files besides its main one, of any length (they're read a part at a time as it compiles:
 see [memory](memory.md)). Its compiled image notes every file it read (see compiled apps), so a change
 to any of them compiles it again. On the desktop, `rinc game/` (or `rinc .`, in
@@ -581,6 +583,43 @@ carries all of its folder. The system apps are made this way, each a main file a
 /rinc/projects/game/shapes/shapes.rio
 /rinc/lib/tween.rio
 ```
+
+### Rinc's library
+
+Built into every Rinc (and installed in `/rinc/lib` with the system apps, where a newer one can go):
+
+- `tilemap`: tile maps, read, written and drawn, as studio's Maps makes them ([maps](maps.md)).
+- `undolog`: undo and redo kept on the card, in the app's stash, so they reach back as far as the app
+  likes and are there again after another app has run. The app's steps are its own bytes; the library
+  keeps them, groups them (one undo takes back a group), checks them as they're read back, and hands
+  each to the app to undo or redo. A log has a head: the library's version, the app's (`version`),
+  and what it's about (a file's path, say), so an app before or after this one, or another file, isn't
+  taken on. Studio's Paint, Sound and Music, and the editor, keep their undo with it.
+
+```rio fragment
+import undolog
+room: Blob[..1100]                        # the most a step can be, and 8 more (120 bytes at least)
+u := undolog.Log{room = room, version = 1}
+_ = u.resume("undo", "my.thing")          # the log as it was, if it's about this; else a new one
+apply :: callback proc(step: String, back: Bool) -> Bool  # (undone, or redone: false if it doesn't fit)
+  return true
+end
+u.group()                                 # what one undo takes back starts here
+_ = u.step("its bytes")
+_ = u.undo(apply)                         # u.broke: a step didn't fit, and the log started again
+_ = u.redo(apply)
+u.tick()                                  # each frame: what's waiting goes onto the card after a moment
+u.flush()                                 # before leaving (leaving*)
+```
+
+| | |
+|---|---|
+| `u.start(key, about)`, `u.resume(key, about) -> Bool` | a new log under the stash's `key`; or the one there, if it's about `about` (and this version) |
+| `u.group()`, `u.step(s) -> Bool` | the next step starts a group; a step (false: bigger than `room`) |
+| `u.undo(apply) -> Bool`, `u.redo(apply) -> Bool` | the last group undone (its steps last to first), or the next redone, each through `apply` |
+| `u.rewrite(s)` | in `apply`: the step's bytes made `s` (the same length), for an app that swaps what a step keeps with what's there |
+| `u.retitle(about)` | what it's about, changed (a file saved under another name) |
+| `u.tick()`, `u.flush()` | steps onto the card a moment after the last; at once |
 
 ### An app's tests
 

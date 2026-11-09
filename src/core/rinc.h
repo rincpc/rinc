@@ -284,6 +284,8 @@ int rinc_bundleRead(const void *bundle, uint32_t size);
    or 0 if it doesn't fit in cap */
 uint32_t rinc_bundleWrite(uint8_t *out, uint32_t cap, const char *name, const char *home, const rinc_File *files, int n);
 const rinc_File *rinc_bundleFile(const char *path); /* NULL if the bundle has no such file */
+/* Rinc's library, built in (tools/library.cmake: library's .rio files), each by its file's name; ended by one with no path */
+extern const rinc_File rinc_library[];
 const rinc_App *rinc_bundled(const char *name); /* NULL if the bundle has no such app */
 const char *rinc_bundleName(void); /* the bundle's storage folder's name ("": Rinc's own) */
 /* the app "home" means (rinc_homeName): the session's home, if the platform set one (rinc_setHome: the

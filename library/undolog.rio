@@ -1,0 +1,314 @@
+# undolog: undo and redo kept on the card, in an app's stash, so they reach back as far as the app likes
+# and are there again after another app (or Files, or the system) has run in between.
+#
+# The app's steps are its own: bytes it makes, and applies again (undone, or redone) as the library hands
+# them back. A step is its kind and its length (3 bytes) before its bytes and again after, so undo reads
+# back from where the log's at and redo on from there. A group of steps (a stroke, a paste: what one undo
+# takes back) starts with a MARK; the log, with a HEAD: the library's layout's version, the app's (a byte
+# each: a log of another, from an app before or after this one, isn't read), and what the app says it's
+# about (a file's path, say: another file's log isn't read). Each step is checked as it's read (its two
+# ends, its kind, its length), and the app checks it fits what's there (apply: false, and the log starts
+# again). Steps wait in the app's room, and go onto the card a moment after the last (tick): writing is
+# slow on a board.
+#
+#   room: Blob[..1100]                            (the most a step can be, and 8 more: 120 bytes at least, for the head)
+#   u := undolog.Log{room = room[], version = 1}
+#   u.resume("undo", "/rinc/save/paint/a.png")    (the log as it was, if it's this one's; else a new one)
+#   u.group()                                     (before a change: what one undo takes back starts here)
+#   _ = u.step(before.asString())                 (its bytes: what the app needs to undo and redo it)
+#   apply :: callback proc(step: String, back: Bool) -> Bool  (undone, or redone: false if it doesn't fit)
+#   _ = u.undo(apply)  _ = u.redo(apply)
+#   u.tick()                                      (each frame: what's waiting onto the card, after a moment)
+#   u.flush()                                     (before the app leaves: leaving*)
+
+VERSION* :: 1             # (the library's layout: a step's framing, the head's)
+MARK :: 1                 # a group starts here
+STEP :: 2                 # an app's step
+HEAD :: 3                 # the log's start: VERSION, the app's version (a byte each), then what it's about: its
+ABOUT :: 96               # length (a byte), and its bytes, room for ABOUT (so retitle changes it in place)
+MOST* :: 4194304          # the log's bytes, at most (past that, it starts again)
+WAIT :: 20                # frames after the last step, before it goes onto the card
+
+Apply* :: (proc(step: String, back: Bool) -> Bool)
+
+Log* :: struct
+  room: Blob[..]          # the app's: steps not on the card yet; or, as undo and redo read, the log's bytes from winAt
+  version: Int            # the app's steps' layout (a log of another version isn't read)
+  key: Blob[..24]         # the stash's key it's kept under (and its place, under key's name and ".at")
+  about: Blob[..96]       # what it's about (its head: a log about something else isn't read)
+  at: Int                 # undone back to here, in the log's bytes (redo goes on from it); the steps waiting too
+  upTo: Int               # the log's end
+  winAt: Int
+  waits: Int              # frames since a step went into room (0: none waiting)
+  grouping: Bool          # the next step starts a group
+  stepAt: Int             # the step apply has (its bytes' first, in the log): rewrite writes there
+  broke: Bool             # the last undo or redo found a step that didn't fit: the log started again
+end
+
+# the k-th number in s (from 0): 0 if there's none
+numberAt :: proc(s: String, k: Int) -> Int
+  n := -1
+  v := 0
+  inside := false
+  for i in 0..<s.len() + 1
+    c := 32
+    if i < s.len()
+      c = s[i]
+    end
+    if c >= '0' and c <= '9'
+      if not inside
+        inside = true
+        n += 1
+        v = 0
+      end
+      v = v * 10 + c - '0'
+    case inside
+      inside = false
+      if n == k
+        return v
+      end
+    end
+  end
+  return 0
+end
+ends: Blob[4]
+place: Blob[..24]
+keyAt: Blob[..32]
+Log.keyAt :: proc() -> String
+  keyAt.clear()
+  _ = keyAt.print(self.key.asString(), ".at")
+  return keyAt.asString()
+end
+Log.keepPlace :: proc()
+  place.clear()
+  _ = place.print(self.at, " ", self.upTo)
+  _ = pc.stashWrite(self.keyAt(), place.asString())
+end
+# what's in room onto the card, after what's there (past where undo was: what was undone, gone); then
+# where it's at, under key.at
+Log.flush* :: proc()
+  if self.waits > 0
+    if self.room.len() > 0 and pc.stashWriteAt(self.key.asString(), self.at - self.room.len(), self.room.asString()) < 0
+      self.at = 0 # (the card won't take it: kept no more)
+      self.upTo = 0
+    end
+    self.room.clear()
+    self.waits = 0
+    self.keepPlace()
+  end
+end
+# a step of kind k, holding s, after the others (room full: onto the card first)
+Log.raw :: proc(k: Int, s: String) -> Bool
+  n := s.len()
+  if n + 8 > self.room.cap() # (bigger than room: never)
+    return false
+  end
+  if self.room.len() + n + 8 > self.room.cap()
+    self.flush()
+  end
+  ends.setInt(0, 8, k)
+  ends.setInt(1, 24, n)
+  fine := self.room.pushAll(ends[0..<4].asString()) and self.room.pushAll(s)
+  ends.setInt(0, 24, n)
+  ends.setInt(3, 8, k)
+  fine = fine and self.room.pushAll(ends[0..<4].asString())
+  self.at += n + 8
+  self.upTo = self.at
+  self.waits = max(self.waits, 1)
+  return fine
+end
+# a new log, about what about says (undo can't go back past here: a new file, say)
+headText: Blob[..ABOUT + 3]
+# the head's bytes, for what about says, into headText
+Log.head :: proc(about: String)
+  headText.clear()
+  fine := headText.push(VERSION) and headText.push(self.version) and headText.push(min(about.len(), ABOUT)) and headText.pushAll(about[0..<min(about.len(), ABOUT)])
+  for headText.len() < ABOUT + 3
+    fine = headText.push(0)
+  end
+end
+Log.start* :: proc(key: String, about: String)
+  self.key.clear()
+  fine := self.key.pushAll(key)
+  self.about.clear()
+  fine = self.about.pushAll(about)
+  self.room.clear()
+  self.at = 0
+  self.upTo = 0
+  self.winAt = 0
+  self.head(about)
+  fine = self.raw(HEAD, headText.asString())
+  self.grouping = true
+  self.broke = false
+end
+# the log kept under key, as it was, if it's about what about says (and of this version): true; else a
+# new one
+Log.resume* :: proc(key: String, about: String) -> Bool
+  self.start(key, about)
+  self.room.clear()
+  place.clear()
+  if pc.stashRead(self.keyAt(), place) <= 0
+    self.start(key, about)
+    return false
+  end
+  at := numberAt(place.asString(), 0)
+  to := numberAt(place.asString(), 1)
+  head := ABOUT + 3 + 8
+  self.head(about)
+  if to < head or at < head or at > to or pc.stashReadAt(key, 0, self.room) < to or self.room.len() < head
+    self.start(key, about)
+    return false
+  end
+  ok := self.room[0] == HEAD and self.room.getInt(1, 24) == ABOUT + 3 and self.room[4..<4 + ABOUT + 3].asString() == headText.asString()
+  self.room.clear()
+  if not ok
+    self.start(key, about)
+    return false
+  end
+  self.at = at
+  self.upTo = to
+  self.waits = 0
+  self.grouping = true
+  return true
+end
+# what it's about, changed (a file saved under another name, say): its head, written again, in place
+Log.retitle* :: proc(about: String)
+  self.about.clear()
+  fine := self.about.pushAll(about)
+  self.head(about)
+  if self.at - self.room.len() == 0 and self.room.len() >= ABOUT + 11 and self.room[0] == HEAD # (the head not on the card yet: in room)
+    self.room.pack(4, headText.asString())
+  else
+    _ = pc.stashWriteAt(self.key.asString(), 4, headText.asString())
+  end
+end
+# the next step starts a group: what one undo takes back
+Log.group* :: proc() do self.grouping = true
+# a step: its bytes, s (false: bigger than room; the app's change, not to be undone)
+Log.step* :: proc(s: String) -> Bool
+  if self.at > MOST
+    self.start(self.key.asString(), self.about.asString())
+  end
+  if self.grouping
+    self.grouping = false
+    if not self.raw(MARK, "")
+      return false
+    end
+  end
+  return self.raw(STEP, s)
+end
+# each frame: what's waiting, onto the card a moment after the last step
+Log.tick* :: proc()
+  if self.waits > 0
+    self.waits += 1
+    if self.waits > WAIT
+      self.flush()
+    end
+  end
+end
+
+# the log's bytes at..<at + n in room, read from the card if they aren't (reading back: the room's
+# worth ending with them; on, starting with them)
+Log.window :: proc(at: Int, n: Int, back: Bool)
+  if at < self.winAt or at + n > self.winAt + self.room.len()
+    self.room.clear()
+    self.winAt = at
+    if back
+      self.winAt = max(0, at + n - self.room.cap())
+    end
+    _ = pc.stashReadAt(self.key.asString(), self.winAt, self.room)
+  end
+end
+Log.kindAt :: proc(at: Int) -> Int do return self.room[at - self.winAt]
+Log.lenAt :: proc(at: Int) -> Int do return self.room.getInt(at - self.winAt, 24)
+# whether the step at at, n bytes (in room), is a k, whole
+Log.whole :: proc(at: Int, n: Int, k: Int) -> Bool
+  return self.kindAt(at) == k and self.kindAt(at + n - 1) == k and self.lenAt(at + 1) == n - 8 and self.lenAt(at + n - 4) == n - 8 and (k != MARK or n == 8)
+end
+# a step that doesn't fit: the log, started again from here (broke: so the app can say so)
+Log.broken :: proc()
+  self.start(self.key.asString(), self.about.asString())
+  self.broke = true
+end
+# the step apply has, its bytes made s (the same length: an app that swaps what it keeps with what's
+# there, undoing, keeps what was there for redo)
+Log.rewrite* :: proc(s: String)
+  if s.len() > 0
+    _ = pc.stashWriteAt(self.key.asString(), self.stepAt, s)
+    if self.stepAt >= self.winAt and self.stepAt + s.len() <= self.winAt + self.room.len()
+      self.room.pack(self.stepAt - self.winAt, s)
+    end
+  end
+end
+# the last group undone, its steps last to first, each through apply (back true): false if there was none
+# to undo, or one didn't fit (broke: the log started again)
+Log.undo* :: proc(apply: Apply) -> Bool
+  self.flush()
+  self.broke = false
+  did := false
+  for self.at >= 8
+    self.window(self.at - 4, 4, true)
+    k := self.kindAt(self.at - 1)
+    from := self.at - self.lenAt(self.at - 4) - 8
+    if k == HEAD
+      break
+    end
+    if from >= 0 and self.at - from <= self.room.cap()
+      self.window(from, self.at - from, true)
+    end
+    if from < 0 or self.at - from > self.room.cap() or not self.whole(from, self.at - from, k)
+      self.broken()
+      return false
+    end
+    n := self.at - from
+    self.at = from
+    if k == MARK
+      did = true
+      break
+    end
+    self.stepAt = from + 4
+    if not apply(self.room[from + 4 - self.winAt..<from + n - 4 - self.winAt].asString(), true)
+      self.broken()
+      return false
+    end
+  end
+  self.room.clear()
+  self.keepPlace()
+  return did
+end
+# the group after where undo is, done again, its steps first to last, each through apply (back false):
+# false if there was none to redo, or one didn't fit (broke: the log started again)
+Log.redo* :: proc(apply: Apply) -> Bool
+  self.flush()
+  self.broke = false
+  first := true
+  did := false
+  for self.at + 8 <= self.upTo
+    self.window(self.at, 4, false)
+    k := self.kindAt(self.at)
+    n := self.lenAt(self.at + 1) + 8
+    if k == MARK and not first
+      break
+    end
+    if n <= self.room.cap() and self.at + n <= self.upTo
+      self.window(self.at, n, false)
+    end
+    if n > self.room.cap() or self.at + n > self.upTo or not self.whole(self.at, n, k) or (first and k != MARK)
+      self.broken()
+      return false
+    end
+    if k == STEP
+      self.stepAt = self.at + 4
+      if not apply(self.room[self.at + 4 - self.winAt..<self.at + n - 4 - self.winAt].asString(), false)
+        self.broken()
+        return false
+      end
+    end
+    did = true
+    self.at += n
+    first = false
+  end
+  self.room.clear()
+  self.keepPlace()
+  return did
+end

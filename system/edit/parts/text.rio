@@ -126,66 +126,98 @@ end
 
 # ---------------------------------------------------------------- undo
 
-# each edit: text[pos..<pos + del] became ins bytes; its deleted bytes then its inserted ones are in
-# undoText from at; the cursor and anchor before, and the cursor after
-recPos: [256]Int
-recDel: [256]Int
-recIns: [256]Int
-recAt: [256]Int
-recBefore: [256]Int
-recAnchor: [256]Int
-recAfter: [256]Int
-recCount := 0          # edits remembered
-recTop := 0            # of those, done (the rest can be redone)
-undoText: Blob[16384]
-undoLen := 0
-savedTop := 0          # recTop when it was saved (-1: that's been forgotten)
+# each edit a step in a log on the card (rinc's undolog: the stash's "undo"), as far back as the file was
+# opened or started, and there again after another app's run: where it is, how many bytes it took out
+# and put in, the cursor and anchor before and the cursor after (EDIT_HEAD bytes), then the bytes it took
+# out and the ones it put in. A run of typing (or of Backspace, or Delete) goes on in one group: what one
+# undo takes back. An edit too big for a step goes as several, in its group: its bytes taken out a PIECE at
+# a time, then put in. Each is checked as it's undone (the text it put in is there) or redone (the text
+# it took out is): one that isn't, and the log starts again
+EDIT_HEAD :: 22
+PIECE :: 2000
+undoRoom: Blob[..PIECE + EDIT_HEAD + 64]
+u := undolog.Log{room = undoRoom, version = 1}
+u.start("undo", "") # (a log from the first, so steps always have one: opening a file starts its own, or takes on its old one)
+stepBuf: Blob[..PIECE + EDIT_HEAD]
+savedAt := 0           # where undo was when it was saved (-1: somewhere undo and redo can't reach now)
 merging := 0           # what the last edit was, to group with: 1 typing, 2 Backspace, 3 Delete
+mergeAt := -1          # where the log was after it (an undo since: no going on with it)
+lastPos := 0           # where it was, and what it put in (typing goes on after it)
+lastIns := 0
+mergedDel := 0         # what a run of Backspace has taken out (64 at most, a group)
 
-undoPush :: proc(s: String)
-  w: Blob[..] = undoText[undoLen..]
-  _ = w.pushAll(s)
-  undoLen += s.len()
-end
-
-forgetOldest :: proc()
-  n := recDel[0] + recIns[0]
-  scratch.clear()
-  _ = scratch.pushAll(undoText[n..<undoLen])
-  w: Blob[..] = undoText[0..]
-  _ = w.pushAll(scratch[0..<scratch.len()])
-  undoLen -= n
-  for i in 0..<recCount - 1
-    recPos[i] = recPos[i + 1]
-    recDel[i] = recDel[i + 1]
-    recIns[i] = recIns[i + 1]
-    recAt[i] = recAt[i + 1] - n
-    recBefore[i] = recBefore[i + 1]
-    recAnchor[i] = recAnchor[i + 1]
-    recAfter[i] = recAfter[i + 1]
-  end
-  recCount -= 1
-  recTop -= 1
-  if savedTop >= 0
-    savedTop -= 1
-  end
-end
-
+# a new log (a file opened or started): nothing to undo
 forgetAll :: proc()
-  recCount = 0
-  recTop = 0
-  undoLen = 0
+  u.start("undo", path[0..<path.len()].asString())
   merging = 0
+  savedAt = u.at
 end
 
 modified :: proc() -> Bool
-  return recTop != savedTop
+  return u.at != savedAt
+end
+# where undo was when it was saved, kept with its log (as leaving, the app goes)
+savedText: Blob[..12]
+keepSaved :: proc()
+  savedText.clear()
+  _ = savedText.print(savedAt)
+  _ = pc.stashWrite("undo.saved", savedText.asString())
+end
+savedKept :: proc() -> Int
+  savedText.clear()
+  if pc.stashRead("undo.saved", savedText) <= 0
+    return -1
+  end
+  v := 0
+  for c in savedText.asString()
+    if c == '-'
+      return -1
+    end
+    v = v * 10 + c - '0'
+  end
+  return v
+end
+
+# a step: at pos, del taken out and ins put in; the cursor and anchor as they are, the cursor after
+pushStep :: proc(pos: Int, del: String, ins: String, after: Int)
+  stepBuf.clear()
+  for i in 0..<EDIT_HEAD
+    _ = stepBuf.push(0)
+  end
+  stepBuf.setInt(0, 32, pos)
+  stepBuf.setInt(4, 24, del.len())
+  stepBuf.setInt(7, 24, ins.len())
+  stepBuf.setInt(10, 32, cursor)
+  stepBuf.setInt(14, 32, anchor)
+  stepBuf.setInt(18, 32, after)
+  _ = stepBuf.pushAll(del) and stepBuf.pushAll(ins)
+  if not u.step(stepBuf.asString())
+    say("(too big to undo)", softColor)
+  end
+end
+# text[a..<b] becoming s, its step (or steps, a PIECE at a time), before it does
+logEdit :: proc(a, b: Int, s: String)
+  after := a + s.len()
+  if (b - a) + s.len() <= PIECE
+    pushStep(a, text[a..<b].asString(), s, after)
+    return
+  end
+  k := a
+  for k < b # (taken out a piece at a time, each where the first was)
+    n := min(PIECE, b - k)
+    pushStep(a, text[k..<k + n].asString(), "", after)
+    k += n
+  end
+  k = 0
+  for k < s.len()
+    n := min(PIECE, s.len() - k)
+    pushStep(a + k, "", s[k..<k + n], after)
+    k += n
+  end
 end
 
 # text[a..<b] becomes s, remembered for undo (kind: what it is, to group with the edit before)
 edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
-  merged := false
-  r := recTop - 1
   if textLen - (b - a) + s.len() > CAP
     say("No room: 32 KB at most", errorColor)
     return false
@@ -194,95 +226,92 @@ edit :: proc(a, b: Int, s: String, kind: Int) -> Bool
     say("Too many lines: 4096 at most", errorColor)
     return false
   end
-  if kind > 0 and kind == merging and recTop == recCount and recTop > 0 and undoLen + (b - a) + s.len() <= UNDO_BYTES
-    if kind == 1 and a == b and recPos[r] + recIns[r] == a
-      undoPush(s)
-      recIns[r] += s.len()
-      merged = true
-    case kind == 2 and s.len() == 0 and recIns[r] == 0 and b == recPos[r] and recDel[r] < 64
-      # (deleted bytes come before the ones already deleted: they go in front)
-      scratch.clear()
-      _ = scratch.pushAll(undoText[recAt[r]..<undoLen])
-      undoLen = recAt[r]
-      undoPush(text[a..<b].asString())
-      undoPush(scratch[0..<scratch.len()].asString())
-      recPos[r] = a
-      recDel[r] += b - a
-      merged = true
-    case kind == 3 and s.len() == 0 and recIns[r] == 0 and a == recPos[r]
-      undoPush(text[a..<b].asString())
-      recDel[r] += b - a
-      merged = true
-    end
+  goesOn := kind > 0 and kind == merging and u.at == mergeAt and
+    ((kind == 1 and a == b and lastPos + lastIns == a) or (kind == 2 and s.len() == 0 and lastIns == 0 and b == lastPos and mergedDel < 64) or
+     (kind == 3 and s.len() == 0 and lastIns == 0 and a == lastPos))
+  if not goesOn
+    u.group()
+    mergedDel = 0
   end
-  if not merged
-    if recTop < recCount # (a new edit: what could be redone can't now)
-      recCount = recTop
-      undoLen = recAt[recTop]
-      if savedTop > recTop
-        savedTop = -1
-      end
-    end
-    if (b - a) + s.len() > UNDO_BYTES
-      if modified()
-        savedTop = -1
-      end
-      forgetAll()
-      savedTop = -1
-      say("(too big to undo)", softColor)
-    else
-      for recCount == UNDOS or undoLen + (b - a) + s.len() > UNDO_BYTES
-        forgetOldest()
-      end
-      r = recCount
-      recPos[r] = a
-      recDel[r] = b - a
-      recIns[r] = s.len()
-      recAt[r] = undoLen
-      recBefore[r] = cursor
-      recAnchor[r] = anchor
-      undoPush(text[a..<b].asString())
-      undoPush(s)
-      recCount += 1
-      recTop = recCount
-    end
+  if savedAt > u.at # (what could be redone, gone: where it was saved with it)
+    savedAt = -1
   end
+  logEdit(a, b, s)
+  if kind == 2
+    mergedDel += b - a
+  end
+  lastPos = a
+  lastIns = s.len()
   ok := replaceRaw(a, b, s)
   cursor = a + s.len()
   anchor = cursor
   wantCol = -1
-  if recTop > 0
-    recAfter[recTop - 1] = cursor
-  end
   merging = kind
+  mergeAt = u.at
   return ok
 end
 
-undo :: proc()
-  if recTop == 0
-    say("Nothing to undo", softColor)
-    return
+# a number of a step's, n bytes at its byte at (low first)
+stepNum :: proc(s: String, at: Int, n: Int) -> Int
+  v := 0
+  for i in 0..<n
+    v += s[at + i] << (8 * i)
   end
-  r := recTop - 1
-  ok := replaceRaw(recPos[r], recPos[r] + recIns[r], undoText[recAt[r]..<recAt[r] + recDel[r]].asString())
-  cursor = recBefore[r]
-  anchor = recAnchor[r]
-  recTop -= 1
+  return v
+end
+# a step undone (back) or redone: false if the text isn't as it left it (or found it)
+applyEdit :: callback proc(step: String, back: Bool) -> Bool
+  if step.len() < EDIT_HEAD
+    return false
+  end
+  pos := stepNum(step, 0, 4)
+  del := stepNum(step, 4, 3)
+  ins := stepNum(step, 7, 3)
+  if step.len() != EDIT_HEAD + del + ins or pos > textLen
+    return false
+  end
+  out := step[EDIT_HEAD..<EDIT_HEAD + del]
+  put := step[EDIT_HEAD + del..<step.len()]
+  if back
+    if pos + ins > textLen or text[pos..<pos + ins].asString() != put or not replaceRaw(pos, pos + ins, out)
+      return false
+    end
+    cursor = stepNum(step, 10, 4)
+    anchor = stepNum(step, 14, 4)
+  else
+    if pos + del > textLen or text[pos..<pos + del].asString() != out or not replaceRaw(pos, pos + del, put)
+      return false
+    end
+    cursor = stepNum(step, 18, 4)
+    anchor = cursor
+  end
+  cursor = min(cursor, textLen)
+  anchor = min(anchor, textLen)
+  return true
+end
+
+undo :: proc()
+  if not u.undo(applyEdit)
+    if u.broke
+      say("Undo's log didn't fit the text: it starts again", errorColor)
+      savedAt = -1
+    else
+      say("Nothing to undo", softColor)
+    end
+  end
   merging = 0
   wantCol = -1
 end
 
 redo :: proc()
-  if recTop == recCount
-    say("Nothing to redo", softColor)
-    return
+  if not u.redo(applyEdit)
+    if u.broke
+      say("Undo's log didn't fit the text: it starts again", errorColor)
+      savedAt = -1
+    else
+      say("Nothing to redo", softColor)
+    end
   end
-  r := recTop
-  at := recAt[r] + recDel[r]
-  ok := replaceRaw(recPos[r], recPos[r] + recDel[r], undoText[at..<at + recIns[r]].asString())
-  cursor = recAfter[r]
-  anchor = cursor
-  recTop += 1
   merging = 0
   wantCol = -1
 end

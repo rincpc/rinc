@@ -2,6 +2,7 @@
 # where it's beside edit.rio), or on the desktop, rinc system/edit/test.rio. A failed assert stops it at
 # its line. Not one of the app's files (files.txt), so it's not installed with it.
 
+import undolog
 include "parts/setup.rio"
 include "parts/text.rio"
 include "parts/editing.rio"
