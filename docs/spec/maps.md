@@ -55,8 +55,10 @@ path and size, and `across`: a sheet each), and written as `rinc map 3`. A `rinc
 `import tilemap` (`/rinc/lib/tilemap.rio`). It's Rio, and keeps nothing of a map's own: the app gives a
 map its room, one `Blob` for its cells, its things and their names, and arrays for its sheets and
 layers, as big as it likes, and reads each new level into the same ones. Each sheet's picture is the
-app's too: it reads it (`pc.imageRead`) and passes it to `draw`. The library's own room is 5 KB, to read
-and write files through, a piece at a time: a map's text never has to fit in memory.
+app's too: it reads it (`pc.imageRead`) and passes it to `draw`. The library's own room is `tilemap.work`,
+4 KB (`tilemap.WORK`), to read and write files through, a piece at a time: a map's text never has to fit
+in memory. Between its calls nothing's left in it, so an app can use it for its own work too (Maps keeps
+its undo's steps there, and writes them to the card before it loads or saves a map).
 
 How much room: Maps shows it at its top right, as the `Blob` a game needs (and says so when it saves);
 `tilemap.roomIn(path)` says from a map's file; and `load`, when a map doesn't fit, logs what it needs.

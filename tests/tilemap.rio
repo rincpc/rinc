@@ -100,7 +100,7 @@ assert(m.refit(0, 8) == 2 and m.thing(0, 0).sprite == E and m.at(1, {1, 0}) == E
 assert(m.load("/rinc/save/three.map"), "")
 assert(not m.load("/rinc/save/none.map"), "load: no such file")
 assert(not m.load("/rinc/save/big.map") and m.count == 2 and m.things(0) == 3, "load: more than its room (the map as it was)")
-assert(not m.load("/rinc/save/old.map") and not m.load("/rinc/save/bad.map") and m.count == 2, "load: not a map, and a line it doesn't know")
+assert(not m.load("/rinc/save/old.map") and not m.load("/rinc/save/bad.map") and not m.load("/rinc/save/long.map") and m.count == 2, "load: not a map, a line it doesn't know, a line longer than work")
 oneRoom: [1]tilemap.Layer
 one := tilemap.Map{sheets = sheetRoom[], layers = oneRoom[], room = room[]}
 assert(not one.load("/rinc/save/three.map"), "load: more layers than the app's room for them")

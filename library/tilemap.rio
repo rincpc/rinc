@@ -21,7 +21,8 @@
 # sheet by number (from 0, across its rows) or EMPTY, and its offset (where its first cell is, in the
 # map's pixels); a THINGS layer, a list of things placed anywhere (pixels from its offset), each a sprite
 # or a rectangle of them (its span), or none (EMPTY: a trigger, a start), with a name if a game looks for
-# it. The file: rinc/docs/spec/maps.md. Its own room: 5 KB, to read and write files through.
+# it. The file: rinc/docs/spec/maps.md. Its own room: work, 4 KB, to read and write files through (an
+# app's to use between its calls).
 
 EMPTY* :: 4095            # a cell with no tile; a thing with no sprite
 MOST_SIDE* :: 1024        # a tiles layer's width or height, at most
@@ -857,71 +858,90 @@ wordStart :: proc(s: String, k: Int) -> Int
   return at
 end
 
-# where it's read from, or written to: a file or the stash, through io, a piece at a time
+# where it's read from, or written to: a file or the stash, through work, a piece at a time
 FROM_FILE :: 0
 FROM_STASH :: 1
-IO :: 4096                # (a card's reads and writes cost most: fewer, bigger ones)
-io: Blob[..IO]
-ioAt := 0                 # where io's bytes are in the file
-ioPos := 0                # the next byte to read, in io
+WORK* :: 4096             # (a card's reads and writes cost most: fewer, bigger ones)
+# the room it reads and writes files through: an app's to use as it likes between its calls (none of them
+# leaves anything in it), as Maps keeps its undo's steps there. A line read is in it, whole: the longest a
+# map's file has (a row of 1024 cells) fits
+work*: Blob[WORK]
+ioLen := 0                # work's bytes: read (from ioPos on, not taken yet), or written (not on the card yet)
+ioAt := 0                 # where work's first byte is in the file
+ioPos := 0                # the next byte to read, in work
 ioKind := FROM_FILE
 ioName: Blob[..96]
 ioBad := false            # a read or write that failed
-ioWhole := false          # the whole file in io (read again: no reading)
-line: Blob[..3200]        # the line read last (a row of 1024 cells, and more)
+ioWhole := false          # the whole file in work (read again: no reading)
+lineFrom := 0             # the line read last: work's bytes from lineFrom to lineTo
+lineTo := 0
 lineNo := 0
-# the next bytes into io: false at the file's end
+lineText :: proc() -> String do return work[lineFrom..<lineTo].asString()
+# more of the file into work, after what's not taken yet (moved to its start): false if none came (its end)
 more :: proc() -> Bool
   if ioWhole # (all of it read already: no more, and no reading to find that out)
-    ioPos = io.len()
     return false
   end
-  ioAt += io.len()
-  io.clear()
+  keep := ioLen - ioPos
+  if ioPos > 0 and keep > 0
+    work.pack(0, work[ioPos..<ioLen])
+  end
+  ioAt += ioPos
   ioPos = 0
+  ioLen = keep
+  into: Blob[..] = work[ioLen..<WORK]
   n := 0
   if ioKind == FROM_FILE
-    n = pc.fileReadAt(ioName.asString(), ioAt, io)
+    n = pc.fileReadAt(ioName.asString(), ioAt + ioLen, into)
   else
-    n = pc.stashReadAt(ioName.asString(), ioAt, io)
+    n = pc.stashReadAt(ioName.asString(), ioAt + ioLen, into)
   end
   ioBad = ioBad or n < 0
-  ioWhole = ioAt == 0 and n == io.len()
-  return io.len() > 0
+  ioWhole = ioAt == 0 and ioLen == 0 and n == into.len()
+  ioLen += into.len()
+  return into.len() > 0
 end
-# the next line into line (without its line break): false at the file's end, or a line too long
+# the line read: work's bytes from ioPos to e (without a CR before its line break), the next from next
+lineEnds :: proc(e: Int, next: Int) -> Bool
+  lineFrom = ioPos
+  lineTo = e
+  if lineTo > lineFrom and work[lineTo - 1] == 13
+    lineTo -= 1
+  end
+  ioPos = next
+  return true
+end
+# the next line, whole in work (lineText; without its line break): false at the file's end, or a line too
+# long for work
 nextLine :: proc() -> Bool
-  line.clear()
   lineNo += 1
-  any := false
+  e := ioPos
   for true
-    if ioPos >= io.len() and not more()
-      return any
-    end
-    any = true
-    e := ioPos
-    for e < io.len() and io[e] != 10
+    for e < ioLen and work[e] != 10
       e += 1
     end
-    if not line.pushAll(io[ioPos..<e].asString())
+    if e < ioLen # (its line break)
+      return lineEnds(e, e + 1)
+    end
+    if ioPos == 0 and ioLen == WORK # (work full, and no line break: too long)
       ioBad = true
       return false
     end
-    if e < io.len()
-      ioPos = e + 1
-      if line.len() > 0 and line[line.len() - 1] == 13
-        _ = line.pop()
+    seen := e - ioPos
+    if not more()
+      if ioPos < ioLen # (the file's end: a last line, without a line break)
+        return lineEnds(ioLen, ioLen)
       end
-      return true
+      return false
     end
-    ioPos = e
+    e = seen # (more moved what wasn't taken to work's start)
   end
   return false
 end
-# a file to read or write from its start (again: the one read before, read again; from io, if it's all there)
+# a file to read or write from its start (again: the one read before, read again; from work, if it's all there)
 openIo :: proc(kind: Int, name: String, again: Bool)
   if not (again and ioWhole and ioAt == 0)
-    io.clear()
+    ioLen = 0
     ioWhole = false
   end
   ioKind = kind
@@ -935,24 +955,29 @@ end
 flushIo :: proc()
   n := 0
   if ioKind == FROM_FILE and ioAt == 0
-    n = pc.fileWrite(ioName.asString(), io.asString())
+    n = pc.fileWrite(ioName.asString(), work[0..<ioLen].asString())
   case ioKind == FROM_FILE
-    n = pc.fileWriteAt(ioName.asString(), ioAt, io.asString())
+    n = pc.fileWriteAt(ioName.asString(), ioAt, work[0..<ioLen].asString())
   case ioAt == 0
-    n = pc.stashWrite(ioName.asString(), io.asString())
+    n = pc.stashWrite(ioName.asString(), work[0..<ioLen].asString())
   else
-    n = pc.stashWriteAt(ioName.asString(), ioAt, io.asString())
+    n = pc.stashWriteAt(ioName.asString(), ioAt, work[0..<ioLen].asString())
   end
   ioBad = ioBad or n < 0
-  ioAt += io.len()
-  io.clear()
+  ioAt += ioLen
+  ioLen = 0
 end
-# s, written after what's written so far (io, onto the file as it fills)
+# s, written after what's written so far (work, onto the file as it fills)
 put :: proc(s: String)
-  if io.len() + s.len() > IO
+  if ioLen + s.len() > WORK
     flushIo()
   end
-  ioBad = ioBad or not io.pushAll(s)
+  if s.len() > WORK
+    ioBad = true
+    return
+  end
+  work.pack(ioLen, s)
+  ioLen += s.len()
 end
 
 why: Blob[..200]          # why the last read failed (load logs it)
@@ -969,9 +994,9 @@ Map.readAs :: proc(keep: Bool) -> Bool
     return fails("no first line")
   end
   version := 0
-  if line.asString() == "rinc map 3"
+  if lineText() == "rinc map 3"
     version = 3
-  case line.asString() == "rinc map 2"
+  case lineText() == "rinc map 2"
     version = 2
   else
     return fails("not a map (its first line isn't rinc map 3)")
@@ -988,7 +1013,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
     self.names = 0
   end
   for nextLine()
-    s := line.asString()
+    s := lineText()
     if s.len() == 0
       continue
     end
@@ -1199,7 +1224,7 @@ Map.loadFrom :: proc(kind: Int, name: String) -> Bool
     if kind == FROM_STASH
       _ = said.print("stash ")
     end
-    if ioAt == 0 and io.len() == 0 and ioBad
+    if ioAt == 0 and ioLen == 0 and ioBad
       _ = said.print(name, ": no such file")
     else
       _ = said.print(name, ": ", why.asString())
@@ -1270,16 +1295,21 @@ Map.writeOut :: proc()
     if l.kind == TILES
       for y in 0..<l.size.y
         c := (l.start + y * l.size.x) * 2
-        for x in 0..<l.size.x # (straight into io, a cell at a time: the most of a map's text)
-          if io.len() + 3 > IO
+        for x in 0..<l.size.x # (straight into work, a cell at a time: the most of a map's text)
+          if ioLen + 3 > WORK
             flushIo()
           end
           t := self.room.getInt(c + x * 2, 16)
           if t == EMPTY
-            ioBad = ioBad or not io.pushAll("---")
+            work[ioLen] = '-'
+            work[ioLen + 1] = '-'
+            work[ioLen + 2] = '-'
           else
-            ioBad = ioBad or not (io.push(hexDigits[t / 256]) and io.push(hexDigits[t / 16 % 16]) and io.push(hexDigits[t % 16]))
+            work[ioLen] = hexDigits[t / 256]
+            work[ioLen + 1] = hexDigits[t / 16 % 16]
+            work[ioLen + 2] = hexDigits[t % 16]
           end
+          ioLen += 3
         end
         put("\n")
       end

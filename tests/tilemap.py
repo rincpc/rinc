@@ -21,6 +21,7 @@ two = ('rinc map 2\nlayer 1\ntiles /rinc/save/t.png 8\nacross 2\nsize 3 2\noffse
 open(os.path.join(data, 'save', 'two.map'), 'w', newline='').write(two)
 open(os.path.join(data, 'save', 'big.map'), 'w', newline='').write('rinc map 2\nlayer 1\ntiles a.png 8\nacross 1\nsize 30 10\noffset 0 0\n' + ('---' * 30 + '\n') * 10)
 open(os.path.join(data, 'save', 'bad.map'), 'w', newline='').write('rinc map 3\nsheet 1 a.png 8 across 1\nlayer 1 a tiles 1\nsize 1 1\nxyz\n')
+open(os.path.join(data, 'save', 'long.map'), 'w', newline='').write('rinc map 3\nsheet 1 a.png 8 across 1\nlayer 1 a tiles 1\nsize 1 1\n' + 'x' * 5000 + '\n') # (a line longer than the library's work)
 open(os.path.join(data, 'save', 'old.map'), 'w', newline='').write('rinc map 1\nsize 3 1\ntiles a.png 8\n01--00\n')
 shot = os.path.join(data, 'shot.ppm')
 r = subprocess.run([rinc, '-data', data, '-app', 'tilemaptest', '-frames', '3', '-o', shot], capture_output=True, text=True, timeout=60)
@@ -28,7 +29,7 @@ said = (r.stdout + r.stderr).strip()
 if 'tilemap came through' not in said or 'assert' in said or 'error' in said:
   sys.exit('FAIL: %s' % said)
 for want in ('/rinc/save/none.map: no such file', '/rinc/save/big.map: needs Blob[600], 1 sheets, 1 layers (has 400, 3, 6)',
-             "/rinc/save/old.map: not a map (its first line isn't rinc map 3) (line 1)", "/rinc/save/bad.map: a row with a cell that isn't one (line 5)",
+             "/rinc/save/old.map: not a map (its first line isn't rinc map 3) (line 1)", "/rinc/save/bad.map: a row with a cell that isn't one (line 5)", "/rinc/save/long.map: couldn't read it all (line 5)",
              '/rinc/save/three.map: needs Blob[52], 2 sheets, 2 layers (has 400, 3, 1)'):
   if want not in said: sys.exit('FAIL: load\'s log: wanted %r in %r' % (want, said))
 pixels = open(shot, 'rb').read()[-320 * 240 * 3:]
