@@ -15,7 +15,10 @@ app is a Rio program.
   than counted at 6 pixels a character, which the apps' layouts (and the command list's "38
   characters") assume today; and whether a font is the app's or the system's. Decide these before
   `pc` is frozen. Later, and not breaking: the fonts themselves (glyphs past ASCII, a second size)
-  and the system apps' text in other languages.
+  and the system apps' text in other languages. Leaning (2026-11-09): text stays on a grid of
+  6-pixel columns (cursors, columns and cutting text to fit stay simple), and apps ask `pc` for the cell
+  (`pc.textCell()`, say: 6x9 now) instead of assuming 6 and 9, so a taller cell (6x12) changes only
+  rows. Wide characters (CJK) take two columns, so measuring is counting columns, not pixels.
 - Points and rects, to discuss: a `pc.Point` (a struct of x and y, or `[2]Float`) and a `pc.Rect` (two
   points, or a point and a size) used across `pc` (rect, blit's source, clipping, hit tests) and kept by
   apps as values, if they're not much slower, since they could make drawing code easier to write and
@@ -145,10 +148,25 @@ app is a Rio program.
 - Help search.
 - Fonts: several fonts and sizes, 5x8 the default, and text measured, so apps lay text out by its
   size rather than counting 6-pixel characters (home's columns, the editor's, Paint's panels).
+  - First, whatever the fonts: every app laid out from the text cell `pc` says, not 6 and 9 (the
+    top and bottom bars, lists, the editor's and console's rows). That's what would fall apart if the
+    cell changed under them.
+  - A 6x12 font, half-width ASCII and the like, and 12x12 full-width glyphs (two columns) for Chinese,
+    Japanese and Korean, as 12-dot CJK fonts are (Shinonome, say): a system setting, with the
+    language. 6 pixels across keeps 53 columns; 12 down gives 20 rows, not 26, which the editor and
+    console feel most. Whether it becomes the default: decided once it's seen on screen.
+  - The editor's (and console's) font chosen on its own, since rows matter most there.
+  - Glyphs in flash, read in place (no RAM): ASCII at 6x12 about 1.2 KB; Japanese (kana and about
+    7,000 kanji) about 130 KB; all of Chinese's 20,000 about 360 KB; Korean's 11,172 syllables about 200
+    KB whole, much less built from their parts. Drawing costs about what it does now, plus decoding
+    UTF-8 and a table lookup.
+  - The bigger work past fonts: typing CJK (an input method), the apps' text and help translated, and
+    text in Rio's byte strings cut and stepped by character (UTF-8) and width. Right-to-left and
+    shaped scripts (Arabic): not planned.
   - Diacritics at 5x8.
-  - A 12-pixel font, for Chinese.
-  - The 8x12 English font already drawn.
-  - Proportional fonts, with a way to measure text.
+  - The 8x12 English font already drawn (40 columns, so not the system's: for games, maybe).
+  - Proportional fonts: not for the system's UI (its layouts are grids); a library font for games'
+    titles and dialogue, with a way to measure text, maybe.
 
 ## Later
 
