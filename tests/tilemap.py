@@ -16,11 +16,19 @@ def png(w, h, color_of):
   return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
 os.makedirs(os.path.join(data, 'save'))
 open(os.path.join(data, 'save', 't.png'), 'wb').write(png(16, 8, lambda x, y: red if x < 8 else green))
+two = ('rinc map 2\nlayer 1\ntiles /rinc/save/t.png 8\nacross 2\nsize 3 2\noffset 0 0\n000001---\n---001000\n'
+       'layer 2\ntiles /rinc/save/t.png 8\nacross 2\nsize 2 1\noffset 4 16\n001---\n')
+open(os.path.join(data, 'save', 'two.map'), 'w', newline='').write(two)
+open(os.path.join(data, 'save', 'big.map'), 'w', newline='').write('rinc map 2\nlayer 1\ntiles a.png 8\nacross 1\nsize 10 10\noffset 0 0\n' + '---' * 10 + '\n')
+open(os.path.join(data, 'save', 'old.map'), 'w', newline='').write('rinc map 1\nsize 3 1\ntiles a.png 8\n01--00\n')
 shot = os.path.join(data, 'shot.ppm')
 r = subprocess.run([rinc, '-data', data, '-app', 'tilemaptest', '-frames', '3', '-o', shot], capture_output=True, text=True, timeout=60)
 said = (r.stdout + r.stderr).strip()
 if 'tilemap came through' not in said or 'assert' in said or 'error' in said:
   sys.exit('FAIL: %s' % said)
+for want in ('/rinc/save/none.map: no such file', '/rinc/save/two.map: 163 bytes, and its text\'s room is 16: it needs Blob[..163] at least',
+             '/rinc/save/big.map: 100 cells, and the map\'s room is 64: it needs Blob[200] at least', '/rinc/save/old.map: not a map'):
+  if want not in said: sys.exit('FAIL: load\'s log: wanted %r in %r' % (want, said))
 pixels = open(shot, 'rb').read()[-320 * 240 * 3:]
 def pixel(x, y): return tuple(pixels[(y * 320 + x) * 3:(y * 320 + x) * 3 + 3])
 def near(a, b): return all(abs(p - q) <= 8 for p, q in zip(a, b))

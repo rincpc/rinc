@@ -20,8 +20,18 @@ assert(not m.read("rinc map 2\nlayer 1\ntiles a.png 8\nacross 1\nsize 10 10\noff
 assert(m.count == 2 and m.at(0, {1, 0}) == 1, "and the map as it was")
 assert(not m.read("rinc map 3\n"), "not a map: refused")
 
-assert(m.read("rinc map 1\nsize 3 1\ntiles /rinc/save/t.png 8\n01--00\n"), "a map of before (rinc map 1)")
-assert(m.count == 1 and m.at(0, {0, 0}) == 1 and m.at(0, {1, 0}) == E and m.layers[0].across == -1, "its one layer, two digits a cell")
+assert(not m.read("rinc map 1\nsize 3 1\ntiles /rinc/save/t.png 8\n01--00\n"), "a map of the first format (rinc map 1): refused, as any not rinc map 2")
+assert(tilemap.cellsIn(two) == 8 and tilemap.cellsIn("rinc map 1\nsize 3 1\n") == -1, "cellsIn: its layers' cells, all together; or not a map")
+assert(m.read(two) and m.needs() == 16, "needs: the bytes its cells take")
+
+# load: a file read, through the app's text room; when it can't be, the log says why (tests/tilemap.py
+# checks what it says)
+small: Blob[..16]
+assert(m.load("/rinc/save/two.map", out) and m.count == 2, "load: a map's file")
+assert(not m.load("/rinc/save/none.map", out), "load: no such file")
+assert(not m.load("/rinc/save/two.map", small), "load: more than its text's room")
+assert(not m.load("/rinc/save/big.map", out) and m.count == 2, "load: more cells than its room (the map as it was)")
+assert(not m.load("/rinc/save/old.map", out), "load: not a map of now")
 
 assert(m.read(two), "")
 m.set(0, {2, 0}, 3)

@@ -36,8 +36,8 @@ offset 4 -8
 
 A sprite's number depends on how wide its sheet is. `across` is what keeps a map right when its sheet
 gets wider or narrower: renumbered (tilemap's `refit`), each tile stays the same picture, and any now
-past the sheet's edge goes empty. A map of before layers, `rinc map 1`, is read too: one layer, its
-`size`, `tiles` and maybe `across`, then two hex digits a cell (`--` for empty), no `offset`.
+past the sheet's edge goes empty. The first line says which format it is: `rinc map 2` is the one
+there is (a `rinc map 1`, of before layers, isn't read).
 
 ## tilemap: the library's maps
 
@@ -45,15 +45,18 @@ past the sheet's edge goes empty. A map of before layers, `rinc map 1`, is read 
 map its room for cells, 2 bytes a cell, as many as it wants, and reads each new level into the same
 room. Each layer's sheet is the app's too: it reads the picture and passes it to `draw`.
 
+How much room: the biggest map's cells, all its layers' together, 2 bytes each. Maps shows it at its
+top right, as the `Blob` a game needs (and says so when it saves); `tilemap.cellsIn(text)` says from a
+map's text; and `load`, when a map doesn't fit, logs the `Blob` it needs.
+
 ```rio fragment
 import tilemap
 cellRoom: Blob[4096 * 2]                   # room for 4096 cells, in all its layers
 level := tilemap.Map{cells = cellRoom[]}
-text: Blob[..20000]
-_ = pc.fileRead("/rinc/save/maps/level1.map", text)
+text: Blob[..20000]                        # room for the biggest map's file
 sheetRoom: Blob[..(128 + 1) * 128]
 sheet := pc.Image{}
-if level.read(text.asString())
+if level.load("/rinc/save/maps/level1.map", text) # (else the log says why: the room it needs, say)
   sheet = pc.imageRead(level.sheetPath(0), sheetRoom)
 end
 camera := {0, 0}
@@ -69,7 +72,9 @@ end
 | | |
 |---|---|
 | `tilemap.Map` | `layers` (`count` of them), each a `tilemap.Layer`: `size` in cells, `at` (its offset), `tile` (its tiles' size), `across`; and `cells`, the app's room |
+| `m.load(path, text) -> Bool` | a map's file read into it, through `text` (the app's `Blob[..]` for its text): false if it can't be, and the log says why: no such file, not a map, or the room it needs (`Blob[..n]` for its text, or `Blob[n]` for its cells) |
 | `m.read(text) -> Bool` | a map's text read into it: false if it isn't one, or it has more cells than the room (and the map's as it was) |
+| `tilemap.cellsIn(text) -> Int`, `m.needs() -> Int` | the cells a map's text says it has (-1: not a map); the bytes of room a map's cells take |
 | `m.write(out) -> Bool` | its text, into `out` (a `Blob[..]`): false if it didn't all fit |
 | `m.at(layer, p) -> Int`, `m.set(layer, p, t)` | cell `p`'s tile (`tilemap.EMPTY` for none, and past the layer's edges); and changed |
 | `m.sheetPath(layer) -> String`, `m.setSheet(layer, path)` | a layer's sheet |
