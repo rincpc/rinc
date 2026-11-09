@@ -1,0 +1,8 @@
+# pc.time in a run of -frames: the frames', 60 a second, however fast they run (as -wav's sound is)
+frame := 0
+update* :: proc()
+  frame += 1
+  if frame == 121
+    log("time at frame 120:", (pc.time() * 60.0 + 0.5).toInt(), "frames in")
+  end
+end

@@ -36,10 +36,8 @@ static int16_t rinc_wav[rinc_RATE * 2 * 60]; /* -wav: up to a minute */
 static char rinc_src[1 << 20];
 static rio_Vm rinc_vm;
 static rinc_Repl rinc_repl;
-static clock_t rinc_t0;
 
 static void rinc_put(const char *s, int n) { fwrite(s, 1, (size_t)n, stdout); }
-static float rinc_now(void) { return (float)(clock() - rinc_t0) / CLOCKS_PER_SEC; }
 
 static int rinc_savePpm(const char *path) { /* the screen through the palette, as 8-bit RGB */
   FILE *f = fopen(path, "wb"); int x, y;
@@ -373,6 +371,8 @@ static int rinc_saveWav(const char *path, uint32_t frames) {
    typing waiting there until -ctrl's Ctrl is let go */
 static const char *rinc_typing;
 static int rinc_ctrlFrames, rinc_shiftFrames, rinc_frameNow; /* (-ctrl n, -shift n: Ctrl or Shift held for the first n frames, as pc.modsHeld says) */
+/* the time in a run of -frames: the frames' (60 a second), as its sound is (-wav), however fast they run */
+static float rinc_now(void) { return (float)rinc_frameNow / 60.0f; }
 static int rinc_typedSys, rinc_sysFrames; /* (\s: its keys, and the frames left of it: 2 held, 1 let go) */
 static int rinc_hex(int c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; }
 static void rinc_typeMore(void) {
@@ -848,7 +848,7 @@ int main(int argc, char **argv) {
     }
     else apps[napps++] = rinc_appArg(argv[i]); /* (a folder: its app) */
   }
-  rinc_t0 = clock(); rinc_time = rinc_now;
+  rinc_time = rinc_now;
   windowed = rinc_SDL && !out && !frames; /* (a window shows what goes wrong; without one, it ends rinc) */
   if (exp || web) { /* a bundle of the apps, as a program or a page */
     if (!napps && (exp || !storage)) { fprintf(stderr, "rinc: -export takes the apps to bundle (rinc a.rio b.rio -export game), and -web too, but for an empty page with a storage name of its own (rinc -name rinc-empty -web empty.html)\n"); return 2; }

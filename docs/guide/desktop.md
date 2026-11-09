@@ -21,7 +21,8 @@ rinc -install apps.zip game/      apps into storage: a bundle of them (a release
   -data folder                    with any of these: storage in this folder instead
 rinc -repl                        Rio typed in the terminal, a line at a time
 rinc app.rio -m                   how near the app comes to its limits (see memory)
-rinc app.rio -frames 120          no window: run 120 frames (A held for the first 3, unless -type)
+rinc app.rio -frames 120          no window: run 120 frames (A held for the first 3, unless -type), as
+                                  fast as they go, pc.time() the frames' (60 a second), as the sound is
   -o screen.ppm                   then save the screen
   -wav sound.wav                  and the sound those frames made
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,

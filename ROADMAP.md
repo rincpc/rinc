@@ -34,7 +34,10 @@ app is a Rio program.
      releases (ESC [ 1 ; 1 : 1 C ... : 3 C) hold the arrows and V, C, X, Z as a controller would
      (tests/typedbuttons.py), so a test plays a game on the board: Cloudlamp, walked to its lamp and
      lit, seen in a shot fetched back.
-  2. A song player in the library.
+  2. Done (2026-11-09): a song player in the library, `song` (library/song.rio: tests/song.py): Music
+     plays songs with it (its data 15.2 KB to 9.9 KB: a sound file read a line at a time), and
+     Cloudlamp too (its own 60 lines gone). With it, pc.time() in a run of -frames is the frames' time
+     (it was the CPU's, ahead of -wav's sound: tests/frametime.rio).
   3. Studio: a new file named up front (or Files' save taking a typed path).
   4. Studio: state kept per file, not per app.
   5. A card's stale /rinc/lib copy shown (with listing /rinc/lib).
@@ -51,7 +54,7 @@ app is a Rio program.
   - Done: an app run from its folder (rinc game/) reads its own files there, as installed (pc.fileRead,
     fileReadAt, imageRead: tests/folderfiles.py); it read storage's only, so a game's map and sheet
     weren't found.
-  - A song player in the library (below: "one for songs"): Cloudlamp reads .snd and .mus itself, 60
+  - Done: a song player in the library (song, above): Cloudlamp read .snd and .mus itself, 60
     lines a game shouldn't need.
   - A screen capture over serial (the console's `shot`, as a PNG): the board's screen can't be seen
     from the computer, so testing over serial is blind but for the files an app saves; bug reports too.
@@ -62,8 +65,8 @@ app is a Rio program.
 - Rinc's library (library/, as /rinc/lib, installed with the system apps): done (2026-11-08):
   `tilemap`, tile maps read, written and drawn, pure Rio, the app owning its maps' memory (spec/maps.md),
   which studio's Maps uses; and pc.blit a row at a time when it isn't scaled or mirrored across (a screen
-  of 8 by 8 tiles, 25 ms on the Fruit Jam before, 9 now). Next: one for songs, as studio's Music plays
-  them; and libraries in the firmware's bundle, for a board with no card and to save apps' memory:
+  of 8 by 8 tiles, 25 ms on the Fruit Jam before, 9 now). Then (2026-11-09) song, songs as studio's
+  Music plays them; and libraries in the firmware's bundle, for a board with no card and to save apps' memory:
   - Mounted read-only as /rinc/lib (the bundle's lib/ entries, read in place in flash, as its apps are
     now), sources too, so the editor and help can open them; a card's /rinc/lib file of the same name
     wins, so a library can still change without new firmware.
