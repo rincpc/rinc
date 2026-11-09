@@ -417,24 +417,55 @@ static void rinc_typeMore(void) {
   }
 }
 
+#if rinc_SDL
+/* the keys held (pc.keyHeld), from SDL's keyboard: each one's key as the layout has it, without modifiers */
+static void rinc_sdlKeysHeld(const bool *k) {
+  static const SDL_Keycode named[] = {SDLK_RETURN, SDLK_KP_ENTER, SDLK_BACKSPACE, SDLK_TAB, SDLK_ESCAPE, SDLK_LEFT, SDLK_RIGHT, SDLK_UP, SDLK_DOWN, SDLK_HOME, SDLK_END, SDLK_DELETE, SDLK_PAGEUP, SDLK_PAGEDOWN,
+    SDLK_F1, SDLK_F2, SDLK_F3, SDLK_F4, SDLK_F5, SDLK_F6, SDLK_F7, SDLK_F8, SDLK_F9, SDLK_F10, SDLK_F11, SDLK_F12};
+  static const uint8_t codes[] = {13, 13, 8, 9, 27, 128, 129, 130, 131, 132, 133, 134, 135, 136, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151};
+  int s, j;
+  rinc_keyHold(-1, 0);
+  for (s = 0; s < SDL_SCANCODE_COUNT; s++)
+    if (k[s]) {
+      SDL_Keycode c = SDL_GetKeyFromScancode((SDL_Scancode)s, SDL_KMOD_NONE, false);
+      if (c >= 32 && c < 127) rinc_keyHold((int)c, 1);
+      for (j = 0; j < (int)(sizeof named / sizeof named[0]); j++)
+        if (c == named[j]) rinc_keyHold(codes[j], 1);
+    }
+  rinc_keysKnown = 1;
+}
+#endif
+
 /* -hold: buttons held, as a controller would, in frames counted from 0: "a 10-40, right 20-30" (names:
    left right up down a b x y lb rb ls rs start back; and the sticks pushed all the way: lsleft lsright
-   lsup lsdown, rsleft rsright rsup rsdown, and the triggers, lt rt, into rinc_axes): the buttons for frame i */
+   lsup lsdown, rsleft rsright rsup rsdown, and the triggers, lt rt, into rinc_axes; and keys, for pc.keyHeld:
+   space enter backspace tab esc home end delete pgup pgdn, key and a letter or digit, keyq say, and the
+   arrows, as keys too): the buttons for frame i */
 static const char *rinc_holding;
 static uint16_t rinc_held(int frame) {
   static const char *names[14] = {"left", "right", "up", "down", "a", "b", "x", "y", "lb", "rb", "ls", "rs", "start", "back"};
   static const char *sticks[8] = {"lsleft", "lsright", "lsup", "lsdown", "rsleft", "rsright", "rsup", "rsdown"};
+  static const char *keys[10] = {"space", "enter", "backspace", "tab", "esc", "home", "end", "delete", "pgup", "pgdn"};
+  static const uint8_t codes[10] = {32, 13, 8, 9, 27, 132, 133, 134, 135, 136};
   const char *s = rinc_holding;
   uint16_t bits = 0;
   memset(rinc_axes, 0, 6 * sizeof rinc_axes[0]);
+  rinc_keyHold(-1, 0);
+  rinc_keysKnown = 1;
   while (s && *s) {
-    char name[8]; int first, last, n = 0, k;
+    char name[12]; int first, last, n = 0, k;
     while (*s == ' ' || *s == ',') s++;
-    if (!*s || sscanf(s, "%7[a-z] %d-%d%n", name, &first, &last, &n) != 3) break;
+    if (!*s || sscanf(s, "%11[a-z0-9] %d-%d%n", name, &first, &last, &n) != 3) break;
     s += n;
     if (frame < first || frame > last) continue;
     for (k = 0; k < 14; k++)
-      if (!strcmp(name, names[k])) bits |= (uint16_t)(1 << k);
+      if (!strcmp(name, names[k])) {
+        bits |= (uint16_t)(1 << k);
+        if (k < 4) rinc_keyHold(128 + k, 1); /* (the arrows: keys too) */
+      }
+    for (k = 0; k < 10; k++)
+      if (!strcmp(name, keys[k])) rinc_keyHold(codes[k], 1);
+    if (!strncmp(name, "key", 3) && name[3] && !name[4]) rinc_keyHold(name[3], 1);
     for (k = 0; k < 8; k++) /* (left stick 0, 1; right 2, 3: x, then y, + right and down) */
       if (!strcmp(name, sticks[k])) rinc_axes[k / 4 * 2 + (k % 4) / 2] = (int16_t)(k % 2 ? 32767 : -32767);
     if (!strcmp(name, "lt") || !strcmp(name, "rt")) rinc_axes[name[0] == 'l' ? 4 : 5] = 32767; /* (the triggers, all the way) */
@@ -690,6 +721,7 @@ static int rinc_window(const char *title) {
       if (e.type == SDL_EVENT_GAMEPAD_REMOVED && rinc_pad && SDL_GetGamepadID(rinc_pad) == e.gdevice.which) { SDL_CloseGamepad(rinc_pad); rinc_pad = 0; }
     }
     k = SDL_GetKeyboardState(0);
+    rinc_sdlKeysHeld(k);
     rinc_buttons = rinc_readPad() | (uint16_t)(k[SDL_SCANCODE_LEFT] * rinc_Button_left | k[SDL_SCANCODE_RIGHT] * rinc_Button_right | k[SDL_SCANCODE_UP] * rinc_Button_up |
       k[SDL_SCANCODE_DOWN] * rinc_Button_down |
       (rinc_lettersAsButtons() ? k[SDL_SCANCODE_V] * rinc_Button_a | k[SDL_SCANCODE_C] * rinc_Button_b | k[SDL_SCANCODE_X] * rinc_Button_x | k[SDL_SCANCODE_Z] * rinc_Button_y : 0)); /* (a game's: a pointer app's keyboard types) */

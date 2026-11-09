@@ -56,6 +56,11 @@ extern void (*rinc_onBigStack)(void (*fn)(void *), void *arg);
    controller's others: 8 LB, 9 RB, 10 left stick, 11 right stick (pressed in), 12 Start, 13 Back.
    Each platform sets them from its keys and controllers before a frame */
 extern uint16_t rinc_buttons;
+/* the keys held down, by the key code pc.key gives (without the modifiers; letters lower case): bit k of
+   rinc_keysHeld, set by each platform before a frame (rinc_keyHold); rinc_keysKnown 0 where it can't tell */
+extern uint8_t rinc_keysHeld[32];
+extern int rinc_keysKnown;
+void rinc_keyHold(int k, int down); /* (k -1: none held) */
 /* whether a keyboard's V, C, X and Z are A, B, X and Y too (as its arrows are the d-pad): for a game, not
    for a pointer app (pc.Pointer.ui), whose keyboard types only. There a controller's A and B, with the
    pointer hidden, are Enter and Esc too */

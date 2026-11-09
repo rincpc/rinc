@@ -40,7 +40,7 @@ endif()
 include(${RIO_DIR}/library.cmake)
 # the most host procs a vm holds, on every Rinc (rio_MAX_FFI, below; tools/web.py's too):
 # the pc test fails if rinc registers more
-set(RINC_MAX_FFI 100)
+set(RINC_MAX_FFI 104)
 # rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
 # so an app behaves the same everywhere: its log lines and error texts as long, say
 target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})
@@ -214,8 +214,8 @@ else()
   set_tests_properties(field PROPERTIES PASS_REGULAR_EXPRESSION "field tests passed")
   add_test(NAME synth COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/synth.rio -frames 1)
   set_tests_properties(synth PROPERTIES PASS_REGULAR_EXPRESSION "synth tests passed")
-  add_test(NAME hold COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/hold.rio -frames 6 -hold "b 2-3, x 4-4")
-  set_tests_properties(hold PROPERTIES PASS_REGULAR_EXPRESSION "frame 1 b 0 x 0[^f]*frame 2 b 1 x 0[^f]*frame 3 b 1 x 0[^f]*frame 4 b 0 x 1[^f]*frame 5 b 0 x 0")
+  add_test(NAME hold COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/hold.rio -frames 7 -hold "b 2-3, x 4-4, space 1-2, keyq 3-3, delete 4-4, left 5-5")
+  set_tests_properties(hold PROPERTIES PASS_REGULAR_EXPRESSION "frame 0 b 0 x 0 keys 0 0 0 0 0[^f]*frame 1 b 0 x 0 keys 1 0 0 0 0[^f]*frame 2 b 1 x 0 keys 1 0 0 0 0[^f]*frame 3 b 1 x 0 keys 0 1 0 0 0[^f]*frame 4 b 0 x 1 keys 0 0 1 0 0[^f]*frame 5 b 0 x 0 keys 0 0 0 1 0[^f]*frame 6 b 0 x 0 keys 0 0 0 0 0")
   add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio -frames 30 -type "\\t\\n")
   # an app's own help, in its folder (apps/demo/help/intro.md): demo/intro
   set(apphelp ${CMAKE_CURRENT_BINARY_DIR}/apphelp-data)

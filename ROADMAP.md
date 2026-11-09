@@ -10,7 +10,8 @@ app is a Rio program.
 - Adjust apps and `pc` to each breaking Rio 1.0 change as it's decided.
 - Freeze `pc`: names and arguments (images bind host procs by name, and a struct or a proc may grow at
   its end), once its long calls are settled: `blit` takes a `pc.Blit` now, and the rest are weighed in
-  notes/pc-long-calls.md.
+  notes/pc-long-calls.md. Added since (2026-11-09): `pc.keyHeld(k)`, a key held down (for drawing
+  with Space held as the arrows move, in Maps and Paint), on the desktop, the web and the board.
 - `pc.print` reads UTF-8, for fonts beyond ASCII; and text measured (a `pc.textWidth`, say) rather
   than counted at 6 pixels a character, which the apps' layouts (and the command list's "38
   characters") assume today; and whether a font is the app's or the system's. Decide these before

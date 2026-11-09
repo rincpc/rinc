@@ -351,14 +351,15 @@ Map.pack :: proc(k: Int, t: Thing, ref: Int)
   self.room[k + 7] = 0
   self.room.setInt(k + 8, 16, ref)
 end
-# t placed in a things layer, after its others (drawn over them): false if there's no room (or it's no thing)
-Map.place* :: proc(layer: Int, t: Thing) -> Bool
+# t placed in a things layer as its thing j, drawn after those before it (the ones from j on, one later):
+# false if there's no room (or it's no thing, or j's past its last)
+Map.placeAt* :: proc(layer: Int, j: Int, t: Thing) -> Bool
   l := &self.layers[layer]
-  if l.kind != THINGS or not thingFits(t) or self.used() + THING + t.name.len() + (t.name.len() > 0).toInt() > self.room.len()
+  if l.kind != THINGS or j < 0 or j > l.count or not thingFits(t) or self.used() + THING + t.name.len() + (t.name.len() > 0).toInt() > self.room.len()
     return false
   end
   ref := self.addName(t.name.asString())
-  at := self.thingAt(layer, l.count)
+  at := self.thingAt(layer, j)
   self.slide(at, THING)
   e := l.start + l.count
   for i in 0..<self.count
@@ -371,6 +372,8 @@ Map.place* :: proc(layer: Int, t: Thing) -> Bool
   self.pack(at, t, ref)
   return true
 end
+# t placed in a things layer, after its others (drawn over them): false if there's no room (or it's no thing)
+Map.place* :: proc(layer: Int, t: Thing) -> Bool do return self.placeAt(layer, self.things(layer), t)
 # a things layer's thing j, made t: false if there's no room for its name (or it's no thing)
 Map.change* :: proc(layer: Int, j: Int, t: Thing) -> Bool
   if not thingFits(t)

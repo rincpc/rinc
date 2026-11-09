@@ -107,6 +107,7 @@ rinc_EXPORT(start) int rinc_webStart(int len) {
   if (rinc_bundleRead(rinc_src, (uint32_t)len)) return -1;
   if (*rinc_bundleName()) snprintf(rinc_store, sizeof rinc_store, "%s", rinc_bundleName());
   rinc_fs = &rinc_webFs;
+  rinc_keysKnown = 1; /* (the page says each key down and up: rinc_webHeld) */
   rinc_webOpen("home");
   return 0;
 }
@@ -115,6 +116,12 @@ rinc_EXPORT(start) int rinc_webStart(int len) {
    key but those modifiers): 0 a game's frame ran, 1 nothing's running (the page keeps
    calling, for the system key). An app's error goes on the screen; then any switch, to an app or
    (Sys+Esc) home */
+/* a key held down, or let go (k as pc.key gives it, without the modifiers; -1: none held), for pc.keyHeld */
+rinc_EXPORT(held) int rinc_webHeld(int k, int down) {
+  rinc_keyHold(k, down);
+  rinc_keysKnown = 1;
+  return 0;
+}
 rinc_EXPORT(frame) int rinc_webFrame(int buttons, int keys) {
   int sys = (keys & 4 ? rinc_SysKey_esc : 0) | (keys & 16 ? rinc_SysKey_tab : 0) | (keys & 32 ? rinc_SysKey_q : 0) |
             (keys & 64 ? rinc_SysKey_p : 0) | (keys & 128 ? rinc_SysKey_enter : 0) | (keys & 1024 ? rinc_SysKey_r : 0) | (keys & 2048 ? rinc_SysKey_h : 0) | (keys & 4096 ? rinc_SysKey_l : 0) | (keys & 8192 ? rinc_SysKey_o : 0) | (keys & 16384 ? rinc_SysKey_m : 0) |

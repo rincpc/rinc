@@ -61,6 +61,10 @@ key* :: host proc() -> Int
 # can't tell (in a terminal): for a walk that goes on while Ctrl is held, as Ctrl+Tab's, and the d-pad
 # with Shift, selecting
 modsHeld* :: host proc() -> Int
+# 1 while key k is held down (k as key() gives it, without the modifiers: a letter in either case, 32
+# Space, 13 Enter, 8 Backspace, 134 Delete, 128 to 131 the arrows...), else 0; -1 where it can't tell (in
+# a terminal): for what goes on while a key's held, as drawing with Space held while the arrows move
+keyHeld* :: host proc(k: Int) -> Int
 # a controller's sticks: 0 left x, 1 left y, 2 right x, 3 right y; -1 to 1, + right and down
 stick* :: host proc(i: Int) -> Float
 trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1

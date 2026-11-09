@@ -24,7 +24,7 @@ def build_wasm(path, full):
   # (pc.rio, the pc module, is built in through src/core/pc_host.h: only the player with the compiler keeps it)
   sources = [os.path.join(root, 'src', 'web', 'main.c'), build_id] + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c', 'png.c', 'zip.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
   # (rio_MAX_FFI: CMakeLists.txt's RINC_MAX_FFI)
-  subprocess.run(['zig', 'cc', '-target', 'wasm32-wasi', '-mexec-model=reactor', '-Oz', '-Drio_SMALL', '-Drio_MAX_FFI=100'] + ([] if full else ['-Drio_NO_COMPILER']) +
+  subprocess.run(['zig', 'cc', '-target', 'wasm32-wasi', '-mexec-model=reactor', '-Oz', '-Drio_SMALL', '-Drio_MAX_FFI=104'] + ([] if full else ['-Drio_NO_COMPILER']) +
                  ['-I' + os.path.join(rio, 'src'), '-I' + os.path.join(root, 'src', 'core'), '-Wl,--strip-all', '-o', path] + sources, check=True)
   print('%s: %d bytes' % (path, os.path.getsize(path)))
 

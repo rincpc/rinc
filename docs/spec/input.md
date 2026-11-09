@@ -58,6 +58,14 @@ it's -1. In a pointer app (`pc.Pointer.ui`, below), a controller's left trigger,
 and its right one as Ctrl, so its d-pad selects as the arrows do (a game's triggers stay its own:
 `pc.trigger`).
 
+`pc.keyHeld(k) -> Int` is 1 while key `k` is held down, and 0 otherwise: `k` as `pc.key()` gives it, without
+the modifiers (a letter in either case, 32 Space, 13 Enter, 8 Backspace, 134 Delete, 128 to 131 the arrows,
+the rest as the table says), its key as the keyboard's layout has it. It's for what goes on while a key's
+held in a pointer app, whose keys type rather than hold buttons: Maps and Paint draw while Space is held
+and the arrows move. Where Rinc can't tell (in a terminal) it's -1, and while a system combination's held,
+0. `rinc -hold` holds keys too, for tests: `space`, `enter`, `delete` and the other editing keys by name,
+`keyq` for Q, and the arrows' names.
+
 A controller's RB types Tab as it's pressed, and LB Shift+Tab, so anything moved through with Tab works
 from a controller too. Other keys (the system key, Caps Lock and the like) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
 and one fed text faster than that (a serial port, a paste) waits for room. Keys also hold buttons down

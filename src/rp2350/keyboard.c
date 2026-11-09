@@ -192,3 +192,31 @@ int rinc_keyboardChar(void) {
   c = (unsigned char)rinc_queue[rinc_qtail]; rinc_qtail = (rinc_qtail + 1) % sizeof rinc_queue;
   return c;
 }
+
+/* the keys held (rinc_keysDown, HID usages), as pc.keyHeld knows them: each one's key as typed without
+   modifiers (US layout, as typing is), and the editing keys by their codes */
+void rinc_keysHeldFromHid(void) {
+  int u;
+  rinc_keyHold(-1, 0);
+  for (u = 0; u < 256; u++) {
+    int k = 0;
+    if (!(rinc_keysDown[u >> 3] >> (u & 7) & 1)) continue;
+    if (u == HID_KEY_ENTER || u == HID_KEY_KEYPAD_ENTER) k = 13;
+    else if (u == HID_KEY_BACKSPACE) k = 8;
+    else if (u == HID_KEY_TAB) k = 9;
+    else if (u == HID_KEY_ESCAPE) k = 27;
+    else if (u >= HID_KEY_F1 && u <= HID_KEY_F12) k = 140 + u - HID_KEY_F1;
+    else if (u == HID_KEY_ARROW_LEFT) k = 128;
+    else if (u == HID_KEY_ARROW_RIGHT) k = 129;
+    else if (u == HID_KEY_ARROW_UP) k = 130;
+    else if (u == HID_KEY_ARROW_DOWN) k = 131;
+    else if (u == HID_KEY_HOME) k = 132;
+    else if (u == HID_KEY_END) k = 133;
+    else if (u == HID_KEY_DELETE) k = 134;
+    else if (u == HID_KEY_PAGE_UP) k = 135;
+    else if (u == HID_KEY_PAGE_DOWN) k = 136;
+    else if (u < 128 && rinc_ascii[u][0] >= 32 && rinc_ascii[u][0] < 127) k = rinc_ascii[u][0];
+    if (k) rinc_keyHold(k, 1);
+  }
+  rinc_keysKnown = 1;
+}

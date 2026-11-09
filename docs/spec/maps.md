@@ -156,7 +156,7 @@ A layer's cells are where its `start` says: a layer moved (`moveLayer`) moves no
 | `m.refit(sheet, width) -> Int` | a sheet's tiles and things renumbered for it now `width` pixels wide: -1 if they're as they were, else how many went |
 | `m.draw(layer, sheet, camera, how?)` | a layer from its sheet, the map's pixel `camera` at the top left: a tiles layer's tiles; a things layer's things, in order (one with no sprite isn't drawn). `how` (a `tilemap.Drawing`): the box it's in (`at`, `size`), `shrink` (2, 4: an editor's view of big tiles), `missing` (a color for a sprite past the sheet's) |
 | `m.things(layer) -> Int`, `m.thing(layer, j) -> Thing` | a things layer's count, and its thing `j`, unpacked |
-| `m.place(layer, t) -> Bool`, `m.change(layer, j, t) -> Bool`, `m.takeOut(layer, j)` | a thing added (drawn over the others), changed, or taken out: false if there's no room (or it's no thing) |
+| `m.place(layer, t) -> Bool`, `m.placeAt(layer, j, t) -> Bool`, `m.change(layer, j, t) -> Bool`, `m.takeOut(layer, j)` | a thing added (drawn over the others; or as thing `j`, those from it on one later), changed, or taken out: false if there's no room (or it's no thing) |
 | `m.thingOver(layer, p) -> Int` | the last-drawn thing over the map's pixel `p` (-1: none), as an editor picks one |
 | `m.find(name) -> [2]Int` | the first thing of that name: its layer and its number (`{-1, -1}`: none) |
 | `m.layerNamed(name) -> Int`, `m.nameLayer(layer, name) -> Bool`, `tilemap.nameOk(s) -> Bool` | layers by name |

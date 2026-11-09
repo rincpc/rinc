@@ -54,6 +54,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_btn_SIG "i>i"
 #define pc_key_SIG ">i"
 #define pc_modsHeld_SIG ">i"
+#define pc_keyHeld_SIG "i>i"
 #define pc_stick_SIG "i>f"
 #define pc_trigger_SIG "i>f"
 #define pc_time_SIG ">f"
@@ -153,6 +154,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(btn, pc_btn_SIG) \
   X(key, pc_key_SIG) \
   X(modsHeld, pc_modsHeld_SIG) \
+  X(keyHeld, pc_keyHeld_SIG) \
   X(stick, pc_stick_SIG) \
   X(trigger, pc_trigger_SIG) \
   X(time, pc_time_SIG) \
@@ -241,7 +243,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x237727a4u /* (rio_hashText of the source) */
+#define pc_HASH 0x37c73e40u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -306,6 +308,10 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "# can't tell (in a terminal): for a walk that goes on while Ctrl is held, as Ctrl+Tab's, and the d-pad\n" \
   "# with Shift, selecting\n" \
   "modsHeld* :: host proc() -> Int\n" \
+  "# 1 while key k is held down (k as key() gives it, without the modifiers: a letter in either case, 32\n" \
+  "# Space, 13 Enter, 8 Backspace, 134 Delete, 128 to 131 the arrows...), else 0; -1 where it can't tell (in\n" \
+  "# a terminal): for what goes on while a key's held, as drawing with Space held while the arrows move\n" \
+  "keyHeld* :: host proc(k: Int) -> Int\n" \
   "# a controller's sticks: 0 left x, 1 left y, 2 right x, 3 right y; -1 to 1, + right and down\n" \
   "stick* :: host proc(i: Int) -> Float\n" \
   "trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1\n" \

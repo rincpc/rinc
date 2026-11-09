@@ -8,4 +8,5 @@ const char *rinc_keyboardEvents(void); /* devices seen, as text */
 int rinc_keyboardChar(void);         /* runs the USB host; the next typed character, or -1 */
 void rinc_keyboardPoll(void);        /* just runs the USB host (keyboards and controllers) */
 extern uint8_t rinc_keysDown[32];    /* bit k: HID usage k is held down */
+void rinc_keysHeldFromHid(void);    /* rinc_keysDown, as pc.keyHeld's keys (rinc_keyHold) */
 #endif

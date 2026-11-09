@@ -664,6 +664,22 @@ void rinc_textEsc(void) { rinc_typed.esc = 0; rinc_queue(&rinc_typed, 27); }
 static rio_Vm rinc_nest; static int rinc_nestOn, rinc_nestTried; /* (below: Rio inside an app) */
 static void rinc_hostKey(rio_Vm *v, rio_Val *a) { a[0].i = v == &rinc_nest ? rinc_dequeue(&rinc_nestTyped) : rinc_cmdWanted ? -1 : rinc_dequeue(&rinc_typed); } /* (the command list asked for: the rest is its) */
 extern int rinc_pointerMode; /* (below) */
+uint8_t rinc_keysHeld[32];
+int rinc_keysKnown;
+void rinc_keyHold(int k, int down) {
+  if (k < 0) { memset(rinc_keysHeld, 0, sizeof rinc_keysHeld); return; }
+  if (k >= 'A' && k <= 'Z') k += 32;
+  if (k > 255) return;
+  if (down) rinc_keysHeld[k >> 3] |= (uint8_t)(1 << (k & 7));
+  else rinc_keysHeld[k >> 3] &= (uint8_t)~(1 << (k & 7));
+}
+/* pc.keyHeld: 1 while key k is held, 0 if not (nor while a system combination's held, or a command settles), -1: it can't tell */
+static void rinc_hostKeyHeld(rio_Vm *v, rio_Val *a) {
+  int k = a[0].i;
+  (void)v;
+  if (k >= 'A' && k <= 'Z') k += 32;
+  a[0].i = !rinc_keysKnown ? -1 : k < 0 || k > 255 || rinc_cmdSettle || rinc_systemHeld() ? 0 : rinc_keysHeld[k >> 3] >> (k & 7) & 1;
+}
 static void rinc_hostModsHeld(rio_Vm *v, rio_Val *a) { /* (as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt, a locked one too; -1: it can't tell) */
   int m = rinc_modsHeld, pad = rinc_pointerMode == 1 ? (rinc_axes[4] > 16000 ? 256 : 0) | (rinc_axes[5] > 16000 ? 512 : 0) : 0; /* (in a pointer app, a controller's LT is Shift, RT Ctrl) */
   (void)v;
@@ -2122,7 +2138,7 @@ int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.appsFor", pc_appsFor_SIG, rinc_hostAppsFor) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
          rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
-         rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
+         rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.keyHeld", pc_keyHeld_SIG, rinc_hostKeyHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
          rio_addFfi(vm, "pc.appSource", pc_appSource_SIG, rinc_hostAppSource) || rio_addFfi(vm, "pc.appSave", pc_appSave_SIG, rinc_hostAppSave) ||
          rio_addFfi(vm, "pc.appDelete", pc_appDelete_SIG, rinc_hostAppDelete) ||
