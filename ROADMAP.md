@@ -38,7 +38,9 @@ app is a Rio program.
      plays songs with it (its data 15.2 KB to 9.9 KB: a sound file read a line at a time), and
      Cloudlamp too (its own 60 lines gone). With it, pc.time() in a run of -frames is the frames' time
      (it was the CPU's, ahead of -wav's sound: tests/frametime.rio).
-  3. Studio: a new file named up front (or Files' save taking a typed path).
+  3. Done (2026-11-09): Files' save takes a typed path, as Windows' Save does (/rinc/save/sound/tune.snd,
+     or level2/tune.snd from the folder shown; its folder there already): a studio app's first save is
+     Ctrl+S, the path, Enter (tests/files.py).
   4. Studio: state kept per file, not per app.
   5. A card's stale /rinc/lib copy shown (with listing /rinc/lib).
   6. A read-only tilemap for games (load, at, spriteAt, things), importable on its own: Cloudlamp pays

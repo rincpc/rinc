@@ -56,6 +56,25 @@ end
 ''')
 out = typing(DOWN + '\\n', app='caller', frames=60)
 check('picked /rinc/save/chord/best' in out, 'picking: got %r' % out)
+# saving, for its caller: a name typed, in the folder shown; or a path typed (as Windows' Save takes one):
+# from /rinc, or the folder shown; a folder that isn't there, or outside /rinc's folders, refused
+put('apps/caller/caller.rio', '''out: Blob[96]
+outIn: Blob[..] = out
+n := pc.result(outIn)
+if n < 0
+  pc.call("files", "save /rinc/save/chord")
+else
+  log("saving as", out[0..<n].asString())
+end
+''')
+os.makedirs(os.path.join(data, 'save', 'tunes'), exist_ok=True)
+for typed, want in (('tune.snd', 'saving as /rinc/save/chord/tune.snd'), ('/rinc/save/tunes/tune.snd', 'saving as /rinc/save/tunes/tune.snd'),
+                    ('deep/tune.snd', None), ('/rinc/save/none/tune.snd', None), ('/rinc/tune.snd', None), ('/tmp/tune.snd', None)):
+  if typed == 'deep/tune.snd':
+    os.makedirs(os.path.join(data, 'save', 'chord', 'deep'), exist_ok=True)
+    want = 'saving as /rinc/save/chord/deep/tune.snd'
+  out = typing(typed + '\\n', app='caller', frames=60)
+  check((want in out) if want else 'saving as' not in out, 'saving, %r typed: got %r' % (typed, out))
 # a new folder (Ctrl+Shift+N): in a folder of /rinc's, not in /rinc itself
 NEW_FOLDER = '\\x1b[27;6;110~'
 typing('save\\nchord\\n' + NEW_FOLDER + 'level2\\n') # (typing narrows to it: the root has more by now)

@@ -67,11 +67,57 @@ viewKey :: proc(c: Int)
   end
 end
 
-# saving: what's typed is the name, Enter with one gives the path back
+# saving, a path typed (a / in it, as Windows' Save takes one): from /rinc (a / first) or this folder, its
+# folder there already, each of its parts a name: the path, or "" (and it says why)
+typed: Blob[..112]
+probe: Blob[..2]
+typedPath :: proc(s: String) -> String
+  typed.clear()
+  ok := true
+  if s[0] != '/'
+    ok = typed.pushAll(here()) and (here().len() <= 1 or typed.push('/'))
+  end
+  ok = ok and typed.pushAll(s)
+  t := typed[0..<typed.len()].asString()
+  at := 1 # (each part, from after a /)
+  for i in 1..<t.len() + 1
+    if i == t.len() or t[i] == '/'
+      ok = ok and validName(t[at..<i], true)
+      at = i + 1
+    end
+  end
+  if not ok or t.len() > 95
+    say("A path is names (letters, digits, _, - and .) parted by /", errorColor)
+    return ""
+  end
+  k := t.len()
+  for k > 0 and t[k - 1] != '/'
+    k -= 1
+  end
+  if k <= 6 or t[0..<6] != "/rinc/"
+    say("Can't save there: only in /rinc's folders", errorColor)
+    return ""
+  case pc.dir(t[0..<k - 1], probe) < 0
+    say("No such folder", errorColor)
+    return ""
+  end
+  return t
+end
+# saving: what's typed is the name (or a path), Enter with one gives the path back
 saveKey :: proc(c: Int) -> Bool
   k := c & 255
   if c == 13 and saveName.len() > 0
-    if not validName(saveName[0..<saveName.len()].asString(), true)
+    named := saveName[0..<saveName.len()].asString()
+    slash := false
+    for ch in named
+      slash = slash or ch == '/'
+    end
+    if slash
+      p := typedPath(named)
+      if p.len() > 0
+        finish(p)
+      end
+    case not validName(named, true)
       say("A name is letters, digits, _, - and .", errorColor)
     case here().len() <= 6 or here()[0..<6] != "/rinc/"
       say("Can't save here: only in /rinc's folders", errorColor)

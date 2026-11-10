@@ -48,7 +48,7 @@ errorColor := pc.theme(pc.Role.error)
 messageColor := softColor
 picking := false      # (called to pick a file)
 saving := false       # (called to pick where to save: a folder, and a name typed)
-saveName: Blob[..60]
+saveName: Blob[..96]   # (a name, or a path: from /rinc, or this folder)
 saveField := pc.Field{text = saveName} # (saving: the name, edited as a text box is)
 full: Blob[..160]     # a path, made up
 

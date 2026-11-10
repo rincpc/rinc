@@ -70,4 +70,6 @@ An app can call Files to pick a file: `pc.call("files", "pick")`, or `pc.call("f
 /rinc/save/chord")` to start in a folder. Then Enter on a file gives its path back to that app
 (`pc.result`), and Esc gives nothing back. Called with `save` (`pc.call("files", "save
 /rinc/projects/chord")`), it picks where to save: what's typed is a name, Enter on a file takes its
-name, and Enter gives back that name's path in the folder shown.
+name, and Enter gives back that name's path in the folder shown. Or, as Windows' Save takes one, a
+path: from `/rinc` (`/rinc/save/sound/tune.snd`), or from the folder shown (`level2/tune.snd`), its
+folder there already.
