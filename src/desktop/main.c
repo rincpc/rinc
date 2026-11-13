@@ -404,7 +404,7 @@ static void rinc_typeMore(void) {
       if (c == 'e') { rinc_textEsc(); continue; }
       if (c == 's' && *rinc_typing) {
         c = (unsigned char)*rinc_typing++;
-        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : c == 'l' ? rinc_SysKey_l : c == 'o' ? rinc_SysKey_o : c == 'p' ? rinc_SysKey_p : c == 'm' ? rinc_SysKey_m : 0;
+        rinc_typedSys = c == 't' ? rinc_SysKey_tab : c == 'e' ? rinc_SysKey_esc : c == 'q' ? rinc_SysKey_q : c == 'r' ? rinc_SysKey_r : c == 'l' ? rinc_SysKey_l : c == 'o' ? rinc_SysKey_o : c == 'p' ? rinc_SysKey_p : c == 'm' ? rinc_SysKey_m : c == 'h' ? rinc_SysKey_h : 0;
         rinc_sysFrames = 2;
         return;
       }

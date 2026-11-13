@@ -577,18 +577,24 @@ static void rinc_helpFound(const char *found, int dir, void *ud) {
     rinc_helpDir(path);
   } else if (n > 3 && !strcmp(name + n - 3, ".md")) rinc_helpAdd(name, n - 3);
 }
+/* a folder of help texts, and the folders in it (16 in all: deeper ones left out), listed */
+static void rinc_helpScan(const char *dir) {
+  rinc_helpDirCount = 0;
+  rinc_helpDir(dir);
+  for (rinc_helpDirNow = 0; rinc_fs && rinc_helpDirNow < rinc_helpDirCount; rinc_helpDirNow++) /* (storage: a folder at a time) */
+    rinc_fs->list(rinc_helpDirs[rinc_helpDirNow], rinc_helpFound, 0);
+}
 static int rinc_findHelps(char *out, int cap) {
   int i, apps = rinc_findApps(); char path[96];
-  rinc_helpOut = out; rinc_helpCap = cap; rinc_helpUsed = rinc_helpCount = rinc_helpDirCount = 0;
-  rinc_helpDir("/rinc/help");
-  for (i = 0; i <= apps; i++) { /* (each app's help folder, and each project's; and, last, home's, which the list leaves out) */
+  rinc_helpOut = out; rinc_helpCap = cap; rinc_helpUsed = rinc_helpCount = 0;
+  rinc_helpScan("/rinc/help");
+  for (i = 0; i <= apps; i++) { /* (each app's help folder, and each project's, each on its own (so however many apps there
+                                    are); and, last, home's, which the list leaves out) */
     const char *a = i < apps ? rinc_appNames[i] : rinc_appHome; int n = (int)strlen(a), project = n && a[n - 1] == rinc_PROJECT;
     if (!n) continue;
     snprintf(path, sizeof path, "/rinc/%s/%.*s/help", project ? "projects" : "apps", project ? n - 1 : n, a);
-    rinc_helpDir(path);
+    rinc_helpScan(path);
   }
-  for (rinc_helpDirNow = 0; rinc_fs && rinc_helpDirNow < rinc_helpDirCount; rinc_helpDirNow++) /* (storage: a folder at a time) */
-    rinc_fs->list(rinc_helpDirs[rinc_helpDirNow], rinc_helpFound, 0);
   for (i = 0; i < rinc_bundleCount; i++) { /* (help/name.md, apps/app/help/name.md) */
     const char *q = rinc_entryPath(i), *h; int n = (int)strnlen(q, 96); char name[64];
     if (n < 4 || strcmp(q + n - 3, ".md")) continue;
@@ -871,7 +877,7 @@ static void rinc_hostAppCopy(rio_Vm *v, rio_Val *a) {
   if (!named || !rinc_fs || (n = (int)strlen(to)) < 2 || to[n - 1] != rinc_PROJECT || !rinc_appFolder(from, fromDir, sizeof fromDir) || !rinc_appFolder(to, toDir, sizeof toDir)) return;
   if (!rinc_appPath(to, path, sizeof path) || !rinc_readFile(path, 0, 0, &total) || !rinc_fs->list(toDir, rinc_treeFound, 0)) { rinc_treeUsed = 0; return; } /* (there already) */
   rinc_treeUsed = 0;
-  if (rinc_copyTree(fromDir, toDir, "save", 0) && rinc_readApp(to, 0, 0) < 0) { /* (an app in the bundle: its source, from there) */
+  if (rinc_copyTree(fromDir, toDir, "save", 0) && rinc_readApp(to, 0, 0) == -1) { /* (-1: not there; -2 is there, too big for no room) */ /* (an app in the bundle: its source, from there) */
     const rinc_App *b = rinc_bundled(from);
     if (!b || b->image || rinc_fs->open(path, 1)) return;
     k = rinc_fs->write(b->data, (int)b->len) != (int)b->len;
@@ -881,7 +887,7 @@ static void rinc_hostAppCopy(rio_Vm *v, rio_Val *a) {
   }
   k = (int)strlen(from) - (from[strlen(from) - 1] == rinc_PROJECT);
   snprintf(main, sizeof main, "%s/%.*s.rio", toDir, k, from); /* (its main file, by its old name: renamed) */
-  a[0].i = rinc_fs->rename(main, path) && rinc_readApp(to, 0, 0) < 0 ? -1 : 0;
+  a[0].i = rinc_fs->rename(main, path) && rinc_readApp(to, 0, 0) == -1 ? -1 : 0;
 }
 static void rinc_hostAppRename(rio_Vm *v, rio_Val *a) {
   char from[rinc_REF], to[rinc_REF], fromDir[64], toDir[64], path[96], main[96], active[rinc_REF]; uint32_t total; int n, m;
@@ -1967,7 +1973,7 @@ static int rinc_sysPointer; /* the pointer's system keys held (rinc_SysKey_point
 /* an app's own help: its help/README, in storage or the bundle (a help app to show it, too) */
 static int rinc_hasHelp(const char *app) {
   char path[96]; uint32_t total; int n = (int)strlen(app), project = n > 1 && app[n - 1] == rinc_PROJECT;
-  if (!rinc_bundled("help") && rinc_readApp("help", 0, 0) < 0) return 0;
+  if (!rinc_bundled("help") && rinc_readApp("help", 0, 0) == -1) return 0; /* (-2, too big for no room: it's there) */
   snprintf(path, sizeof path, "/rinc/%s/%.*s/help/README.md", project ? "projects" : "apps", project ? n - 1 : n, app);
   if (!rinc_readFile(path, 0, 0, &total)) return 1;
   if (project) return 0;
