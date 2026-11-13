@@ -30,8 +30,9 @@ folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
 
 # the song and its sounds (Music's file, and Sound's it names, beside it): sounds 0 to 3 a step, a chirp,
 # the tune and its bass; the song on voices 4 to 7, round and round, the game's sounds on 0
-notes: Blob[4 * song.SOUND_BYTES] # (its 4 sounds: as Music says, at its top right)
-tune := song.Song{notes = notes[], voice = 4}
+notes: Blob[4 * song.SOUND_BYTES] # (its 4 sounds, and the song's room: as Music says, at its top right)
+songRoom: Blob[160]
+tune := song.Song{notes = notes[], room = songRoom[], voice = 4}
 fine = tune.load("cloudlamp.mus")
 play :: proc(voice: Int, s: Int) do tune.sound(voice, s)
 

@@ -595,17 +595,22 @@ Built into every Rinc (and installed in `/rinc/lib` with the system apps, where 
 
 - `tilemap`: tile maps, read, written and drawn, as studio's Maps makes them ([maps](maps.md)).
 - `song`: songs as studio's Music makes them, and their sounds (Sound's file): read a line at a time,
-  and played on 4 of the 8 voices (from its `voice`), a pattern after another, round their loops; and
-  a sound of the file on its own, for a game's effects. The app gives it room for the sounds' notes,
-  128 bytes a sound (`song.SOUND_BYTES`), as many as it likes from the first: Music shows what a song
-  needs, Sound what a file's sounds do, and `load` logs it when there isn't enough. The sounds come
-  from the path the song names, or a file of that name beside the song, so a game keeps its song and
-  sounds together in its folder. Music plays songs with it, so a game plays them just as Music does.
+  and played on up to 8 voices (from its `voice`). A song has patterns, each sounds placed in time (at
+  a step, on a channel, at a pitch shift, a volume and a speed), and uses them in turn, each use with
+  its own shift, volume and speed (shift and volume ramped across it), round its loops; levers over the
+  whole song (shift, volume, speed) change as it plays. A sound of the file on its own plays too, for a
+  game's effects. The app gives it room: for the sounds' notes, 128 bytes a sound
+  (`song.SOUND_BYTES`), as many as it likes from the first; and for the song's patterns and the notes
+  its channels play. Music shows what a song needs, Sound what a file's sounds do, and `load` logs it
+  when there isn't enough. The sounds come from the path the song names, or a file of that name beside
+  the song, so a game keeps its song and sounds together in its folder. Music plays songs with it, so a
+  game plays them just as Music does.
 
 ```rio fragment
 import song
 notes: Blob[4 * song.SOUND_BYTES]         # sounds 0 to 3 (song.ALL_SOUNDS: all 32)
-tune := song.Song{notes = notes[], voice = 4} # voices 4 to 7: 0 to 3 the game's own
+room: Blob[600]                           # the song's (as Music says)
+tune := song.Song{notes = notes[], room = room[], voice = 4} # voices from 4 on: 0 to 3 the game's own
 if tune.load("tune.mus")                  # its sounds too; else the log says why
   _ = tune.play(0, false)                 # from its first pattern (true: that one alone)
 end
@@ -613,6 +618,7 @@ update* :: proc()
   tune.tick()                             # each frame: on to the next pattern when one's done
 end
 tune.sound(0, 2)                          # sound 2, once, on voice 0
+tune.setShift(2)                          # the whole song 2 semitones up, at once (setVolume, setSpeed too)
 ```
 
 - `undolog`: undo and redo kept on the card, in the app's stash, so they reach back as far as the app
