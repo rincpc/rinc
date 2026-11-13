@@ -23,7 +23,8 @@ sounds = [sound(6, [(24, 0, 5, 0)] * 4), sound(3, [(30, 3, 7, 1), (31, 2, 6, 0)]
 put('game/notes.snd', 'rinc sound 1\r\n' + ''.join(s + '\r\n' for s in sounds + [sound(1, [])] * (32 - len(sounds))))
 put('game/loops.mus', 'rinc music 1\nsounds /rinc/save/sound/elsewhere/notes.snd\n00 01 -- 02 -\n00 -- -- -- b\n01 -- -- -- e\n')
 put('game/stops.mus', 'rinc music 1\r\nsounds notes.snd\r\n00 -- -- -- -\r\n01 -- -- -- s\r\n00 -- -- -- -\r\n')
-put('game/tune2.mus', 'rinc music 2\nsounds notes.snd\nlevers 2 6 150\npattern 8 6\n0 6 1 5 4 6 0\n0 1 1 0 8 12 0\n6 1 0 0 8 0 0\n2 6 0 -3 8 0 1\npattern 4 3\n0 0 2 0 8 0 0\nsong\n0 0 4 8 0 100 b\n1 0 0 8 8 200 e\n')
+put('game/tune2.mus', 'rinc music 2\nsounds notes.snd\nlevers 2 6 150\npattern 8 6\n0 6 1 5 4 6 0\n0 1 1 0 8 12 0\n6 1 0 0 8 0 0\n2 6 0 -3 8 0 1\npattern 4 3\n0 0 2 0 8 0 0\nsong\n0 0 4 8 0 100 b\n1 0 0 8 8 200 2 e\n')
+put('game/twice.mus', 'rinc music 2\nsounds notes.snd\nlevers 0 8 100\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 8 8 8 100 2 s\n')
 put('game/game.rio', r'''
 import song
 notes: Blob[song.ALL_SOUNDS]
@@ -45,11 +46,11 @@ room3: Blob[200]
 tune2 := song.Song{notes = notes2[], room = room3[], voice = 0}
 log("v2", tune2.load("tune2.mus"), tune2.patterns, tune2.uses, tune2.places, tune2.channels, tune2.shift, tune2.volume, tune2.speed, tune2.roomNeeds())
 log("place 3", tune2.placeStep(3), tune2.placeChannel(3), tune2.placeSound(3), tune2.placeShift(3), tune2.placeVolume(3), tune2.placeSpeed(3), tune2.placeHold(3))
-log("uses", tune2.usePattern(0), tune2.useShift(0), tune2.useShiftEnd(0), tune2.useVolume(0), tune2.useVolumeEnd(0), tune2.useSpeed(0), tune2.useFlags(0), tune2.usePattern(1), tune2.useSpeed(1), tune2.useFlags(1))
+log("uses", tune2.usePattern(0), tune2.useShift(0), tune2.useShiftEnd(0), tune2.useVolume(0), tune2.useVolumeEnd(0), tune2.useSpeed(0), tune2.useFlags(0), tune2.usePattern(1), tune2.useSpeed(1), tune2.useFlags(1), tune2.useTimes(0), tune2.useTimes(1))
 log("lengths", (tune2.lengthOf(0) * 1000.0).toInt(), (tune2.lengthOf(1) * 1000.0).toInt())
 text: Blob[..song.TEXT]
 wrote := tune2.write(text)
-log("written", wrote, text.asString() == "rinc music 2\nsounds notes.snd\nlevers 2 6 150\npattern 8 6\n0 6 1 5 4 6 0\n0 1 1 0 8 12 0\n6 1 0 0 8 0 0\n2 6 0 -3 8 0 1\npattern 4 3\n0 0 2 0 8 0 0\nsong\n0 0 4 8 0 100 b\n1 0 0 8 8 200 e\n")
+log("written", wrote, text.asString() == "rinc music 2\nsounds notes.snd\nlevers 2 6 150\npattern 8 6\n0 6 1 5 4 6 0\n0 1 1 0 8 12 0\n6 1 0 0 8 0 0\n2 6 0 -3 8 0 1\npattern 4 3\n0 0 2 0 8 0 0\nsong\n0 0 4 8 0 100 1 b\n1 0 0 8 8 200 2 e\n")
 again: Blob[200]
 tune3 := song.Song{notes = notes2[], room = again[]}
 log("read back", tune3.readSong(text.asString()), tune3.places, tune3.placeShift(3), tune3.useVolumeEnd(0), tune3.shift)
@@ -60,8 +61,20 @@ log("short", shortLoad, tune4.uses)
 tiny: Blob[20]
 tune5 := song.Song{notes = notes2[], room = tiny[]}
 log("tiny", tune3.readSong("hello"), tune3.uses, tune5.readSong(text.asString()), tune5.reason())
-fine := tune.play(0, false)
+room6: Blob[60]
+tune6 := song.Song{notes = notes2[], room = room6[], voice = 0}
+fine := tune6.load("twice.mus")
+fine = tune.play(0, false)
 frame := 0
+rep := -1
+bytes6 :: proc(what: String, at: Int)
+  said: Blob[..120]
+  fine = said.print(what)
+  for k in at..<at + 16
+    fine = said.print(" ", room6[k])
+  end
+  log(said.asString())
+end
 was := -1
 rows: Blob[..40]
 bytes :: proc(what: String, at: Int)
@@ -97,9 +110,9 @@ update* :: proc()
   end
   if frame == 163
     fine = tune2.play(0, false)
-    bytes("notes 1", 132)
-    bytes("notes 1 on", 148)
-    bytes("notes 6", 164)
+    bytes("notes 1", 134)
+    bytes("notes 1 on", 150)
+    bytes("notes 6", 166)
   end
   if frame == 164
     log("v2 voices", pc.soundPlaying(0), pc.soundPlaying(1), pc.soundPlaying(6))
@@ -107,14 +120,32 @@ update* :: proc()
     tune2.setVolume(4)
     log("levers", tune2.shift, tune2.volume)
   end
+  if frame == 166
+    tune2.stop()
+    fine = tune6.play(0, false)
+  end
+  if frame > 166
+    tune6.tick()
+    if tune6.playing and tune6.playRep != rep
+      rep = tune6.playRep
+      if rep == 0
+        bytes6("rep 0", 39)
+      else
+        bytes6("rep 1", 23)
+      end
+    end
+  end
+  if frame == 205
+    log("reps done", tune6.playing)
+  end
 end
 ''')
-r = subprocess.run([rinc, os.path.join(work, 'game') + '/', '-data', os.path.join(work, 'data'), '-frames', '170'], capture_output=True, text=True, timeout=60)
+r = subprocess.run([rinc, os.path.join(work, 'game') + '/', '-data', os.path.join(work, 'data'), '-frames', '210'], capture_output=True, text=True, timeout=60)
 out = (r.stdout + r.stderr).replace('\r', '')
 lines = out.split('\n')
 want = [
   'loops true 3 true notes.snd 384', # (its sounds: not at the path it names, but beside it; sounds 0 to 2 its patterns')
-  'converted 3 3 5 4 4 6 2 3 0 1 2 202', # (version 1: a pattern a line, its step its longest sound's speed)
+  'converted 3 3 5 4 4 6 2 3 0 1 2 205', # (version 1: a pattern a line, its step its longest sound's speed)
   'places 0 0 1 1 3 2',
   'sound 1 3 4 2 3 1 3 30 3 7 1',
   'not a song false false 3',
@@ -123,15 +154,15 @@ want = [
   "game.rio: not a song of Music's",
   'small false false false',
   'two sounds true 2 2 0',             # (as many as its room has: the first two)
-  'v2 true 2 2 5 7 2 6 150 196',       # (version 2: levers, a pattern's placements, the song's uses)
+  'v2 true 2 2 5 7 2 6 150 198',       # (version 2: levers, a pattern's placements, the song's uses)
   'place 3 2 6 0 -3 8 0 1',
-  'uses 0 0 4 8 0 100 1 1 200 2',
+  'uses 0 0 4 8 0 100 1 1 200 2 1 2', # (a use's times: none written, once),
   'lengths 266 33',                    # (8 steps of 6 at 150%; 4 of 3 at 200% of 150%)
   'written true true',
   'read back true 5 -3 0 2',
-  'tune2.mus: it needs room Blob[196] (has 100)',
+  'tune2.mus: it needs room Blob[198] (has 100)',
   'short false 0',
-  'tiny false 2 false it needs room Blob[68] at least (has 20)', # (the song as it was, when its tables don't fit)
+  'tiny false 2 false it needs room Blob[70] at least (has 20)', # (the song as it was, when its tables don't fit)
   'voices 0 1 1 0 1',              # (pattern 0: channels 0, 1 and 3 on voices 4, 5 and 7)
   'stops played 0 1  false',
   'a sound 1',
@@ -139,7 +170,10 @@ want = [
   'notes 1 on 0 0 0 0 0 0 0 0 27 0 1 0 27 0 0 0', # (the next placement, from step 6)
   'notes 6 35 3 3 1 36 2 2 0 22 0 3 0 0 0 0 0', # (cut by the next placement; held one step)
   'v2 voices 0 1 1',
-  'levers 3 4']
+  'levers 3 4',
+  'rep 0 24 0 5 0 25 0 5 0 26 0 5 0 27 0 5 0', # (played twice, its shift ramped 0 to 8 across both)
+  'rep 1 28 0 5 0 29 0 5 0 30 0 5 0 31 0 5 0',
+  'reps done false']
 bad = [w for w in want if w not in lines]
 loops = [l for l in lines if l.startswith('loops played ')]
 if not loops or not loops[0].split()[2:7] == ['0', '1', '2', '1', '2']:

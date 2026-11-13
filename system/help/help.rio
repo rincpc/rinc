@@ -85,6 +85,8 @@ opening: Blob[..112]   # (or called with "open /a/path", a .md file: Files, open
 _ = pc.args(opening)
 if opening.len() > 5 and opening[0..<5].asString() == "open " and open(opening[5..<opening.len()], opening[0..<0])
   histLen = 0
+case topicLen > 0 and hash == topicLen and restorePlace() and doc[0..<doc.len()].asString() == topic[0..<topicLen].asString()
+  # (opened at the text it was showing last, no heading asked for: where it was, its history kept)
 case topicLen > 0 and open(topic[0..<hash], topic[min(hash + 1, topicLen)..<topicLen])
   histLen = 0 # (opened at a topic: a fresh history, from there)
 else
@@ -93,7 +95,9 @@ else
   end
 end
 if histLen == 0
+  histName[0].clear() # (what restorePlace may have left there, gone)
   ok := histName[0].pushAll(doc[0..<doc.len()]) # (where it's been: here)
   histLen = 1
   histAt = 0
+  placeDirty = true # (kept as its place: so after another app, it's here again, not where it was before)
 end

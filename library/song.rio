@@ -5,7 +5,7 @@
 # A song has three levels: sounds (Sound's: 32 notes each, a speed, a loop); patterns, each sounds
 # placed in time (a piano roll: each at a step, on a channel, at a pitch shift, a volume and a speed);
 # and the song, patterns used in turn, each use with its own shift, volume and speed (shift and volume
-# ramped from its start to its end), and marks: a loop begins, a loop ends (back to where it began),
+# ramped from its start to its end), played a number of times over (the ramps across them all), and marks: a loop begins, a loop ends (back to where it began),
 # the song stops. Levers over the whole song (shift, volume, speed) are in the file and a game can
 # change them as it plays.
 #
@@ -42,7 +42,8 @@ NOTES* :: 32
 SOUND_BYTES* :: NOTES * 4 # a sound's notes, as pc.synth takes them: pitch, wave, volume, effect each
 ALL_SOUNDS* :: SOUNDS * SOUND_BYTES
 PATTERN_BYTES* :: 6       # the room each takes: a pattern (steps, speed, its first placement: 2 bytes, count, 0)
-USE_BYTES* :: 8           # a use (pattern, shift and shift at end + 64, volume, volume at end, speed %: 2 bytes, flags)
+USE_BYTES* :: 9           # a use (pattern, shift and shift at end + 64, volume, volume at end, speed %: 2 bytes, flags, times)
+TIMES* :: 99              # a use played over, at most
 PLACE_BYTES* :: 8         # a placement (step, channel, sound, shift + 64, volume, speed, hold, 0)
 TOP_PITCH :: 96           # the synth's highest note
 VOICES :: 8               # Rinc's
@@ -71,7 +72,8 @@ Song* :: struct
   hasSounds: Bool
   soundsPath: Blob[..96]  # its file of sounds (kept, though it isn't there)
   playing: Bool
-  playUse: Int            # the use playing
+  playUse: Int            # the use playing, and which time round (from 0)
+  playRep: Int
   playAlone: Bool         # (just the one)
   patternAt: Float        # when it started (pc.time)
   patternLasts: Float     # and how long it plays
@@ -117,6 +119,7 @@ Song.useVolume* :: proc(u: Int) -> Int do return self.use(u, 3)
 Song.useVolumeEnd* :: proc(u: Int) -> Int do return self.use(u, 4)
 Song.useSpeed* :: proc(u: Int) -> Int do return self.use(u, 5) + self.use(u, 6) * 256
 Song.useFlags* :: proc(u: Int) -> Int do return self.use(u, 7)
+Song.useTimes* :: proc(u: Int) -> Int do return max(1, self.use(u, 8)) # (played that many times over, its ramps across them all)
 Song.placeStep* :: proc(i: Int) -> Int do return self.place(i, 0)
 Song.placeChannel* :: proc(i: Int) -> Int do return self.place(i, 1)
 Song.placeSound* :: proc(i: Int) -> Int do return self.place(i, 2)
@@ -284,8 +287,9 @@ ramp :: proc(a, b, t, n: Int) -> Int do return a + (b - a) * t / max(n, 1)
 # speed, from its step, to its hold, its sound's end (or round its loop), the pattern's end, or the
 # next placement's step on the channel; shifted (the placement's, the use's ramped), at the volume
 # (its sound's, times the placement's, times the use's, ramped); nothing playing between (volume 0)
-Song.writeNotes :: proc(u: Int, p: Int, c: Int, at: Int) -> Int
+Song.writeNotes :: proc(u: Int, p: Int, c: Int, at: Int, round: Int) -> Int
   n := self.notesIn(p, c)
+  all := n * self.useTimes(u)
   unit := self.unitOf(p, c)
   step := self.patternSpeed(p)
   for k in 0..<n * 4
@@ -318,8 +322,9 @@ Song.writeNotes :: proc(u: Int, p: Int, c: Int, at: Int) -> Int
         if t >= stop
           break
         end
-        pitch := self.notes[src] + self.placeShift(i) + ramp(self.useShift(u), self.useShiftEnd(u), t, n)
-        vol := self.notes[src + 2] * self.placeVolume(i) * ramp(self.useVolume(u), self.useVolumeEnd(u), t, n) / 64
+        along := round * n + t # (the ramps run across all its times round)
+        pitch := self.notes[src] + self.placeShift(i) + ramp(self.useShift(u), self.useShiftEnd(u), along, all)
+        vol := self.notes[src + 2] * self.placeVolume(i) * ramp(self.useVolume(u), self.useVolumeEnd(u), along, all) / 64
         e := self.notes[src + 3]
         if r > 0 # (a note repeated: an effect over one note ran on its first; the rest play its end)
           if e == 3 or e == 5 # (a drop, a fade out: silent after)
@@ -443,7 +448,7 @@ Song.addPlace :: proc(step, c, s, shift, vol, speed, hold: Int)
   most = max(most, max(0, min(c, CHANNELS - 1)) + 1)
   nL += 1
 end
-Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, flags: Int)
+Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags: Int)
   if nU >= USES
     bad = true
     return
@@ -459,6 +464,7 @@ Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, flags: Int)
     self.room[o + 5] = v % 256
     self.room[o + 6] = v / 256
     self.room[o + 7] = flags
+    self.room[o + 8] = max(1, min(times, TIMES))
   end
   nU += 1
 end
@@ -521,7 +527,7 @@ Song.oldLine :: proc(l: String)
       self.addPlace(0, c, a * 16 + b, 0, 8, 0, 0)
     end
   end
-  self.addUse(nP - 1, 0, 0, 8, 8, 100, flagsOf(l[12..<l.len()]))
+  self.addUse(nP - 1, 0, 0, 8, 8, 100, 1, flagsOf(l[12..<l.len()]))
 end
 # line k of a song, l: false once it shows it isn't one (its first two lines)
 Song.songLine :: proc(k: Int, l: String) -> Bool
@@ -586,7 +592,11 @@ Song.songLine :: proc(k: Int, l: String) -> Bool
   if section == 1 and numCount >= 7
     self.addPlace(nums[0], nums[1], nums[2], nums[3], nums[4], nums[5], nums[6])
   case section == 2 and numCount >= 6
-    self.addUse(min(nums[0], max(nP - 1, 0)), nums[1], nums[2], nums[3], nums[4], nums[5], flagsOf(marks.asString()))
+    times := 1 # (a 7th number: how many times; before it was written, once)
+    if numCount >= 7
+      times = nums[6]
+    end
+    self.addUse(min(nums[0], max(nP - 1, 0)), nums[1], nums[2], nums[3], nums[4], nums[5], times, flagsOf(marks.asString()))
   end
   return true
 end
@@ -750,7 +760,7 @@ Song.write* :: proc(out: Blob[..]) -> Bool
   end
   ok = ok and out.pushAll("song\n")
   for u in 0..<self.uses
-    ok = ok and out.print(self.usePattern(u), " ", self.useShift(u), " ", self.useShiftEnd(u), " ", self.useVolume(u), " ", self.useVolumeEnd(u), " ", self.useSpeed(u), " ")
+    ok = ok and out.print(self.usePattern(u), " ", self.useShift(u), " ", self.useShiftEnd(u), " ", self.useVolume(u), " ", self.useVolumeEnd(u), " ", self.useSpeed(u), " ", self.useTimes(u), " ")
     f := self.useFlags(u)
     if f == 0
       ok = ok and out.pushAll("-")
@@ -777,14 +787,14 @@ Song.lengthOf* :: proc(u: Int) -> Float
   pct := self.useSpeed(u) * self.speed / 100
   return (self.patternSteps(p) * self.patternSpeed(p)).toFloat() * 100.0 / max(pct, 1).toFloat() / 120.0
 end
-Song.startUse :: proc(u: Int)
+Song.startUse :: proc(u: Int, rep: Int)
   p := self.usePattern(u)
   side := 1 - self.side
   at := self.streamsAt + side * self.half
   pct := max(self.useSpeed(u) * self.speed / 100, 1)
   for c in 0..<min(self.channels, VOICES - self.voice) # (Rinc's voices: those past them unheard)
     v := self.voice + c
-    n := self.writeNotes(u, p, c, at)
+    n := self.writeNotes(u, p, c, at, rep)
     if n > 0
       pc.synth(v, self.room[at..<at + n * 4], max(1, min(255, (self.unitOf(p, c) * 100 + pct / 2) / pct)))
       pc.synthBend(v, self.shift.toFloat())
@@ -796,6 +806,7 @@ Song.startUse :: proc(u: Int)
   end
   self.side = side
   self.playUse = u
+  self.playRep = rep
   self.patternAt = pc.time()
   self.patternLasts = self.lengthOf(u)
 end
@@ -806,7 +817,7 @@ Song.play* :: proc(from: Int, alone: Bool) -> Bool
   end
   self.playing = true
   self.playAlone = alone
-  self.startUse(from)
+  self.startUse(from, 0)
   return true
 end
 # each frame: on to the next use when one's done (back to its loop's start, after one that ends it;
@@ -817,6 +828,10 @@ Song.tick* :: proc()
   end
   u := self.playUse
   f := self.useFlags(u)
+  if self.playRep + 1 < self.useTimes(u) # (round again: its times, before its marks)
+    self.startUse(u, self.playRep + 1)
+    return
+  end
   if self.playAlone or f & STOPS != 0 or (f & LOOP_ENDS == 0 and u + 1 >= self.uses)
     self.stop()
     return
@@ -825,10 +840,10 @@ Song.tick* :: proc()
     for u > 0 and self.useFlags(u) & LOOP_BEGINS == 0
       u -= 1
     end
-    self.startUse(u)
+    self.startUse(u, 0)
     return
   end
-  self.startUse(u + 1)
+  self.startUse(u + 1, 0)
 end
 # the levers, as it plays: shift and volume at once (on each of its voices), speed from the next pattern
 Song.setShift* :: proc(semitones: Int)
