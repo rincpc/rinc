@@ -29,40 +29,71 @@ app is a Rio program.
 
 - Priorities (2026-11-13), in order (the 2026-11-09 list's 1 to 3 done: Print Screen and buttons held
   over serial, the song library, Files' save taking a typed path; and Sound's = at a sound's first note):
-  1. Rio's bytecode smaller: about 40% off an app's code (rio/plans/smaller-instructions.md: frames
-     placed where their caller's end, then 4-byte instructions), its speed measured before and after on
-     the desktop and the Fruit Jam (up to 10% slower is acceptable for that much more code).
-  2. Sprite flags, as PICO-8's (fget, fset), and names for them: a sprite's flags are a few classes it
+  1. Rio's bytecode smaller: done (2026-11-13, Rio f328c2f, lib/rio bumped): 35% off an app's code (Maps
+     100 KB to 66), with the JIT as fast as before, bytecode alone 6 to 16% slower on the Fruit Jam
+     (rio/plans/smaller-instructions.md has each step's numbers).
+  2. Music (more important than sprite flags, the user said 2026-11-13): a pitch shift on each sound a
+     pattern plays, kept in the song (as every tracker does); the sounds themselves don't change, so
+     Sound isn't needed to make a tune (picking sounds in Music and changing them in Sound was
+     unusable, as the user found). The song library plays the shift with
+     pc.synthBend (the synth's own: each note made at the shifted pitch, at the same speed and length,
+     not the sound played faster). The user leans to a horizontal piano roll (time across, pitch up and
+     down), to see timing better than tracker rows. Up to 8 channels wanted: Rinc mixes 8 voices, and
+     the song library takes 4 (4 to 7; 0 to 3 a game's effects), so an 8-channel song shares voices with
+     effects (an effect taking a channel while it plays, as PICO-8's do) or Rinc mixes more voices
+     (about 250 bytes of RAM each, and core 1's time, to measure). Decided (2026-11-13):
+     - A song takes the voices it wants, up to all 8 (using them all is the maker's choice); more
+       voices maybe later.
+     - Patterns, each edited as a piano roll (sounds placed in time, each at its pitch shift), then
+       arranged into the song: two views, the pattern's roll and the song's row of patterns, with a
+       clear way between them.
+     - Playing the whole song doesn't move the view on its own (jarring): a playhead shows where it is,
+       and following it is asked for.
+     Leaning (to settle when it's built): no nested patterns (repeats are the same pattern placed again,
+     and the song's loops); the roll's grid, a pattern's length in steps and each sound's own speed.
+     Considered (2026-11-13): a sound as just a pattern, which nests and composes. Against it: the
+     player then needs a stack and a depth limit (no recursion in Rio), cycles to forbid, voices
+     counted by flattening, tempo passed down; and the levels that make PICO-8 easy blur. A middle way:
+     fixed levels (a sound's notes, a pattern's sounds, the song's patterns), each shown as the same
+     kind of piano roll, so a sound's notes could be edited in Music too. Decided: the middle way;
+     sounds edited in Music later. The data model, for review: studio/plans/music-patterns.md.
+  3. Sprite flags, as PICO-8's (fget, fset), and names for them: a sprite's flags are a few classes it
      belongs to (solid, ladder, hurts), a simple ECS-like tag a game asks of a tile. Set in Paint, kept
      with the sheet, read by tilemap and games. Thoughts:
      - Where: in the PNG's notes (the tEXt chunk Paint keeps its sprite size in already: one file, the
        picture still a plain PNG elsewhere), as a line a flag's name and a run of hex, a byte a cell.
        Other editors may drop the notes (they keep the pixels), so Paint says when a sheet it opens has
        lost them; a side file (.flags) is the fallback if that's common.
+     - Buffers (the user, 2026-11-13): loading and saving flags shouldn't take much buffer space, and
+       should stay easy to use: a 256x256 sheet has 1,024 cells, so its flags are 1 KB, 2 KB as hex,
+       past the notes' 512 bytes today. Maybe kept as bytes, not text; maybe not PNGs at all (worth a
+       rethink, maybe overkill: later). The user, 2026-11-13: moving away from PNG entirely is worth
+       considering. Then: a sheet format of Rinc's own (its pixels a byte each, or packed, its sprite
+       size, flags and names together), read with no inflate buffers; PNG kept as an import and export
+       in Paint, for other tools and sharing.
      - Kept by cell, not by sprite number: each 8 by 8 cell of the sheet has its flags, so changing the
        sprite size (8, 16, 32) or the sheet's width doesn't move them; a bigger sprite's flags are its
        top left cell's (or all its cells' together). Tested, as the auto-test rule says.
      - Named and fast: names in the notes (flag 0 solid), the game asks once (`SOLID := sheet.flag("solid")`,
        a bit) and then tests a byte (`sheet.has(t, SOLID)`): no strings in the loop.
-  3. Music: a pitch shift on each sound a pattern plays, kept in the song (as every tracker does); the
-     sounds themselves don't change, so Sound isn't needed to make a tune (picking sounds in Music and
-     changing them in Sound was unusable, as the user found). The song library plays the shift with
-     pc.synthBend (the synth's own: each note made at the shifted pitch, at the same speed and length,
-     not the sound played faster). Being considered: a horizontal, piano-roll view, to see timing
-     better than the vertical tracker rows.
   4. An ergonomics pass: making a game as quick to write as on PICO-8, keeping Rinc general. Ideas to
      weigh: a `game` library of the usual (a sheet and a map loaded by name, sprite and map drawn in a
      call, btn and btnp, sounds and a song played by number), so a small game is PICO-8-short; the
      templates new projects start from; and Rio's own rough edges met in Cloudlamp (one-pass order,
-     views returned from procs, logging inside an expression).
+     views returned from procs, logging inside an expression). Style (the user, 2026-11-13): short
+     names for modules, which Rio has already (`import tilemap as tm`, `import game as g`), in the
+     docs, examples and templates: a module's name repeats at every use, so short there cuts noise,
+     though other names stay long and readable.
   5. Studio: state kept per file, not per app.
   6. A card's stale /rinc/lib copy shown (with listing /rinc/lib).
   7. A read-only tilemap for games (load, at, spriteAt, things), importable on its own: Cloudlamp pays
      4,350 of its 4,845 instructions for all of tilemap, editing and writing included (less once 1 is
      done; still worth it).
   8. Cloudlamp as a walkthrough in the docs ("making a game with studio").
-  9. Maps' memory (2 KB left): made smaller on its own first, say by handling smaller maps to start
-     with (1 helps here too), rather than a bigger app space or code in flash, which carry risks.
+  9. Maps' memory: 36.6 KB free since Rio's smaller code (2026-11-13; was 2 KB), so less pressing; what
+     binds now is the compiler's instruction table, 84% full (12,560 of 14,945). Before, the plan was
+     Maps made smaller on its own (handling smaller maps to start with, say), rather than a bigger app
+     space or code in flash, which carry risks.
      Constraints breed creativity: getting by on little is part of the point, so limits are loosened
      with care, and the hardware Rinc needs kept as small as it can be.
   10. Drawing speed (docs/guide/fruit-jam.md, Speed): a scaled sprite takes the slow path, a pixel at a
