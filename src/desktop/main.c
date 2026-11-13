@@ -109,9 +109,9 @@ static int rinc_compileApp(const char *app) {
    compiler, and the bundle carries sources, so its apps can be read and changed too */
 static int rinc_nested;
 static uint32_t rinc_makeImage(const char *app, int list) {
-  uint32_t size, pc; uint8_t used[rio_MAX_FFI] = {0}; int k;
+  uint32_t size, pc, n; uint8_t used[rio_MAX_FFI] = {0}; int k; rio_Instr in;
   if (rinc_compileApp(app)) return 0;
-  for (pc = 0; pc < rinc_vm.codeLen; pc++) if (rinc_vm.code[pc].op == rio_Op_ffi && rinc_vm.code[pc].c < rio_MAX_FFI) used[rinc_vm.code[pc].c] = 1;
+  for (pc = 0; (n = rio_instrAt(&rinc_vm, pc, &in)) != 0; pc += n) if (in.op == rio_Op_ffi && in.c < rio_MAX_FFI) used[in.c] = 1;
   for (k = 0; k < rinc_vm.ffiCount; k++) {
     if (!used[k]) continue;
     if (list) printf("host %s\n", rinc_vm.ffi[k].name);
