@@ -111,6 +111,14 @@ if(RINC_PLATFORM STREQUAL rp2350)
     tinyusb_pico_pio_usb)
   pico_enable_stdio_usb(rinc 1)  # the REPL talks over USB serial
   pico_enable_stdio_uart(rinc 0)
+  # PIO-USB keeps its code in RAM; GCC's copies of a function for each constant argument (three of the packet
+  # encoder: 5.6 KB) cost RAM for no speed that matters (the PIO times the bits), so there's one of each
+  file(GLOB rinc_pioUsbSources ${PICO_PIO_USB_PATH}/src/*.c)
+  set_source_files_properties(${rinc_pioUsbSources} PROPERTIES COMPILE_OPTIONS "-fno-ipa-cp-clone")
+  option(RINC_NO_JIT "a firmware without the JIT: apps run as bytecode alone, to time the bytecode itself" OFF)
+  if(RINC_NO_JIT)
+    target_compile_definitions(rinc PRIVATE RINC_NO_JIT)
+  endif()
   pico_add_extra_outputs(rinc)   # rinc.uf2, to drop on the board in BOOT mode
   # cmake --build build --target flash: picotool reboots a running rinc (or anything else built with
   # USB stdio) into BOOT mode over USB, writes rinc, and starts it. A board that isn't answering on USB

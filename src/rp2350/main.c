@@ -193,7 +193,9 @@ int main(void) {
   rinc_videoStart(); /* (core 1: video, then sound) */
   rinc_keyboardStart();
   rinc_sdSetup();
+#ifndef RINC_NO_JIT /* (a build without the JIT, to time the bytecode itself: -DRINC_NO_JIT) */
   rinc_native = rinc_jitApp;
+#endif
   rinc_cacheTrust = 1; /* (the card changes only through Rinc while it runs: a remount drops what's checked) */
   rinc_bundleRead(rinc_firmwareBundle, rinc_firmwareBundleSize); /* (none, by default: the apps are on the card; a bundled one gives way to the card's) */
   rinc_open("home"); /* (the board starts at home) */

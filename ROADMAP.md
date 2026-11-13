@@ -27,30 +27,42 @@ app is a Rio program.
 
 ## Next
 
-- Priorities (2026-11-09, after making Cloudlamp), in order:
-  1. Done (2026-11-09): Print Screen saves the screen, /rinc/shots/<app>-<n>.png (desktop, board, web;
-     over serial ESC [ 57361 u, kitty's code for it), and the REPL's `get path` sends a file back as
-     hex (tests/shot.py). And buttons held over serial (done the same day): kitty's presses and
-     releases (ESC [ 1 ; 1 : 1 C ... : 3 C) hold the arrows and V, C, X, Z as a controller would
-     (tests/typedbuttons.py), so a test plays a game on the board: Cloudlamp, walked to its lamp and
-     lit, seen in a shot fetched back.
-  2. Done (2026-11-09): a song player in the library, `song` (library/song.rio: tests/song.py): Music
-     plays songs with it (its data 15.2 KB to 9.9 KB: a sound file read a line at a time), and
-     Cloudlamp too (its own 60 lines gone). With it, pc.time() in a run of -frames is the frames' time
-     (it was the CPU's, ahead of -wav's sound: tests/frametime.rio).
-  3. Done (2026-11-09): Files' save takes a typed path, as Windows' Save does (/rinc/save/sound/tune.snd,
-     or level2/tune.snd from the folder shown; its folder there already): a studio app's first save is
-     Ctrl+S, the path, Enter (tests/files.py).
-  4. Studio: state kept per file, not per app.
-  5. A card's stale /rinc/lib copy shown (with listing /rinc/lib).
-  6. A read-only tilemap for games (load, at, spriteAt, things), importable on its own: Cloudlamp pays
-     4,350 of its 4,845 instructions for all of tilemap, editing and writing included.
-  7. Smaller: Sound's = starting the next sound at its first note; Cloudlamp as a walkthrough in the
-     docs ("making a game with studio").
-  8. Maps' memory (2 KB left): made smaller on its own first, say by handling smaller maps to start
-     with, rather than a bigger app space or code in flash, which carry risks. Constraints breed
-     creativity: getting by on little is part of the point, so limits are loosened with care, and
-     the hardware Rinc needs kept as small as it can be.
+- Priorities (2026-11-13), in order (the 2026-11-09 list's 1 to 3 done: Print Screen and buttons held
+  over serial, the song library, Files' save taking a typed path; and Sound's = at a sound's first note):
+  1. Rio's bytecode smaller: about 40% off an app's code (rio/plans/smaller-instructions.md: frames
+     placed where their caller's end, then 4-byte instructions), its speed measured before and after on
+     the desktop and the Fruit Jam (up to 10% slower is acceptable for that much more code).
+  2. Sprite flags, as PICO-8's (fget, fset), and names for them: a sprite's flags are a few classes it
+     belongs to (solid, ladder, hurts), a simple ECS-like tag a game asks of a tile. Set in Paint, kept
+     with the sheet, read by tilemap and games. Thoughts:
+     - Where: in the PNG's notes (the tEXt chunk Paint keeps its sprite size in already: one file, the
+       picture still a plain PNG elsewhere), as a line a flag's name and a run of hex, a byte a cell.
+       Other editors may drop the notes (they keep the pixels), so Paint says when a sheet it opens has
+       lost them; a side file (.flags) is the fallback if that's common.
+     - Kept by cell, not by sprite number: each 8 by 8 cell of the sheet has its flags, so changing the
+       sprite size (8, 16, 32) or the sheet's width doesn't move them; a bigger sprite's flags are its
+       top left cell's (or all its cells' together). Tested, as the auto-test rule says.
+     - Named and fast: names in the notes (flag 0 solid), the game asks once (`SOLID := sheet.flag("solid")`,
+       a bit) and then tests a byte (`sheet.has(t, SOLID)`): no strings in the loop.
+  3. Music: the notes of the sound under the cursor, changed from Music (now Music only picks sounds,
+     and Sound changes them: confusing, as the user found): at least Enter opening that sound in Sound,
+     and back; at best a small notes view in Music itself.
+  4. An ergonomics pass: making a game as quick to write as on PICO-8, keeping Rinc general. Ideas to
+     weigh: a `game` library of the usual (a sheet and a map loaded by name, sprite and map drawn in a
+     call, btn and btnp, sounds and a song played by number), so a small game is PICO-8-short; the
+     templates new projects start from; and Rio's own rough edges met in Cloudlamp (one-pass order,
+     views returned from procs, logging inside an expression).
+  5. Studio: state kept per file, not per app.
+  6. A card's stale /rinc/lib copy shown (with listing /rinc/lib).
+  7. A read-only tilemap for games (load, at, spriteAt, things), importable on its own: Cloudlamp pays
+     4,350 of its 4,845 instructions for all of tilemap, editing and writing included (less once 1 is
+     done; still worth it).
+  8. Cloudlamp as a walkthrough in the docs ("making a game with studio").
+  9. Maps' memory (2 KB left): made smaller on its own first, say by handling smaller maps to start
+     with (1 helps here too), rather than a bigger app space or code in flash, which carry risks.
+     Constraints breed creativity: getting by on little is part of the point, so limits are loosened
+     with care, and the hardware Rinc needs kept as small as it can be.
+  Later: working as a team (below, in Later).
 - From making Cloudlamp (apps/cloudlamp, 2026-11-09: its sheet, map, sounds and song made with studio's
   apps on the board, typed at over its serial port; the game needs only Rinc):
   - Done: an app run from its folder (rinc game/) reads its own files there, as installed (pc.fileRead,
@@ -214,6 +226,46 @@ app is a Rio program.
     titles and dialogue, with a way to measure text, maybe.
 
 ## Later
+
+- Working as a team, on the board itself (ideas, 2026-11-10: not decided; for later, after the priorities in Next). No chat, no netplay, no
+  Wi-Fi needed; phones do the talking. What's missing is moving files safely without pulling the card:
+  - Not the board as a USB drive (its card shown to a computer): tried before and not working yet, and
+    it makes a board depend on a computer, which Rinc shouldn't.
+  - A phone on the board's USB hub, for a moment (the user's idea, 2026-11-10): the board is the USB
+    host already (keyboards, controllers), so a phone plugged into its hub can be reached. Android: MTP
+    (the phone's shared folder, as a computer sees it: no app needed), or Android Open Accessory, which
+    a small Rinc app on the phone answers, to automate it (pick a project, send, receive, back it up to
+    the phone's cloud or git). iOS: an iPhone as a USB device needs Apple's MFi licensing, so not this
+    way; iPhones take the local Wi-Fi or QR roads below.
+  - No camera or microphone on a Rinc by default (the user's rule, 2026-11-10): a Rinc can't be made to
+    spy. So nothing that needs one to reach the board: QR codes go out only, and no sound modem in.
+  - Sync over the USB cable: a desktop `rinc sync` (or a page, through WebSerial or WebUSB, which
+    Android phones' Chrome has over a USB-C cable) that brings a project's changed files across, both
+    ways, with the serial REPL's put and get. A phone then carries files between teammates' boards,
+    or to a shared folder (git, a cloud drive) that the team already uses: Rinc needs no network of its
+    own.
+  - Bundles that say who made them: a project's bundle (a .zip, as now) signed with its maker's key
+    (Ed25519, small and fast on the RP2350), and checked on the way in: trusted keys are a list on the
+    card, added by hand once per teammate. Then any channel is safe enough (a drive, a phone, a
+    stranger's USB stick): what isn't signed by someone trusted says so before it's installed.
+  - Merging by file: a project's files with a version each (its hash, and the one it came from), so a
+    sync says which are new, changed on one side, or changed on both (then both kept, side by side,
+    for a person to choose): no merge tools on the board.
+  - If Wi-Fi ever: optional, for those who want it for shared work, perhaps as a USB Wi-Fi adapter
+    plugged in when wanted (so a Rinc without one has no radio at all), or the Fruit Jam's own ESP32.
+    Local only, never the internet, so no certificates to update (the ESP32's firmware never reflashed
+    for them): two boards, or a board and a computer on the same network,
+    paired once by a short code shown on one screen and typed on the other (a pre-shared key, and
+    authenticated encryption: Noise, or ChaCha20-Poly1305), then syncing as over the cable.
+  - QR codes (the user likes these): the board shows a project as a run of QR codes, a phone's camera
+    reads them (its Rinc app, or a web page: no install), and the phone keeps or sends them on. One
+    way only (no camera on a Rinc); the way back is the hub or Wi-Fi. A QR code carries about 2 KB, so a project of 40 KB is 20 codes,
+    shown a few a second: fine for code and small art.
+  - Files as sound, played by the board for a phone to hear (a modem, as on cassettes): out only, as QR
+    codes are (no microphone on a Rinc); fun, no radio at all, slow.
+  Recommended first: signed bundles (every channel needs them), then QR codes out (no radio, no
+  install, delightful), then local Wi-Fi with pairing (both ways, iPhones too), then the Android app
+  over the hub. Each keeps the board the place where the work happens.
 
 - Apps prebuilt into a firmware (their images run in place from flash, freeing their code's RAM): later, and
   never in the default firmware, which stays free of apps; a build option for a board of its own (a game
