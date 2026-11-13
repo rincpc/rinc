@@ -1,0 +1,92 @@
+# drawing on the board: 8x8 sprites and rectangles in 10 ms, and falling sand ("dust") on an NxN grid,
+# a step's time and its drawing (docs/guide/fruit-jam.md has the Fruit Jam's numbers)
+sheetPixels: Blob[64 * 64]
+for i in 0..<64 * 64 do sheetPixels[i] = (i / 8 + i) % 15 + 1
+sheet := pc.Image{pixels = sheetPixels[], size = {64, 64}}
+A :: struct
+  x: Int
+  y: Int
+  s: Int
+end
+actors: [400]A
+for a, i in actors
+  a.x = i * 37 % 312
+  a.y = i * 53 % 232
+  a.s = i % 64
+end
+g: Blob[240 * 240]
+N :: 4000
+show :: proc(what: String, took: Float, count: Float)
+  log(what, (0.01 / took * count).toInt(), "in 10 ms")
+end
+draws :: proc()
+  t := pc.time()
+  for i in 0..<N do pc.blit(sheet, {i * 7 % 312, i * 13 % 232}, {from = {i % 8 * 8, i / 8 % 8 * 8}, size = {8, 8}})
+  show("sprites:", pc.time() - t, N.toFloat())
+  t = pc.time()
+  for i in 0..<N do pc.blit(sheet, {i * 7 % 304, i * 13 % 224}, {from = {i % 8 * 8, i / 8 % 8 * 8}, size = {8, 8}, scale = {2, 2}})
+  show("sprites at 2x:", pc.time() - t, N.toFloat())
+  t = pc.time()
+  for _ in 0..<10
+    for a in actors
+      a.x = (a.x + 1) % 312
+      pc.blit(sheet, {a.x, a.y}, {from = {a.s % 8 * 8, a.s / 8 * 8}, size = {8, 8}})
+    end
+  end
+  show("actors, moved and drawn:", pc.time() - t, 4000.0)
+  t = pc.time()
+  for _ in 0..<1000
+    for a in actors do a.x = (a.x + 1) % 312
+  end
+  show("actors, moved only:", pc.time() - t, 400000.0)
+  t = pc.time()
+  for i in 0..<N do pc.rect({i * 7 % 312, i * 13 % 232}, {8, 8}, i % 15 + 1)
+  show("8x8 rectangles:", pc.time() - t, N.toFloat())
+end
+fill :: proc(n: Int)
+  for i in 0..<n * n
+    g[i] = 0
+    if (i * 7919) % 100 < 30 do g[i] = 9 + i % 3
+  end
+end
+# one step, bottom row up: each grain falls, or slides down left or right
+step :: proc(n: Int, flip: Int)
+  y := n - 2
+  for y >= 0
+    row := y * n
+    for k in 0..<n
+      x := k
+      if flip & 1 == 1 do x = n - 1 - k
+      c := g[row + x]
+      if c != 0
+        below := row + n + x
+        if g[below] == 0
+          g[below] = c
+          g[row + x] = 0
+        case x > 0 and g[below - 1] == 0
+          g[below - 1] = c
+          g[row + x] = 0
+        case x < n - 1 and g[below + 1] == 0
+          g[below + 1] = c
+          g[row + x] = 0
+        end
+      end
+    end
+    y -= 1
+  end
+end
+dust :: proc(n: Int)
+  fill(n)
+  t := pc.time()
+  for f in 0..<20 do step(n, f)
+  took := (pc.time() - t) / 20.0
+  grid := pc.Image{pixels = g[0..<n * n], size = {n, n}}
+  s := max(240 / n, 1)
+  t = pc.time()
+  for _ in 0..<20 do pc.blit(grid, {0, 0}, {scale = {s, s}})
+  drew := (pc.time() - t) / 20.0
+  log("dust", n, "x", n, ": a step", (took * 1000000.0).toInt(), "us; drawn at", s, "x,", (drew * 1000000.0).toInt(), "us")
+end
+draws()
+sizes := [5]Int{64, 100, 128, 160, 240}
+for n in sizes do dust(n)

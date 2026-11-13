@@ -93,14 +93,44 @@ Of the RP2350's 520 KB of SRAM:
 
 | | |
 |---|---|
-| the app space | 256 KB: Rio's memory, for an app's code and data (and its source, read from the card, while it compiles) |
+| the app space | 256 KB: Rio's memory, for an app's code and data (and its source, read from the card, while it compiles); Rio compiles the app's simple loops and procs to Thumb-2 code in what the app leaves free |
 | the screen | 150 KB: the one drawn into, and the copy being shown |
-| native loops | 16 KB: Rio compiles an app's simple loops to Thumb-2 code here |
-| Rio's interpreter loop | 10 KB: it runs from SRAM, as that's faster than flash |
-| USB, the console, sound and stacks | most of the rest; about 32 KB is free |
+| Rio's interpreter loop | 12 KB: it runs from SRAM, as that's faster than flash |
+| USB, the console, sound and stacks | the rest; about 4 KB is free |
 
 No PSRAM is needed. Every app, home and the console included, gets the whole app space (see
 [memory](../spec/memory.md)); the console's own Rio session lives in the console's memory.
 
 Sound goes out over HDMI and the 3.5 mm jack at once, mixed on the second core along with the video.
 Mixing 8 ADPCM voices takes about 13% of a core; 16-bit, about 6%.
+
+## Speed
+
+Measured on the Fruit Jam (2026-11-13) with `apps/drawbench.rio` and `apps/bench.rio`, with the JIT
+on, as apps run, unless noted:
+
+| drawing | in 10 ms |
+|---|---|
+| 8x8 sprites from a sheet (`pc.blit`), solid | 1,466 |
+| 8x8 sprites at 2x (16x16 on the screen), solid | 299 |
+| 400 actors, each moved and drawn as an 8x8 sprite | 1,418 |
+| 8x8 rectangles (`pc.rect`) | 2,960 |
+
+A sprite's see-through pixels (color 0) cost less than solid ones; scaled sprites take a slower path
+(each pixel drawn as a block), and so do mirrored ones. Drawing is C, so Rio's own speed barely shows
+in it: the rectangles drew as many with the JIT off.
+
+Falling sand ("dust": each grain falls, or slides down left or right; 30% of the cells filled), a step
+of the whole grid in Rio, and drawing it as one picture:
+
+| grid | a step, with the JIT | without it | drawn (scale) |
+|---|---|---|---|
+| 64x64 | 1.0 ms | 4.0 ms | 1.0 ms (3x) |
+| 100x100 | 2.4 ms | 9.7 ms | 1.7 ms (2x) |
+| 128x128 | 3.9 ms | 15.7 ms | 0.6 ms (1x) |
+| 160x160 | 6.0 ms | 24.4 ms | 1.0 ms (1x) |
+| 240x240 | 13.4 ms | 54.7 ms | 2.2 ms (1x) |
+
+At 60 frames a second (16.7 ms each), about 200x200 fits, step and drawing; 240x240 runs at 30. Here
+Rio's speed is most of it: the JIT makes the step about 4 times faster. Drawn instead a `pc.rect` a
+cell, the calls cost more than the step: about 3.4 us each, so about 50x50 cells at 60.

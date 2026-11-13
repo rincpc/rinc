@@ -115,6 +115,8 @@ if(RINC_PLATFORM STREQUAL rp2350)
   # encoder: 5.6 KB) cost RAM for no speed that matters (the PIO times the bits), so there's one of each
   file(GLOB rinc_pioUsbSources ${PICO_PIO_USB_PATH}/src/*.c)
   set_source_files_properties(${rinc_pioUsbSources} PROPERTIES COMPILE_OPTIONS "-fno-ipa-cp-clone")
+  # a few things the SDK puts in RAM kept in flash instead (src/rp2350/link: code run once, and libgcc's)
+  pico_add_linker_script_override_path(rinc ${CMAKE_CURRENT_LIST_DIR}/src/rp2350/link GLOB_FILES)
   option(RINC_NO_JIT "a firmware without the JIT: apps run as bytecode alone, to time the bytecode itself" OFF)
   if(RINC_NO_JIT)
     target_compile_definitions(rinc PRIVATE RINC_NO_JIT)

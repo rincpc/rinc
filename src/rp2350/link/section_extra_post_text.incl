@@ -1,0 +1,9 @@
+/* Rinc's change to the SDK's linker scripts (CMakeLists.txt: pico_add_linker_script_override_path):
+   code that runs once, at start, kept in flash though its library marks it for RAM, so the RAM goes
+   to apps and Rio. Placed here, before .data's *(.time_critical*), so it's matched first. */
+SECTIONS
+{
+    .flash_once : {
+        *(.time_critical.initialize_host_programs) /* PIO-USB's setup (1.5 KB) */
+    } > TEXT_STORE
+}

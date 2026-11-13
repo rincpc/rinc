@@ -44,9 +44,12 @@ app is a Rio program.
        top left cell's (or all its cells' together). Tested, as the auto-test rule says.
      - Named and fast: names in the notes (flag 0 solid), the game asks once (`SOLID := sheet.flag("solid")`,
        a bit) and then tests a byte (`sheet.has(t, SOLID)`): no strings in the loop.
-  3. Music: the notes of the sound under the cursor, changed from Music (now Music only picks sounds,
-     and Sound changes them: confusing, as the user found): at least Enter opening that sound in Sound,
-     and back; at best a small notes view in Music itself.
+  3. Music: a pitch shift on each sound a pattern plays, kept in the song (as every tracker does); the
+     sounds themselves don't change, so Sound isn't needed to make a tune (picking sounds in Music and
+     changing them in Sound was unusable, as the user found). The song library plays the shift with
+     pc.synthBend (the synth's own: each note made at the shifted pitch, at the same speed and length,
+     not the sound played faster). Being considered: a horizontal, piano-roll view, to see timing
+     better than the vertical tracker rows.
   4. An ergonomics pass: making a game as quick to write as on PICO-8, keeping Rinc general. Ideas to
      weigh: a `game` library of the usual (a sheet and a map loaded by name, sprite and map drawn in a
      call, btn and btnp, sounds and a song played by number), so a small game is PICO-8-short; the
@@ -62,6 +65,11 @@ app is a Rio program.
      with (1 helps here too), rather than a bigger app space or code in flash, which carry risks.
      Constraints breed creativity: getting by on little is part of the point, so limits are loosened
      with care, and the hardware Rinc needs kept as small as it can be.
+  10. Drawing speed (docs/guide/fruit-jam.md, Speed): a scaled sprite takes the slow path, a pixel at a
+     time as blocks (a solid 16x16 at 2x, 33 us: 299 in 10 ms, where Cloudlamp draws everything at 2x),
+     and a small rect or blit costs about 3.4 us before its first pixel (2,960 8x8 rects in 10 ms).
+     Fast paths for 2x (and mirrored) sprites, and less per call. A grid drawn as one picture (falling
+     sand: 200x200 at 60 frames a second) is already fast; a rect a cell is what's slow (about 50x50).
   Later: working as a team (below, in Later).
 - From making Cloudlamp (apps/cloudlamp, 2026-11-09: its sheet, map, sounds and song made with studio's
   apps on the board, typed at over its serial port; the game needs only Rinc):

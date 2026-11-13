@@ -1,0 +1,3 @@
+/* Rinc's change to the SDK's (which also leaves libgcc out of flash, so .data puts it in RAM): libgcc's
+   code stays in flash (64-bit division, and doubles: nothing Rinc does often), 1.7 KB more RAM */
+*(EXCLUDE_FILE(*libm.a:) .text*)
