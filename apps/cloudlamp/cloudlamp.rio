@@ -8,6 +8,7 @@
 # name), the sounds (cloudlamp.snd, Sound's: a step, a chirp, a tune and its bass) and the song
 # (cloudlamp.mus, Music's). Made with studio's apps on a Fruit Jam, typed at over its serial port; it
 # needs only rinc (and rinc's library: tilemap, song) to run.
+# Its title is in a font of its own, title.png, drawn in Paint (pc.fontRead).
 
 import tilemap
 import song

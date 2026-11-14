@@ -284,6 +284,7 @@ void rinc_textPush(int c) {
       rinc_typedButtons |= b;
       if (c == 'u') { if (n >= 'a' && n <= 'z') rinc_queue(t, n); return; }
     }
+    if (c == 'u') { k = n; n = 27; c = '~'; } /* (kitty's ESC [ code ; m u: as xterm's ESC [ 27 ; m ; code ~, below) */
     if (c == '~' && n == 27) { /* (xterm's modifyOtherKeys) */
       if (k >= 'A' && k <= 'Z') k += 32;
       c = k == 9 || k == 13 || k == 32 || k == '/' ? k : k == 8 || k == 127 ? 8 : k >= 'a' && k <= 'z' && (mods & rinc_Mod_ctrl) ? k - 'a' + 1 : 0;
