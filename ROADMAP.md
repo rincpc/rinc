@@ -88,8 +88,12 @@ app is a Rio program.
   6. A card's stale /rinc/lib copy shown: done (2026-11-13): after a compile, each /rinc/lib file read
      that isn't Rinc's own of that name is said, in the app's log and on the screen (tests/stalelib.py).
      And each app an island (the user): paths relative to the file that names them, not absolute ones.
-     Done for songs' sounds (the song library reads them from the song's folder; Music saves them so);
-     next for Maps' sheets (a map's sheet path, Maps and tilemap).
+     Done for songs' sounds (the song library reads them from the song's folder; Music saves them so)
+     and maps' sheets (tilemap reads them from the map's folder; Maps saves them so).
+     To think about (the user, 2026-11-13: deferred): a card's newer library copy, an upgrade beyond the
+     firmware's, is said the same as an old one (it differs). Ideas: a version in each library file
+     (VERSION*), so only an older copy is said and a newer one just logged; and an app's own copy, in its
+     folder, imported as `import .song`, for one app alone (each app an island).
   7. A read-only tilemap for games (load, at, spriteAt, things), importable on its own: Cloudlamp pays
      4,350 of its 4,845 instructions for all of tilemap, editing and writing included (less once 1 is
      done; still worth it).

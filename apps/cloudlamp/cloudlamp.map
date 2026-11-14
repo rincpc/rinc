@@ -1,5 +1,5 @@
 rinc map 3
-sheet 1 /rinc/save/paint/cloudlamp.png 8 across 8
+sheet 1 cloudlamp.png 8 across 8
 layer 1 island tiles 1
 size 20 15
 offset 0 0

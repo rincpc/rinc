@@ -986,6 +986,80 @@ fails :: proc(s: String) -> Bool
   _ = why.print(s, " (line ", lineNo, ")")
   return false
 end
+# ---------------------------------------------------------------- paths: each map an island
+# A map's file names its sheets by paths from its own folder (written so; read so, and from there made
+# whole for the app: sheetPath's); an older map's whole paths are read as they are.
+pathText: Blob[..200]
+folderOf :: proc(p: String) -> String
+  k := p.len()
+  for k > 0 and p[k - 1] != '/'
+    k -= 1
+  end
+  return p[0..<k]
+end
+# path p from folder (to its last /), as one path: its . and .. followed
+within :: proc(folder: String, p: String) -> String
+  pathText.clear()
+  fine := pathText.pushAll(folder)
+  at := 0
+  for at <= p.len()
+    e := at
+    for e < p.len() and p[e] != '/'
+      e += 1
+    end
+    part := p[at..<e]
+    if part == ".." # (up one: the folder before the last /)
+      k := pathText.len() - 1
+      for k > 0 and pathText[k - 1] != '/'
+        k -= 1
+      end
+      for pathText.len() > max(k, 0)
+        _ = pathText.pop()
+      end
+    case part.len() > 0 and part != "."
+      fine = pathText.pushAll(part)
+      if e < p.len()
+        fine = pathText.push('/')
+      end
+    end
+    at = e + 1
+  end
+  return pathText.asString()
+end
+# target, a path from folder: up (..) as far as they part, then down (a whole path, from no folder)
+relativeTo :: proc(folder: String, target: String) -> String
+  if folder.len() == 0 or target.len() == 0 or target[0] != '/'
+    return target
+  end
+  same := 0
+  for k in 0..<min(folder.len(), target.len())
+    if folder[k] != target[k]
+      break
+    end
+    if folder[k] == '/'
+      same = k + 1
+    end
+  end
+  pathText.clear()
+  fine := true
+  for k in same..<folder.len()
+    if folder[k] == '/'
+      fine = pathText.pushAll("../")
+    end
+  end
+  fine = pathText.pushAll(target[same..<target.len()])
+  return pathText.asString()
+end
+mapFolder: Blob[..200]    # the folder of the map file being read (none: a stash's), and being written
+writeFolder: Blob[..200]
+# a sheet's path as the file has it, made whole from the map's folder (a whole one, as it is)
+fromFile :: proc(p: String) -> String
+  if mapFolder.len() == 0 or p.len() == 0 or p[0] == '/'
+    return p
+  end
+  return within(mapFolder.asString(), p)
+end
+
 # a map's text read, keep false: whether it is one, and what it needs (room); keep: into the map
 need := Room{}
 Map.readAs :: proc(keep: Bool) -> Bool
@@ -1038,7 +1112,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
       end
       need.sheets += 1
       if keep
-        if self.sheetFor(s[p..<z - 1], sprite, numberIn(s[a..<s.len()], 0)) != self.sheetCount - 1
+        if self.sheetFor(fromFile(s[p..<z - 1]), sprite, numberIn(s[a..<s.len()], 0)) != self.sheetCount - 1
           return fails("a sheet listed twice")
         end
       end
@@ -1099,7 +1173,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
         if sprite.x == 0
           sprite = {8, 8}
         end
-        self.layers[self.count - 1].sheet = self.sheetFor(s[6..<max(a - 1, 6)], sprite, -1)
+        self.layers[self.count - 1].sheet = self.sheetFor(fromFile(s[6..<max(a - 1, 6)]), sprite, -1)
       end
     case startsWith(s, "across ") and version == 2
       if keep
@@ -1207,6 +1281,10 @@ end
 # a map's file, or what's under a key of the app's stash, read into it: false if it can't be, and the
 # log says why (the room it needs, say), and the map's as it was
 Map.loadFrom :: proc(kind: Int, name: String) -> Bool
+  mapFolder.clear()
+  if kind == FROM_FILE
+    fine := mapFolder.pushAll(folderOf(name))
+  end
   openIo(kind, name, false)
   ok := self.readAs(false)
   if ok and (need.bytes > self.room.len() or need.sheets > self.sheets.len() or need.layers > self.layers.len())
@@ -1258,7 +1336,7 @@ Map.writeOut :: proc()
     put("sheet ")
     put(num(i + 1))
     put(" ")
-    put(s.path.asString())
+    put(relativeTo(writeFolder.asString(), s.path.asString())) # (from the map's folder, to a file)
     put(" ")
     put(num(s.sprite.x))
     if s.sprite.y != s.sprite.x
@@ -1340,12 +1418,15 @@ Map.writeOut :: proc()
 end
 # its file written (made, or written over): false if it couldn't be
 Map.save* :: proc(path: String) -> Bool
+  writeFolder.clear()
+  fine := writeFolder.pushAll(folderOf(path))
   openIo(FROM_FILE, path, false)
   self.writeOut()
   return not ioBad
 end
 # kept under a key of the app's stash: false if it couldn't be
 Map.saveStash* :: proc(key: String) -> Bool
+  writeFolder.clear() # (whole paths, in a stash)
   openIo(FROM_STASH, key, false)
   self.writeOut()
   return not ioBad

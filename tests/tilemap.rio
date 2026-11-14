@@ -25,10 +25,16 @@ end
 assert(m.load("/rinc/save/two.map"), "a map of before (rinc map 2), read")
 assert(m.count == 2 and m.sheetCount == 1 and m.layers[1].size == {2, 1} and m.layers[1].at == {4, 16} and m.tile(0) == {8, 8} and m.sheets[0].across == 2, "its layers and their sheet")
 assert(m.at(0, {1, 0}) == 1 and m.at(0, {2, 0}) == E and m.at(1, {0, 0}) == 1 and m.at(0, {5, 5}) == E, "its cells (past an edge: empty)")
-assert(m.save("/rinc/save/two3.map") and same("/rinc/save/two3.map", "rinc map 3\nsheet 1 /rinc/save/t.png 8 across 2\nlayer 1 tiles1 tiles 1\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2 tiles2 tiles 1\nsize 2 1\noffset 4 16\n001---\n"), "written as a map of now")
+assert(m.save("/rinc/save/two3.map") and same("/rinc/save/two3.map", "rinc map 3\nsheet 1 t.png 8 across 2\nlayer 1 tiles1 tiles 1\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2 tiles2 tiles 1\nsize 2 1\noffset 4 16\n001---\n"), "written as a map of now: its sheet's path from the map's folder")
+# each map an island: its sheets' paths written from its folder, read back whole; from another folder, .. first
+assert(m.load("/rinc/save/two3.map") and m.sheetPath(0) == "/rinc/save/t.png", "read back: its sheet's path whole again")
+assert(m.save("/rinc/save/maps/far/two4.map") and same("/rinc/save/maps/far/two4.map", "rinc map 3\nsheet 1 ../../t.png 8 across 2\nlayer 1 tiles1 tiles 1\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2 tiles2 tiles 1\nsize 2 1\noffset 4 16\n001---\n"), "saved in another folder: up to the sheet")
+assert(m.load("/rinc/save/maps/far/two4.map") and m.sheetPath(0) == "/rinc/save/t.png", "and read back whole")
 
 # a map of now, its things layer first (its things after the cells all the same, in the room)
 three := "rinc map 3\nsheet 1 /rinc/save/t.png 8 across 2\nsheet 2 /rinc/save/my sheets/b.png 8x16 across 1\nlayer 1 actors things 1\noffset 0 0\nthing 001 at 20 30 name player\nthing --- at -5 7 span 2 3\nthing 000 at 0 0 span 2 1 name door.1\nlayer 2 ground tiles 2\nsize 2 2\noffset -8 0\n000---\n---000\n"
+# (as written now: its sheets' paths from the map's folder, read as whole ones before)
+threeNow := "rinc map 3\nsheet 1 t.png 8 across 2\nsheet 2 my sheets/b.png 8x16 across 1\nlayer 1 actors things 1\noffset 0 0\nthing 001 at 20 30 name player\nthing --- at -5 7 span 2 3\nthing 000 at 0 0 span 2 1 name door.1\nlayer 2 ground tiles 2\nsize 2 2\noffset -8 0\n000---\n---000\n"
 assert(pc.fileWrite("/rinc/save/three.map", three) == 0, "")
 assert(m.load("/rinc/save/three.map"), "a map of now, with things, read")
 assert(m.count == 2 and m.sheetCount == 2 and m.sheetPath(1) == "/rinc/save/my sheets/b.png" and m.tile(1) == {8, 16} and m.layers[1].kind == tilemap.TILES, "its sheets (a path with a space) and layers")
@@ -42,7 +48,7 @@ assert(m.at(1, {0, 0}) == 0 and m.at(1, {1, 0}) == E and m.at(1, {1, 1}) == 0, "
 assert(m.used() == 4 * 2 + 3 * 10 + 7 + 7 and m.needs() == tilemap.Room{bytes = 52, sheets = 2, layers = 2}, "the room it uses: its cells, things and names")
 assert(tilemap.roomIn("/rinc/save/three.map") == tilemap.Room{bytes = 52, sheets = 2, layers = 2}, "roomIn: what its file needs")
 assert(tilemap.roomIn("/rinc/save/old.map").bytes == -1, "roomIn: not a map")
-assert(m.save("/rinc/save/three2.map") and same("/rinc/save/three2.map", three), "written back as it was")
+assert(m.save("/rinc/save/three2.map") and same("/rinc/save/three2.map", threeNow), "written back as it was, its sheets' paths from its folder")
 
 # things: changed (renamed: the others' names kept), taken out, placed, picked out where they're drawn
 t.name.clear()
