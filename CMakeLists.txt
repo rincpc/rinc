@@ -196,6 +196,10 @@ else()
   add_test(NAME app_console COMMAND rinc -data ${data} -app console -frames 60
     -type "x := 6 * 7\\nsq :: proc(n: Int) -> Int\\nreturn n * n\\n\\x08\\x08end\\nsq(x)\\nnope\\nls\\n") # (end after its indent's backspaced: still end)
   set_tests_properties(app_console PROPERTIES DEPENDS install PASS_REGULAR_EXPRESSION "1764[\r\n]+> nope[\r\n]+1:1: undefined name")
+  # a struct typed in the console: room for its fields beside pc's (which once filled the session's tables)
+  add_test(NAME app_console_struct COMMAND rinc -data ${data} -app console -frames 60
+    -type "P :: struct\\na, b, c: Int\\n\\x08\\x08end\\np := P{a = 1, b = 20, c = 300}\\np.a + p.b + p.c\\n")
+  set_tests_properties(app_console_struct PROPERTIES DEPENDS install PASS_REGULAR_EXPRESSION "(^|[\r\n])321[\r\n]")
   # the editor: a new app (Ctrl+N), typed, an undo (Ctrl+Z), then saved as t1 and run (Ctrl+R)
   add_test(NAME app_edit COMMAND rinc -data ${data} -app edit -frames 200
     -type "\\e\\x0elog(1)\\x1alog(6 * 7 + 1000)\\x12t1\\n")

@@ -20,7 +20,7 @@ expression logs its value:
 
 ```rio
 mem: Blob[65536]
-tables: Blob[45056]
+tables: Blob[40960]
 out: Blob[..256]
 log(pc.rioStart(mem[], tables[]))
 r := pc.rioEval("x := 6 * 7\nx + 1\n")
@@ -40,7 +40,8 @@ log(out.asString())
 1:6: undefined name near 'nope'
 ```
 
-`tables` needs room for the compiler's tables, the `pc` module's included: 44 KB is plenty, and too
+`tables` needs room for the compiler's tables, the `pc` module's included: 40 KB is plenty (the
+console's: room for `pc` and about as much again of a program's own names, structs and procs), and too
 little is an error from `pc.rioStart`, which `pc.rioError` explains. The memory handed over is the
 session's from then on: the app mustn't use it for anything else while the session lives. An app
 starting over, or `pc.rioStart` again, ends the session. A session's keys come only from `pc.rioType`,

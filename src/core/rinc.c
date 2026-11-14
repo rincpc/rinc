@@ -1370,6 +1370,22 @@ static int rinc_noCompiler(void) { return -1; }
 #define rio_replIndent(src, len) 0
 #define rio_compile(vm, src, len) rinc_noCompiler()
 #endif
+/* the console's session: its compiler's tables, from the room it gave (a REPL has no slot map, so the
+   tables can take that share: Rio's sizes for 9/8 of the room), with more fields, types and params than
+   Rio's shares: pc alone fills Rio's (129 fields of 130), so a struct typed in had no room */
+static const rio_Limits *rinc_nestLimits(uint32_t size) {
+#ifdef rio_NO_COMPILER
+  (void)size;
+  return 0;
+#else
+  static rio_Limits lim;
+  lim = rio_limitsFor(size / 8 * 9);
+  lim.fields = lim.symbols;
+  lim.types = lim.symbols / 2;
+  lim.params = lim.symbols * 3 / 2;
+  return &lim;
+#endif
+}
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out); /* (pc.rio: below) */
 static void rinc_hostRioStart(rio_Vm *v, rio_Val *a) {
   uint8_t *mem = (uint8_t *)rio_sliceBytes(v, a), *tables = (uint8_t *)rio_sliceBytes(v, a + 2);
@@ -1379,7 +1395,7 @@ static void rinc_hostRioStart(rio_Vm *v, rio_Val *a) {
   if (v == &rinc_nest || !mem || !tables || rio_init(&rinc_nest, mem, a[1].u, 0, 0)) return;
   rio_setLog(&rinc_nest, rinc_nestLogLine, 0);
   rio_setLoader(&rinc_nest, rinc_loader, 0); /* (pc as in an app: its types too) */
-  if (rinc_hostProcs(&rinc_nest) || rio_autoImport(&rinc_nest, "pc") || rio_replBegin(&rinc_nest, tables, a[3].u, 0)) return;
+  if (rinc_hostProcs(&rinc_nest) || rio_autoImport(&rinc_nest, "pc") || rio_replBegin(&rinc_nest, tables, a[3].u, rinc_nestLimits(a[3].u))) return;
   rinc_nestOn = 1; a[0].i = 0;
 }
 static void rinc_hostRioEval(rio_Vm *v, rio_Val *a) {
