@@ -59,7 +59,11 @@ app is a Rio program.
      sounds edited in Music later. The data model, for review: studio/plans/music-patterns.md.
   3. Sprite flags, as PICO-8's (fget, fset), and names for them: a sprite's flags are a few classes it
      belongs to (solid, ladder, hurts), a simple ECS-like tag a game asks of a tile. Set in Paint, kept
-     with the sheet, read by tilemap and games. Thoughts:
+     with the sheet, read by tilemap and games. Built (2026-11-13): a sheet format of Rinc's own (.sheet:
+     a text head, then pixels and flag records as bytes), the `sheet` library, Maps reading it, and Paint's
+     flags (up to 32, named, by each sprite's top left pixel; stranded ones counted, snapped or taken
+     out): studio/plans/sprite-flags.md. Next: tilemap asking a tile's flags, and a game using them.
+     The thoughts before it (kept for the record):
      - Where: in the PNG's notes (the tEXt chunk Paint keeps its sprite size in already: one file, the
        picture still a plain PNG elsewhere), as a line a flag's name and a run of hex, a byte a cell.
        Other editors may drop the notes (they keep the pixels), so Paint says when a sheet it opens has
@@ -96,7 +100,10 @@ app is a Rio program.
      folder, imported as `import .song`, for one app alone (each app an island).
   7. A read-only tilemap for games (load, at, spriteAt, things), importable on its own: Cloudlamp pays
      4,350 of its 4,845 instructions for all of tilemap, editing and writing included (less once 1 is
-     done; still worth it).
+     done; still worth it). Likely not needed now (2026-11-13): Rio drops procs nothing calls (its
+     ROADMAP, Done recently), so Cloudlamp keeps only the tilemap it uses: its code 37.4 KB to 23.1 KB
+     (59 procs dropped), 16.3 KB more free. The same goes for a `game` library (4): an app pays for what
+     it calls. Needs rinc's lib/rio bumped once Rio's commit is in.
   8. Cloudlamp as a walkthrough in the docs ("making a game with studio").
   9. Maps' memory: 36.6 KB free since Rio's smaller code (2026-11-13; was 2 KB), so less pressing; what
      binds now is the compiler's instruction table, 84% full (12,560 of 14,945). Before, the plan was
