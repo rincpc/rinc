@@ -2705,13 +2705,21 @@ static const char *rinc_cmdText(int i, int keys, int most, int *len) {
   return s;
 }
 static int rinc_cmdKeyOf(int i) { return i < rinc_cmdAppCount ? (rinc_cmdApp[i].key < 0 ? 0 : rinc_cmdApp[i].key) : -rinc_sysCommands[i - rinc_cmdAppCount].bit; }
-static int rinc_cmdHas(int i) { /* (what's typed, anywhere in its label, any case) */
-  int n, k, j; const char *s = rinc_cmdText(i, 0, 64, &n);
-  for (j = 0; j + rinc_cmdFilterLen <= n; j++) {
-    for (k = 0; k < rinc_cmdFilterLen && tolower((unsigned char)s[j + k]) == tolower((unsigned char)rinc_cmdFilter[k]); k++) {}
-    if (k == rinc_cmdFilterLen) return 1;
+static int rinc_cmdHas(int i) { /* (each word typed, anywhere in its label, any case: "delete line" finds "Delete the lines") */
+  int n, k, j, w = 0; const char *s = rinc_cmdText(i, 0, 64, &n);
+  while (w < rinc_cmdFilterLen) {
+    int len, found = 0;
+    while (w < rinc_cmdFilterLen && rinc_cmdFilter[w] == ' ') w++;
+    for (len = 0; w + len < rinc_cmdFilterLen && rinc_cmdFilter[w + len] != ' '; len++) {}
+    if (!len) break;
+    for (j = 0; j + len <= n && !found; j++) {
+      for (k = 0; k < len && tolower((unsigned char)s[j + k]) == tolower((unsigned char)rinc_cmdFilter[w + k]); k++) {}
+      found = k == len;
+    }
+    if (!found) return 0;
+    w += len;
   }
-  return 0;
+  return 1;
 }
 static void rinc_cmdNarrow(void) {
   int i;

@@ -46,11 +46,11 @@ app is a Rio program.
   5. Tools for working on the board: an app's log over serial as it runs, without stopping it (a
      screenshot stops it today); a frame-time readout (is a game keeping 60 frames a second?).
      tools/board*.py are the start: put, get, paste an app, play one and take screenshots.
-     Met editing Cloudlamp in the editor over serial (2026-11-14): the command list matches what's typed
-     as one piece ("delete line" finds nothing; "Delete the lines" is there): each word on its own would
-     find it; Ctrl+Shift+K sent as kitty's keys (ESC [107;6u) didn't reach the editor (the list's
-     command did); opening a file again drops its unsaved changes without a word. Fixed then: the list
-     left open over the next app (Ctrl-C over serial), and Print Screen while it's up.
+     Met editing Cloudlamp in the editor over serial (2026-11-14), still open: Ctrl+Shift+K sent as
+     kitty's keys (ESC [107;6u) didn't reach the editor (the list's command did); opening a file again
+     drops its unsaved changes without a word. Fixed then: the list left open over the next app (Ctrl-C
+     over serial), Print Screen while it's up, and its narrowing a word at a time ("delete line" finds
+     "Delete the lines").
   6. Studio: state kept per file, not per app (5 below).
   7. Songs played by the host (9c below).
   8. Drawing speed (10 below): fast paths for scaled and mirrored sprites, less per call; the half and
