@@ -3,19 +3,16 @@
 # yard, and light the lamp.
 #
 # The arrows (or the d-pad) walk; walking into someone talks to them. Its files are its own, beside it:
-# the sheet (cloudlamp.png, Paint's), the map (cloudlamp.map, Maps': two screens, island and yard, each
-# with a things layer of its folk, by name), the sounds (cloudlamp.snd, Sound's: a step, a chirp, a tune
-# and its bass) and the song (cloudlamp.mus, Music's). Made with studio's apps on a Fruit Jam, typed at
-# over its serial port; it needs only rinc (and rinc's library: tilemap, song) to run.
+# the sheet (cloudlamp.png, Paint's: its rock and cloud flagged solid, which walking can't cross), the
+# map (cloudlamp.map, Maps': two screens, island and yard, each with a things layer of its folk, by
+# name), the sounds (cloudlamp.snd, Sound's: a step, a chirp, a tune and its bass) and the song
+# (cloudlamp.mus, Music's). Made with studio's apps on a Fruit Jam, typed at over its serial port; it
+# needs only rinc (and rinc's library: tilemap, song) to run.
 
 import tilemap
 import song
 
-GRASS :: 0            # the sheet's sprites, as Paint drew them
-PATH :: 1
-ROCK :: 2
-CLOUD :: 3
-PLAYER :: 4
+PLAYER :: 4           # the sheet's sprites, as Paint drew them (the rock and cloud flagged solid there)
 SIDE :: 16            # a cell on the screen: 8 pixels, twice
 
 sheetRoom: [2]tilemap.Sheet
@@ -26,6 +23,9 @@ fine := m.load("cloudlamp.map")
 pixels: Blob[..(64 + 1) * 8]
 sheet := pc.imageRead("cloudlamp.png", pixels)
 grounds := [2]Int{m.layerNamed("island"), m.layerNamed("yard")}
+tileFlags: [8]Int     # (each sprite's flags, as Paint set them: the sheet has 8)
+fine = m.readFlags(grounds[0], tileFlags[]) >= 0
+SOLID := pc.imageFlag("cloudlamp.png", "solid")
 folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
 
 # the song and its sounds (Music's file, and Sound's it names, beside it): sounds 0 to 3 a step, a chirp,
@@ -92,8 +92,7 @@ step :: proc(d: [2]Int)
     talk(whom.asString())
     return
   end
-  t := m.at(grounds[screen], to)
-  if t == ROCK or t == CLOUD or t == tilemap.EMPTY
+  if m.flagsAt(grounds[screen], to, tileFlags[]) & SOLID != 0 or m.at(grounds[screen], to) == tilemap.EMPTY
     return
   end
   at = to

@@ -129,6 +129,21 @@ Map.sheetPath* :: proc(layer: Int) -> String
   end
   return self.sheets[s].path.asString()
 end
+# a layer's sheet's sprite flags (as Paint sets them: pc.imageSpriteFlags), into out, a sprite each (out[t]:
+# tile t's): how many sprites have any, or -1 (no sheet, or not a picture)
+Map.readFlags* :: proc(layer: Int, out: []Int) -> Int
+  ts := self.tile(layer)
+  return pc.imageSpriteFlags(self.sheetPath(layer), ts.x, ts.y, out)
+end
+# the flags of the tile at cell p of a tiles layer, from flags (as readFlags filled them): 0 for an empty
+# cell, one past the edges, or a tile past flags' end
+Map.flagsAt* :: proc(layer: Int, p: [2]Int, flags: []Int) -> Int
+  t := self.at(layer, p)
+  if t < 0 or t >= flags.len()
+    return 0
+  end
+  return flags[t]
+end
 # sprite t's top left in a layer's sheet, that sheet width pixels wide
 Map.spriteAt* :: proc(layer: Int, t: Int, width: Int) -> [2]Int
   ts := self.tile(layer)

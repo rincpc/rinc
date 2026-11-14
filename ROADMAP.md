@@ -64,11 +64,12 @@ app is a Rio program.
      notes, read by host calls (pc.imageFlags, imageSpriteFlags, imageFlag: docs/spec/apps.md#sprite-flags),
      so a game needs no library (8 KB more free than the sheet library left); Paint's flags by each
      sprite's top left pixel (stranded ones counted, snapped or taken out): studio/plans/sprite-flags.md.
-     More than 8, if it matters later: a wider record. Next: tilemap asking a tile's flags, and a game
-     using them.
+     More than 8, if it matters later: a wider record. Then (2026-11-14): tilemap's readFlags and flagsAt
+     (a cell's tile's flags), and Cloudlamp's walls from its sheet's "solid" (tests/cloudlampwalk.py).
      Later (the user, 2026-11-14): a command in studio's apps that shows Rio source to copy into a game,
      several lines (Paint's: an enum of its flags' names, with the calls that read them; Maps', Music's
-     likewise).
+     likewise). It needs a clipboard shared by apps first (the user, 2026-11-14): text at
+     least, so what one app copies another (the editor) pastes; pc has none yet, each app's is its own.
      The thoughts before it (kept for the record):
      - Where: in the PNG's notes (the tEXt chunk Paint keeps its sprite size in already: one file, the
        picture still a plain PNG elsewhere), as a line a flag's name and a run of hex, a byte a cell.
