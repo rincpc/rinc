@@ -594,6 +594,11 @@ carries all of its folder. The system apps are made this way, each a main file a
 Built into every Rinc (and installed in `/rinc/lib` with the system apps, where a newer one can go):
 
 - `tilemap`: tile maps, read, written and drawn, as studio's Maps makes them ([maps](maps.md)).
+- `sheet`: sprite sheets as studio's Paint makes them (`.sheet`: a head of text, then its pixels and
+  its sprites' flags as bytes), and PNGs' pixels: read into the app's room (a `Blob` for its pixels, an
+  `Int` a sprite for its flags), written back. Flags (up to 32, named) go with each sprite's top left
+  pixel, whatever its size; a game asks one's bit by name once (`tiles.flag("solid")`) and tests
+  `tiles.flagsOf(n)` after. Paint shows the room a sheet needs.
 - `song`: songs as studio's Music makes them, and their sounds (Sound's file): read a line at a time,
   and played on up to 8 voices (from its `voice`). A song has patterns, each sounds placed in time (at
   a step, on a channel, at a pitch shift, a volume and a speed), and uses them in turn, each use with

@@ -23,7 +23,9 @@ NAME* :: 16               # a flag's name, at most
 MAX_W* :: 4096            # a sheet's width, at most
 
 Sheet* :: struct
-  pixels: Blob[..]        # the app's: its pixels, a byte each, row by row (load clears it, then fills it)
+  pixels: Blob[..]        # the app's: its pixels, a byte each, row by row (load clears it, then fills it;
+                          # loadAdding adds them after what's there, from start)
+  start: Int
   flags: []Int            # the app's: each sprite's flags, by number (as many as it has room for)
   marks: []Int            # the app's, if it wants the file's flag lines as they are (Paint): 3 each, x, y, flags
   size: [2]Int            # its pixels across and down
@@ -138,6 +140,22 @@ Sheet.setSprite :: proc(w: Int, h: Int)
   self.across = max(1, self.size.x / self.sprite.x)
   self.sprites = self.across * max(1, self.size.y / self.sprite.y)
 end
+# no flags, nor names for them (a new sheet's)
+Sheet.clearFlags* :: proc()
+  self.marked = 0
+  self.stranded = 0
+  for k in 0..<self.flags.len()
+    self.flags[k] = 0
+  end
+  for k in 0..<FLAGS
+    self.nameLen[k] = 0
+  end
+end
+# its size and its sprites' (a sheet made, not read: Paint's)
+Sheet.shape* :: proc(size: [2]Int, sprite: [2]Int)
+  self.size = size
+  self.setSprite(sprite.x, sprite.y)
+end
 # sprite n's top left pixel
 Sheet.spriteAt* :: proc(n: Int) -> [2]Int do return {n % self.across * self.sprite.x, n / self.across * self.sprite.y}
 # the sprite whose top left is at p, or -1 (none starts there)
@@ -169,7 +187,7 @@ end
 # its pixels, from byte at of file p: straight into the app's room (and what came past them taken back),
 # then its flag records, a chunk at a time
 Sheet.readRest :: proc(p: String, at: Int, records: Int) -> Bool
-  want := self.size.x * self.size.y
+  want := self.start + self.size.x * self.size.y
   _ = pc.fileReadAt(p, at, self.pixels)
   for self.pixels.len() > want
     _ = self.pixels.pop()
@@ -195,8 +213,9 @@ Sheet.readRest :: proc(p: String, at: Int, records: Int) -> Bool
   return true
 end
 # a sheet file (.sheet), or a PNG (no flags: its sprites 8 by 8): false if it can't be, and the log says why
-Sheet.load* :: proc(p: String) -> Bool
-  self.pixels.clear()
+# the same, its pixels added after those already in pixels (several sheets in one room, as Maps keeps them)
+Sheet.loadAdding* :: proc(p: String) -> Bool
+  self.start = self.pixels.len()
   self.marked = 0
   self.stranded = 0
   for k in 0..<self.flags.len()
@@ -236,9 +255,9 @@ Sheet.load* :: proc(p: String) -> Bool
         return self.fails(p, "its size isn't one it can be")
       end
       self.size = {nums[0], nums[1]}
-      if nums[0] * nums[1] > self.pixels.cap()
+      if nums[0] * nums[1] > self.pixels.cap() - self.start
         said: Blob[..80]
-        _ = said.print("it needs pixels Blob[..", nums[0] * nums[1], "] (has ", self.pixels.cap(), ")")
+        _ = said.print("it needs pixels Blob[..", nums[0] * nums[1], "] (has ", self.pixels.cap() - self.start, ")")
         return self.fails(p, said.asString())
       end
       self.setSprite(self.sprite.x, self.sprite.y)
@@ -276,10 +295,16 @@ Sheet.load* :: proc(p: String) -> Bool
   return self.fails(p, "no pixels in it")
 end
 
+# (load: its pixels the only ones in pixels)
+Sheet.load* :: proc(p: String) -> Bool
+  self.pixels.clear()
+  return self.loadAdding(p)
+end
+
 # ---------------------------------------------------------------- using it
 
 # its pixels, for pc.blit
-Sheet.image* :: proc() -> pc.Image do return pc.Image{pixels = self.pixels[0..<self.pixels.len()], size = self.size}
+Sheet.image* :: proc() -> pc.Image do return pc.Image{pixels = self.pixels[self.start..<self.start + self.size.x * self.size.y], size = self.size}
 # flag k's name ("" for none)
 Sheet.flagName* :: proc(k: Int) -> String
   if k < 0 or k >= FLAGS
@@ -350,7 +375,7 @@ Sheet.write* :: proc(p: String) -> Bool
   if not ok or pc.fileWrite(p, written.asString()) != 0 # (anew; then its pixels, then its records)
     return false
   end
-  ok = pc.fileWriteAt(p, -1, self.pixels[0..<min(self.pixels.len(), self.size.x * self.size.y)].asString()) >= 0
+  ok = pc.fileWriteAt(p, -1, self.pixels[self.start..<min(self.pixels.len(), self.start + self.size.x * self.size.y)].asString()) >= 0
   written.clear()
   if fromMarks
     for i in 0..<self.marked
