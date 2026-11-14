@@ -122,10 +122,48 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
   if (y1 > rinc_appH) y1 = rinc_appH;
   for (y = y0; y < y1 && x0 < x1; y++) memset(&rinc_screen[y][x0], (uint8_t)a[4].i, (size_t)(x1 - x0));
 }
-static void rinc_hostPrint(rio_Vm *v, rio_Val *a) { /* print(s, x, y, c): text at pixel x, y */
-  const char *s = (const char *)rio_sliceBytes(v, a); int i, x = a[2].i, y = a[3].i;
-  if (!s) return;
-  for (i = 0; i < a[1].i; i++, x += 6) rinc_char((unsigned char)s[i], x, y, a[4].i & 255, -1);
+/* print(s, pos, c, how?) and textSize(s, how?): text laid out (rinc_textLay), 6 pixels a character and
+   how.line a line (0: the font's, 9), a newline starting one, and with how.width (pc.Text) lines broken to fit it: at the last
+   space that fits (the space itself not drawn), or, for a word longer than a line, where it must. Drawn
+   (draw: at x, y in color c), or just measured: its widest line's width (a character 5 wide, the last
+   one's gap not counted) and its height, into size */
+#define rinc_CHAR_W 6
+#define rinc_LINE_H 9
+static void rinc_textLay(const char *s, int n, int width, int lineH, int draw, int x, int y, int c, int size[2]) {
+  int lh = lineH > 0 ? lineH : rinc_LINE_H, cols = width >= rinc_CHAR_W ? width / rinc_CHAR_W : 0, i = 0, line = 0, widest = 0;
+  while (i < n) {
+    int end = i, k, take; /* (this line: i to take, then on from k) */
+    while (end < n && s[end] != '\n' && (!cols || end - i < cols)) end++;
+    take = end; k = end;
+    if (cols && end < n && s[end] != '\n' && end - i == cols) { /* (full: back to the last space, if there's one) */
+      int sp = end;
+      if (s[end] == ' ') { take = end; k = end + 1; } /* (a space just past it: the line ends there) */
+      else {
+        while (sp > i && s[sp - 1] != ' ') sp--;
+        if (sp > i) { take = sp - 1; k = sp; } /* (the word on the next line) */
+      }
+    } else if (end < n && s[end] == '\n') k = end + 1;
+    if (draw) { int j; for (j = i; j < take; j++) rinc_char((unsigned char)s[j], x + (j - i) * rinc_CHAR_W, y + line * lh, c, -1); }
+    if (take - i > widest) widest = take - i;
+    line++;
+    i = k;
+    if (i == n && n > 0 && s[n - 1] == '\n') line++; /* (a newline at the end: an empty line after it) */
+  }
+  size[0] = widest ? widest * rinc_CHAR_W - 1 : 0;
+  size[1] = line ? (line - 1) * lh + 8 : 0;
+}
+static void rinc_hostPrint(rio_Vm *v, rio_Val *a) {
+  const char *s = (const char *)rio_sliceBytes(v, a); pc_Text how; int size[2];
+  memset(&how, 0, sizeof how);
+  rio_getStruct(v, a + 5, &how, sizeof how);
+  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, 1, a[2].i, a[3].i, a[4].i & 255, size);
+}
+static void rinc_hostTextSize(rio_Vm *v, rio_Val *a) {
+  const char *s = (const char *)rio_sliceBytes(v, a); pc_Text how; int size[2] = {0, 0};
+  memset(&how, 0, sizeof how);
+  rio_getStruct(v, a + 2, &how, sizeof how);
+  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, 0, 0, 0, 0, size);
+  a[0].i = size[0]; a[1].i = size[1];
 }
 /* key() -> Int: the next key typed, or -1 when there's none waiting (docs/spec/input.md#typed-text):
    printable ASCII, 13 Enter, 8 Backspace, 9 Tab, 27 Esc, Ctrl+letter as 1-26, and editing keys as
@@ -2330,7 +2368,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 }
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.appsFor", pc_appsFor_SIG, rinc_hostAppsFor) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
-         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
+         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.textSize", pc_textSize_SIG, rinc_hostTextSize) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.keyHeld", pc_keyHeld_SIG, rinc_hostKeyHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
@@ -2376,8 +2414,10 @@ void rinc_appLeave(rio_Vm *vm) {
   rinc_forgetting = 0;
   if (fn >= 0) (void)rio_call(vm, fn); /* (what goes wrong there, it's too late to show: the next app starts) */
 }
+static void rinc_cmdReset(void); /* (below: the command list closed, for an app starting) */
 int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void (*put)(const char *s, int n)) {
   rinc_appLeave(vm);
+  rinc_cmdReset(); /* (a list left open, say by Ctrl-C over serial opening the console: not over the next app) */
   rinc_game = 0;
   rinc_showLog = 1;
   rinc_put = put;
@@ -2685,6 +2725,7 @@ static void rinc_cmdClose(void) {
   rinc_cmdOn = 0; rinc_cmdSettle = 1;
   if (rinc_cmdZoom) { rinc_zoomIn(rinc_cmdZoom); rinc_setZoom(rinc_cmdZoom); rinc_cmdZoom = 0; }
 }
+static void rinc_cmdReset(void) { rinc_cmdOn = 0; rinc_cmdZoom = 0; rinc_cmdWanted = 0; }
 static int rinc_cmdOpen(rio_Vm *vm) { /* (the app's, asked now: -1 if that stopped with an error) */
   int fn = rio_findProc(vm, "commandList");
   rinc_cmdAppCount = 0; rinc_cmdVm = vm;
@@ -2806,7 +2847,7 @@ int rinc_frame(rio_Vm *vm) {
   if (u < 0 && d < 0) return 1;
   if (vm != &rinc_nest) { /* (the command list: while it's up, the app waits) */
     if (rinc_cmdWanted) { rinc_cmdWanted = 0; if (rinc_cmdOpen(vm)) return -1; }
-    if (rinc_cmdOn) { rinc_cmdFrame(); return 0; }
+    if (rinc_cmdOn) { rinc_cmdFrame(); if (rinc_shotWanted) rinc_shot(); return 0; } /* (Print Screen: the list too) */
     if (rinc_cmdSettle && !rinc_buttons && !rinc_pointerHeld) rinc_cmdSettle = 0;
   }
   if (u >= 0 && rio_call(vm, u)) return -1;

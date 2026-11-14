@@ -21,6 +21,13 @@ typedef char pc_Blit_size[sizeof(pc_Blit) == 24 ? 1 : -1]; /* (Rio's size) */
 #define pc_Blit_LAYOUT "{from:[2]Int,size:[2]Int,scale:[2]Int}"
 
 typedef struct {
+  int32_t width;
+  int32_t line;
+} pc_Text;
+typedef char pc_Text_size[sizeof(pc_Text) == 8 ? 1 : -1]; /* (Rio's size) */
+#define pc_Text_LAYOUT "{width:Int,line:Int}"
+
+typedef struct {
   int32_t bits;
   int32_t channels;
   float rate;
@@ -53,7 +60,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_rect_SIG "iiiii"
 #define pc_rgb_SIG "i>i"
 #define pc_blit_SIG pc_Image_LAYOUT "ii" pc_Blit_LAYOUT
-#define pc_print_SIG "siii"
+#define pc_print_SIG "siii" pc_Text_LAYOUT
+#define pc_textSize_SIG "s" pc_Text_LAYOUT ">ii"
 #define pc_btn_SIG "Enum{left,right,up,down,a,b,x,y,lb,rb,ls,rs,start,back}>i"
 #define pc_btnp_SIG "Enum{left,right,up,down,a,b,x,y,lb,rb,ls,rs,start,back}>i"
 #define pc_key_SIG ">i"
@@ -160,6 +168,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rgb, pc_rgb_SIG) \
   X(blit, pc_blit_SIG) \
   X(print, pc_print_SIG) \
+  X(textSize, pc_textSize_SIG) \
   X(btn, pc_btn_SIG) \
   X(btnp, pc_btnp_SIG) \
   X(key, pc_key_SIG) \
@@ -256,7 +265,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x944b67feu /* (rio_hashText of the source) */
+#define pc_HASH 0xdbeb995eu /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -311,7 +320,14 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "end\n" \
   "# a picture, or part of it, as b says, its top left at at; color 0 is see-through: blit(image, {10, 20})\n" \
   "blit* :: host proc(image: Image, at: [2]Int, b?: Blit)\n" \
-  "print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in the 5x8 font, 6 pixels a character\n" \
+  "# how print lays text out: its width, in pixels (0: no wrapping; past it, a line breaks at a space, and a\n" \
+  "# word longer than a line where it must); line, pixels from a line to the next (0: the font's: 9)\n" \
+  "Text* :: struct\n" \
+  "  width: Int\n" \
+  "  line: Int\n" \
+  "end\n" \
+  "print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in the 5x8 font, 6 pixels a character; a newline starts a line\n" \
+  "textSize* :: host proc(s: String, how?: Text) -> [2]Int # how big print draws it: its widest line's width, and its lines' height\n" \
   "\n" \
   "# ---------------------------------------------------------------- input\n" \
   "\n" \

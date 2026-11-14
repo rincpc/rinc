@@ -80,6 +80,22 @@ character moves 6 pixels to the right. The glyphs are the table in
 [`src/core/font.c`](https://github.com/rincpc/rinc/blob/main/src/core/font.c): 8 rows of 5 bits for each
 character, bit 0 the leftmost pixel.
 
+A newline starts the next line, 9 pixels down. `pc.print(s, pos, c, how)` lays the text out as `how`, a
+`pc.Text`, says: `width`, in pixels, wraps it, a line breaking at the last space that fits (the space
+not drawn) and a word longer than a line breaking where it must; `line` is the pixels from a line to
+the next (0: the font's, 9). `pc.textSize(s, how?)` is how big `print` draws it: its widest line's width
+and its lines' height, for a box around it or text placed by its size.
+
+```rio
+log(pc.textSize("Kree! Clouds below, stars above.", {width = 96}))
+log(pc.textSize("a\nbc"))
+```
+
+```output
+[71, 26]
+[11, 17]
+```
+
 ## The palette
 
 The palette is 16 bands of 16 colors, a band to each row of 16 (as the Colors app shows them). Colors 0

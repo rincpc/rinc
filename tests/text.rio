@@ -1,0 +1,37 @@
+# pc.print's layout (pc.Text): lines broken at spaces to fit a width, a word longer than a line broken
+# where it must, newlines, the line spacing; pc.textSize measures what print draws (a character 6 wide, 5
+# of it drawn; a line 9, 8 of it drawn). Run with -frames 1: it logs "text: all ok"
+fails := 0
+check :: proc(ok: Bool, what: String)
+  if not ok
+    log("FAIL", what)
+    fails += 1
+  end
+end
+size :: proc(s: String, how: pc.Text) -> [2]Int do return pc.textSize(s, how)
+check(pc.textSize("") == {0, 0}, "nothing: no size")
+check(pc.textSize("hello") == {29, 8}, "a line")
+check(pc.textSize("a\nbc") == {11, 17}, "a newline: two lines")
+check(pc.textSize("a\n") == {5, 17}, "a newline at the end: an empty line after it")
+check(size("hello there world", {width = 66}) == {65, 17}, "a line just fitting its 11 letters, the rest on the next")
+check(size("hello there world", {width = 60}) == {29, 26}, "each word on a line of its own")
+check(size("abcdefghijklmnop", {width = 30}) == {29, 35}, "a word longer than a line: broken where it must")
+check(size("ab cdefghijkl", {width = 30}) == {29, 26}, "a short word, then a long one broken")
+check(size("a\nb", {line = 12}) == {5, 20}, "lines 12 apart")
+check(size("hello", {width = 3}) == {29, 8}, "a width under a letter's: no wrapping")
+# drawn: what print wraps, where textSize says
+pc.cls(0)
+pc.print("aaaa bbbb", {0, 0}, 7, {width = 30})
+inked :: proc(x0, y0, w, h: Int) -> Int
+  n := 0
+  for y in y0..<y0 + h
+    for x in x0..<x0 + w
+      if pc.pget({x, y}) != 0 do n += 1
+    end
+  end
+  return n
+end
+check(inked(0, 0, 24, 8) > 0 and inked(0, 9, 24, 8) > 0, "drawn on two lines")
+check(inked(24, 0, 40, 18) == 0, "nothing past the width")
+check(inked(0, 8, 24, 1) == 0, "the gap between the lines")
+if fails == 0 do log("text: all ok")

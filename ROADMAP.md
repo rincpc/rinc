@@ -29,8 +29,14 @@ app is a Rio program.
 
 - Priorities (2026-11-14), in order (open now; the 2026-11-13 list below has the history, its numbers
   as they were):
-  1. A print that wraps: `pc.print` with a width (or `pc.printWrapped`), lines broken at spaces, and
-     how many lines it took; Cloudlamp wraps by hand at the half screen's 26 letters.
+  1. A print that wraps (begun 2026-11-14): `pc.print(s, pos, c, how?)` with a `pc.Text` (its width:
+     lines broken at spaces, 9 pixels apart for now) and `pc.textSize`; Cloudlamp's hand wrapping
+     goes. Then fonts (the user, 2026-11-14), in steps: font sheets (a grid of any cell size; a glyph's
+     width found by trimming its empty columns, a gap after each, the space's width in the notes; one
+     color, given when drawn, unless the notes say colors), pc.fontRead and `font` in pc.Text, lines
+     spaced by the font's size; Paint's font mode (each cell's character shown, a preview line typed in
+     it), and a quick zoom in and out key in Paint; later, more than one color remapped (multicolor
+     fonts), and sprites handled as flexibly.
   2. Tilemap's last rough edges from Cloudlamp: a thing's name a plain String (no `.asString()`); a
      map's sheets and layers its own, once Rio can keep a view of a struct's own array (Rio's ROADMAP:
      a static lifetime marker), so a game gives just its room; a song's two buffers one.
@@ -40,6 +46,11 @@ app is a Rio program.
   5. Tools for working on the board: an app's log over serial as it runs, without stopping it (a
      screenshot stops it today); a frame-time readout (is a game keeping 60 frames a second?).
      tools/board*.py are the start: put, get, paste an app, play one and take screenshots.
+     Met editing Cloudlamp in the editor over serial (2026-11-14): the command list matches what's typed
+     as one piece ("delete line" finds nothing; "Delete the lines" is there): each word on its own would
+     find it; Ctrl+Shift+K sent as kitty's keys (ESC [107;6u) didn't reach the editor (the list's
+     command did); opening a file again drops its unsaved changes without a word. Fixed then: the list
+     left open over the next app (Ctrl-C over serial), and Print Screen while it's up.
   6. Studio: state kept per file, not per app (5 below).
   7. Songs played by the host (9c below).
   8. Drawing speed (10 below): fast paths for scaled and mirrored sprites, less per call; the half and

@@ -9,6 +9,7 @@ checking a change on the board, not just on the desktop:
   tap B            button B pressed and let go (left right up down a b x y): kitty's key down, then up
   hold B S         button B held S seconds
   type TEXT        TEXT typed as keys (\n Enter)
+  as NAME          the app on the screen is NAME now (one another app started: its shots are named for it)
   shot FILE        Print Screen (the board saves /rinc/shots/<app>-<n>.png), then it fetched (the firmware
                    console's get: the app is left) and written to FILE, 4 times as big, to look at
 Before the first con:, /rinc/shots is emptied (through the console), so shots number from 1. For example:
@@ -71,10 +72,11 @@ while i < len(steps):
   if st.startswith('con:'):
     line = st[4:]
     if not cleared: console('pc.fileDelete("/rinc/shots")'); cleared = True
-    m = re.match(r'run (\S+)', line)
+    m = re.match(r'run (\S+)', line) or re.search(r'pc\.call\("([^"]+)"', line) # (the app its shots are named for)
     if m: app = m.group(1)
     print(re.sub(r'\x1b\[[0-9;?]*[A-Za-z]', '', console(line).decode('utf-8', 'replace')).strip()[-300:])
   elif st == 'wait': read(float(steps[i + 1])); i += 1
+  elif st == 'as': app = steps[i + 1]; i += 1 # (the app on the screen now, its shots' name: one an app started)
   elif st == 'tap': button(steps[i + 1], True); read(0.12); button(steps[i + 1], False); read(0.12); i += 1
   elif st == 'hold': button(steps[i + 1], True); read(float(steps[i + 2])); button(steps[i + 1], False); read(0.1); i += 2
   elif st == 'type':

@@ -88,16 +88,6 @@ update* :: proc()
   saidFor = max(saidFor - 1, 0)
 end
 
-# what's said, at the bottom: a line of up to 26 letters (the half screen's), a second for the rest
-words :: proc(s: String, y: Int)
-  cut := s.len()
-  if cut > 26
-    cut = 26
-    for cut > 0 and s[cut] != ' ' do cut -= 1
-    pc.print(s[cut + 1..<s.len()], {2, y + 10}, 7)
-  end
-  pc.print(s[0..<cut], {2, y}, 7)
-end
 draw* :: proc()
   camera := m.layers[grounds[screen]].at # (the screen's own place on the map)
   pc.cls(1)
@@ -109,6 +99,6 @@ draw* :: proc()
   m.sprite(grounds[screen], PLAYER, at * 8)
   if saidFor > 0
     pc.rect({0, 98}, {160, 22}, 0)
-    words(said.asString(), 100)
+    pc.print(said.asString(), {2, 100}, 7, {width = 156})
   end
 end
