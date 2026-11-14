@@ -2,23 +2,23 @@
 
 ## Buttons
 
-`pc.btn(i)` is 1 while button `i` is held, else 0. The arrow keys and the first four face buttons work
+`pc.btn(b)` is 1 while button `b` (`.left`, `.a` and the like: a `pc.Button`) is held, else 0; `pc.btnp(b)` is 1 as it's pressed, and again while it's held, as PICO-8's. The arrow keys and the first four face buttons work
 everywhere, on the keyboard or on a controller's d-pad and buttons:
 
-| `i` | button | key |
+| `b` | button | key |
 |---|---|---|
-| 0 1 2 3 | left, right, up, down | the arrows |
-| 4 | A | V |
-| 5 | B | C |
-| 6 | X | X |
-| 7 | Y | Z |
-| 8 to 13 | a controller's LB, RB, left stick pressed, right stick pressed, Start, Back | |
+| `.left` `.right` `.up` `.down` | the arrows | the arrows |
+| `.a` | A | V |
+| `.b` | B | C |
+| `.x` | X | X |
+| `.y` | Y | Z |
+| `.lb` `.rb` `.ls` `.rs` `.start` `.back` | a controller's LB, RB, left stick pressed, right stick pressed, Start, Back | |
 
 ```rio
 x := 160
 update* :: proc()
-  x += pc.btn(1) - pc.btn(0)     # right minus left
-  if pc.btn(4) == 1
+  x += pc.btn(.right) - pc.btn(.left)     # right minus left
+  if pc.btn(.a) == 1
     log("A")
   end
 end

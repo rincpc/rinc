@@ -41,7 +41,7 @@ end
 reset()
 
 pressed :: proc() -> Bool
-  return pc.btn(4) == 1 or pc.btn(5) == 1
+  return pc.btn(.a) == 1 or pc.btn(.b) == 1
 end
 
 update* :: proc()
@@ -51,10 +51,10 @@ update* :: proc()
     end
     return
   end
-  if pc.btn(0) == 1
+  if pc.btn(.left) == 1
     padx -= 4.0
   end
-  if pc.btn(1) == 1
+  if pc.btn(.right) == 1
     padx += 4.0
   end
   padx = max(0.0, min(padx, 320.0 - PADW.toFloat()))

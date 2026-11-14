@@ -72,6 +72,7 @@ Song* :: struct
   hasSounds: Bool
   soundsPath: Blob[..96]  # its file of sounds (kept, though it isn't there)
   playing: Bool
+  looping: Bool           # (loop: from its start again, at its end)
   playUse: Int            # the use playing, and which time round (from 0)
   playRep: Int
   playAlone: Bool         # (just the one)
@@ -361,6 +362,7 @@ Song.stop* :: proc()
     end
   end
   self.playing = false
+  self.looping = false
 end
 
 # ---------------------------------------------------------------- reading
@@ -856,6 +858,14 @@ Song.play* :: proc(from: Int, alone: Bool) -> Bool
   self.startUse(from, 0)
   return true
 end
+# the song, round and round: from its start again when it ends (until stop, or a use that stops it)
+Song.loop* :: proc() -> Bool
+  if not self.play(0, false)
+    return false
+  end
+  self.looping = true
+  return true
+end
 # each frame: on to the next use when one's done (back to its loop's start, after one that ends it;
 # stopped after the last, or one that stops it)
 Song.tick* :: proc()
@@ -866,6 +876,10 @@ Song.tick* :: proc()
   f := self.useFlags(u)
   if self.playRep + 1 < self.useTimes(u) # (round again: its times, before its marks)
     self.startUse(u, self.playRep + 1)
+    return
+  end
+  if self.looping and not self.playAlone and f & STOPS == 0 and f & LOOP_ENDS == 0 and u + 1 >= self.uses
+    self.startUse(0, 0) # (its end: from its start again)
     return
   end
   if self.playAlone or f & STOPS != 0 or (f & LOOP_ENDS == 0 and u + 1 >= self.uses)

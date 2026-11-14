@@ -45,7 +45,7 @@ static int rinc_savePpm(const char *path) { /* the screen through the palette, a
   fprintf(f, "P6 %d %d 255\n", rinc_W, rinc_H);
   for (y = 0; y < rinc_H; y++)
     for (x = 0; x < rinc_W; x++) {
-      uint16_t c = rinc_palette[rinc_sleeping ? 0 : rinc_screen[y][x]]; /* (asleep: black, as it's shown) */
+      uint16_t c = rinc_palette[rinc_sleeping ? 0 : rinc_appAt(x, y)]; /* (asleep: black, as it's shown) */
       unsigned char rgb[3];
       rgb[0] = (unsigned char)((c >> 11) * 255 / 31); rgb[1] = (unsigned char)((c >> 5 & 63) * 255 / 63); rgb[2] = (unsigned char)((c & 31) * 255 / 31);
       fwrite(rgb, 1, 3, f);

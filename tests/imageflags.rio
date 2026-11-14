@@ -29,11 +29,13 @@ few: [6]Int
 check(pc.imageFlags(PATH, few[]) == 4, "with room for two: still says four")
 check(few[3] == 8 and few[5] == 0x81, "the two that fit")
 
-bySprite: [8]Int
-for i in 0..<8 do bySprite[i] = 99
-check(pc.imageSpriteFlags(PATH, 8, 8, bySprite[]) == 4, "by sprite: says four")
-check(bySprite[0] == 1 and bySprite[1] == 0x81 and bySprite[7] == 4, "sprites 0, 1 and 7")
-check(bySprite[2] == 0 and bySprite[4] == 0, "the rest zeroed")
+bySprite: Blob[..9]
+_ = bySprite.push(99) # (added after what's there)
+check(pc.imageSpriteFlags(PATH, 8, 8, bySprite) == 4 and bySprite.len() == 9, "by sprite: says four, a byte for each of 8")
+check(bySprite[0] == 99 and bySprite[1] == 1 and bySprite[2] == 0x81 and bySprite[8] == 4, "sprites 0, 1 and 7")
+check(bySprite[3] == 0 and bySprite[5] == 0, "the rest 0")
+small: Blob[..7]
+check(pc.imageSpriteFlags(PATH, 8, 8, small) == -1 and small.len() == 0, "no room for a byte a sprite: -1, none added")
 
 check(pc.imageFlag(PATH, "solid") == 1, "solid's bit")
 check(pc.imageFlag(PATH, "water") == 0x80, "water's bit")
@@ -43,8 +45,8 @@ check(pc.imageFlag(PATH, "sol") == 0, "not a name's start")
 
 odd := [2 * 3]Int{9, 0, 3, 18, 9, 5}
 check(pc.imageWrite("/rinc/save/odd.png", pc.Image{pixels = pixels[], size = {27, 18}}, {flags = odd[]}) == 0, "9x9 written")
-nine: [6]Int
-check(pc.imageSpriteFlags("/rinc/save/odd.png", 9, 9, nine[]) == 2, "9x9: two")
+nine: Blob[..6]
+check(pc.imageSpriteFlags("/rinc/save/odd.png", 9, 9, nine) == 2, "9x9: two")
 check(nine[1] == 3 and nine[5] == 5, "9x9: sprites 1 and 5")
 
 check(pc.imageWrite("/rinc/save/plain.png", image) == 0, "a plain one")
@@ -55,5 +57,5 @@ read := pc.imageRead(PATH, back)
 check(read.size.x == 32 and read.size.y == 16 and back[] == pixels[], "its pixels as they were")
 
 check(pc.imageFlags("/rinc/save/none.png", out[]) == -1, "no picture: -1")
-check(pc.imageSpriteFlags("/rinc/save/none.png", 8, 8, bySprite[]) == -1, "no picture, by sprite: -1")
+check(pc.imageSpriteFlags("/rinc/save/none.png", 8, 8, bySprite) == -1, "no picture, by sprite: -1")
 if fails == 0 do log("image flags: all ok")

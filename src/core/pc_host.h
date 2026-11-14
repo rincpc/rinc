@@ -46,13 +46,16 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_ImageWrite_LAYOUT "{notes:String,format:Enum{fromName,png},flags:[]Int}"
 
 #define pc_cls_SIG "i"
+#define pc_screen_SIG "Enum{full,half,quarter}"
+#define pc_screenSize_SIG ">ii"
 #define pc_pset_SIG "iii"
 #define pc_pget_SIG "ii>i"
 #define pc_rect_SIG "iiiii"
 #define pc_rgb_SIG "i>i"
 #define pc_blit_SIG pc_Image_LAYOUT "ii" pc_Blit_LAYOUT
 #define pc_print_SIG "siii"
-#define pc_btn_SIG "i>i"
+#define pc_btn_SIG "Enum{left,right,up,down,a,b,x,y,lb,rb,ls,rs,start,back}>i"
+#define pc_btnp_SIG "Enum{left,right,up,down,a,b,x,y,lb,rb,ls,rs,start,back}>i"
 #define pc_key_SIG ">i"
 #define pc_modsHeld_SIG ">i"
 #define pc_keyHeld_SIG "i>i"
@@ -118,7 +121,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_imageWrite_SIG "s" pc_Image_LAYOUT pc_ImageWrite_LAYOUT ">i"
 #define pc_imageNotes_SIG "sB>i"
 #define pc_imageFlags_SIG "s[i]>i"
-#define pc_imageSpriteFlags_SIG "sii[i]>i"
+#define pc_imageSpriteFlags_SIG "siiB>i"
 #define pc_imageFlag_SIG "ss>i"
 #define pc_helps_SIG "B>i"
 #define pc_helpRead_SIG "sB>i"
@@ -149,6 +152,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 
 #define pc_HOST_PROCS(X) \
   X(cls, pc_cls_SIG) \
+  X(screen, pc_screen_SIG) \
+  X(screenSize, pc_screenSize_SIG) \
   X(pset, pc_pset_SIG) \
   X(pget, pc_pget_SIG) \
   X(rect, pc_rect_SIG) \
@@ -156,6 +161,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(blit, pc_blit_SIG) \
   X(print, pc_print_SIG) \
   X(btn, pc_btn_SIG) \
+  X(btnp, pc_btnp_SIG) \
   X(key, pc_key_SIG) \
   X(modsHeld, pc_modsHeld_SIG) \
   X(keyHeld, pc_keyHeld_SIG) \
@@ -250,7 +256,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x9a8bfef2u /* (rio_hashText of the source) */
+#define pc_HASH 0x944b67feu /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -260,6 +266,15 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "# ---------------------------------------------------------------- the screen: 320x240, palette indexes\n" \
   "\n" \
   "cls* :: host proc(c: Int)                           # fill the screen with color c\n" \
+  "# the screen's size, for this app: full (320x240), half (160x120) or quarter (80x60), each pixel shown 2 or\n" \
+  "# 4 times as big (text too, and the pointer's place in these pixels); every app starts full\n" \
+  "Screen* :: enum\n" \
+  "  full\n" \
+  "  half\n" \
+  "  quarter\n" \
+  "end\n" \
+  "screen* :: host proc(size: Screen)\n" \
+  "screenSize* :: host proc() -> [2]Int                # the screen's size now, in its pixels\n" \
   "pset* :: host proc(pos: [2]Int, c: Int)             # one pixel\n" \
   "pget* :: host proc(pos: [2]Int) -> Int\n" \
   "rect* :: host proc(pos, size: [2]Int, c: Int)       # a filled rectangle: its top left, and its size\n" \
@@ -300,10 +315,48 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "\n" \
   "# ---------------------------------------------------------------- input\n" \
   "\n" \
-  "# 1 while button i is held: 0 left, 1 right, 2 up, 3 down (arrows), then the face buttons, as on an Xbox\n" \
-  "# controller: 4 A (V key), 5 B (C), 6 X (X), 7 Y (Z); then a controller's 8 LB, 9 RB, 10 and 11 the\n" \
-  "# sticks pressed in, 12 Start, 13 Back\n" \
-  "btn* :: host proc(i: Int) -> Int\n" \
+  "# the buttons: the arrows, then the face buttons, as on an Xbox controller: A (V key), B (C), X (X), Y (Z);\n" \
+  "# then a controller's LB and RB, the sticks pressed in, Start and Back\n" \
+  "Button* :: enum\n" \
+  "  left\n" \
+  "  right\n" \
+  "  up\n" \
+  "  down\n" \
+  "  a\n" \
+  "  b\n" \
+  "  x\n" \
+  "  y\n" \
+  "  lb\n" \
+  "  rb\n" \
+  "  ls\n" \
+  "  rs\n" \
+  "  start\n" \
+  "  back\n" \
+  "end\n" \
+  "btn* :: host proc(b: Button) -> Int  # 1 while it's held\n" \
+  "btnp* :: host proc(b: Button) -> Int # 1 when it's pressed, and again while it's held (after 15 frames, each 4th), as PICO-8's\n" \
+  "dpad* :: proc() -> [2]Int do return {btn(.right) - btn(.left), btn(.down) - btn(.up)} # the arrows held: -1, 0 or 1 each way\n" \
+  "# the button an arrow key from key() is (128 to 131: left, right, up, down), for telling a key typed from\n" \
+  "# one held (pc.btn(pc.keyButton(k)) == 0: typed, as over serial, not held); another key: .back\n" \
+  "keyButton* :: proc(k: Int) -> Button\n" \
+  "  switch k\n" \
+  "  case 128\n" \
+  "    return .left\n" \
+  "  case 129\n" \
+  "    return .right\n" \
+  "  case 130\n" \
+  "    return .up\n" \
+  "  case 131\n" \
+  "    return .down\n" \
+  "  end\n" \
+  "  return .back\n" \
+  "end\n" \
+  "# the arrows as btnp has them: a step one way at a time (left or right before up or down), for moving on a grid\n" \
+  "dpadp* :: proc() -> [2]Int\n" \
+  "  d := {btnp(.right) - btnp(.left), btnp(.down) - btnp(.up)}\n" \
+  "  if d.x != 0 do d.y = 0\n" \
+  "  return d\n" \
+  "end\n" \
   "# the next key typed, or -1: 32-126 as typed, 13 Enter, 8 Backspace, 9 Tab, 27 Esc, Ctrl+letter as 1-26,\n" \
   "# and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down,\n" \
   "# 140 to 151 F1 to F12 (where the Rinc gets them: a browser keeps some, F11 is the desktop's whole display);\n" \
@@ -490,11 +543,12 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1\n" \
   "imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)\n" \
   "# a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags\n" \
-  "# in out for each, 3 Ints each, as many as fit; imageSpriteFlags sets out[n] to sprite n's (n counted across the rows, its\n" \
-  "# sprites w by h; out zeroed first); each says how many the picture has, or -1 (no picture). imageFlag is a\n" \
-  "# flag's bit, by the name its notes give it (\"flag 0 solid\": 1), or 0\n" \
+  "# in out for each, 3 Ints each, as many as fit; imageSpriteFlags adds a byte for each sprite to out, its\n" \
+  "# flags (counted across the rows, its sprites w by h; 0 for none): how many the picture has, or -1 (no\n" \
+  "# picture, or no room for a byte a sprite). imageFlag is a flag's bit, by the name its notes give it\n" \
+  "# (\"flag 0 solid\": 1), or 0\n" \
   "imageFlags* :: host proc(path: String, out: []Int) -> Int\n" \
-  "imageSpriteFlags* :: host proc(path: String, w, h: Int, out: []Int) -> Int\n" \
+  "imageSpriteFlags* :: host proc(path: String, w, h: Int, out: Blob[..]) -> Int\n" \
   "imageFlag* :: host proc(path: String, name: String) -> Int\n" \
   "\n" \
   "# ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's\n" \

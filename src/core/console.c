@@ -34,10 +34,10 @@ void rinc_char(int c, int x, int y, int fg, int bg) {
   int r, k;
   for (r = 0; r < rinc_CH; r++) {
     int py = y + r, bits = r < 8 ? g[r] : 0;
-    if (py < 0 || py >= rinc_H) continue;
+    if (py < 0 || py >= rinc_appH) continue;
     for (k = 0; k < rinc_CW; k++) {
       int px = x + k;
-      if (px < 0 || px >= rinc_W) continue;
+      if (px < 0 || px >= rinc_appW) continue;
       if (bits >> k & 1) rinc_screen[py][px] = (uint8_t)fg;
       else if (bg >= 0) rinc_screen[py][px] = (uint8_t)bg;
     }
@@ -103,6 +103,7 @@ void rinc_consolePut(const char *s, int n) {
 }
 
 void rinc_consoleClear(int bg) {
+  rinc_setZoom(0); /* (the console's text, full size: and each app starts so) */
   rinc_textBg = (uint8_t)bg; rinc_ink = rinc_textFg; rinc_esc = 0;
   memset(rinc_screen, bg, sizeof rinc_screen);
   rinc_cx = rinc_cy = 0; rinc_shown = 0;

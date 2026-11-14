@@ -5,18 +5,25 @@ frame. A Rinc may have no controller, or (in principle) no keyboard; the procs t
 
 ## Buttons
 
-`pc.btn(i)` is 1 while button `i` is held, and 0 otherwise or for an `i` outside 0 to 15:
+`pc.btn(b)` is 1 while button `b` (a `pc.Button`) is held, and 0 otherwise:
 
-| `i` | button | keyboard | controller |
+| `b` | button | keyboard | controller |
 |---|---|---|---|
-| 0, 1, 2, 3 | left, right, up, down | arrows | d-pad, or the left stick pushed past half way (but not in pointer mode: see below) |
-| 4 | A | V | A |
-| 5 | B | C | B |
-| 6 | X | X | X |
-| 7 | Y | Z | Y |
-| 8, 9 | LB, RB | | shoulder buttons (pressing one also types Shift+Tab or Tab: see below) |
-| 10, 11 | LS, RS | | sticks pressed in |
-| 12, 13 | Start, Back | | |
+| `.left`, `.right`, `.up`, `.down` | the arrows | arrows | d-pad, or the left stick pushed past half way (but not in pointer mode: see below) |
+| `.a` | A | V | A |
+| `.b` | B | C | B |
+| `.x` | X | X | X |
+| `.y` | Y | Z | Y |
+| `.lb`, `.rb` | LB, RB | | shoulder buttons (pressing one also types Shift+Tab or Tab: see below) |
+| `.ls`, `.rs` | LS, RS | | sticks pressed in |
+| `.start`, `.back` | Start, Back | | |
+
+`pc.btnp(b)` is 1 in the frame `b` is pressed, and again while it's held: after 15 frames, then each
+4th, as PICO-8's `btnp` (a menu's step, held). `pc.dpad()` is the arrows held, a `[2]Int` of -1, 0 or 1
+each way (`{1, 0}`: right); `pc.dpadp()` is the arrows as `btnp` has them, one way at a time (left or
+right before up or down), for moving a step on a grid. `pc.keyButton(k)` is the button an arrow key
+from `pc.key()` is (128 to 131), so `pc.btn(pc.keyButton(k)) == 0` says it was typed (over serial,
+say), not held.
 
 The keyboard and the controller are both player 1: a button is held if either holds it. The face
 buttons are named and placed as on an Xbox controller, in order of importance, so an app that needs

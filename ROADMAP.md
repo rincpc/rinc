@@ -27,6 +27,26 @@ app is a Rio program.
 
 ## Next
 
+- Priorities (2026-11-14), in order (open now; the 2026-11-13 list below has the history, its numbers
+  as they were):
+  1. A print that wraps: `pc.print` with a width (or `pc.printWrapped`), lines broken at spaces, and
+     how many lines it took; Cloudlamp wraps by hand at the half screen's 26 letters.
+  2. Tilemap's last rough edges from Cloudlamp: a thing's name a plain String (no `.asString()`); a
+     map's sheets and layers its own, once Rio can keep a view of a struct's own array (Rio's ROADMAP:
+     a static lifetime marker), so a game gives just its room; a song's two buffers one.
+  3. Copy as Rio, in studio's apps (Paint: an enum of its flags' names and the calls that read them;
+     Maps', Music's likewise), after a clipboard apps share (text at least: below, 3 of 2026-11-13).
+  4. Cloudlamp as a walkthrough in the docs (8 below), now its code's settled.
+  5. Tools for working on the board: an app's log over serial as it runs, without stopping it (a
+     screenshot stops it today); a frame-time readout (is a game keeping 60 frames a second?).
+     tools/board*.py are the start: put, get, paste an app, play one and take screenshots.
+  6. Studio: state kept per file, not per app (5 below).
+  7. Songs played by the host (9c below).
+  8. Drawing speed (10 below): fast paths for scaled and mirrored sprites, less per call; the half and
+     quarter screens take much of the need away for games drawn big.
+  9. Sizes: on disk (9b below), Maps' memory (9 below); more fonts, maybe a font mode in Paint (9d).
+  10. To decide later: the console back to just Rio typed in (5 below); library versions on the card
+     (6 below).
 - Priorities (2026-11-13), in order (the 2026-11-09 list's 1 to 3 done: Print Screen and buttons held
   over serial, the song library, Files' save taking a typed path; and Sound's = at a sound's first note):
   1. Rio's bytecode smaller: done (2026-11-13, Rio f328c2f, lib/rio bumped): 35% off an app's code (Maps
@@ -87,7 +107,15 @@ app is a Rio program.
        top left cell's (or all its cells' together). Tested, as the auto-test rule says.
      - Named and fast: names in the notes (flag 0 solid), the game asks once (`solid := sheet.flag("solid")`,
        a bit) and then tests a byte (`sheet.has(t, solid)`): no strings in the loop.
-  4. An ergonomics pass: making a game as quick to write as on PICO-8, keeping Rinc general. Ideas to
+  4. An ergonomics pass: making a game as quick to write as on PICO-8, keeping Rinc general. Begun
+     (2026-11-14), each a general win, no game library: pc.screen (half, quarter), named buttons with
+     btnp, dpad and dpadp; a map that reads its own sheets and flags (pixels, readSheets, flag, flagsAt,
+     sprite, draw with no sheet, thingIn); song's loop; Rio's `if name := value`. Cloudlamp, rewritten on
+     the board over serial with them: 130 lines of code to 96, at half the screen's size. Met on the way,
+     still to do: a String given a proc can't be kept (Cloudlamp's say copies it into a Blob; Rio's
+     ROADMAP); a map's sheets and layers still the app's arrays to give (a view of a struct's own array
+     can't be kept in it); a thing's name a Blob (t.name.asString()); text wrapped by hand at the half
+     screen's 26 letters (a print that wraps, or 9d's small font). Ideas still to weigh:
      weigh: a `game` library of the usual (a sheet and a map loaded by name, sprite and map drawn in a
      call, btn and btnp, sounds and a song played by number), so a small game is PICO-8-short; the
      templates new projects start from; and Rio's own rough edges met in Cloudlamp (one-pass order,
@@ -128,6 +156,11 @@ app is a Rio program.
      for sheets' pixels, if their size on the card matters (a 128x128 sheet: 19.5 KB as Rinc's own,
      7 KB as a PNG). Binary where it's for speed and size (sheets' pixels and flag records), text where
      it's for people (their heads, songs, maps).
+  9c. Songs played by the host (the user, 2026-11-14: roadmapped): the song library's sequencing in C,
+     so a game starts a song and forgets it (no tune.tick() each frame), as sounds play now; its timing
+     steadier too, not tied to frames.
+  9d. More fonts (the user, 2026-11-14: later), maybe a font mode in Paint; a small one for the half and
+     quarter screens (until then, text there is drawn big, as the screen is).
   10. Drawing speed (docs/guide/fruit-jam.md, Speed): a scaled sprite takes the slow path, a pixel at a
      time as blocks (a solid 16x16 at 2x, 33 us: 299 in 10 ms, where Cloudlamp draws everything at 2x),
      and a small rect or blit costs about 3.4 us before its first pixel (2,960 8x8 rects in 10 ms).

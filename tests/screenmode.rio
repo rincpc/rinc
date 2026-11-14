@@ -1,0 +1,14 @@
+# pc.screen: half (160x120) and quarter (80x60) screens, each pixel shown 2 or 4 times as big; drawing
+# clipped to them, cls only theirs. rinc tests/screenmode.rio -frames 2 -o shot.ppm: tests/screenmode.py
+# checks the screen; the log has screenSize in each mode
+log("full", pc.screenSize())
+pc.screen(.quarter)
+log("quarter", pc.screenSize())
+pc.screen(.half)
+log("half", pc.screenSize())
+draw* :: proc()
+  pc.cls(1)
+  pc.rect({0, 0}, {10, 10}, 8)        # (20 by 20 on the screen)
+  pc.rect({150, 110}, {40, 40}, 11)   # (clipped at 160, 120: its 10 by 10 to the bottom right corner)
+  pc.pset({159, 0}, 12)
+end

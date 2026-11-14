@@ -38,6 +38,10 @@ Sheet* :: struct
   path: Blob[..96]
   sprite: [2]Int          # its sprites' size, in pixels
   across: Int             # how many sprites across it was (-1: not known): its tiles numbered so
+  at: Int                 # read (readSheets): its pixels, from here in the map's pixels
+  size: [2]Int            # and its picture's size ({0, 0}: not read)
+  flagsAt: Int            # then its sprites' flags, a byte each (flagCount of them), from here
+  flagCount: Int
 end
 Layer* :: struct
   name: Blob[..15]
@@ -68,6 +72,7 @@ Map* :: struct
   cells: Int              # in all its tiles layers
   thingCount: Int         # things, in all its things layers
   names: Int              # their bytes, at the room's end
+  pixels: Blob[..]        # the app's, if it gives one: its sheets' pictures and flags, read as it loads (readSheets)
 end
 
 # ---------------------------------------------------------------- cells
@@ -129,26 +134,55 @@ Map.sheetPath* :: proc(layer: Int) -> String
   end
   return self.sheets[s].path.asString()
 end
-# a layer's sheet's sprite flags (as Paint sets them: pc.imageSpriteFlags), into out, a sprite each (out[t]:
-# tile t's): how many sprites have any, or -1 (no sheet, or not a picture)
-Map.readFlags* :: proc(layer: Int, out: []Int) -> Int
-  ts := self.tile(layer)
-  return pc.imageSpriteFlags(self.sheetPath(layer), ts.x, ts.y, out)
+# each sheet's picture and its sprites' flags, read into pixels, one after another (load does it, for a map
+# given pixels): false if one couldn't be read, or there's no room (the log says how much it needs)
+Map.readSheets* :: proc() -> Bool
+  self.pixels.clear()
+  ok := true
+  for s in 0..<self.sheetCount
+    sh := &self.sheets[s]
+    sh.at = self.pixels.len()
+    image := pc.imageRead(sh.path.asString(), self.pixels)
+    sh.size = image.size
+    sh.flagsAt = self.pixels.len()
+    sh.flagCount = 0
+    if image.pixels.len() == 0 # (not a picture, or no room for it)
+      sh.size = {0, 0}
+      ok = false
+    case pc.imageSpriteFlags(sh.path.asString(), sh.sprite.x, sh.sprite.y, self.pixels) >= 0
+      sh.flagCount = self.pixels.len() - sh.flagsAt
+    else
+      ok = false # (no room for its flags)
+    end
+  end
+  return ok
 end
-# the flags of the tile at cell p of a tiles layer, from flags (as readFlags filled them): 0 for an empty
-# cell, one past the edges, or a tile past flags' end
-Map.flagsAt* :: proc(layer: Int, p: [2]Int, flags: []Int) -> Int
+# a flag's bit, by its name in the layer's sheet (as Paint names them): 0 if it has none of that name
+Map.flag* :: proc(layer: Int, name: String) -> Int do return pc.imageFlag(self.sheetPath(layer), name)
+# the flags of the tile at cell p of a tiles layer (from its sheet, as readSheets read it): 0 for an empty
+# cell, or one past the edges
+Map.flagsAt* :: proc(layer: Int, p: [2]Int) -> Int
   t := self.at(layer, p)
-  if t < 0 or t >= flags.len()
+  s := self.layers[layer].sheet
+  if t < 0 or s < 0 or s >= self.sheetCount or t >= self.sheets[s].flagCount
     return 0
   end
-  return flags[t]
+  return self.pixels[self.sheets[s].flagsAt + t]
 end
 # sprite t's top left in a layer's sheet, that sheet width pixels wide
 Map.spriteAt* :: proc(layer: Int, t: Int, width: Int) -> [2]Int
   ts := self.tile(layer)
   a := max(1, width / ts.x)
   return {t % a, t / a} * ts
+end
+# sprite t of a layer's sheet (the map's own, as readSheets read it), drawn with its top left at p
+Map.sprite* :: proc(layer: Int, t: Int, p: [2]Int)
+  s := self.layers[layer].sheet
+  if s < 0 or s >= self.sheetCount or self.sheets[s].size.x == 0
+    return
+  end
+  sh := &self.sheets[s]
+  pc.blit(pc.Image{pixels = self.pixels[sh.at..<sh.at + sh.size.x * sh.size.y], size = sh.size}, p, {from = self.spriteAt(layer, t, sh.size.x), size = self.tile(layer)})
 end
 
 # ---------------------------------------------------------------- sheets
@@ -466,8 +500,20 @@ fdiv :: proc(a: Int, b: Int) -> Int
   end
   return q
 end
+# the thing of a things layer whose top left is in cell p (in its tiles, from its offset): nil for none
+Map.thingIn* :: proc(layer: Int, p: [2]Int) -> ?Thing
+  ts := self.tile(layer)
+  for j in 0..<self.things(layer)
+    t := self.thing(layer, j)
+    if {fdiv(t.at.x, ts.x), fdiv(t.at.y, ts.y)} == p
+      return t
+    end
+  end
+  return nil
+end
 # how a layer's drawn (each left out: as it says)
 Drawing* :: struct
+  sheet: pc.Image # the sheet to draw from (left out: the map's own, as readSheets read it)
   at: [2]Int      # the screen's box it's drawn in: its top left
   size: [2]Int    # and its size (0: to the screen's edge)
   shrink: Int     # 2, 4: a pixel of every so many (an editor's view of big tiles; 0: 1)
@@ -490,12 +536,12 @@ shrunk :: proc(sheet: pc.Image, from: [2]Int, size: [2]Int, p: [2]Int, k: Int)
 end
 # a layer from its sheet, the map's pixel camera at the top left of the box it's drawn in: a tiles
 # layer's tiles; a things layer's things, in order (one with no sprite isn't drawn)
-Map.draw* :: proc(layer: Int, sheet: pc.Image, camera: [2]Int, how?: Drawing)
+Map.drawWith :: proc(layer: Int, sheet: pc.Image, camera: [2]Int, how: &Drawing)
   l := &self.layers[layer]
   at := how.at
   box := how.size
   if box.x == 0
-    box = {320, 240} - at
+    box = pc.screenSize() - at
   end
   missing := how.missing
   k := max(1, how.shrink)
@@ -549,6 +595,18 @@ Map.draw* :: proc(layer: Int, sheet: pc.Image, camera: [2]Int, how?: Drawing)
       end
     end
   end
+end
+Map.draw* :: proc(layer: Int, camera: [2]Int, how?: Drawing)
+  if how.sheet.size.x > 0
+    self.drawWith(layer, how.sheet, camera, &how)
+    return
+  end
+  s := self.layers[layer].sheet
+  if s < 0 or s >= self.sheetCount or self.sheets[s].size.x == 0
+    return
+  end
+  sh := &self.sheets[s]
+  self.drawWith(layer, pc.Image{pixels = self.pixels[sh.at..<sh.at + sh.size.x * sh.size.y], size = sh.size}, camera, &how)
 end
 
 # ---------------------------------------------------------------- layers: their shape, added, taken out, moved
@@ -1326,7 +1384,9 @@ Map.loadFrom :: proc(kind: Int, name: String) -> Bool
   end
   return ok
 end
-Map.load* :: proc(path: String) -> Bool do return self.loadFrom(FROM_FILE, path)
+Map.load* :: proc(path: String) -> Bool # (and its sheets, given pixels: readSheets)
+  return self.loadFrom(FROM_FILE, path) and (self.pixels.cap() == 0 or self.readSheets())
+end
 Map.loadStash* :: proc(key: String) -> Bool do return self.loadFrom(FROM_STASH, key)
 numText: Blob[..12]
 num :: proc(n: Int) -> String

@@ -6,6 +6,15 @@
 # ---------------------------------------------------------------- the screen: 320x240, palette indexes
 
 cls* :: host proc(c: Int)                           # fill the screen with color c
+# the screen's size, for this app: full (320x240), half (160x120) or quarter (80x60), each pixel shown 2 or
+# 4 times as big (text too, and the pointer's place in these pixels); every app starts full
+Screen* :: enum
+  full
+  half
+  quarter
+end
+screen* :: host proc(size: Screen)
+screenSize* :: host proc() -> [2]Int                # the screen's size now, in its pixels
 pset* :: host proc(pos: [2]Int, c: Int)             # one pixel
 pget* :: host proc(pos: [2]Int) -> Int
 rect* :: host proc(pos, size: [2]Int, c: Int)       # a filled rectangle: its top left, and its size
@@ -46,10 +55,48 @@ print* :: host proc(s: String, pos: [2]Int, c: Int)  # text at its top left, in 
 
 # ---------------------------------------------------------------- input
 
-# 1 while button i is held: 0 left, 1 right, 2 up, 3 down (arrows), then the face buttons, as on an Xbox
-# controller: 4 A (V key), 5 B (C), 6 X (X), 7 Y (Z); then a controller's 8 LB, 9 RB, 10 and 11 the
-# sticks pressed in, 12 Start, 13 Back
-btn* :: host proc(i: Int) -> Int
+# the buttons: the arrows, then the face buttons, as on an Xbox controller: A (V key), B (C), X (X), Y (Z);
+# then a controller's LB and RB, the sticks pressed in, Start and Back
+Button* :: enum
+  left
+  right
+  up
+  down
+  a
+  b
+  x
+  y
+  lb
+  rb
+  ls
+  rs
+  start
+  back
+end
+btn* :: host proc(b: Button) -> Int  # 1 while it's held
+btnp* :: host proc(b: Button) -> Int # 1 when it's pressed, and again while it's held (after 15 frames, each 4th), as PICO-8's
+dpad* :: proc() -> [2]Int do return {btn(.right) - btn(.left), btn(.down) - btn(.up)} # the arrows held: -1, 0 or 1 each way
+# the button an arrow key from key() is (128 to 131: left, right, up, down), for telling a key typed from
+# one held (pc.btn(pc.keyButton(k)) == 0: typed, as over serial, not held); another key: .back
+keyButton* :: proc(k: Int) -> Button
+  switch k
+  case 128
+    return .left
+  case 129
+    return .right
+  case 130
+    return .up
+  case 131
+    return .down
+  end
+  return .back
+end
+# the arrows as btnp has them: a step one way at a time (left or right before up or down), for moving on a grid
+dpadp* :: proc() -> [2]Int
+  d := {btnp(.right) - btnp(.left), btnp(.down) - btnp(.up)}
+  if d.x != 0 do d.y = 0
+  return d
+end
 # the next key typed, or -1: 32-126 as typed, 13 Enter, 8 Backspace, 9 Tab, 27 Esc, Ctrl+letter as 1-26,
 # and 128 left, 129 right, 130 up, 131 down, 132 Home, 133 End, 134 Delete, 135 Page Up, 136 Page Down,
 # 140 to 151 F1 to F12 (where the Rinc gets them: a browser keeps some, F11 is the desktop's whole display);
@@ -236,11 +283,12 @@ end
 imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1
 imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)
 # a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags
-# in out for each, 3 Ints each, as many as fit; imageSpriteFlags sets out[n] to sprite n's (n counted across the rows, its
-# sprites w by h; out zeroed first); each says how many the picture has, or -1 (no picture). imageFlag is a
-# flag's bit, by the name its notes give it ("flag 0 solid": 1), or 0
+# in out for each, 3 Ints each, as many as fit; imageSpriteFlags adds a byte for each sprite to out, its
+# flags (counted across the rows, its sprites w by h; 0 for none): how many the picture has, or -1 (no
+# picture, or no room for a byte a sprite). imageFlag is a flag's bit, by the name its notes give it
+# ("flag 0 solid": 1), or 0
 imageFlags* :: host proc(path: String, out: []Int) -> Int
-imageSpriteFlags* :: host proc(path: String, w, h: Int, out: []Int) -> Int
+imageSpriteFlags* :: host proc(path: String, w, h: Int, out: Blob[..]) -> Int
 imageFlag* :: host proc(path: String, name: String) -> Int
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's

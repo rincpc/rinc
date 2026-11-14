@@ -52,6 +52,26 @@ log(pc.pget({30, 30}), pc.pget({31, 30}), pc.pget({30, 31}))
 9 10 1
 ```
 
+## Half and quarter screens
+
+`pc.screen(.half)` makes the app's screen 160 by 120, each pixel shown 2 by 2; `pc.screen(.quarter)`,
+80 by 60, each shown 4 by 4; `pc.screen(.full)`, 320 by 240 again. It's the app's alone: every app
+starts full. Drawing is clipped to the screen's size, so drawing is quicker the smaller it is; text is
+drawn as big as the pixels are, and the pointer's place (`pc.pointerAt()`) is in them. `pc.screenSize()`
+is its size now. The system's own (its notices, the command list) stay full size.
+
+```rio
+pc.screen(.half)
+log(pc.screenSize())
+pc.screen(.full)
+log(pc.screenSize())
+```
+
+```output
+[160, 120]
+[320, 240]
+```
+
 ## Text
 
 `pc.print` draws each byte of the text with Rinc's 5x8 font: the pixels of the character's glyph become

@@ -90,7 +90,9 @@ static void rinc_pngMatch(int len, int dist) {
 /* the data PNG compresses: each row, a filter byte (0: none) before it */
 static const uint8_t *rinc_pngPixels;
 static uint32_t rinc_pngW;
-static int rinc_pngData(uint32_t k) { uint32_t col = k % (rinc_pngW + 1); return col ? rinc_pngPixels[k / (rinc_pngW + 1) * rinc_pngW + col - 1] : 0; }
+static uint32_t rinc_pngRow; /* (bytes from a row to the next) */
+int rinc_pngStride;
+static int rinc_pngData(uint32_t k) { uint32_t col = k % (rinc_pngW + 1); return col ? rinc_pngPixels[k / (rinc_pngW + 1) * rinc_pngRow + col - 1] : 0; }
 
 /* the flags chunk (see the top): only records in the picture, with any flags */
 static void rinc_pngFlagChunk(const int32_t *flags, int count, int w, int h) {
@@ -134,7 +136,8 @@ int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const c
     rinc_pngChunk("tEXt", plte, 5 + (uint32_t)n0);
   }
   if (flags && flagCount > 0) rinc_pngFlagChunk(flags, flagCount, w, h);
-  rinc_pngPixels = pixels; rinc_pngW = (uint32_t)w;
+  rinc_pngPixels = pixels; rinc_pngW = (uint32_t)w; rinc_pngRow = rinc_pngStride > w ? (uint32_t)rinc_pngStride : (uint32_t)w;
+  rinc_pngStride = 0;
   rinc_pngOutLen = rinc_pngBits = rinc_pngBitCount = 0; rinc_pngAdlerA = 1; rinc_pngAdlerB = 0;
   rinc_pngByte(0x78); rinc_pngByte(0x01); /* (zlib: deflate, a 32 KB window) */
   rinc_pngPut(1, 1); rinc_pngPut(1, 2); /* (the last block, with fixed codes) */
@@ -384,11 +387,11 @@ int rinc_pngNotes(const char *path, char *out, uint32_t cap) {
   return rinc_pngBad ? -1 : n;
 }
 
-int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h) {
-  uint32_t len, type, i, picW = 0;
+int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h, uint8_t *bytes, uint32_t *sprites) {
+  uint32_t len, type, i, picW = 0, picH = 0, room = cap;
   int n = 0;
   uint8_t sig[8];
-  if (w > 0 && h > 0) memset(out, 0, cap * sizeof *out);
+  if (sprites) *sprites = 0;
   if (rinc_pngOpen(path)) return -1;
   rinc_pngBad = 0; rinc_pngInLen = rinc_pngInAt = 0;
   for (i = 0; i < 8; i++) sig[i] = (uint8_t)rinc_pngByteIn();
@@ -396,14 +399,25 @@ int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h) {
   for (;;) {
     len = rinc_png32(); type = rinc_png32();
     if (rinc_pngBad || type == 0x49444154u || type == 0x49454E44u || len > (1u << 24)) break; /* (IDAT, IEND: none before the pixels) */
-    if (type == 0x49484452u && len == 13) { picW = rinc_png32(); for (i = 4; i < 17; i++) rinc_pngByteIn(); continue; } /* IHDR: the width */
+    if (type == 0x49484452u && len == 13) { /* IHDR: its size (by sprite: as many bytes as sprites, zeroed) */
+      picW = rinc_png32(); picH = rinc_png32();
+      for (i = 8; i < 17; i++) rinc_pngByteIn();
+      if (w > 0 && h > 0) {
+        uint32_t k = (picW / (uint32_t)w) * (picH / (uint32_t)h);
+        if (k > room) { rinc_pngClose(); return -1; }
+        if (bytes) memset(bytes, 0, k);
+        room = k;
+        if (sprites) *sprites = k;
+      }
+      continue;
+    }
     if (type == 0x726E4667u) { /* rnFg: the flags */
       for (i = 0; i + 5 <= len && !rinc_pngBad; i += 5) {
         int32_t x = rinc_pngByteIn() << 8, y, f;
         x |= rinc_pngByteIn(); y = rinc_pngByteIn() << 8; y |= rinc_pngByteIn(); f = rinc_pngByteIn();
         if (w > 0 && h > 0) {
           uint32_t across = picW / (uint32_t)w, k = (uint32_t)(y / h) * across + (uint32_t)(x / w);
-          if (x % w == 0 && y % h == 0 && (uint32_t)(x / w) < across && k < cap) out[k] = f;
+          if (bytes && x % w == 0 && y % h == 0 && (uint32_t)(x / w) < across && k < room) bytes[k] = (uint8_t)f;
         } else if ((uint32_t)n * 3 + 3 <= cap) {
           out[n * 3] = x; out[n * 3 + 1] = y; out[n * 3 + 2] = f;
         }

@@ -223,7 +223,7 @@ update* :: proc()
   if nshown > 0
     pick = max(0, min(pick - pc.scroll(1), nshown - 1))
   end
-  bits := pc.btn(2) + pc.btn(3) * 2
+  bits := pc.btn(.up) + pc.btn(.down) * 2
   move := 0
   if bits & 3 != held & 3
     repeat = 12

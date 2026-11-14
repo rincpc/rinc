@@ -27,15 +27,15 @@ add()
 update* :: proc()
   tick += 1
   # gravity, tilted by the arrows (down, gently, when none are held)
-  g := Vec{(pc.btn(1) - pc.btn(0)).toFloat(), (pc.btn(3) - pc.btn(2)).toFloat() + 1} * 0.15
-  if pc.btn(4) == 1 and not held
+  g := Vec{(pc.btn(.right) - pc.btn(.left)).toFloat(), (pc.btn(.down) - pc.btn(.up)).toFloat() + 1} * 0.15
+  if pc.btn(.a) == 1 and not held
     add()
   end
-  held = pc.btn(4) == 1
+  held = pc.btn(.a) == 1
   lo := Vec{4, 4}
   hi := Vec{316, 236}
   for b, k in balls
-    if pc.btn(5) == 1
+    if pc.btn(.b) == 1
       # Include some variance also in the shake.
       b.vel.y -= 1.0 + 0.05 * ((k % 7).toFloat() - 3.0)
     end

@@ -201,10 +201,10 @@ end
 
 # an arrow typed but not held as a button (a terminal's, say): the buttons, below, take the rest
 typedArrow :: proc(c: Int) -> Int
-  if c & 255 == 130 and c < 1024 and pc.btn(2) == 0
+  if c & 255 == 130 and c < 1024 and pc.btn(.up) == 0
     return -1
   end
-  if c & 255 == 131 and c < 1024 and pc.btn(3) == 0
+  if c & 255 == 131 and c < 1024 and pc.btn(.down) == 0
     return 1
   end
   return 0
@@ -263,7 +263,7 @@ update* :: proc()
   end
   # up and down: the arrows and the d-pad, as buttons (a step a press, then more while it's held); Y the
   # menu (a controller's A and B are Enter and Esc, as keys)
-  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(7) * 4 + pc.btn(6) * 8
+  bits := pc.btn(.up) + pc.btn(.down) * 2 + pc.btn(.y) * 4 + pc.btn(.x) * 8
   pressed := bits & ~held
   step := 0
   if bits & 3 != held & 3

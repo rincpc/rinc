@@ -51,8 +51,8 @@ end
 
 update* :: proc()
   bits := 0
-  for i in 0..<14
-    bits |= pc.btn(i) << i
+  for b, i in pc.Button
+    bits |= pc.btn(b) << i
   end
   up := pc.stick(1) # (whichever stick is pushed further up or down)
   if abs(pc.stick(3)) > abs(up)
@@ -132,11 +132,11 @@ end
 draw* :: proc()
   pc.cls(1)
   pc.print("COMBO: BUTTONS PLAY, STICKS BEND AND PAN, LT RT HUM", {8, 6}, 7)
-  for i in 0..<14
+  for b, i in pc.Button
     x := 8 + (i % 7) * 44
     y := 20 + (i / 7) * 16
     c := 5
-    if pc.btn(i) == 1
+    if pc.btn(b) == 1
       c = 11
     end
     pc.rect({x, y}, {40, 12}, c)

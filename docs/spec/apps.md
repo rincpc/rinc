@@ -208,7 +208,7 @@ color number each, row by row, 0 see-through, and its `size`, a `[2]Int`:
 | `pc.imageRead(path, pixels) -> pc.Image` | a PNG (8 bits a color, or indexed at 1 to 8 bits; not interlaced), its pixels added to the builder `pixels`, each color Rinc's nearest (exactly the same, for one `imageWrite` wrote): the picture, its `pixels` viewing them (size `{0, 0}`, and none, if it can't be read). `pixels` needs room past what it holds for the PNG's rows as they come, each with a byte saying how it's packed: `(w + 1) * h` bytes for one of Rinc's, or any indexed or gray PNG; `(3 * w + 1) * h` for RGB, `(4 * w + 1) * h` with alpha. Without it, the picture has its size but no pixels, and the log says how much room it needs |
 | `pc.imageNotes(path, out) -> Int` | those notes, added to `out`: how many bytes, or -1 (none, or no such PNG) |
 | `pc.imageFlags(path, out) -> Int` | a sprite sheet's flags, as records: x, y and flags for each, 3 `Int`s each in the `[]Int` `out`, as many as fit: how many the PNG has, or -1 (no such PNG) |
-| `pc.imageSpriteFlags(path, w, h, out) -> Int` | the same, by sprite: `out[n]`, sprite `n`'s flags (its sprites `w` by `h`, counted across the rows; `out` zeroed first; a record not at a sprite's top left left out): how many the PNG has, or -1 |
+| `pc.imageSpriteFlags(path, w, h, out) -> Int` | the same, by sprite: a byte for each sprite added to the `Blob[..]` `out`, its flags (its sprites `w` by `h`, counted across the rows; 0 for none; a record not at a sprite's top left left out): how many records the PNG has, or -1 (no such PNG, or no room for a byte a sprite: none added, and the log says how much it needs) |
 | `pc.imageFlag(path, name) -> Int` | a flag's bit, by the name the notes give it: 0 if none has that name |
 
 ```rio
@@ -249,8 +249,8 @@ log(pc.imageWrite("/rinc/save/demo3/tiles.png", {pixels = pic[], size = {16, 8}}
                   {notes = "sprite 8x8\nflag 0 solid\nflag 2 ladder\n", flags = records[]}))
 solid := pc.imageFlag("/rinc/save/demo3/tiles.png", "solid")
 ladder := pc.imageFlag("/rinc/save/demo3/tiles.png", "ladder")
-tileFlags: [2]Int
-log(pc.imageSpriteFlags("/rinc/save/demo3/tiles.png", 8, 8, tileFlags[]))
+tileFlags: Blob[..2]
+log(pc.imageSpriteFlags("/rinc/save/demo3/tiles.png", 8, 8, tileFlags))
 log(tileFlags[0] & solid != 0, tileFlags[0] & ladder != 0, tileFlags[1] & ladder != 0)
 log(pc.fileDelete("/rinc/save/demo3"))
 ```
@@ -646,7 +646,8 @@ notes: Blob[4 * song.SOUND_BYTES]         # sounds 0 to 3 (song.ALL_SOUNDS: all 
 room: Blob[600]                           # the song's (as Music says)
 tune := song.Song{notes = notes[], room = room[], voice = 4} # voices from 4 on: 0 to 3 the game's own
 if tune.load("tune.mus")                  # its sounds too; else the log says why
-  _ = tune.play(0, false)                 # from its first pattern (true: that one alone)
+  _ = tune.play(0, false)                 # from its first pattern (true: that one alone); or
+  _ = tune.loop()                         # round and round: from its start again at its end, till tune.stop()
 end
 update* :: proc()
   tune.tick()                             # each frame: on to the next pattern when one's done

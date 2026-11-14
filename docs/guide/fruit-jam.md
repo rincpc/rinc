@@ -77,6 +77,13 @@ serial: Rio, with `ls`, `save`, `delete`, `home`, and `put path`, any file under
 `install.py` sends them); `get path` sends one back the same way (a screen saved with Print Screen,
 `get shots/<app>-1.png`). With no console app, Ctrl-C opens it too.
 
+For working on the board from a PC, tools/ has a few more, each `uv run tools/<name>.py COM3 ...` (their
+first lines say how): `boardput.py` puts files on the card and `boardget.py` brings them back (a second
+or so each, by `put` and `get`); `boardpaste.py` pastes an app's source in, as a person with a serial
+terminal would (`save`, then Ctrl-D); and `boardplay.py` plays an app as its user does (the console's
+`run`, buttons tapped and held as kitty's keyboard protocol sends them, waits) and takes screenshots,
+fetched and enlarged to look at on the PC.
+
 Apps on the card are managed from the console app with `ls`, `run`, `load`, `save`, `delete` and `home`
 (see [the console](../spec/apps.md#the-console)). From a PC, `uv run tools/send.py apps/bounce.rio`
 sends one app and starts it, in a couple of seconds, and `--save` keeps it on the card.

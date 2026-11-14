@@ -139,19 +139,30 @@ assert(wideOk, "its cells, as they were")
 oldSheets: [2]tilemap.Sheet # (a map of before counts a sheet a layer, the same or not)
 oldLayers: [2]tilemap.Layer
 oldRoom: Blob[100]
-# its sheet's sprite flags (Paint's, in the PNG): read a sprite each, and a cell's tile's asked for
+# a map given pixels: its sheets' pictures and sprite flags (Paint's, in the PNG) read into them (load does
+# it; readSheets on its own), a flag by name, a cell's tile's flags; one drawn and a sprite from its own sheet
+# (tests/tilemap.py looks at the screen)
 flagPixels: Blob[16 * 8]
 flagRecords := [6]Int{8, 0, 1, 0, 0, 4} # (sprite 1: solid; sprite 0: flag 2)
 assert(pc.imageWrite("/rinc/save/tf.png", {pixels = flagPixels[], size = {16, 8}}, {notes = "sprite 8x8\nflag 0 solid\n", flags = flagRecords[]}) == 0, "")
-tileFlags: [2]Int
-assert(m.start({3, 1}, "/rinc/save/tf.png", {8, 8}, 2) and m.readFlags(0, tileFlags[]) == 2 and tileFlags[0] == 4 and tileFlags[1] == 1, "a sheet's flags, a sprite each")
-m.set(0, {0, 0}, 1)
-m.set(0, {1, 0}, 0)
-assert(m.flagsAt(0, {0, 0}, tileFlags[]) == 1 and m.flagsAt(0, {1, 0}, tileFlags[]) == 4, "a cell's tile's flags")
-assert(m.flagsAt(0, {2, 0}, tileFlags[]) == 0 and m.flagsAt(0, {5, 0}, tileFlags[]) == 0, "none: an empty cell, and past the edge")
-m.set(0, {2, 0}, 7)
-assert(m.flagsAt(0, {2, 0}, tileFlags[]) == 0, "none: a tile past the flags' end")
-assert(m.start({1, 1}, "/rinc/save/none.png", {8, 8}, 2) and m.readFlags(0, tileFlags[]) == -1, "no sheet: -1")
+fSheets: [1]tilemap.Sheet
+fLayers: [1]tilemap.Layer
+fRoom: Blob[40]
+fPixels: Blob[..(16 + 1) * 8 + 2] # (the picture's rows as they come; then its 2 sprites' flags)
+f := tilemap.Map{sheets = fSheets[], layers = fLayers[], room = fRoom[], pixels = fPixels}
+assert(f.start({3, 1}, "/rinc/save/tf.png", {8, 8}, 2) and f.readSheets() and f.sheets[0].size == {16, 8} and f.sheets[0].flagCount == 2, "its sheet read: its picture and its sprites' flags")
+assert(f.flag(0, "solid") == 1 and f.flag(0, "lava") == 0, "a flag's bit, by name")
+f.set(0, {0, 0}, 1)
+f.set(0, {1, 0}, 0)
+assert(f.flagsAt(0, {0, 0}) == 1 and f.flagsAt(0, {1, 0}) == 4, "a cell's tile's flags")
+assert(f.flagsAt(0, {2, 0}) == 0 and f.flagsAt(0, {5, 0}) == 0, "none: an empty cell, and past the edge")
+f.set(0, {2, 0}, 7)
+assert(f.flagsAt(0, {2, 0}) == 0, "none: a tile past the flags' end")
+assert(f.save("/rinc/save/tf.map") and f.load("/rinc/save/tf.map") and f.flagsAt(0, {0, 0}) == 1, "load reads them too")
+small: Blob[..20]
+g := tilemap.Map{sheets = fSheets[], layers = fLayers[], room = fRoom[], pixels = small}
+assert(not g.load("/rinc/save/tf.map") and g.flagsAt(0, {0, 0}) == 0, "no room for its sheet: false (the log says)")
+assert(f.start({1, 1}, "/rinc/save/none.png", {8, 8}, 2) and not f.readSheets() and f.flagsAt(0, {0, 0}) == 0, "no sheet: false, no flags")
 old := tilemap.Map{sheets = oldSheets[], layers = oldLayers[], room = oldRoom[]}
 assert(old.load("/rinc/save/two.map") and m.load("/rinc/save/three.map"), "")
 old.set(0, {0, 1}, 9)
@@ -160,10 +171,10 @@ sheet := pc.imageRead("/rinc/save/t.png", pixels)
 assert(sheet.size == {16, 8}, "the sheet")
 draw* :: proc()
   pc.cls(1)
-  old.draw(0, sheet, {0, 0}, {missing = 7})
-  old.draw(1, sheet, {0, 0})
-  old.draw(0, sheet, {4, 0}, {at = {0, 100}}) # (again, lower, 4 pixels on: its first tile half off the screen's left)
-  m.draw(0, sheet, {0, 0}, {at = {160, 0}})
-  m.draw(0, sheet, {0, 0}, {at = {240, 0}, shrink = 2})
+  old.draw(0, {0, 0}, {sheet = sheet, missing = 7})
+  old.draw(1, {0, 0}, {sheet = sheet})
+  old.draw(0, {4, 0}, {sheet = sheet, at = {0, 100}}) # (again, lower, 4 pixels on: its first tile half off the screen's left)
+  m.draw(0, {0, 0}, {sheet = sheet, at = {160, 0}})
+  m.draw(0, {0, 0}, {sheet = sheet, at = {240, 0}, shrink = 2})
 end
 log("tilemap came through")

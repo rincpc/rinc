@@ -12,140 +12,103 @@
 import tilemap
 import song
 
-PLAYER :: 4           # the sheet's sprites, as Paint drew them (the rock and cloud flagged solid there)
-SIDE :: 16            # a cell on the screen: 8 pixels, twice
+PLAYER :: 4                            # the sheet's sprite for the visitor
 
 sheetRoom: [2]tilemap.Sheet
 layerRoom: [6]tilemap.Layer
-room: Blob[2000]
-m := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[]}
-fine := m.load("cloudlamp.map")
-pixels: Blob[..(64 + 1) * 8]
-sheet := pc.imageRead("cloudlamp.png", pixels)
-grounds := [2]Int{m.layerNamed("island"), m.layerNamed("yard")}
-tileFlags: [8]Int     # (each sprite's flags, as Paint set them: the sheet has 8)
-fine = m.readFlags(grounds[0], tileFlags[]) >= 0
-solid := pc.imageFlag("cloudlamp.png", "solid")
-folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
-
-# the song and its sounds (Music's file, and Sound's it names, beside it): sounds 0 to 3 a step, a chirp,
-# the tune and its bass; the song on voices 4 to 7, round and round, the game's sounds on 0
-notes: Blob[4 * song.SOUND_BYTES] # (its 4 sounds, and the song's room: as Music says, at its top right)
+room: Blob[2000]                       # the map's cells, things and names (as Maps says)
+pixels: Blob[..(64 + 1) * 8]           # its sheet's pixels and flags (as Paint says)
+m := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[], pixels = pixels}
+_ = m.load("cloudlamp.map")            # (and its sheet)
+notes: Blob[4 * song.SOUND_BYTES]      # the song's 4 sounds, and its room (as Music says)
 songRoom: Blob[160]
 tune := song.Song{notes = notes[], room = songRoom[], voice = 4}
-fine = tune.load("cloudlamp.mus")
-play :: proc(voice: Int, s: Int) do tune.sound(voice, s)
+_ = tune.load("cloudlamp.mus")
+_ = tune.loop()
+pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels
 
-screen := 0           # 0 the island, 1 the yard
-at := {3, 7}          # where the player is, in cells
-said: Blob[..60]
-saidFor := 0          # frames it's shown for yet
+grounds := [2]Int{m.layerNamed("island"), m.layerNamed("yard")}
+folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
+solid := m.flag(grounds[0], "solid")
+lamp := m.find("lamp")                 # (its layer and number)
+screen := 0                            # 0 the island, 1 the yard
+at := {3, 7}                           # the visitor, in cells
 lit := false
-wait := 0
+said: Blob[..50]                       # what's said (a copy: a String given a proc can't be kept)
+saidFor := 0
+
 say :: proc(s: String)
   said.clear()
-  fine = said.pushAll(s)
+  _ = said.pushAll(s)
   saidFor = 240
 end
 say("Cloudlamp. The lamp is dark: walk east.")
-
-# who's in cell p of this screen: their name, into whom ("" for none)
-whom: Blob[..15]
-who :: proc(p: [2]Int)
-  whom.clear()
-  for j in 0..<m.things(folks[screen])
-    t := m.thing(folks[screen], j)
-    if t.at / 8 == p
-      fine = whom.pushAll(t.name.asString())
-    end
-  end
-end
 talk :: proc(name: String)
-  play(0, 1)
-  if name == "keeper" and lit
-    say("Keeper: the airships see us again. Thank you!")
-  case name == "keeper"
-    say("Keeper: our lamp went out. Its yard is east.")
-  case name == "gull"
+  tune.sound(0, 1)
+  switch name
+  case "keeper"
+    if lit
+      say("Keeper: the airships see us again. Thank you!")
+    else
+      say("Keeper: our lamp went out. Its yard is east.")
+    end
+  case "gull"
     say("Gull: Kree! Clouds below, stars above. Kree!")
-  case name == "lamp" and not lit
+  case "lamp"
+    if lit
+      say("The lamp burns bright.")
+    else
+      say("The lamp burns! Far off, an airship turns home.")
+    end
     lit = true
-    say("The lamp burns! Far off, an airship turns home.")
-  case name == "lamp"
-    say("The lamp burns bright.")
   end
 end
 step :: proc(d: [2]Int)
   to := at + d
-  if to.x >= 20 and screen == 0 # (the path's east end: the yard)
+  if to.x >= 20 and screen == 0        # (the path's east end: the yard)
     screen = 1
     to.x = 0
   case to.x < 0 and screen == 1
     screen = 0
     to.x = 19
   end
-  if to.x < 0 or to.y < 0 or to.x >= 20 or to.y >= 15
-    return
+  g := grounds[screen]
+  if t := m.thingIn(folks[screen], to)
+    talk(t.name.asString())
+  case m.at(g, to) != tilemap.EMPTY and m.flagsAt(g, to) & solid == 0
+    at = to
+    tune.sound(0, 0)
   end
-  who(to)
-  if whom.len() > 0
-    talk(whom.asString())
-    return
-  end
-  if m.flagsAt(grounds[screen], to, tileFlags[]) & solid != 0 or m.at(grounds[screen], to) == tilemap.EMPTY
-    return
-  end
-  at = to
-  play(0, 0)
 end
 
 update* :: proc()
-  if not tune.playing # (the song, again)
-    fine = tune.play(0, false)
-  end
   tune.tick()
-  d := {pc.btn(1) - pc.btn(0), pc.btn(3) - pc.btn(2)}
-  if d == {0, 0}
-    wait = 0
-  case wait == 0
-    if d.x != 0
-      d.y = 0
-    end
-    step(d)
-    wait = 9
-  else
-    wait -= 1
-  end
-  if saidFor > 0
-    saidFor -= 1
-  end
+  d := pc.dpadp()
+  if d != {0, 0} do step(d)
+  saidFor = max(saidFor - 1, 0)
 end
 
-sprite :: proc(layer: Int, t: Int, p: [2]Int)
-  pc.blit(sheet, p, {from = m.spriteAt(layer, t, sheet.size.x), size = {8, 8}, scale = {2, 2}})
+# what's said, at the bottom: a line of up to 26 letters (the half screen's), a second for the rest
+words :: proc(s: String, y: Int)
+  cut := s.len()
+  if cut > 26
+    cut = 26
+    for cut > 0 and s[cut] != ' ' do cut -= 1
+    pc.print(s[cut + 1..<s.len()], {2, y + 10}, 7)
+  end
+  pc.print(s[0..<cut], {2, y}, 7)
 end
 draw* :: proc()
+  camera := m.layers[grounds[screen]].at # (the screen's own place on the map)
   pc.cls(1)
-  g := grounds[screen]
-  for y in 0..<15
-    for x in 0..<20
-      t := m.at(g, {x, y})
-      if t != tilemap.EMPTY
-        sprite(g, t, {x, y} * SIDE)
-      end
-    end
+  m.draw(grounds[screen], camera)
+  if lit and lamp.x == folks[screen]   # (the lamp's light, under it)
+    pc.rect(m.thing(lamp.x, lamp.y).at - 3, {14, 14}, 10)
   end
-  f := folks[screen]
-  for j in 0..<m.things(f)
-    t := m.thing(f, j)
-    if lit and t.name.asString() == "lamp" # (its light)
-      pc.rect(t.at * 2 - 6, {SIDE + 12, SIDE + 12}, 10)
-    end
-    sprite(f, t.sprite, t.at * 2)
-  end
-  sprite(g, PLAYER, at * SIDE)
+  m.draw(folks[screen], camera)
+  m.sprite(grounds[screen], PLAYER, at * 8)
   if saidFor > 0
-    pc.rect({0, 220}, {320, 20}, 0)
-    pc.print(said.asString(), {4, 226}, 7)
+    pc.rect({0, 98}, {160, 22}, 0)
+    words(said.asString(), 100)
   end
 end

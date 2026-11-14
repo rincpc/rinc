@@ -6,6 +6,22 @@
 #include "core_host.h" /* (Rio's core.rio, its source, for pc.moduleSource: rinc -H src/core/core_host.h lib/rio/src/core.rio) */
 
 _Alignas(4) uint8_t rinc_screen[rinc_H][rinc_W]; /* (aligned for DMA) */
+int rinc_zoom, rinc_appW = rinc_W, rinc_appH = rinc_H;
+void rinc_setZoom(int zoom) {
+  if (zoom < 0 || zoom > 2) zoom = 0;
+  rinc_zoom = zoom; rinc_appW = rinc_W >> zoom; rinc_appH = rinc_H >> zoom;
+}
+/* the app's image, rinc_appW by rinc_appH at the top left, made full size in place (a pixel each of the 2x2
+   or 4x4 it's shown as: from the end back, so each is read before it's written over), or back (each
+   2x2's or 4x4's top left, from the start) */
+static void rinc_zoomOut(int z) {
+  int x, y;
+  for (y = rinc_H - 1; y >= 0; y--) for (x = rinc_W - 1; x >= 0; x--) rinc_screen[y][x] = rinc_screen[y >> z][x >> z];
+}
+static void rinc_zoomIn(int z) {
+  int x, y;
+  for (y = 0; y < rinc_H >> z; y++) for (x = 0; x < rinc_W >> z; x++) rinc_screen[y][x] = rinc_screen[y << z][x << z];
+}
 uint16_t rinc_palette[256];
 float (*rinc_time)(void);
 uint16_t rinc_buttons;
@@ -27,11 +43,20 @@ static void rinc_initPalette(void) {
 }
 
 /* host procs: arguments arrive in a[], a result goes in a[0]. Drawing outside the screen is clipped */
-static void rinc_hostCls(rio_Vm *v, rio_Val *a) { (void)v; memset(rinc_screen, (uint8_t)a[0].i, sizeof rinc_screen); }
+static void rinc_hostCls(rio_Vm *v, rio_Val *a) {
+  int y;
+  (void)v;
+  if (!rinc_zoom) { memset(rinc_screen, (uint8_t)a[0].i, sizeof rinc_screen); return; }
+  for (y = 0; y < rinc_appH; y++) memset(rinc_screen[y], (uint8_t)a[0].i, (size_t)rinc_appW);
+}
+/* screen(mode): the app's screen full (0), half (1: 160x120) or quarter (2: 80x60), each pixel shown 2 or
+   4 times as big; screenSize() -> [2]Int: its size now */
+static void rinc_hostScreen(rio_Vm *v, rio_Val *a) { (void)v; rinc_setZoom(a[0].i); }
+static void rinc_hostScreenSize(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_appW; a[1].i = rinc_appH; }
 static void rinc_hostPset(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
-  if (x < rinc_W && y < rinc_H) rinc_screen[y][x] = (uint8_t)a[2].i;
+  if (x < (uint32_t)rinc_appW && y < (uint32_t)rinc_appH) rinc_screen[y][x] = (uint8_t)a[2].i;
 }
 static void rinc_hostRgb(rio_Vm *v, rio_Val *a) {
   (void)v;
@@ -40,7 +65,7 @@ static void rinc_hostRgb(rio_Vm *v, rio_Val *a) {
 static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
-  a[0].i = x < rinc_W && y < rinc_H ? rinc_screen[y][x] : 0;
+  a[0].i = x < (uint32_t)rinc_appW && y < (uint32_t)rinc_appH ? rinc_screen[y][x] : 0;
 }
 /* blit(image, at, b: Blit): a picture (pc.Image: its pixels, a byte each, row by row, and its width and
    height), or b.size of it from b.from (a 0 in size: the rest of it that way),
@@ -64,12 +89,12 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   if (w > pw - sx) w = pw - sx;
   if (h > ph - sy) h = ph - sy;
   if (kx == 1 && ky == 1 && !flipX) { /* (the usual: a pixel for a pixel, a row at a time; a map's tiles are many) */
-    int i0 = x0 < 0 ? -x0 : 0, i1 = x0 + w > rinc_W ? rinc_W - x0 : w;
+    int i0 = x0 < 0 ? -x0 : 0, i1 = x0 + w > rinc_appW ? rinc_appW - x0 : w;
     for (j = 0; j < h; j++) {
       int y = y0 + j;
       const uint8_t *row = p + (sy + (flipY ? h - 1 - j : j)) * pw + sx;
       uint8_t *out;
-      if (y < 0 || y >= rinc_H) continue;
+      if (y < 0 || y >= rinc_appH) continue;
       out = rinc_screen[y];
       for (i = i0; i < i1; i++)
         if (row[i]) out[x0 + i] = row[i];
@@ -78,10 +103,10 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   }
   for (j = 0; j < h; j++) {
     const uint8_t *row = p + (sy + (flipY ? h - 1 - j : j)) * pw + sx; /* (mirrored: the rows from the bottom) */
-    int y = y0 + j * ky, ya = y < 0 ? 0 : y, yb = y + ky > rinc_H ? rinc_H : y + ky;
+    int y = y0 + j * ky, ya = y < 0 ? 0 : y, yb = y + ky > rinc_appH ? rinc_appH : y + ky;
     if (ya >= yb) continue;
     for (i = 0; i < w; i++) {
-      int x = x0 + i * kx, xa = x < 0 ? 0 : x, xb = x + kx > rinc_W ? rinc_W : x + kx, yy;
+      int x = x0 + i * kx, xa = x < 0 ? 0 : x, xb = x + kx > rinc_appW ? rinc_appW : x + kx, yy;
       uint8_t c = row[flipX ? w - 1 - i : i];
       if (!c || xa >= xb) continue;
       for (yy = ya; yy < yb; yy++) memset(&rinc_screen[yy][xa], c, (size_t)(xb - xa));
@@ -93,8 +118,8 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
   (void)v;
   if (x0 < 0) x0 = 0;
   if (y0 < 0) y0 = 0;
-  if (x1 > rinc_W) x1 = rinc_W;
-  if (y1 > rinc_H) y1 = rinc_H;
+  if (x1 > rinc_appW) x1 = rinc_appW;
+  if (y1 > rinc_appH) y1 = rinc_appH;
   for (y = y0; y < y1 && x0 < x1; y++) memset(&rinc_screen[y][x0], (uint8_t)a[4].i, (size_t)(x1 - x0));
 }
 static void rinc_hostPrint(rio_Vm *v, rio_Val *a) { /* print(s, x, y, c): text at pixel x, y */
@@ -1062,11 +1087,17 @@ static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
    (rinc_pngFlags); imageFlag(path, name) -> Int: a flag's bit, by the name its notes give it ("flag 0 solid") */
 static void rinc_hostImageFlags(rio_Vm *v, rio_Val *a) {
   char path[96]; int32_t *out = (int32_t *)rio_sliceBytes(v, a + 2);
-  a[0].i = rinc_argPath(v, a, path, 0) ? rinc_pngFlags(path, out, out ? a[3].u : 0, 0, 0) : -1;
+  a[0].i = rinc_argPath(v, a, path, 0) ? rinc_pngFlags(path, out, out ? a[3].u : 0, 0, 0, 0, 0) : -1;
 }
 static void rinc_hostImageSpriteFlags(rio_Vm *v, rio_Val *a) {
-  char path[96]; int32_t *out = (int32_t *)rio_sliceBytes(v, a + 4);
-  a[0].i = rinc_argPath(v, a, path, 0) && a[2].i > 0 && a[3].i > 0 ? rinc_pngFlags(path, out, out ? a[5].u : 0, a[2].i, a[3].i) : -1;
+  char path[96]; rinc_Out o; uint32_t k = 0; int named = rinc_argPath(v, a, path, 0) && rinc_into(v, a + 4, &o);
+  a[0].i = named && a[2].i > 0 && a[3].i > 0 ? rinc_pngFlags(path, 0, o.room, a[2].i, a[3].i, o.end, &k) : -1;
+  if (a[0].i >= 0) rinc_outAdd(v, &o, k);
+  else if (named && a[2].i > 0 && a[3].i > 0 && rinc_pngFlags(path, 0, 0x7fffffff, a[2].i, a[3].i, 0, &k) >= 0 && k > o.room) {
+    char say[160]; /* (the picture's there: no room for its sprites' bytes) */
+    snprintf(say, sizeof say, "imageSpriteFlags: %.96s needs %u bytes of room, and has %u\r\n", path, (unsigned)k, (unsigned)o.room);
+    rinc_say(say);
+  }
 }
 static void rinc_hostImageFlag(rio_Vm *v, rio_Val *a) {
   static char notes[rinc_PNG_NOTES];
@@ -1464,6 +1495,14 @@ static void rinc_hostRioLog(rio_Vm *v, rio_Val *a) {
 }
 static void rinc_hostRioIndent(rio_Vm *v, rio_Val *a) { const char *s = (const char *)rio_sliceBytes(v, a); a[0].i = s ? rio_replIndent(s, a[1].u) : 0; }
 static void rinc_hostBtn(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 16 && !rinc_cmdSettle ? rinc_buttons >> a[0].i & 1 : 0; }
+/* btnp(b) -> Int: 1 when button b was pressed this frame, and again while it's held, as PICO-8's: after
+   15 frames, each 4th (rinc_heldFor: frames each has been held, counted as each frame starts) */
+static uint16_t rinc_heldFor[16];
+static void rinc_hostBtnp(rio_Vm *v, rio_Val *a) {
+  int h = a[0].u < 16 && !rinc_cmdSettle ? rinc_heldFor[a[0].i] : 0;
+  (void)v;
+  a[0].i = h == 1 || (h >= 16 && (h - 16) % 4 == 0);
+}
 static void rinc_hostShowCommands(rio_Vm *v, rio_Val *a) { (void)a; if (v != &rinc_nest) rinc_cmdWanted = 1; }
 /* stick(i) -> Float: 0 the left stick's x, 1 its y, 2 and 3 the right one's; -1 to 1, + right and down,
    0 when it's near the middle (it gets there on its own only roughly). trigger(i) -> Float: 0 left, 1
@@ -2266,9 +2305,9 @@ static void rinc_pointerFrame(void) {
    middle); pointerShown() -> Int; scroll(i) -> Int: the whole steps scrolled since (0 across, + right; 1
    up and down, + up), taken */
 static void rinc_hostPointer(rio_Vm *v, rio_Val *a) { (void)v; rinc_pointerMode = a[0].i < 0 || a[0].i > 2 ? 0 : a[0].i; rinc_pointerShow(rinc_pointerOn); }
-static void rinc_hostPointerX(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX; }
-static void rinc_hostPointerAt(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX; a[1].i = (int)rinc_pointerY; } /* ({x, y}) */
-static void rinc_hostPointerY(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerY; }
+static void rinc_hostPointerX(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX >> rinc_zoom; } /* (in the app's screen's pixels) */
+static void rinc_hostPointerAt(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX >> rinc_zoom; a[1].i = (int)rinc_pointerY >> rinc_zoom; } /* ({x, y}) */
+static void rinc_hostPointerY(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerY >> rinc_zoom; }
 static void rinc_hostPointerDown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 3 && !rinc_cmdSettle ? rinc_pointerHeld >> a[0].i & 1 : 0; }
 static void rinc_hostPointerShown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_pointerOnScreen; }
 static void rinc_hostScroll(rio_Vm *v, rio_Val *a) {
@@ -2291,7 +2330,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 }
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.appsFor", pc_appsFor_SIG, rinc_hostAppsFor) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
-         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
+         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.keyHeld", pc_keyHeld_SIG, rinc_hostKeyHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
@@ -2641,6 +2680,11 @@ static void rinc_cmdNarrow(void) {
   if (rinc_cmdPick >= rinc_cmdNShown) rinc_cmdPick = rinc_cmdNShown - 1;
   if (rinc_cmdPick < 0) rinc_cmdPick = 0;
 }
+static int rinc_cmdZoom; /* (the app's screen mode under it: full while it's up, the app's image made full size) */
+static void rinc_cmdClose(void) {
+  rinc_cmdOn = 0; rinc_cmdSettle = 1;
+  if (rinc_cmdZoom) { rinc_zoomIn(rinc_cmdZoom); rinc_setZoom(rinc_cmdZoom); rinc_cmdZoom = 0; }
+}
 static int rinc_cmdOpen(rio_Vm *vm) { /* (the app's, asked now: -1 if that stopped with an error) */
   int fn = rio_findProc(vm, "commandList");
   rinc_cmdAppCount = 0; rinc_cmdVm = vm;
@@ -2659,11 +2703,12 @@ static int rinc_cmdOpen(rio_Vm *vm) { /* (the app's, asked now: -1 if that stopp
   rinc_cmdNarrow();
   rinc_cmdButtons = rinc_buttons; rinc_cmdClicked = rinc_pointerHeld; /* (held already: not presses) */
   rinc_cmdOn = 1;
+  if ((rinc_cmdZoom = rinc_zoom)) { rinc_zoomOut(rinc_zoom); rinc_setZoom(0); } /* (drawn over at full size) */
   return 0;
 }
 static void rinc_cmdRun(int i) { /* (a pick: its key typed for the app, or the system key's) */
   int key = rinc_cmdKeyOf(i);
-  rinc_cmdOn = 0; rinc_cmdSettle = 1;
+  rinc_cmdClose();
   if (key > 0) { /* (first, before anything typed after it; as it is: no lock adds to it) */
     int before = (rinc_typed.tail + rinc_TEXT_CAP - 1) % rinc_TEXT_CAP;
     if (before != rinc_typed.head) { rinc_typed.q[before] = (uint16_t)key; rinc_typed.tail = before; }
@@ -2676,7 +2721,7 @@ static void rinc_cmdMove(int by) {
 }
 static void rinc_cmdKey(int c) {
   int k = c & 255;
-  if (c == 27) rinc_cmdOn = 0, rinc_cmdSettle = 1;
+  if (c == 27) rinc_cmdClose();
   else if (k == 13) { if (rinc_cmdNShown) rinc_cmdRun(rinc_cmdShown[rinc_cmdPick]); }
   else if (k == 8) { if (rinc_cmdFilterLen) rinc_cmdFilterLen--; rinc_cmdNarrow(); }
   else if (c >= 32 && c < 127) { if (rinc_cmdFilterLen < (int)sizeof rinc_cmdFilter - 1) rinc_cmdFilter[rinc_cmdFilterLen++] = (char)c; rinc_cmdPick = 0; rinc_cmdNarrow(); }
@@ -2711,7 +2756,7 @@ static void rinc_cmdFrame(void) {
   from = rinc_cmdPick - rinc_CMD_ROWS + 1 > 0 ? rinc_cmdPick - rinc_CMD_ROWS + 1 : 0;
   if (click) { /* (a row: picked; outside the box: closed) */
     int px = (int)rinc_pointerX, py = (int)rinc_pointerY, row = (py - (rinc_CMD_Y + 32)) / 10;
-    if (px < rinc_CMD_X || px >= rinc_CMD_X + rinc_CMD_W || py < rinc_CMD_Y || py >= rinc_CMD_Y + 36 + rinc_CMD_ROWS * 10) { rinc_cmdOn = 0; rinc_cmdSettle = 1; return; }
+    if (px < rinc_CMD_X || px >= rinc_CMD_X + rinc_CMD_W || py < rinc_CMD_Y || py >= rinc_CMD_Y + 36 + rinc_CMD_ROWS * 10) { rinc_cmdClose(); return; }
     if (py >= rinc_CMD_Y + 32 && from + row < rinc_cmdNShown) { rinc_cmdRun(rinc_cmdShown[from + row]); return; }
   }
   { /* drawn over the app's screen, as it was */
@@ -2742,7 +2787,8 @@ static void rinc_shot(void) {
     snprintf(path, sizeof path, "/rinc/shots/%s-%d.png", rinc_appNow, n);
     if (!rinc_exists(path)) break;
   }
-  if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_W, rinc_H, "", 0, 1, 0, 0)) rinc_noticeSay("Can't save ", path + 6);
+  rinc_pngStride = rinc_W; /* (the app's screen, as big as it is: its rows in the screen's) */
+  if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_appW, rinc_appH, "", 0, 1, 0, 0)) rinc_noticeSay("Can't save ", path + 6);
   else rinc_noticeSay("Saved ", path + 6);
 }
 int rinc_frame(rio_Vm *vm) {
@@ -2756,6 +2802,7 @@ int rinc_frame(rio_Vm *vm) {
     if (rinc_axes[1] > 16000) rinc_buttons |= rinc_Button_down;
   }
   rinc_buttons |= rinc_typedButtons & (rinc_lettersAsButtons() ? 0xff : 15); /* (held over serial: above) */
+  if (vm != &rinc_nest) { int i; for (i = 0; i < 16; i++) rinc_heldFor[i] = rinc_buttons >> i & 1 ? (uint16_t)(rinc_heldFor[i] < 60000 ? rinc_heldFor[i] + 1 : 60000) : 0; } /* (btnp's) */
   if (u < 0 && d < 0) return 1;
   if (vm != &rinc_nest) { /* (the command list: while it's up, the app waits) */
     if (rinc_cmdWanted) { rinc_cmdWanted = 0; if (rinc_cmdOpen(vm)) return -1; }

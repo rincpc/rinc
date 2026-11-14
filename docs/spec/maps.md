@@ -68,11 +68,9 @@ import tilemap
 sheetRoom: [4]tilemap.Sheet
 layerRoom: [8]tilemap.Layer
 room: Blob[12000]                            # its cells, things and names
-level := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[]}
-pixels: Blob[..(128 + 1) * 128]
-sheet := pc.Image{}
-if level.load("/rinc/save/maps/cave.map")    # (else the log says why: the room it needs, say)
-  sheet = pc.imageRead(level.sheetPath(0), pixels)
+pixels: Blob[..(128 + 1) * 128 + 256]       # its sheet's pixels and flags (as Paint says)
+level := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[], pixels = pixels}
+if level.load("/rinc/save/maps/cave.map")    # (and its sheet; else the log says why: the room it needs, say)
   actors := level.layerNamed("actors")       # -1: none
   for i in 0..<level.things(actors)
     t := level.thing(actors, i)
@@ -86,7 +84,7 @@ end
 camera := {0, 0}
 draw* :: proc()
   pc.cls(0)
-  level.draw(0, sheet, camera)               # layer 0, the map's pixel camera at the screen's top left
+  level.draw(0, camera)                      # layer 0, the map's pixel camera at the screen's top left
   if level.at(0, (camera + {160, 120}) / 8) == 5
     pc.print("on a 5", {4, 4}, 7)
   end
@@ -100,6 +98,10 @@ Sheet* :: struct
   path: Blob[..96]
   sprite: [2]Int     # its sprites' size, in pixels
   across: Int        # sprites across, when the map was saved (-1: not known)
+  at: Int            # read (readSheets): its pixels, from here in the map's pixels
+  size: [2]Int       # and its picture's size ({0, 0}: not read)
+  flagsAt: Int       # then its sprites' flags, a byte each, flagCount of them
+  flagCount: Int
 end
 Layer* :: struct
   name: Blob[..15]
@@ -130,6 +132,7 @@ Map* :: struct
   cells: Int         # in all its tiles layers
   thingCount: Int    # in all its things layers
   names: Int         # their bytes, at the room's end
+  pixels: Blob[..]   # the app's, if it gives one: its sheets' pictures and flags (readSheets, as it loads)
 end
 ```
 
@@ -153,11 +156,14 @@ A layer's cells are where its `start` says: a layer moved (`moveLayer`) moves no
 | `m.at(layer, p) -> Int`, `m.set(layer, p, t)`, `m.inside(layer, p) -> Bool` | cell `p`'s tile (`tilemap.EMPTY` for none, and past the layer's edges); changed; whether it's a cell |
 | `m.tile(layer) -> [2]Int`, `m.sheetPath(layer) -> String` | a layer's sheet: its sprites' size, its path |
 | `m.spriteAt(layer, t, width) -> [2]Int` | sprite `t`'s top left in the layer's sheet, `width` pixels wide |
-| `m.readFlags(layer, out) -> Int`, `m.flagsAt(layer, p, flags) -> Int` | the layer's sheet's sprite flags, as Paint sets them ([apps](apps.md#sprite-flags)), into the `[]Int` `out`, a sprite each: how many sprites have any, or -1; the flags of cell `p`'s tile, from them (0 for an empty cell, or past the edges). A game asks a flag's bit by name once (`pc.imageFlag(path, "solid")`) and tests `m.flagsAt(...) & solid` |
+| `m.readSheets() -> Bool` | each sheet's picture, then its sprites' flags (a byte a sprite, as Paint sets them: [apps](apps.md#sprite-flags)), into the map's `pixels`; `load` does it, for a map given `pixels`. False if one can't be read, or there's no room (the log says) |
+| `m.flag(layer, name) -> Int`, `m.flagsAt(layer, p) -> Int` | a flag's bit, by its name in the layer's sheet (0: none of that name); the flags of cell `p`'s tile (0 for an empty cell, or past the edges). A game asks a flag's bit once (`solid := m.flag(ground, "solid")`) and tests `m.flagsAt(ground, cell) & solid` |
+| `m.sprite(layer, t, p)` | sprite `t` of the layer's sheet (the map's own) drawn with its top left at the screen's `p` |
+| `m.thingIn(layer, p) -> ?Thing` | the thing of a things layer whose top left is in cell `p` (counted in its tiles, from its offset), or nil |
 | `m.sheetFor(path, sprite, across) -> Int` | a sheet's number in the map's list, added if it isn't there (-1: no room) |
 | `m.setSheet(layer, path, sprite) -> Bool` | a layer's sheet changed, its tiles kept where they are in the sheet (renumbered, for a sheet the map has across another number) |
 | `m.refit(sheet, width) -> Int` | a sheet's tiles and things renumbered for it now `width` pixels wide: -1 if they're as they were, else how many went |
-| `m.draw(layer, sheet, camera, how?)` | a layer from its sheet, the map's pixel `camera` at the top left: a tiles layer's tiles; a things layer's things, in order (one with no sprite isn't drawn). `how` (a `tilemap.Drawing`): the box it's in (`at`, `size`), `shrink` (2, 4: an editor's view of big tiles), `missing` (a color for a sprite past the sheet's) |
+| `m.draw(layer, camera, how?)` | a layer from its sheet (the map's own, read into its `pixels`), the map's pixel `camera` at the top left: a tiles layer's tiles; a things layer's things, in order (one with no sprite isn't drawn). `how` (a `tilemap.Drawing`): `sheet`, another sheet's picture to draw from (an editor's); the box it's in (`at`, `size`: left out, to the screen's edge, whatever its size: `pc.screen`), `shrink` (2, 4: an editor's view of big tiles), `missing` (a color for a sprite past the sheet's) |
 | `m.things(layer) -> Int`, `m.thing(layer, j) -> Thing` | a things layer's count, and its thing `j`, unpacked |
 | `m.place(layer, t) -> Bool`, `m.placeAt(layer, j, t) -> Bool`, `m.change(layer, j, t) -> Bool`, `m.takeOut(layer, j)` | a thing added (drawn over the others; or as thing `j`, those from it on one later), changed, or taken out: false if there's no room (or it's no thing) |
 | `m.thingOver(layer, p) -> Int` | the last-drawn thing over the map's pixel `p` (-1: none), as an editor picks one |

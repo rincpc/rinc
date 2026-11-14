@@ -62,7 +62,7 @@ synthNote :: proc(i: Int) # note i of the chord, on its voice
 end
 
 update* :: proc()
-  pressed := pc.btn(4) + pc.btn(5) * 2 + pc.btn(6) * 4 + pc.btn(7) * 8 + pc.btn(8) * 16 + pc.btn(9) * 32
+  pressed := pc.btn(.a) + pc.btn(.b) * 2 + pc.btn(.x) * 4 + pc.btn(.y) * 8 + pc.btn(.lb) * 16 + pc.btn(.rb) * 32
   k := pc.key()
   for k >= 0
     if k == 'q' or k == 'Q'
@@ -78,16 +78,16 @@ update* :: proc()
   if pressed & 16 == 16 and held & 16 == 0
     wave = (wave + 1) % 7
   end
-  if pc.btn(0) == 1
+  if pc.btn(.left) == 1
     pitch = max(pitch * 0.99, 0.25)
   end
-  if pc.btn(1) == 1
+  if pc.btn(.right) == 1
     pitch = min(pitch * 1.01, 4.0)
   end
-  if pc.btn(2) == 1
+  if pc.btn(.up) == 1
     pan = max(pan - 0.02, -1.0)
   end
-  if pc.btn(3) == 1
+  if pc.btn(.down) == 1
     pan = min(pan + 0.02, 1.0)
   end
   if pressed & 1 == 1 and held & 1 == 0

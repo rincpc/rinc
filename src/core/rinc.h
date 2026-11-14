@@ -10,6 +10,12 @@
 #define rinc_H 240
 
 extern uint8_t rinc_screen[rinc_H][rinc_W]; /* 8 bits per pixel: an index into rinc_palette */
+/* the app's screen mode (pc.screen): rinc_zoom 0 full, 1 half, 2 quarter. It draws into the top left
+   rinc_appW by rinc_appH of rinc_screen, which is shown 2 or 4 times as big; each app starts full (as the
+   console's text does: rinc_consoleClear) */
+extern int rinc_zoom, rinc_appW, rinc_appH;
+void rinc_setZoom(int zoom);
+static inline uint8_t rinc_appAt(int x, int y) { return rinc_screen[y >> rinc_zoom][x >> rinc_zoom]; } /* (as shown) */
 extern uint16_t rinc_palette[256];        /* RGB565: PICO-8's 32, 12 hues' bands, tints, grays */
 uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
 /* pictures as PNG files (png.c), in storage: indexed, with the palette as their colors and 0 see-through
@@ -24,10 +30,12 @@ uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
    color 0 drawn as the rest are (the screen), not see-through (a sprite sheet) */
 #define rinc_PNG_NOTES 512
 int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n, int solid, const int32_t *flags, int flagCount);
+extern int rinc_pngStride; /* (the next rinc_pngWrite's bytes from a row to the next: 0, w; the screen's, rinc_W) */
 /* a sprite sheet's flags (rinc_pngWrite's: x, y, flags, 3 Ints each, by a sprite's top left pixel), from the
-   rnFg chunk: into out, 3 Ints each, as many as fit in cap Ints; or, with sprite w and h given, out[n] (cap
-   of them, zeroed first) is sprite n's, counted across the rows. How many the picture has, or -1 */
-int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h);
+   rnFg chunk: into out, 3 Ints each, as many as fit in cap Ints; or, with sprite w and h given, into bytes, a
+   byte a sprite (its flags, counted across the rows), *sprites of them (as many as the picture has: none
+   written if that's over cap). How many records the picture has, or -1 */
+int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h, uint8_t *bytes, uint32_t *sprites);
 int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 /* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */
@@ -157,9 +165,9 @@ static inline uint8_t rinc_shownAt(int x, int y) {
   if (rinc_sleeping) return 0; /* (black) */
   if (rinc_pointerOnScreen && (unsigned)(x - rinc_pointerAtX) < 8 && (unsigned)(y - rinc_pointerAtY) < 8 &&
       (o = rinc_pointerImage[y - rinc_pointerAtY][x - rinc_pointerAtX]) != rinc_SEE_THROUGH) return o;
-  if (!rinc_overlayOn || y < rinc_H - rinc_OVERLAY_H) return rinc_screen[y][x];
+  if (!rinc_overlayOn || y < rinc_H - rinc_OVERLAY_H) return rinc_appAt(x, y);
   o = rinc_overlay[y - (rinc_H - rinc_OVERLAY_H)][x];
-  return o == rinc_SEE_THROUGH ? rinc_screen[y][x] : o;
+  return o == rinc_SEE_THROUGH ? rinc_appAt(x, y) : o;
 }
 /* one frame of a game: the app's update* and then draw* (each optional). 0: ran, 1: the app has
    neither (it isn't a game), -1: a runtime error (rio_error says) */

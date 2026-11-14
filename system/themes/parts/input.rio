@@ -89,7 +89,7 @@ update* :: proc()
     c = pc.key()
   end
   # the arrows (and the d-pad): up and down move, held they repeat; editing, left and right step colors
-  bits := pc.btn(2) + pc.btn(3) * 2 + pc.btn(0) * 4 + pc.btn(1) * 8
+  bits := pc.btn(.up) + pc.btn(.down) * 2 + pc.btn(.left) * 4 + pc.btn(.right) * 8
   move := 0
   side := 0
   if bits != held

@@ -132,7 +132,7 @@ update* :: proc()
   clicked = click
   wasShown = pc.pointerShown()
   scroll(-2 * pc.scroll(1))
-  bits := pc.btn(0) + pc.btn(1) * 2 + pc.btn(2) * 4 + pc.btn(3) * 8
+  bits := pc.btn(.left) + pc.btn(.right) * 2 + pc.btn(.up) * 4 + pc.btn(.down) * 8
   pressed := bits & ~held
   if pressed & 4 != 0
     scroll(-1)

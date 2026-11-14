@@ -12,7 +12,7 @@ and in the browser.
 ```rio
 x := 0
 update* :: proc()
-  x += pc.btn(1) - pc.btn(0)       # the arrow keys move it
+  x += pc.btn(.right) - pc.btn(.left)       # the arrow keys move it
 end
 draw* :: proc()
   pc.cls(1)

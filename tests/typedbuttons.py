@@ -14,8 +14,8 @@ a := 0
 frame := 0
 typed: Blob[..40]
 update* :: proc()
-  right += pc.btn(1)
-  a += pc.btn(4)
+  right += pc.btn(.right)
+  a += pc.btn(.a)
   for _ in 0..<8
     k := pc.key()
     if k >= 0

@@ -1,0 +1,12 @@
+# pc.btnp and pc.dpadp: a press at once, then (held) again after 15 frames and each 4th after; dpadp a step
+# one way at a time. rinc tests/btnp.rio -frames 30 -hold "a 2-26, right 3-4, down 3-6": the frames btnp(.a)
+# was 1 in, and dpadp's steps
+frame := 0
+presses: Blob[..64]
+steps := {0, 0}
+update* :: proc()
+  if pc.btnp(.a) == 1 do _ = presses.print(frame, " ")
+  steps += pc.dpadp()
+  frame += 1
+  if frame == 30 do log("btnp:", presses.asString(), "steps:", steps)
+end

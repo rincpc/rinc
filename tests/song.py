@@ -25,6 +25,7 @@ put('game/loops.mus', 'rinc music 1\nsounds /rinc/save/sound/elsewhere/notes.snd
 put('game/stops.mus', 'rinc music 1\r\nsounds notes.snd\r\n00 -- -- -- -\r\n01 -- -- -- s\r\n00 -- -- -- -\r\n')
 put('game/tune2.mus', 'rinc music 2\nsounds notes.snd\nlevers 2 6 150\npattern 8 6\n0 6 1 5 4 6 0\n0 1 1 0 8 12 0\n6 1 0 0 8 0 0\n2 6 0 -3 8 0 1\npattern 4 3\n0 0 2 0 8 0 0\nsong\n0 0 4 8 0 100 b\n1 0 0 8 8 200 2 e\n')
 put('game/twice.mus', 'rinc music 2\nsounds notes.snd\nlevers 0 8 100\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 8 8 8 100 2 s\n')
+put('game/plain.mus', 'rinc music 1' + chr(10) + 'sounds notes.snd' + chr(10) + '00 -- -- -- -' + chr(10) + '01 -- -- -- -' + chr(10))
 put('game/songs/up.mus', 'rinc music 2\nsounds ../notes.snd\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 0 8 8 100 1 -\n')
 put('game/game.rio', r'''
 import song
@@ -71,6 +72,12 @@ tune7 := song.Song{notes = notes7[], room = room7[]}
 log("relative", tune7.load("songs/up.mus"), tune7.hasSounds, tune7.soundsPath.asString(), tune7.notesOf(0))
 tune8 := song.Song{notes = notes7[], room = room7[]}
 log("relative text", tune8.readSongIn("rinc music 2\nsounds ./sub/../../notes.snd\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 0 8 8 100 1 -\n", "songs/"), tune8.hasSounds, tune8.soundsPath.asString())
+notes9: Blob[2 * song.SOUND_BYTES]
+room9: Blob[200]
+tune9 := song.Song{notes = notes9[], room = room9[], voice = 2}
+fine = tune9.load("plain.mus") and tune9.loop() # (round and round: from its start again at its end)
+rows9: Blob[..40]
+was9 := -1
 fine = tune.play(0, false)
 frame := 0
 rep := -1
@@ -94,6 +101,11 @@ bytes :: proc(what: String, at: Int)
 end
 update* :: proc()
   tune.tick()
+  tune9.tick()
+  if tune9.playing and tune9.playUse != was9
+    was9 = tune9.playUse
+    fine = rows9.print(was9, " ")
+  end
   if tune.playing and tune.playUse != was
     was = tune.playUse
     fine = rows.print(was, " ")
@@ -103,6 +115,9 @@ update* :: proc()
     log("voices", pc.soundPlaying(3), pc.soundPlaying(4), pc.soundPlaying(5), pc.soundPlaying(6), pc.soundPlaying(7))
   end
   if frame == 80
+    log("plain looped", rows9.asString())
+    tune9.stop()
+    log("plain stopped", tune9.playing, tune9.looping)
     log("loops played", rows.asString())
     fine = tune.load("stops.mus") and tune.play(0, false)
     rows.clear()
@@ -172,6 +187,7 @@ want = [
   'tiny false 2 false it needs room Blob[70] at least (has 20)', # (the song as it was, when its tables don't fit)
   'voices 0 1 1 0 1',              # (pattern 0: channels 0, 1 and 3 on voices 4, 5 and 7)
   'stops played 0 1  false',
+  'plain stopped false false',         # (loop: round again, until stop)
   'a sound 1',
   'notes 1 30 3 7 1 30 3 6 0 32 2 4 0 32 2 3 0', # (a slide's repeat plain; volume ramped down, shift up)
   'notes 1 on 0 0 0 0 0 0 0 0 27 0 1 0 27 0 0 0', # (the next placement, from step 6)
@@ -187,5 +203,8 @@ bad = [w for w in want if w not in lines]
 loops = [l for l in lines if l.startswith('loops played ')]
 if not loops or not loops[0].split()[2:7] == ['0', '1', '2', '1', '2']:
   bad.append('loops played 0 1 2 1 2 (on round its loop)')
+plain = [l for l in lines if l.startswith('plain looped ')]
+if not plain or not plain[0].split()[2:6] == ['0', '1', '0', '1']:
+  bad.append('plain looped 0 1 0 1 (loop: from its start again at its end)')
 if bad: sys.exit('the song library: missing %r in:\n%s' % (bad, out))
 print('the song library read, played and looped songs')
