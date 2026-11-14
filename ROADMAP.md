@@ -59,10 +59,16 @@ app is a Rio program.
      sounds edited in Music later. The data model, for review: studio/plans/music-patterns.md.
   3. Sprite flags, as PICO-8's (fget, fset), and names for them: a sprite's flags are a few classes it
      belongs to (solid, ladder, hurts), a simple ECS-like tag a game asks of a tile. Set in Paint, kept
-     with the sheet, read by tilemap and games. Built (2026-11-13): a sheet format of Rinc's own (.sheet:
-     a text head, then pixels and flag records as bytes), the `sheet` library, Maps reading it, and Paint's
-     flags (up to 32, named, by each sprite's top left pixel; stranded ones counted, snapped or taken
-     out): studio/plans/sprite-flags.md. Next: tilemap asking a tile's flags, and a game using them.
+     with the sheet, read by tilemap and games. Built (2026-11-14, after a .sheet format of Rinc's own
+     the day before): flags in the sheet's PNG, 8 a sprite in a chunk of Rinc's own (rnFg), named in its
+     notes, read by host calls (pc.imageFlags, imageSpriteFlags, imageFlag: docs/spec/apps.md#sprite-flags),
+     so a game needs no library (8 KB more free than the sheet library left); Paint's flags by each
+     sprite's top left pixel (stranded ones counted, snapped or taken out): studio/plans/sprite-flags.md.
+     More than 8, if it matters later: a wider record. Next: tilemap asking a tile's flags, and a game
+     using them.
+     Later (the user, 2026-11-14): a command in studio's apps that shows Rio source to copy into a game,
+     several lines (Paint's: an enum of its flags' names, with the calls that read them; Maps', Music's
+     likewise).
      The thoughts before it (kept for the record):
      - Where: in the PNG's notes (the tEXt chunk Paint keeps its sprite size in already: one file, the
        picture still a plain PNG elsewhere), as a line a flag's name and a run of hex, a byte a cell.

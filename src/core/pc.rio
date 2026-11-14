@@ -231,9 +231,17 @@ end
 ImageWrite* :: struct
   notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)
   format: ImageFormat  # fromName: as its name ends
+  flags: []Int         # a sprite sheet's flags: x, y, flags for each sprite with any (8 bits), by its top left pixel
 end
 imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1
 imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)
+# a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags
+# in out for each, 3 Ints each, as many as fit; imageSpriteFlags sets out[n] to sprite n's (n counted across the rows, its
+# sprites w by h; out zeroed first); each says how many the picture has, or -1 (no picture). imageFlag is a
+# flag's bit, by the name its notes give it ("flag 0 solid": 1), or 0
+imageFlags* :: host proc(path: String, out: []Int) -> Int
+imageSpriteFlags* :: host proc(path: String, w, h: Int, out: []Int) -> Int
+imageFlag* :: host proc(path: String, name: String) -> Int
 
 # ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's
 

@@ -40,9 +40,10 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 16 ? 1 : -1]; /* (Rio's siz
 typedef struct {
   rio_View notes;
   int32_t format;
+  rio_View flags;
 } pc_ImageWrite;
-typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's size) */
-#define pc_ImageWrite_LAYOUT "{notes:String,format:Enum{fromName,png}}"
+typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's size) */
+#define pc_ImageWrite_LAYOUT "{notes:String,format:Enum{fromName,png},flags:[]Int}"
 
 #define pc_cls_SIG "i"
 #define pc_pset_SIG "iii"
@@ -116,6 +117,9 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
 #define pc_imageLoad_SIG "sB>ii"
 #define pc_imageWrite_SIG "s" pc_Image_LAYOUT pc_ImageWrite_LAYOUT ">i"
 #define pc_imageNotes_SIG "sB>i"
+#define pc_imageFlags_SIG "s[i]>i"
+#define pc_imageSpriteFlags_SIG "sii[i]>i"
+#define pc_imageFlag_SIG "ss>i"
 #define pc_helps_SIG "B>i"
 #define pc_helpRead_SIG "sB>i"
 #define pc_help_SIG "s"
@@ -216,6 +220,9 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(imageLoad, pc_imageLoad_SIG) \
   X(imageWrite, pc_imageWrite_SIG) \
   X(imageNotes, pc_imageNotes_SIG) \
+  X(imageFlags, pc_imageFlags_SIG) \
+  X(imageSpriteFlags, pc_imageSpriteFlags_SIG) \
+  X(imageFlag, pc_imageFlag_SIG) \
   X(helps, pc_helps_SIG) \
   X(helpRead, pc_helpRead_SIG) \
   X(help, pc_help_SIG) \
@@ -243,7 +250,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x37c73e40u /* (rio_hashText of the source) */
+#define pc_HASH 0x37422fc1u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -478,9 +485,17 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 12 ? 1 : -1]; /* (Rio's
   "ImageWrite* :: struct\n" \
   "  notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)\n" \
   "  format: ImageFormat  # fromName: as its name ends\n" \
+  "  flags: []Int         # a sprite sheet's flags: x, y, flags for each sprite with any (8 bits), by its top left pixel\n" \
   "end\n" \
   "imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1\n" \
   "imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)\n" \
+  "# a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags\n" \
+  "# in out for each, 3 Ints each, as many as fit; imageSpriteFlags sets out[n] to sprite n's (n counted across the rows, its\n" \
+  "# sprites w by h; out zeroed first); each says how many the picture has, or -1 (no picture). imageFlag is a\n" \
+  "# flag's bit, by the name its notes give it (\"flag 0 solid\": 1), or 0\n" \
+  "imageFlags* :: host proc(path: String, out: []Int) -> Int\n" \
+  "imageSpriteFlags* :: host proc(path: String, w, h: Int, out: []Int) -> Int\n" \
+  "imageFlag* :: host proc(path: String, name: String) -> Int\n" \
   "\n" \
   "# ---------------------------------------------------------------- help texts, for a help app: /rinc/help, and the bundle's\n" \
   "\n" \

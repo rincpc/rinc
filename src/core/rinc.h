@@ -23,7 +23,11 @@ uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
    pngNotes reads them back into out: how many bytes, or -1 (no such file, not a PNG, or none). solid:
    color 0 drawn as the rest are (the screen), not see-through (a sprite sheet) */
 #define rinc_PNG_NOTES 512
-int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n, int solid);
+int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n, int solid, const int32_t *flags, int flagCount);
+/* a sprite sheet's flags (rinc_pngWrite's: x, y, flags, 3 Ints each, by a sprite's top left pixel), from the
+   rnFg chunk: into out, 3 Ints each, as many as fit in cap Ints; or, with sprite w and h given, out[n] (cap
+   of them, zeroed first) is sprite n's, counted across the rows. How many the picture has, or -1 */
+int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h);
 int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 /* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */

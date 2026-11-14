@@ -204,9 +204,12 @@ color number each, row by row, 0 see-through, and its `size`, a `[2]Int`:
 
 | proc | |
 |---|---|
-| `pc.imageWrite(path, image, o?) -> Int` | a picture as an indexed PNG: Rinc's 256 colors are its own, 0 see-through, so other programs show it as Rinc does. `o` is a `pc.ImageWrite`: `notes`, the app's notes about it (text up to 512 bytes: a sprite sheet's sprite size, say), kept in the PNG as a text chunk named `Rinc`, which other programs keep or ignore; and `format`, a `pc.ImageFormat`: `fromName` (left out: the path ends `.png`) or `png`. 0, or -1 |
+| `pc.imageWrite(path, image, o?) -> Int` | a picture as an indexed PNG: Rinc's 256 colors are its own, 0 see-through, so other programs show it as Rinc does. `o` is a `pc.ImageWrite`: `notes`, the app's notes about it (text up to 512 bytes: a sprite sheet's sprite size, say), kept in the PNG as a text chunk named `Rinc`, which other programs keep or ignore; `format`, a `pc.ImageFormat`: `fromName` (left out: the path ends `.png`) or `png`; and `flags`, a sprite sheet's flags ([below](#sprite-flags)). 0, or -1 |
 | `pc.imageRead(path, pixels) -> pc.Image` | a PNG (8 bits a color, or indexed at 1 to 8 bits; not interlaced), its pixels added to the builder `pixels`, each color Rinc's nearest (exactly the same, for one `imageWrite` wrote): the picture, its `pixels` viewing them (size `{0, 0}`, and none, if it can't be read). `pixels` needs room past what it holds for the PNG's rows as they come, each with a byte saying how it's packed: `(w + 1) * h` bytes for one of Rinc's, or any indexed or gray PNG; `(3 * w + 1) * h` for RGB, `(4 * w + 1) * h` with alpha. Without it, the picture has its size but no pixels, and the log says how much room it needs |
 | `pc.imageNotes(path, out) -> Int` | those notes, added to `out`: how many bytes, or -1 (none, or no such PNG) |
+| `pc.imageFlags(path, out) -> Int` | a sprite sheet's flags, as records: x, y and flags for each, 3 `Int`s each in the `[]Int` `out`, as many as fit: how many the PNG has, or -1 (no such PNG) |
+| `pc.imageSpriteFlags(path, w, h, out) -> Int` | the same, by sprite: `out[n]`, sprite `n`'s flags (its sprites `w` by `h`, counted across the rows; `out` zeroed first; a record not at a sprite's top left left out): how many the PNG has, or -1 |
+| `pc.imageFlag(path, name) -> Int` | a flag's bit, by the name the notes give it: 0 if none has that name |
 
 ```rio
 pic: Blob[4]
@@ -225,6 +228,37 @@ log(pc.fileDelete("/rinc/save/demo2"))
 0
 [2, 2] 4 8 0 12
 8 sprite 2
+0
+```
+
+### Sprite flags
+
+A sprite sheet's sprites can each have flags, 8 of them, a byte's bits: which are solid, say, or a ladder,
+or hurt. Studio's Paint sets them, and names them; a game asks for a flag's bit by its name once, and
+tests each sprite's flags in its loops after. A flag goes with a sprite's top left pixel, whatever size the
+sprites are (9 by 9, say). In the PNG, the flags are a chunk of Rinc's own, `rnFg` (5 bytes a sprite with
+any: x and y, 2 bytes each, high first, then its flags), and their names are lines in its notes (`flag 0
+solid`), with its sprites' size (`sprite 8x8`). Other programs show the picture as it is; most leave out
+chunks they don't know when they save one, so flags are Paint's to change. They're read without the
+picture's pixels, so they need no room but where they go.
+
+```rio
+pic: Blob[16 * 8]
+records := [6]Int{0, 0, 1, 8, 0, 5}  # (sprite 0: solid; sprite 1: solid and ladder)
+log(pc.imageWrite("/rinc/save/demo3/tiles.png", {pixels = pic[], size = {16, 8}},
+                  {notes = "sprite 8x8\nflag 0 solid\nflag 2 ladder\n", flags = records[]}))
+SOLID := pc.imageFlag("/rinc/save/demo3/tiles.png", "solid")
+LADDER := pc.imageFlag("/rinc/save/demo3/tiles.png", "ladder")
+tileFlags: [2]Int
+log(pc.imageSpriteFlags("/rinc/save/demo3/tiles.png", 8, 8, tileFlags[]))
+log(tileFlags[0] & SOLID != 0, tileFlags[0] & LADDER != 0, tileFlags[1] & LADDER != 0)
+log(pc.fileDelete("/rinc/save/demo3"))
+```
+
+```output
+0
+2
+true false true
 0
 ```
 
@@ -594,11 +628,6 @@ carries all of its folder. The system apps are made this way, each a main file a
 Built into every Rinc (and installed in `/rinc/lib` with the system apps, where a newer one can go):
 
 - `tilemap`: tile maps, read, written and drawn, as studio's Maps makes them ([maps](maps.md)).
-- `sheet`: sprite sheets as studio's Paint makes them (`.sheet`: a head of text, then its pixels and
-  its sprites' flags as bytes), and PNGs' pixels: read into the app's room (a `Blob` for its pixels, an
-  `Int` a sprite for its flags), written back. Flags (up to 32, named) go with each sprite's top left
-  pixel, whatever its size; a game asks one's bit by name once (`tiles.flag("solid")`) and tests
-  `tiles.flagsOf(n)` after. Paint shows the room a sheet needs.
 - `song`: songs as studio's Music makes them, and their sounds (Sound's file): read a line at a time,
   and played on up to 8 voices (from its `voice`). A song has patterns, each sounds placed in time (at
   a step, on a channel, at a pitch shift, a volume and a speed), and uses them in turn, each use with

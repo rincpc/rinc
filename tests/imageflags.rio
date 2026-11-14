@@ -1,0 +1,59 @@
+# a sprite sheet's flags in its PNG (docs/spec/apps.md#sprite-flags): written with imageWrite's flags and
+# notes, read back as records (imageFlags), by sprite (imageSpriteFlags), and by name (imageFlag); records
+# outside the picture, or with no flags, left out; 9x9 sprites; room for fewer records than there are; a
+# PNG with none; and no picture at all. Run in its own storage (-data): its PNGs go in /rinc/save
+fails := 0
+check :: proc(ok: Bool, what: String)
+  if not ok
+    log("FAIL", what)
+    fails += 1
+  end
+end
+
+pixels: Blob[..32 * 16]
+for i in 0..<32 * 16 do fine := pixels.push(i % 7)
+image := pc.Image{pixels = pixels[], size = {32, 16}}
+records := [7 * 3]Int{0, 0, 1, 8, 0, 0x81, 24, 8, 4, 3, 5, 2, 40, 0, 1, 8, 8, 0, 16, 8, 0x100} # (40, 0: outside;
+                                                                                                # 8, 8 and 16, 8: no flags)
+PATH :: "/rinc/save/flags.png"
+check(pc.imageWrite(PATH, image, {notes = "sprite 8x8\nflag 0 solid\nflag 7 water\nflag 2 ladder\n", flags = records[]}) == 0, "written")
+
+out: [12]Int
+check(pc.imageFlags(PATH, out[]) == 4, "four records kept")
+check(out[0] == 0 and out[1] == 0 and out[2] == 1, "the first")
+check(out[3] == 8 and out[4] == 0 and out[5] == 0x81, "the second")
+check(out[6] == 24 and out[7] == 8 and out[8] == 4, "the third")
+check(out[9] == 3 and out[10] == 5 and out[11] == 2, "the fourth, not a sprite's start")
+
+few: [6]Int
+check(pc.imageFlags(PATH, few[]) == 4, "with room for two: still says four")
+check(few[3] == 8 and few[5] == 0x81, "the two that fit")
+
+bySprite: [8]Int
+for i in 0..<8 do bySprite[i] = 99
+check(pc.imageSpriteFlags(PATH, 8, 8, bySprite[]) == 4, "by sprite: says four")
+check(bySprite[0] == 1 and bySprite[1] == 0x81 and bySprite[7] == 4, "sprites 0, 1 and 7")
+check(bySprite[2] == 0 and bySprite[4] == 0, "the rest zeroed")
+
+check(pc.imageFlag(PATH, "solid") == 1, "solid's bit")
+check(pc.imageFlag(PATH, "water") == 0x80, "water's bit")
+check(pc.imageFlag(PATH, "ladder") == 4, "ladder's bit")
+check(pc.imageFlag(PATH, "lava") == 0, "no lava")
+check(pc.imageFlag(PATH, "sol") == 0, "not a name's start")
+
+odd := [2 * 3]Int{9, 0, 3, 18, 9, 5}
+check(pc.imageWrite("/rinc/save/odd.png", pc.Image{pixels = pixels[], size = {27, 18}}, {flags = odd[]}) == 0, "9x9 written")
+nine: [6]Int
+check(pc.imageSpriteFlags("/rinc/save/odd.png", 9, 9, nine[]) == 2, "9x9: two")
+check(nine[1] == 3 and nine[5] == 5, "9x9: sprites 1 and 5")
+
+check(pc.imageWrite("/rinc/save/plain.png", image) == 0, "a plain one")
+check(pc.imageFlags("/rinc/save/plain.png", out[]) == 0, "a plain one: none")
+check(pc.imageFlag("/rinc/save/plain.png", "solid") == 0, "a plain one: no names")
+back: Blob[..33 * 16]
+read := pc.imageRead(PATH, back)
+check(read.size.x == 32 and read.size.y == 16 and back[] == pixels[], "its pixels as they were")
+
+check(pc.imageFlags("/rinc/save/none.png", out[]) == -1, "no picture: -1")
+check(pc.imageSpriteFlags("/rinc/save/none.png", 8, 8, bySprite[]) == -1, "no picture, by sprite: -1")
+if fails == 0 do log("image flags: all ok")

@@ -1047,7 +1047,38 @@ static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
   a[0].i = -1;
   if (!named || !p || w <= 0 || h <= 0 || (uint64_t)w * (uint32_t)h > im.pixels.len || o.notes.len > rinc_PNG_NOTES) return;
   if (!o.format && !(k > 4 && path[k - 4] == '.' && (path[k - 3] | 32) == 'p' && (path[k - 2] | 32) == 'n' && (path[k - 1] | 32) == 'g')) return; /* (fromName) */
-  a[0].i = rinc_pngWrite(path, p, w, h, (const char *)rio_viewBytes(v, o.notes), (int)o.notes.len, 0);
+  a[0].i = rinc_pngWrite(path, p, w, h, (const char *)rio_viewBytes(v, o.notes), (int)o.notes.len, 0,
+                         (const int32_t *)rio_viewBytes(v, o.flags), (int)(o.flags.len / 3));
+}
+/* imageFlags(path, out: []Int), imageSpriteFlags(path, w, h, out: []Int) -> Int: a sprite sheet's flags
+   (rinc_pngFlags); imageFlag(path, name) -> Int: a flag's bit, by the name its notes give it ("flag 0 solid") */
+static void rinc_hostImageFlags(rio_Vm *v, rio_Val *a) {
+  char path[96]; int32_t *out = (int32_t *)rio_sliceBytes(v, a + 2);
+  a[0].i = rinc_argPath(v, a, path, 0) ? rinc_pngFlags(path, out, out ? a[3].u : 0, 0, 0) : -1;
+}
+static void rinc_hostImageSpriteFlags(rio_Vm *v, rio_Val *a) {
+  char path[96]; int32_t *out = (int32_t *)rio_sliceBytes(v, a + 4);
+  a[0].i = rinc_argPath(v, a, path, 0) && a[2].i > 0 && a[3].i > 0 ? rinc_pngFlags(path, out, out ? a[5].u : 0, a[2].i, a[3].i) : -1;
+}
+static void rinc_hostImageFlag(rio_Vm *v, rio_Val *a) {
+  static char notes[rinc_PNG_NOTES];
+  char path[96]; const char *name = (const char *)rio_sliceBytes(v, a + 2); uint32_t nameLen = a[3].u;
+  int n = rinc_argPath(v, a, path, 0) ? rinc_pngNotes(path, notes, sizeof notes) : -1, i = 0;
+  a[0].i = 0;
+  while (name && nameLen && i < n) { /* each line: flag k name */
+    int end = i, k;
+    while (end < n && notes[end] != '\n') end++;
+    if (end - i > 5 && !memcmp(notes + i, "flag ", 5)) {
+      for (k = i + 5; k < end && notes[k] >= '0' && notes[k] <= '9'; k++) {}
+      if (k > i + 5 && k < end && notes[k] == ' ' && (uint32_t)(end - k - 1) == nameLen && !memcmp(notes + k + 1, name, nameLen)) {
+        int bit = 0, d;
+        for (d = i + 5; d < k; d++) bit = bit * 10 + (notes[d] - '0');
+        if (bit < 8) a[0].i = 1 << bit;
+        return;
+      }
+    }
+    i = end + 1;
+  }
 }
 static void rinc_hostImageNotes(rio_Vm *v, rio_Val *a) {
   char path[96]; rinc_Out o; int named = rinc_argPath(v, a, path, 0), n = named && rinc_into(v, a + 2, &o) ? rinc_pngNotes(path, (char *)o.end, o.room) : -1;
@@ -1383,6 +1414,7 @@ static const rio_Limits *rinc_nestLimits(uint32_t size) {
   lim.fields = lim.symbols;
   lim.types = lim.symbols / 2;
   lim.params = lim.symbols * 3 / 2;
+  lim.code = 0; /* (the code's room: Rio's for the session's memory, not for the tables' room) */
   return &lim;
 #endif
 }
@@ -2244,7 +2276,7 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.done", pc_done_SIG, rinc_hostDone) || rio_addFfi(vm, "pc.result", pc_result_SIG, rinc_hostResult) ||
          rio_addFfi(vm, "pc.appError", pc_appError_SIG, rinc_hostAppError) ||
          rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
-         rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileReadAt", pc_fileReadAt_SIG, rinc_hostFileReadAt) || rio_addFfi(vm, "pc.fileWriteAt", pc_fileWriteAt_SIG, rinc_hostFileWriteAt) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.imageLoad", pc_imageLoad_SIG, rinc_hostImageLoad) || rio_addFfi(vm, "pc.imageWrite", pc_imageWrite_SIG, rinc_hostImageWrite) || rio_addFfi(vm, "pc.imageNotes", pc_imageNotes_SIG, rinc_hostImageNotes) ||
+         rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileReadAt", pc_fileReadAt_SIG, rinc_hostFileReadAt) || rio_addFfi(vm, "pc.fileWriteAt", pc_fileWriteAt_SIG, rinc_hostFileWriteAt) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.imageLoad", pc_imageLoad_SIG, rinc_hostImageLoad) || rio_addFfi(vm, "pc.imageWrite", pc_imageWrite_SIG, rinc_hostImageWrite) || rio_addFfi(vm, "pc.imageNotes", pc_imageNotes_SIG, rinc_hostImageNotes) || rio_addFfi(vm, "pc.imageFlags", pc_imageFlags_SIG, rinc_hostImageFlags) || rio_addFfi(vm, "pc.imageSpriteFlags", pc_imageSpriteFlags_SIG, rinc_hostImageSpriteFlags) || rio_addFfi(vm, "pc.imageFlag", pc_imageFlag_SIG, rinc_hostImageFlag) ||
          rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) || rio_addFfi(vm, "pc.pointerAt", pc_pointerAt_SIG, rinc_hostPointerAt) ||
          rio_addFfi(vm, "pc.pointerY", pc_pointerY_SIG, rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", pc_pointerDown_SIG, rinc_hostPointerDown) ||
          rio_addFfi(vm, "pc.pointerShown", pc_pointerShown_SIG, rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", pc_scroll_SIG, rinc_hostScroll) ||
@@ -2675,7 +2707,7 @@ static void rinc_shot(void) {
     snprintf(path, sizeof path, "/rinc/shots/%s-%d.png", rinc_appNow, n);
     if (!rinc_exists(path)) break;
   }
-  if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_W, rinc_H, "", 0, 1)) rinc_noticeSay("Can't save ", path + 6);
+  if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_W, rinc_H, "", 0, 1, 0, 0)) rinc_noticeSay("Can't save ", path + 6);
   else rinc_noticeSay("Saved ", path + 6);
 }
 int rinc_frame(rio_Vm *vm) {
