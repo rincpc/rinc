@@ -26,6 +26,8 @@ tune := song.Song{notes = notes[], room = songRoom[], voice = 4}
 _ = tune.load("cloudlamp.mus")
 _ = tune.loop()
 pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels
+titleRoom: Blob[..(96 + 1) * 36 + 200] # (the title font, Paint's: its picture, then its letters' widths)
+title := pc.fontRead("title.png", titleRoom)
 
 grounds := [2]Int{m.layerNamed("island"), m.layerNamed("yard")}
 folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
@@ -97,6 +99,7 @@ draw* :: proc()
   end
   m.draw(folks[screen], camera)
   m.sprite(grounds[screen], PLAYER, at * 8)
+  if screen == 0 and not lit do pc.print("CLOUDLAMP", {44, 6}, 7, {font = title})
   if saidFor > 0
     pc.rect({0, 98}, {160, 22}, 0)
     pc.print(said.asString(), {2, 100}, 7, {width = 156})

@@ -37,6 +37,13 @@ app is a Rio program.
      spaced by the font's size; Paint's font mode (each cell's character shown, a preview line typed in
      it), and a quick zoom in and out key in Paint; later, more than one color remapped (multicolor
      fonts), and sprites handled as flexibly.
+     Done (2026-11-14): pc.Text (width, line, font) and textSize; fonts from sheets (pc.fontRead, fontOf,
+     fontNotes: docs/spec/screen.md#fonts); Paint's notes kept (a font's, another program's), any sprite
+     size (Set the sprites' size: 6x9), Make it a font, the picked cell's character, and a line of the
+     font's drawn letters in it; Cloudlamp's title in a font drawn in Paint on the board, over serial.
+     Still to do: the quick zoom key; a font's range set in Paint (32 to 126 now); each cell's character
+     shown over the sheet. Met on the way: the firmware's console (Ctrl-B) didn't let the app keep its
+     state (no leaving*): fixed.
   2. Tilemap's last rough edges from Cloudlamp: a thing's name a plain String (no `.asString()`); a
      map's sheets and layers its own, once Rio can keep a view of a struct's own array (Rio's ROADMAP:
      a static lifetime marker), so a game gives just its room; a song's two buffers one.

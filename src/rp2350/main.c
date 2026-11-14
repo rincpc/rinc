@@ -83,6 +83,7 @@ static void rinc_open(const char *name) {
 static void rinc_fwPut(const char *s, int n) { rinc_put(s, n); rinc_consolePut(s, n); }
 static void rinc_fwBegin(const char *why) {
   uint32_t k = (sizeof(rinc_Repl) + 15) & ~15u;
+  if (!rinc_fw && rinc_vm.ready) rinc_appLeave(&rinc_vm); /* (the app running gives way as to any other: its leaving*, keeping what's not kept yet) */
   rinc_game = 0; rinc_showLog = 1;
   rinc_themeLoad();
   rinc_consoleClear(rinc_themeColor(0));
