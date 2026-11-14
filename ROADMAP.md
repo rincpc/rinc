@@ -85,8 +85,8 @@ app is a Rio program.
      - Kept by cell, not by sprite number: each 8 by 8 cell of the sheet has its flags, so changing the
        sprite size (8, 16, 32) or the sheet's width doesn't move them; a bigger sprite's flags are its
        top left cell's (or all its cells' together). Tested, as the auto-test rule says.
-     - Named and fast: names in the notes (flag 0 solid), the game asks once (`SOLID := sheet.flag("solid")`,
-       a bit) and then tests a byte (`sheet.has(t, SOLID)`): no strings in the loop.
+     - Named and fast: names in the notes (flag 0 solid), the game asks once (`solid := sheet.flag("solid")`,
+       a bit) and then tests a byte (`sheet.has(t, solid)`): no strings in the loop.
   4. An ergonomics pass: making a game as quick to write as on PICO-8, keeping Rinc general. Ideas to
      weigh: a `game` library of the usual (a sheet and a map loaded by name, sprite and map drawn in a
      call, btn and btnp, sounds and a song played by number), so a small game is PICO-8-short; the
@@ -96,6 +96,9 @@ app is a Rio program.
      docs, examples and templates: a module's name repeats at every use, so short there cuts noise,
      though other names stay long and readable.
   5. Studio: state kept per file, not per app.
+     To decide later (the user, 2026-11-14): maybe the console back to just Rio typed in (its load,
+     save and the like dropped). Its load now reads an app's parts, modules and files from its folder
+     (pc.rioStart's app), for small apps; bigger ones (tilemap's, song's) are run, not loaded.
   6. A card's stale /rinc/lib copy shown: done (2026-11-13): after a compile, each /rinc/lib file read
      that isn't Rinc's own of that name is said, in the app's log and on the screen (tests/stalelib.py).
      And each app an island (the user): paths relative to the file that names them, not absolute ones.

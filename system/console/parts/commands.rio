@@ -33,7 +33,7 @@ load :: proc(name: String)
     say(msg[].asString(), errorColor)
     return
   end
-  if not fresh()
+  if not fresh(name) # (its includes, imports and files from its folder)
     return
   end
   r := pc.rioEval(file[..<n].asString())

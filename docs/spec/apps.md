@@ -247,11 +247,11 @@ pic: Blob[16 * 8]
 records := [6]Int{0, 0, 1, 8, 0, 5}  # (sprite 0: solid; sprite 1: solid and ladder)
 log(pc.imageWrite("/rinc/save/demo3/tiles.png", {pixels = pic[], size = {16, 8}},
                   {notes = "sprite 8x8\nflag 0 solid\nflag 2 ladder\n", flags = records[]}))
-SOLID := pc.imageFlag("/rinc/save/demo3/tiles.png", "solid")
-LADDER := pc.imageFlag("/rinc/save/demo3/tiles.png", "ladder")
+solid := pc.imageFlag("/rinc/save/demo3/tiles.png", "solid")
+ladder := pc.imageFlag("/rinc/save/demo3/tiles.png", "ladder")
 tileFlags: [2]Int
 log(pc.imageSpriteFlags("/rinc/save/demo3/tiles.png", 8, 8, tileFlags[]))
-log(tileFlags[0] & SOLID != 0, tileFlags[0] & LADDER != 0, tileFlags[1] & LADDER != 0)
+log(tileFlags[0] & solid != 0, tileFlags[0] & ladder != 0, tileFlags[1] & ladder != 0)
 log(pc.fileDelete("/rinc/save/demo3"))
 ```
 

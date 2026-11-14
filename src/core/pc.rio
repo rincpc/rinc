@@ -316,8 +316,10 @@ boot* :: host proc() -> Int                                 # how many times thi
 # ---------------------------------------------------------------- Rio inside an app: a session
 
 # a fresh session, for a console or an editor: its code and data in mem, its compiler's tables in
-# tables, both the app's own memory, handed over: 0, or -1
-rioStart* :: host proc(mem, tables: Blob) -> Int
+# tables, both the app's own memory, handed over: 0, or -1. app: an app (chord, or a project, chord+)
+# whose folder the session's own paths start in, as that app's do (include "parts/x.rio", import .x, a
+# file it reads: pc.imageRead("sheet.png")); left out, none (only absolute paths, and Rinc's library)
+rioStart* :: host proc(mem, tables: Blob, app?: String) -> Int
 rioEval* :: host proc(text: String) -> Int          # run a piece: 0 done, 1 unfinished (needs more), -1 error
 rioFrame* :: host proc() -> Int                     # its update then draw: 0, 1 if it has neither, -1 error
 rioType* :: host proc(key: Int)                     # a key for its pc.key()

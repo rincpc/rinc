@@ -24,7 +24,7 @@ CODE_ROW :: -1 # a row's color, for a row of typed code: colored as code
 
 # the session's memory, handed over to it: the typed program's code and data, and its compiler's tables
 sessionMem: Blob[147456]
-sessionTables: Blob[40960]
+sessionTables: Blob[49152]
 file: Blob[24576]  # an app's source, loading or saving
 fileLen := 0
 logBuf: Blob[2048]

@@ -699,6 +699,7 @@ static void rinc_hostLaunch(rio_Vm *v, rio_Val *a) {
 }
 void rinc_textEsc(void) { rinc_typed.esc = 0; rinc_queue(&rinc_typed, 27); }
 static rio_Vm rinc_nest; static int rinc_nestOn, rinc_nestTried; /* (below: Rio inside an app) */
+static char rinc_nestApp[rinc_REF]; /* (the app the session's own paths start in: "" for none) */
 static void rinc_hostKey(rio_Vm *v, rio_Val *a) { a[0].i = v == &rinc_nest ? rinc_dequeue(&rinc_nestTyped) : rinc_cmdWanted ? -1 : rinc_dequeue(&rinc_typed); } /* (the command list asked for: the rest is its) */
 extern int rinc_pointerMode; /* (below) */
 uint8_t rinc_keysHeld[32];
@@ -916,8 +917,15 @@ static void rinc_writeFile(rio_Vm *v, rio_Val *a, const char *path); /* (below) 
 static int rinc_argPath(rio_Vm *v, rio_Val *a, char *out, int change) {
   const char *s = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u, i;
   char own[96];
-  if (s && n >= 1 && s[0] != '/') { /* (one of the app's own files, by its path in its folder: its project's, chord+, or as installed) */
-    int k = snprintf(own, sizeof own, "/rinc/%s/%s/%.*s", rinc_appProject ? "projects" : "apps", rinc_appNow, n, s);
+  if (s && n >= 1 && s[0] != '/') { /* (one of the app's own files, by its path in its folder: its project's, chord+, or as installed;
+                                      a session's, its app's: pc.rioStart) */
+    const char *app = rinc_appNow; int an = (int)strlen(app), project = rinc_appProject, k;
+    if (v == &rinc_nest) {
+      app = rinc_nestApp; an = (int)strlen(app); project = an > 1 && app[an - 1] == rinc_PROJECT;
+      if (project) an--;
+      if (!an) return 0;
+    }
+    k = snprintf(own, sizeof own, "/rinc/%s/%.*s/%.*s", project ? "projects" : "apps", an, app, n, s);
     if (change || k < 0 || k >= (int)sizeof own) return 0; /* (read only: an installed app's folder isn't for writing) */
     s = own;
     n = k;
@@ -1380,8 +1388,8 @@ static void rinc_hostBoot(rio_Vm *v, rio_Val *a) {
   a[0].i = rinc_bootNow;
 }
 /* Rio inside an app (docs/spec/rio.md): one session at a time, a REPL in memory the app hands over.
-   rioStart(mem, tables) -> Int: a fresh one, its code and data in mem and its compiler's tables in
-   tables (0, or -1); rioEval(text) -> Int: compile and run a piece (0 done, 1 unfinished: it needs more,
+   rioStart(mem, tables, app?) -> Int: a fresh one, its code and data in mem and its compiler's tables in
+   tables, its paths from app's folder (0, or -1); rioEval(text) -> Int: compile and run a piece (0 done, 1 unfinished: it needs more,
    -1 an error); rioFrame() -> Int: its update then draw (0, 1 if it has neither, -1 an error);
    rioType(key): a key for its pc.key(); rioError(out) -> Int and rioLog(out) -> Int: the last error, and
    what it has logged since (taken), as text; rioIndent(text) -> Int: the indent steps an unfinished
@@ -1402,15 +1410,17 @@ static int rinc_noCompiler(void) { return -1; }
 #define rio_compile(vm, src, len) rinc_noCompiler()
 #endif
 /* the console's session: its compiler's tables, from the room it gave (a REPL has no slot map, so the
-   tables can take that share: Rio's sizes for 9/8 of the room), with more fields, types and params than
-   Rio's shares: pc alone fills Rio's (129 fields of 130), so a struct typed in had no room */
+   tables can take that share: Rio's sizes for 9/8 of the room, up to 40 KB of it; past that, the room is
+   the string pool's, for an app loaded whole: its strings and line table, as chord's need), with more
+   fields, types and params than Rio's shares: pc alone fills Rio's (129 fields of 130), so a struct typed
+   in had no room */
 static const rio_Limits *rinc_nestLimits(uint32_t size) {
 #ifdef rio_NO_COMPILER
   (void)size;
   return 0;
 #else
   static rio_Limits lim;
-  lim = rio_limitsFor(size / 8 * 9);
+  lim = rio_limitsFor((size < 40960 ? size : 40960) / 8 * 9);
   lim.fields = lim.symbols;
   lim.types = lim.symbols / 2;
   lim.params = lim.symbols * 3 / 2;
@@ -1419,20 +1429,26 @@ static const rio_Limits *rinc_nestLimits(uint32_t size) {
 #endif
 }
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out); /* (pc.rio: below) */
+static int rinc_nestEval(const char *s, uint32_t n); /* (below, with the loader) */
 static void rinc_hostRioStart(rio_Vm *v, rio_Val *a) {
   uint8_t *mem = (uint8_t *)rio_sliceBytes(v, a), *tables = (uint8_t *)rio_sliceBytes(v, a + 2);
   a[0].i = -1;
+  rinc_nestApp[0] = 0;
+  if (v != &rinc_nest && a[5].u && !rinc_argRef(v, a + 4, rinc_nestApp)) { rinc_nestApp[0] = 0; return; } /* (app: its folder the session's) */
   rinc_nestOn = rinc_nestLogLen = 0; rinc_nestTried = 1;
   memset(&rinc_nestTyped, 0, sizeof rinc_nestTyped);
   if (v == &rinc_nest || !mem || !tables || rio_init(&rinc_nest, mem, a[1].u, 0, 0)) return;
   rio_setLog(&rinc_nest, rinc_nestLogLine, 0);
   rio_setLoader(&rinc_nest, rinc_loader, 0); /* (pc as in an app: its types too) */
+#ifndef rio_NO_COMPILER
+  rio_setSourceWindow(&rinc_nest, 1024); /* (its app's files, and the library, read a part at a time) */
+#endif
   if (rinc_hostProcs(&rinc_nest) || rio_autoImport(&rinc_nest, "pc") || rio_replBegin(&rinc_nest, tables, a[3].u, rinc_nestLimits(a[3].u))) return;
   rinc_nestOn = 1; a[0].i = 0;
 }
 static void rinc_hostRioEval(rio_Vm *v, rio_Val *a) {
   const char *s = (const char *)rio_sliceBytes(v, a);
-  a[0].i = v != &rinc_nest && rinc_nestOn && s ? rio_replEval(&rinc_nest, s, a[1].u) : -1;
+  a[0].i = v != &rinc_nest && rinc_nestOn && s ? rinc_nestEval(s, a[1].u) : -1;
 }
 static void rinc_hostRioFrame(rio_Vm *v, rio_Val *a) { a[0].i = v != &rinc_nest && rinc_nestOn ? rinc_frame(&rinc_nest) : -1; }
 static void rinc_hostRioType(rio_Vm *v, rio_Val *a) { if (v != &rinc_nest && a[0].i > 0 && a[0].i < 2048) rinc_queue(&rinc_nestTyped, a[0].i); }
@@ -1746,6 +1762,25 @@ static int rinc_compileSource(rio_Vm *vm, const char *src, uint32_t len, const c
 int rinc_compile(rio_Vm *vm, void *space, uint32_t size, const char *src, uint32_t len) {
   (void)space; (void)size; /* (the app space: rinc_start's already) */
   return rinc_compileSource(vm, src, len, 0, 0);
+}
+/* a session's piece, compiled with its app's files there to read (its includes and imports: rinc_loader, in
+   its app's folder, pc.rioStart's) and Rinc's library, as an app's compile has them */
+static int rinc_nestEval(const char *s, uint32_t n) {
+#ifdef rio_NO_COMPILER
+  (void)s; (void)n;
+  return -1;
+#else
+  char was[rinc_REF]; int res;
+  memcpy(was, rinc_loadApp, sizeof was);
+  snprintf(rinc_loadApp, sizeof rinc_loadApp, "%s", rinc_nestApp);
+  rinc_srcCount = rinc_srcLost = 0;
+  rinc_srcOn = 1;
+  res = rio_replEval(&rinc_nest, s, n);
+  rinc_srcOn = 0;
+  if (rinc_readerOpen) { rinc_fs->close(); rinc_readerOpen = 0; }
+  memcpy(rinc_loadApp, was, sizeof was);
+  return res;
+#endif
 }
 int rinc_compileFile(rio_Vm *vm, void *space, uint32_t size, const char *path, int host) {
   (void)space; (void)size;

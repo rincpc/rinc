@@ -27,7 +27,7 @@ A line on its own can be a command instead:
 |---|---|
 | `run` | run what's been typed as a game (its `update*` and `draw*`), until Esc |
 | `ls` | list the apps, and the projects (a + after the name: `chord+`) |
-| `load name` | app `name`'s source, into a fresh session |
+| `load name` | app `name`'s source, into a fresh session: its parts, its modules and the files it reads, from its folder, as when it runs (`name+`: a project's). A big app (one using tilemap, say) can be more than a session has room for: `run` it instead |
 | `run name` | run app `name`, as itself |
 | `save name` | what's typed or pasted next, until Ctrl-D, becomes app `name`'s source (Ctrl-C gives up) |
 | `save name/a/file` | likewise, a file of app `name`'s own, in its folder: `save chord/parts/sound.rio` |

@@ -7,7 +7,7 @@ at a time, and a session can't start one of its own.
 
 | proc | |
 |---|---|
-| `pc.rioStart(mem, tables) -> Int` | a fresh session: its code and data in `mem`, its compiler's tables in `tables`, both the app's own memory: 0, or -1 |
+| `pc.rioStart(mem, tables, app?) -> Int` | a fresh session: its code and data in `mem`, its compiler's tables in `tables`, both the app's own memory: 0, or -1. `app`, an app's name (`chord`, or a project, `chord+`): the session's paths start in its folder, as the app's own do (`include "parts/x.rio"`, `import .x`, a file it reads); left out, only absolute paths and Rinc's library |
 | `pc.rioEval(text) -> Int` | compile and run a piece of Rio, as a REPL does: 0 done, 1 unfinished (it needs more text), -1 an error |
 | `pc.rioFrame() -> Int` | the session's `update` then `draw`: 0, 1 if it has neither, -1 an error |
 | `pc.rioType(key)` | a key for the session's `pc.key()` |
@@ -40,9 +40,10 @@ log(out.asString())
 1:6: undefined name near 'nope'
 ```
 
-`tables` needs room for the compiler's tables, the `pc` module's included: 40 KB is plenty (the
-console's: room for `pc` and about as much again of a program's own names, structs and procs), and too
-little is an error from `pc.rioStart`, which `pc.rioError` explains. The memory handed over is the
+`tables` needs room for the compiler's tables, the `pc` module's included: 40 KB is plenty for what's
+typed (room for `pc` and about as much again of a program's own names, structs and procs); past 40 KB,
+the rest holds a program's strings, for an app loaded whole (the console's is 48 KB). Too little is an
+error from `pc.rioStart`, which `pc.rioError` explains. The memory handed over is the
 session's from then on: the app mustn't use it for anything else while the session lives. An app
 starting over, or `pc.rioStart` again, ends the session. A session's keys come only from `pc.rioType`,
 so the app decides what it gets: the console keeps Esc, to stop what's running.

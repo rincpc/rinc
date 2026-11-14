@@ -19,8 +19,8 @@ showError :: proc()
   say(logBuf[..<n].asString(), errorColor)
 end
 
-fresh :: proc() -> Bool
-  if pc.rioStart(sessionMem[], sessionTables[]) != 0
+fresh :: proc(app?: String) -> Bool # (app: whose folder its paths start in, as load gives it)
+  if pc.rioStart(sessionMem[], sessionTables[], app) != 0
     showError()
     return false
   end

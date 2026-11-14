@@ -139,7 +139,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_settingWrite_SIG "ss>i"
 #define pc_theme_SIG "Enum{bg,bar,text,soft,dim,faint,accent,heading,pick,select,link,error,ok,codeBg,code,punct,keyword,type,call,number,string,comment}>i"
 #define pc_boot_SIG ">i"
-#define pc_rioStart_SIG "bb>i"
+#define pc_rioStart_SIG "bbs>i"
 #define pc_rioEval_SIG "s>i"
 #define pc_rioFrame_SIG ">i"
 #define pc_rioType_SIG "i"
@@ -250,7 +250,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x37422fc1u /* (rio_hashText of the source) */
+#define pc_HASH 0x9a8bfef2u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -570,8 +570,10 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "# ---------------------------------------------------------------- Rio inside an app: a session\n" \
   "\n" \
   "# a fresh session, for a console or an editor: its code and data in mem, its compiler's tables in\n" \
-  "# tables, both the app's own memory, handed over: 0, or -1\n" \
-  "rioStart* :: host proc(mem, tables: Blob) -> Int\n" \
+  "# tables, both the app's own memory, handed over: 0, or -1. app: an app (chord, or a project, chord+)\n" \
+  "# whose folder the session's own paths start in, as that app's do (include \"parts/x.rio\", import .x, a\n" \
+  "# file it reads: pc.imageRead(\"sheet.png\")); left out, none (only absolute paths, and Rinc's library)\n" \
+  "rioStart* :: host proc(mem, tables: Blob, app?: String) -> Int\n" \
   "rioEval* :: host proc(text: String) -> Int          # run a piece: 0 done, 1 unfinished (needs more), -1 error\n" \
   "rioFrame* :: host proc() -> Int                     # its update then draw: 0, 1 if it has neither, -1 error\n" \
   "rioType* :: host proc(key: Int)                     # a key for its pc.key()\n" \
