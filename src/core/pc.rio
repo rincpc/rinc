@@ -51,13 +51,32 @@ Blit* :: struct
 end
 # a picture, or part of it, as b says, its top left at at; color 0 is see-through: blit(image, {10, 20})
 blit* :: host proc(image: Image, at: [2]Int, b?: Blit)
+# a font, from a sheet (fontRead): its glyphs' picture, in cells cell big across its rows, the first's
+# character first, on to last; line, pixels from a line to the next (0: its cell's height); colors: its
+# own colors (else each glyph's pixels are print's color). A proportional one has glyphs, two bytes for
+# each: where it starts in its cell, and how wide it is (its empty columns trimmed; an empty one, a
+# space's width), and gap pixels after each; a fixed one, each glyph its cell's width. A character it
+# hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)
+Font* :: struct
+  image: Image
+  cell: [2]Int
+  across: Int  # its cells across a row (0: as many as its picture's width has)
+  first: Int
+  last: Int
+  line: Int
+  gap: Int
+  colors: Bool
+  glyphs: Blob
+end
 # how print lays text out: its width, in pixels (0: no wrapping; past it, a line breaks at a space, and a
-# word longer than a line where it must); line, pixels from a line to the next (0: the font's: 9)
+# word longer than a line where it must); line, pixels from a line to the next (0: the font's: 9 for
+# Rinc's own); font (left out: Rinc's own, 5x8, 6 pixels a character)
 Text* :: struct
   width: Int
   line: Int
+  font: Font
 end
-print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in the 5x8 font, 6 pixels a character; a newline starts a line
+print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in how's font (Rinc's 5x8, 6 pixels a character); a newline starts a line
 textSize* :: host proc(s: String, how?: Text) -> [2]Int # how big print draws it: its widest line's width, and its lines' height
 
 # ---------------------------------------------------------------- input
@@ -281,6 +300,123 @@ imageRead* :: proc(path: String, pixels: Blob[..]) -> Image
   size := imageLoad(path, pixels)
   return {pixels = pixels[start..<pixels.len()], size = size}
 end
+imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)
+# a number in t from at on, and where it stops
+noteNumber :: proc(t: String, at: Int) -> [2]Int
+  v := 0
+  i := at
+  for i < t.len() and t[i] >= '0' and t[i] <= '9'
+    v = v * 10 + t[i] - '0'
+    i += 1
+  end
+  return {v, i}
+end
+# what a font sheet's notes say (fontNotes): a font (its "font" line there), its cells, its characters
+# and the rest, as Font has them; proportional, its glyphs to be trimmed
+FontNotes* :: struct
+  isFont: Bool
+  proportional: Bool
+  cell: [2]Int
+  across: Int
+  first: Int
+  last: Int
+  line: Int
+  gap: Int
+  space: Int
+  colors: Bool
+end
+# a font sheet's notes, read: a line each, "font 32 126" (its first character and its last, in its cells
+# across the rows), "sprite 6x9" (its cells' size), and as it likes "proportional" (each glyph as wide as
+# it is, its empty columns trimmed), "gap 1" (after each: 1 if it's left out), "space 3" (a space's width:
+# half a cell if it's left out), "line 10", "across 16" (its cells across a row: else as many as its
+# picture's width has) and "colors"
+fontNotes* :: proc(t: String) -> FontNotes
+  n := FontNotes{gap = 1}
+  at := 0
+  for at < t.len()
+    stop := at
+    for stop < t.len() and t[stop] != 10 do stop += 1
+    l := t[at..<stop]
+    if l.len() > 5 and l[0..<5] == "font "
+      a := noteNumber(l, 5)
+      b := noteNumber(l, a[1] + 1)
+      n.first = a[0]
+      n.last = b[0]
+      n.isFont = true
+    case l.len() > 7 and l[0..<7] == "sprite "
+      w := noteNumber(l, 7)
+      h := w
+      if w[1] < l.len() and l[w[1]] == 'x' do h = noteNumber(l, w[1] + 1)
+      n.cell = {w[0], h[0]}
+    case l == "proportional"
+      n.proportional = true
+    case l.len() > 4 and l[0..<4] == "gap "
+      n.gap = noteNumber(l, 4)[0]
+    case l.len() > 6 and l[0..<6] == "space "
+      n.space = noteNumber(l, 6)[0]
+    case l.len() > 5 and l[0..<5] == "line "
+      n.line = noteNumber(l, 5)[0]
+    case l.len() > 7 and l[0..<7] == "across "
+      n.across = noteNumber(l, 7)[0]
+    case l == "colors"
+      n.colors = true
+    end
+    at = stop + 1
+  end
+  return n
+end
+# a font from a picture and what its notes say (fontNotes), a proportional one's glyphs' widths added to
+# room: for a font that isn't in a file yet (Paint's, as it's drawn); not a font: a Font with no cell
+fontOf* :: proc(image: Image, n: FontNotes, room: Blob[..]) -> Font
+  if not n.isFont or n.cell.x <= 0 or n.cell.y <= 0 or n.last < n.first or image.size.x == 0
+    return Font{}
+  end
+  f := Font{image = image, cell = n.cell, across = n.across, first = n.first, last = n.last, line = n.line, gap = n.gap, colors = n.colors}
+  space := n.space
+  if space == 0 do space = f.cell.x / 2
+  if not n.proportional
+    f.gap = 0
+    return f
+  end
+  start := room.len()
+  across := max(1, image.size.x / f.cell.x)
+  if f.across > 0 do across = f.across
+  for g in 0..<f.last - f.first + 1 # (each glyph: where its columns with any pixel start and end)
+    corner := {g % across, g / across} * f.cell
+    lo := f.cell.x
+    hi := -1
+    for x in 0..<f.cell.x
+      for y in 0..<f.cell.y
+        p := (corner.y + y) * image.size.x + corner.x + x
+        if corner.y + y < image.size.y and corner.x + x < image.size.x and image.pixels[p] != 0
+          lo = min(lo, x)
+          hi = max(hi, x)
+        end
+      end
+    end
+    if hi < 0 # (empty: a space's width)
+      lo = 0
+      hi = space - 1
+    end
+    if not room.push(lo) or not room.push(hi - lo + 1)
+      return Font{} # (no room for its widths)
+    end
+  end
+  f.glyphs = room[start..<room.len()]
+  return f
+end
+# a font, from a sheet (Paint's: docs/spec/screen.md#fonts), its picture read into room, then, for a
+# proportional one, two bytes for each glyph; its notes say what it is (fontNotes). Not a font (no such
+# picture, no room, no "font" line): a Font with no cell, which print takes as Rinc's own
+fontRead* :: proc(path: String, room: Blob[..]) -> Font
+  image := imageRead(path, room)
+  if image.size.x == 0 or image.pixels.len() == 0
+    return Font{}
+  end
+  notes: Blob[..512]
+  _ = imageNotes(path, notes)
+  return fontOf(image, fontNotes(notes.asString()), room)
+end
 # how imageWrite writes a picture; left out, as its name ends (.png), with no notes
 ImageWrite* :: struct
   notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)
@@ -288,7 +424,6 @@ ImageWrite* :: struct
   flags: []Int         # a sprite sheet's flags: x, y, flags for each sprite with any (8 bits), by its top left pixel
 end
 imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1
-imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)
 # a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags
 # in out for each, 3 Ints each, as many as fit; imageSpriteFlags adds a byte for each sprite to out, its
 # flags (counted across the rows, its sprites w by h; 0 for none): how many the picture has, or -1 (no

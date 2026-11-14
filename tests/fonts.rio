@@ -1,0 +1,56 @@
+# fonts from sheets (pc.fontRead, pc.Text's font): a 4x5 sheet of A to D written here, proportional (each
+# glyph trimmed to its columns with pixels, a gap after it, an empty one a space's width), fixed, and with
+# its own colors; measured (pc.textSize), wrapped and drawn; a picture that isn't a font is Rinc's own.
+# Run in storage of its own (-data), -frames 1: it logs "fonts: all ok"
+fails := 0
+check :: proc(ok: Bool, what: String)
+  if not ok
+    log("FAIL", what)
+    fails += 1
+  end
+end
+sheet: Blob[16 * 5]  # A: columns 0 to 2; B: 1 and 2; C: none; D: 0 to 3, its top row only
+for y in 0..<5
+  for x in 0..<3 do sheet[y * 16 + x] = 5
+  for x in 5..<7 do sheet[y * 16 + x] = 5
+end
+for x in 12..<16 do sheet[x] = 6
+image := pc.Image{pixels = sheet[], size = {16, 5}}
+_ = pc.imageWrite("/rinc/save/prop.png", image, {notes = "font 65 68\nsprite 4x5\nproportional\ngap 1\nspace 2\n"})
+_ = pc.imageWrite("/rinc/save/fixed.png", image, {notes = "font 65 68\nsprite 4x5\n"})
+_ = pc.imageWrite("/rinc/save/colored.png", image, {notes = "font 65 68\nsprite 4x5\nproportional\ncolors\n"})
+_ = pc.imageWrite("/rinc/save/plain.png", image)
+
+room: Blob[..400]
+prop := pc.fontRead("/rinc/save/prop.png", room)
+check(prop.cell == {4, 5} and prop.first == 65 and prop.last == 68 and prop.gap == 1, "read: its cells, characters, gap and space")
+check(prop.glyphs.len() == 8 and prop.glyphs[0] == 0 and prop.glyphs[1] == 3 and prop.glyphs[2] == 1 and prop.glyphs[3] == 2, "A 3 wide; B from column 1, 2 wide")
+check(prop.glyphs[5] == 2 and prop.glyphs[7] == 4, "C empty: a space's width; D 4")
+with := pc.Text{font = prop}
+check(pc.textSize("AB", with) == {6, 5}, "AB: 3, a gap, 2 (the last gap not counted); 5 high")
+check(pc.textSize("AD", with) == {8, 5}, "AD")
+check(pc.textSize("AZ", with) == {6, 5}, "a character it hasn't: a space's width")
+check(pc.textSize("AB AB", {font = prop, width = 8}) == {6, 10}, "wrapped at the space: two lines, its cells' height apart")
+check(pc.textSize("A\nA", {font = prop, line = 7}) == {3, 12}, "its own line spacing")
+fixed := pc.fontRead("/rinc/save/fixed.png", room)
+check(fixed.glyphs.len() == 0 and pc.textSize("AB", {font = fixed}) == {8, 5}, "fixed: each glyph its cell's width")
+plain := pc.fontRead("/rinc/save/plain.png", room)
+check(plain.cell == {0, 0} and pc.textSize("ab", {font = plain}) == {11, 8}, "not a font: Rinc's own")
+check(pc.fontRead("/rinc/save/none.png", room).cell == {0, 0}, "no such picture: Rinc's own")
+
+wide: Blob[32 * 5]  # (the same glyphs, in a picture twice as wide: its font 4 cells across, as Paint's)
+for y in 0..<5
+  for x in 0..<16 do wide[y * 32 + x] = sheet[y * 16 + x]
+end
+notes := pc.fontNotes("font 65 68\nsprite 4x5\nproportional\nacross 4\n")
+fromWide := pc.fontOf(pc.Image{pixels = wide[], size = {32, 5}}, notes, room)
+check(notes.isFont and notes.proportional and notes.across == 4, "notes read")
+check(fromWide.glyphs.len() == 8 and fromWide.glyphs[7] == 4 and pc.textSize("AD", {font = fromWide}) == {8, 5}, "a font in a wider picture, 4 across")
+pc.cls(0)
+pc.print("BA", {0, 0}, 9, with)  # (B's two columns at 0 and 1, then a gap, then A at 3 to 5)
+check(pc.pget({0, 0}) == 9 and pc.pget({1, 4}) == 9 and pc.pget({2, 0}) == 0 and pc.pget({3, 0}) == 9 and pc.pget({5, 4}) == 9 and pc.pget({6, 0}) == 0, "drawn in print's color, trimmed, a gap between")
+colored := pc.fontRead("/rinc/save/colored.png", room)
+pc.cls(0)
+pc.print("D", {0, 0}, 9, {font = colored})
+check(pc.pget({0, 0}) == 6 and pc.pget({3, 0}) == 6 and pc.pget({0, 1}) == 0, "colors: its own")
+if fails == 0 do log("fonts: all ok")

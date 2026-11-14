@@ -21,11 +21,26 @@ typedef char pc_Blit_size[sizeof(pc_Blit) == 24 ? 1 : -1]; /* (Rio's size) */
 #define pc_Blit_LAYOUT "{from:[2]Int,size:[2]Int,scale:[2]Int}"
 
 typedef struct {
+  pc_Image image;
+  int32_t cell[2];
+  int32_t across;
+  int32_t first;
+  int32_t last;
+  int32_t line;
+  int32_t gap;
+  int32_t colors;
+  rio_View glyphs;
+} pc_Font;
+typedef char pc_Font_size[sizeof(pc_Font) == 56 ? 1 : -1]; /* (Rio's size) */
+#define pc_Font_LAYOUT "{image:{pixels:Blob,size:[2]Int},cell:[2]Int,across:Int,first:Int,last:Int,line:Int,gap:Int,colors:Int,glyphs:Blob}"
+
+typedef struct {
   int32_t width;
   int32_t line;
+  pc_Font font;
 } pc_Text;
-typedef char pc_Text_size[sizeof(pc_Text) == 8 ? 1 : -1]; /* (Rio's size) */
-#define pc_Text_LAYOUT "{width:Int,line:Int}"
+typedef char pc_Text_size[sizeof(pc_Text) == 64 ? 1 : -1]; /* (Rio's size) */
+#define pc_Text_LAYOUT "{width:Int,line:Int,font:{image:{pixels:Blob,size:[2]Int},cell:[2]Int,across:Int,first:Int,last:Int,line:Int,gap:Int,colors:Int,glyphs:Blob}}"
 
 typedef struct {
   int32_t bits;
@@ -126,8 +141,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_fileRename_SIG "ss>i"
 #define pc_dirMake_SIG "s>i"
 #define pc_imageLoad_SIG "sB>ii"
-#define pc_imageWrite_SIG "s" pc_Image_LAYOUT pc_ImageWrite_LAYOUT ">i"
 #define pc_imageNotes_SIG "sB>i"
+#define pc_imageWrite_SIG "s" pc_Image_LAYOUT pc_ImageWrite_LAYOUT ">i"
 #define pc_imageFlags_SIG "s[i]>i"
 #define pc_imageSpriteFlags_SIG "siiB>i"
 #define pc_imageFlag_SIG "ss>i"
@@ -233,8 +248,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(fileRename, pc_fileRename_SIG) \
   X(dirMake, pc_dirMake_SIG) \
   X(imageLoad, pc_imageLoad_SIG) \
-  X(imageWrite, pc_imageWrite_SIG) \
   X(imageNotes, pc_imageNotes_SIG) \
+  X(imageWrite, pc_imageWrite_SIG) \
   X(imageFlags, pc_imageFlags_SIG) \
   X(imageSpriteFlags, pc_imageSpriteFlags_SIG) \
   X(imageFlag, pc_imageFlag_SIG) \
@@ -265,7 +280,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0xdbeb995eu /* (rio_hashText of the source) */
+#define pc_HASH 0x7afb9899u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -320,13 +335,32 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "end\n" \
   "# a picture, or part of it, as b says, its top left at at; color 0 is see-through: blit(image, {10, 20})\n" \
   "blit* :: host proc(image: Image, at: [2]Int, b?: Blit)\n" \
+  "# a font, from a sheet (fontRead): its glyphs' picture, in cells cell big across its rows, the first's\n" \
+  "# character first, on to last; line, pixels from a line to the next (0: its cell's height); colors: its\n" \
+  "# own colors (else each glyph's pixels are print's color). A proportional one has glyphs, two bytes for\n" \
+  "# each: where it starts in its cell, and how wide it is (its empty columns trimmed; an empty one, a\n" \
+  "# space's width), and gap pixels after each; a fixed one, each glyph its cell's width. A character it\n" \
+  "# hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)\n" \
+  "Font* :: struct\n" \
+  "  image: Image\n" \
+  "  cell: [2]Int\n" \
+  "  across: Int  # its cells across a row (0: as many as its picture's width has)\n" \
+  "  first: Int\n" \
+  "  last: Int\n" \
+  "  line: Int\n" \
+  "  gap: Int\n" \
+  "  colors: Bool\n" \
+  "  glyphs: Blob\n" \
+  "end\n" \
   "# how print lays text out: its width, in pixels (0: no wrapping; past it, a line breaks at a space, and a\n" \
-  "# word longer than a line where it must); line, pixels from a line to the next (0: the font's: 9)\n" \
+  "# word longer than a line where it must); line, pixels from a line to the next (0: the font's: 9 for\n" \
+  "# Rinc's own); font (left out: Rinc's own, 5x8, 6 pixels a character)\n" \
   "Text* :: struct\n" \
   "  width: Int\n" \
   "  line: Int\n" \
+  "  font: Font\n" \
   "end\n" \
-  "print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in the 5x8 font, 6 pixels a character; a newline starts a line\n" \
+  "print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in how's font (Rinc's 5x8, 6 pixels a character); a newline starts a line\n" \
   "textSize* :: host proc(s: String, how?: Text) -> [2]Int # how big print draws it: its widest line's width, and its lines' height\n" \
   "\n" \
   "# ---------------------------------------------------------------- input\n" \
@@ -550,6 +584,123 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "  size := imageLoad(path, pixels)\n" \
   "  return {pixels = pixels[start..<pixels.len()], size = size}\n" \
   "end\n" \
+  "imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)\n" \
+  "# a number in t from at on, and where it stops\n" \
+  "noteNumber :: proc(t: String, at: Int) -> [2]Int\n" \
+  "  v := 0\n" \
+  "  i := at\n" \
+  "  for i < t.len() and t[i] >= '0' and t[i] <= '9'\n" \
+  "    v = v * 10 + t[i] - '0'\n" \
+  "    i += 1\n" \
+  "  end\n" \
+  "  return {v, i}\n" \
+  "end\n" \
+  "# what a font sheet's notes say (fontNotes): a font (its \"font\" line there), its cells, its characters\n" \
+  "# and the rest, as Font has them; proportional, its glyphs to be trimmed\n" \
+  "FontNotes* :: struct\n" \
+  "  isFont: Bool\n" \
+  "  proportional: Bool\n" \
+  "  cell: [2]Int\n" \
+  "  across: Int\n" \
+  "  first: Int\n" \
+  "  last: Int\n" \
+  "  line: Int\n" \
+  "  gap: Int\n" \
+  "  space: Int\n" \
+  "  colors: Bool\n" \
+  "end\n" \
+  "# a font sheet's notes, read: a line each, \"font 32 126\" (its first character and its last, in its cells\n" \
+  "# across the rows), \"sprite 6x9\" (its cells' size), and as it likes \"proportional\" (each glyph as wide as\n" \
+  "# it is, its empty columns trimmed), \"gap 1\" (after each: 1 if it's left out), \"space 3\" (a space's width:\n" \
+  "# half a cell if it's left out), \"line 10\", \"across 16\" (its cells across a row: else as many as its\n" \
+  "# picture's width has) and \"colors\"\n" \
+  "fontNotes* :: proc(t: String) -> FontNotes\n" \
+  "  n := FontNotes{gap = 1}\n" \
+  "  at := 0\n" \
+  "  for at < t.len()\n" \
+  "    stop := at\n" \
+  "    for stop < t.len() and t[stop] != 10 do stop += 1\n" \
+  "    l := t[at..<stop]\n" \
+  "    if l.len() > 5 and l[0..<5] == \"font \"\n" \
+  "      a := noteNumber(l, 5)\n" \
+  "      b := noteNumber(l, a[1] + 1)\n" \
+  "      n.first = a[0]\n" \
+  "      n.last = b[0]\n" \
+  "      n.isFont = true\n" \
+  "    case l.len() > 7 and l[0..<7] == \"sprite \"\n" \
+  "      w := noteNumber(l, 7)\n" \
+  "      h := w\n" \
+  "      if w[1] < l.len() and l[w[1]] == 'x' do h = noteNumber(l, w[1] + 1)\n" \
+  "      n.cell = {w[0], h[0]}\n" \
+  "    case l == \"proportional\"\n" \
+  "      n.proportional = true\n" \
+  "    case l.len() > 4 and l[0..<4] == \"gap \"\n" \
+  "      n.gap = noteNumber(l, 4)[0]\n" \
+  "    case l.len() > 6 and l[0..<6] == \"space \"\n" \
+  "      n.space = noteNumber(l, 6)[0]\n" \
+  "    case l.len() > 5 and l[0..<5] == \"line \"\n" \
+  "      n.line = noteNumber(l, 5)[0]\n" \
+  "    case l.len() > 7 and l[0..<7] == \"across \"\n" \
+  "      n.across = noteNumber(l, 7)[0]\n" \
+  "    case l == \"colors\"\n" \
+  "      n.colors = true\n" \
+  "    end\n" \
+  "    at = stop + 1\n" \
+  "  end\n" \
+  "  return n\n" \
+  "end\n" \
+  "# a font from a picture and what its notes say (fontNotes), a proportional one's glyphs' widths added to\n" \
+  "# room: for a font that isn't in a file yet (Paint's, as it's drawn); not a font: a Font with no cell\n" \
+  "fontOf* :: proc(image: Image, n: FontNotes, room: Blob[..]) -> Font\n" \
+  "  if not n.isFont or n.cell.x <= 0 or n.cell.y <= 0 or n.last < n.first or image.size.x == 0\n" \
+  "    return Font{}\n" \
+  "  end\n" \
+  "  f := Font{image = image, cell = n.cell, across = n.across, first = n.first, last = n.last, line = n.line, gap = n.gap, colors = n.colors}\n" \
+  "  space := n.space\n" \
+  "  if space == 0 do space = f.cell.x / 2\n" \
+  "  if not n.proportional\n" \
+  "    f.gap = 0\n" \
+  "    return f\n" \
+  "  end\n" \
+  "  start := room.len()\n" \
+  "  across := max(1, image.size.x / f.cell.x)\n" \
+  "  if f.across > 0 do across = f.across\n" \
+  "  for g in 0..<f.last - f.first + 1 # (each glyph: where its columns with any pixel start and end)\n" \
+  "    corner := {g % across, g / across} * f.cell\n" \
+  "    lo := f.cell.x\n" \
+  "    hi := -1\n" \
+  "    for x in 0..<f.cell.x\n" \
+  "      for y in 0..<f.cell.y\n" \
+  "        p := (corner.y + y) * image.size.x + corner.x + x\n" \
+  "        if corner.y + y < image.size.y and corner.x + x < image.size.x and image.pixels[p] != 0\n" \
+  "          lo = min(lo, x)\n" \
+  "          hi = max(hi, x)\n" \
+  "        end\n" \
+  "      end\n" \
+  "    end\n" \
+  "    if hi < 0 # (empty: a space's width)\n" \
+  "      lo = 0\n" \
+  "      hi = space - 1\n" \
+  "    end\n" \
+  "    if not room.push(lo) or not room.push(hi - lo + 1)\n" \
+  "      return Font{} # (no room for its widths)\n" \
+  "    end\n" \
+  "  end\n" \
+  "  f.glyphs = room[start..<room.len()]\n" \
+  "  return f\n" \
+  "end\n" \
+  "# a font, from a sheet (Paint's: docs/spec/screen.md#fonts), its picture read into room, then, for a\n" \
+  "# proportional one, two bytes for each glyph; its notes say what it is (fontNotes). Not a font (no such\n" \
+  "# picture, no room, no \"font\" line): a Font with no cell, which print takes as Rinc's own\n" \
+  "fontRead* :: proc(path: String, room: Blob[..]) -> Font\n" \
+  "  image := imageRead(path, room)\n" \
+  "  if image.size.x == 0 or image.pixels.len() == 0\n" \
+  "    return Font{}\n" \
+  "  end\n" \
+  "  notes: Blob[..512]\n" \
+  "  _ = imageNotes(path, notes)\n" \
+  "  return fontOf(image, fontNotes(notes.asString()), room)\n" \
+  "end\n" \
   "# how imageWrite writes a picture; left out, as its name ends (.png), with no notes\n" \
   "ImageWrite* :: struct\n" \
   "  notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)\n" \
@@ -557,7 +708,6 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "  flags: []Int         # a sprite sheet's flags: x, y, flags for each sprite with any (8 bits), by its top left pixel\n" \
   "end\n" \
   "imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1\n" \
-  "imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)\n" \
   "# a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags\n" \
   "# in out for each, 3 Ints each, as many as fit; imageSpriteFlags adds a byte for each sprite to out, its\n" \
   "# flags (counted across the rows, its sprites w by h; 0 for none): how many the picture has, or -1 (no\n" \

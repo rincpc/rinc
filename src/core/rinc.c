@@ -129,40 +129,87 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
    one's gap not counted) and its height, into size */
 #define rinc_CHAR_W 6
 #define rinc_LINE_H 9
-static void rinc_textLay(const char *s, int n, int width, int lineH, int draw, int x, int y, int c, int size[2]) {
-  int lh = lineH > 0 ? lineH : rinc_LINE_H, cols = width >= rinc_CHAR_W ? width / rinc_CHAR_W : 0, i = 0, line = 0, widest = 0;
+/* a font, as print uses it (pc.Font, its views read): none (font.px NULL) for Rinc's own, 5x8 in 6x9 */
+typedef struct { const uint8_t *px, *glyphs; int pw, ph, cw, ch, first, last, line, gap, space, colors, across, nglyphs; } rinc_Font;
+static void rinc_fontOf(rio_Vm *v, const pc_Font *f, rinc_Font *u) {
+  memset(u, 0, sizeof *u);
+  if (f->cell[0] <= 0 || f->cell[1] <= 0 || f->last < f->first || f->image.size[0] <= 0) return;
+  u->px = (const uint8_t *)rio_viewBytes(v, f->image.pixels);
+  if (!u->px || (uint64_t)f->image.size[0] * (uint32_t)f->image.size[1] > f->image.pixels.len) { u->px = 0; return; }
+  u->pw = f->image.size[0]; u->ph = f->image.size[1]; u->cw = f->cell[0]; u->ch = f->cell[1];
+  u->first = f->first; u->last = f->last; u->line = f->line; u->gap = f->gap; u->space = u->cw / 2; u->colors = f->colors;
+  u->across = f->across > 0 ? f->across : u->pw / u->cw > 0 ? u->pw / u->cw : 1;
+  u->glyphs = f->glyphs.len ? (const uint8_t *)rio_viewBytes(v, f->glyphs) : 0;
+  u->nglyphs = u->glyphs ? (int)f->glyphs.len / 2 : 0;
+}
+/* how far a character moves on (its glyph's width and the gap after it), and the gap past a line's last */
+static int rinc_advance(const rinc_Font *u, int c) {
+  int g;
+  if (!u->px) return rinc_CHAR_W;
+  if (!u->glyphs) return u->cw;
+  g = c - u->first;
+  if (g < 0 || g >= u->nglyphs) return u->space + u->gap; /* (none: as a space) */
+  return u->glyphs[g * 2 + 1] + u->gap;
+}
+static int rinc_trailing(const rinc_Font *u) { return !u->px ? 1 : u->glyphs ? u->gap : 0; }
+static void rinc_glyph(const rinc_Font *u, int c, int x, int y, int color) {
+  int g = c - u->first, gx, gy, left = 0, w = u->cw, i, j;
+  if (!u->px) { rinc_char(c, x, y, color, -1); return; }
+  if (g < 0 || c > u->last) return;
+  if (u->glyphs) { if (g >= u->nglyphs) return; left = u->glyphs[g * 2]; w = u->glyphs[g * 2 + 1]; }
+  gx = g % u->across * u->cw + left; gy = g / u->across * u->ch;
+  for (j = 0; j < u->ch; j++) {
+    int sy = gy + j, py = y + j;
+    if (sy >= u->ph || py < 0 || py >= rinc_appH) continue;
+    for (i = 0; i < w; i++) {
+      int sx = gx + i, px = x + i; uint8_t p;
+      if (sx >= u->pw || px < 0 || px >= rinc_appW) continue;
+      if ((p = u->px[sy * u->pw + sx]) != 0) rinc_screen[py][px] = (uint8_t)(u->colors ? p : color);
+    }
+  }
+}
+static void rinc_textLay(const char *s, int n, int width, int lineH, const rinc_Font *u, int draw, int x, int y, int c, int size[2]) {
+  int lh = lineH > 0 ? lineH : !u->px ? rinc_LINE_H : u->line > 0 ? u->line : u->ch, glyphH = !u->px ? 8 : u->ch;
+  int trail = rinc_trailing(u), wraps = width > 0 && width >= (u->px ? u->cw : rinc_CHAR_W) - trail, i = 0, line = 0, widest = 0;
   while (i < n) {
-    int end = i, k, take; /* (this line: i to take, then on from k) */
-    while (end < n && s[end] != '\n' && (!cols || end - i < cols)) end++;
+    int end = i, k, take, w = 0, lastSpace = -1, j, px; /* (this line: i to take, then on from k) */
+    while (end < n && s[end] != '\n') {
+      int a = rinc_advance(u, (unsigned char)s[end]);
+      if (wraps && end > i && w + a - trail > width) break; /* (it doesn't fit: the line ends before it) */
+      if (s[end] == ' ') lastSpace = end;
+      w += a; end++;
+    }
     take = end; k = end;
-    if (cols && end < n && s[end] != '\n' && end - i == cols) { /* (full: back to the last space, if there's one) */
-      int sp = end;
-      if (s[end] == ' ') { take = end; k = end + 1; } /* (a space just past it: the line ends there) */
-      else {
-        while (sp > i && s[sp - 1] != ' ') sp--;
-        if (sp > i) { take = sp - 1; k = sp; } /* (the word on the next line) */
-      }
-    } else if (end < n && s[end] == '\n') k = end + 1;
-    if (draw) { int j; for (j = i; j < take; j++) rinc_char((unsigned char)s[j], x + (j - i) * rinc_CHAR_W, y + line * lh, c, -1); }
-    if (take - i > widest) widest = take - i;
+    if (end < n && s[end] == '\n') k = end + 1;
+    else if (end < n) { /* (full: at a space there, or back to the last one; else the word broken here) */
+      if (s[end] == ' ') k = end + 1;
+      else if (lastSpace > i) { take = lastSpace; k = lastSpace + 1; }
+    }
+    for (j = i, px = 0; j < take; j++) { /* (drawn, and measured: the gap past its last character not counted) */
+      if (draw) rinc_glyph(u, (unsigned char)s[j], x + px, y + line * lh, c);
+      px += rinc_advance(u, (unsigned char)s[j]);
+    }
+    if (take > i && px - trail > widest) widest = px - trail;
     line++;
     i = k;
     if (i == n && n > 0 && s[n - 1] == '\n') line++; /* (a newline at the end: an empty line after it) */
   }
-  size[0] = widest ? widest * rinc_CHAR_W - 1 : 0;
-  size[1] = line ? (line - 1) * lh + 8 : 0;
+  size[0] = widest;
+  size[1] = line ? (line - 1) * lh + glyphH : 0;
 }
 static void rinc_hostPrint(rio_Vm *v, rio_Val *a) {
-  const char *s = (const char *)rio_sliceBytes(v, a); pc_Text how; int size[2];
+  const char *s = (const char *)rio_sliceBytes(v, a); pc_Text how; rinc_Font u; int size[2];
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 5, &how, sizeof how);
-  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, 1, a[2].i, a[3].i, a[4].i & 255, size);
+  rinc_fontOf(v, &how.font, &u);
+  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, &u, 1, a[2].i, a[3].i, a[4].i & 255, size);
 }
 static void rinc_hostTextSize(rio_Vm *v, rio_Val *a) {
-  const char *s = (const char *)rio_sliceBytes(v, a); pc_Text how; int size[2] = {0, 0};
+  const char *s = (const char *)rio_sliceBytes(v, a); pc_Text how; rinc_Font u; int size[2] = {0, 0};
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 2, &how, sizeof how);
-  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, 0, 0, 0, 0, size);
+  rinc_fontOf(v, &how.font, &u);
+  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, &u, 0, 0, 0, 0, size);
   a[0].i = size[0]; a[1].i = size[1];
 }
 /* key() -> Int: the next key typed, or -1 when there's none waiting (docs/spec/input.md#typed-text):

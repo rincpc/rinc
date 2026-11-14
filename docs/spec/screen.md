@@ -96,6 +96,32 @@ log(pc.textSize("a\nbc"))
 [11, 17]
 ```
 
+## Fonts
+
+A font is a sheet of glyphs, a picture in cells of one size, a character a cell across its rows: Paint
+makes one as it makes a sprite sheet. Its notes say what it is, a line each:
+
+| line | |
+|---|---|
+| `font 32 126` | it's a font: its first cell's character and its last's |
+| `sprite 6x9` | its cells' size |
+| `proportional` | each glyph as wide as its columns with pixels (its empty ones trimmed, either side); else every glyph its cell's width |
+| `gap 1` | a proportional font's pixels after each glyph (1 if it's left out) |
+| `space 3` | a space's width, and an empty glyph's (half a cell if it's left out) |
+| `line 10` | pixels from a line to the next (its cells' height if it's left out) |
+| `colors` | its glyphs drawn in their own colors (else in the color `print` is given) |
+
+`pc.fontRead(path, room)` reads one into the `Blob[..]` `room` (its picture, as `pc.imageRead` does, then
+two bytes a glyph for a proportional one: where it starts in its cell, and its width), as a `pc.Font`;
+`pc.Text`'s `font` draws in it (`print`) and measures it (`textSize`), wrapping as its glyphs' widths
+say. A picture that isn't a font, or isn't there, reads as a `pc.Font` with no cells: Rinc's own.
+
+```rio fragment
+room: Blob[..(96 + 1) * 54 + 190]          # its picture's rows, as it's read; and two bytes a glyph
+title := pc.fontRead("title.png", room)
+pc.print("CLOUDLAMP", {20, 20}, 10, {font = title})
+```
+
 ## The palette
 
 The palette is 16 bands of 16 colors, a band to each row of 16 (as the Colors app shows them). Colors 0

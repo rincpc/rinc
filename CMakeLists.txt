@@ -240,6 +240,9 @@ else()
   # pc.print's layout (pc.Text: wrapped to a width, line spacing) and pc.textSize
   add_test(NAME text COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/text.rio -frames 1)
   set_tests_properties(text PROPERTIES PASS_REGULAR_EXPRESSION "text: all ok")
+  # fonts from sheets: read (pc.fontRead), measured, wrapped and drawn, proportional, fixed, colored
+  add_test(NAME fonts COMMAND rinc -data ${CMAKE_CURRENT_BINARY_DIR}/fonts-work ${CMAKE_CURRENT_LIST_DIR}/tests/fonts.rio -frames 1)
+  set_tests_properties(fonts PROPERTIES PASS_REGULAR_EXPRESSION "fonts: all ok")
   add_test(NAME hold COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/hold.rio -frames 7 -hold "b 2-3, x 4-4, space 1-2, keyq 3-3, delete 4-4, left 5-5")
   set_tests_properties(hold PROPERTIES PASS_REGULAR_EXPRESSION "frame 0 b 0 x 0 keys 0 0 0 0 0[^f]*frame 1 b 0 x 0 keys 1 0 0 0 0[^f]*frame 2 b 1 x 0 keys 1 0 0 0 0[^f]*frame 3 b 1 x 0 keys 0 1 0 0 0[^f]*frame 4 b 0 x 1 keys 0 0 1 0 0[^f]*frame 5 b 0 x 0 keys 0 0 0 1 0[^f]*frame 6 b 0 x 0 keys 0 0 0 0 0")
   add_test(NAME app_help COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/system/help/help.rio -frames 30 -type "\\t\\n")
