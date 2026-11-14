@@ -611,6 +611,36 @@ beside :: proc(folder: String, p: String) -> String
   fine = besidePath.pushAll(folder) and besidePath.pushAll(p[k..<p.len()])
   return besidePath.asString()
 end
+# path p from folder (to its last /), as one path: its . and .. followed
+inPath: Blob[..200]
+within :: proc(folder: String, p: String) -> String
+  inPath.clear()
+  fine = inPath.pushAll(folder)
+  at := 0
+  for at <= p.len()
+    e := at
+    for e < p.len() and p[e] != '/'
+      e += 1
+    end
+    part := p[at..<e]
+    if part == ".." # (up one: the folder before the last /)
+      k := inPath.len() - 1
+      for k > 0 and inPath[k - 1] != '/'
+        k -= 1
+      end
+      for inPath.len() > max(k, 0)
+        _ = inPath.pop()
+      end
+    case part.len() > 0 and part != "."
+      fine = inPath.pushAll(part)
+      if e < p.len()
+        fine = inPath.push('/')
+      end
+    end
+    at = e + 1
+  end
+  return inPath.asString()
+end
 # after the counting pass: the tables laid out in room, and the sounds read (from the file named, or one
 # of its name beside the song: in folder); false if the room's too small (why says how much)
 Song.counted :: proc(folder: String) -> Bool
@@ -631,12 +661,16 @@ Song.counted :: proc(folder: String) -> Bool
   self.placesAt = self.usesAt + nU * USE_BYTES
   self.streamsAt = self.placesAt + nL * PLACE_BYTES
   p := named.asString()
-  if self.hasSounds and p == self.soundsPath.asString() # (read already: Music plays each change this way)
+  full := p # (a path from the song's folder: its sounds where the song is, wherever that is)
+  if p.len() > 0 and p[0] != '/' and folder.len() > 0
+    full = within(folder, p)
+  end
+  if self.hasSounds and full == self.soundsPath.asString() # (read already: Music plays each change this way)
     return true
   end
-  if p.len() > 0 and not self.loadSounds(p) and not self.loadSounds(beside(folder, p))
+  if full.len() > 0 and not self.loadSounds(full) and not self.loadSounds(beside(folder, p))
     self.soundsPath.clear()
-    fine = self.soundsPath.pushAll(p) # (kept, though it's not there now)
+    fine = self.soundsPath.pushAll(full) # (kept, though it's not there now)
   end
   return true
 end
@@ -665,7 +699,8 @@ end
 
 # a song's text (Music keeps one in its stash): read into it, false if it isn't a song, or it doesn't fit
 # (why says); its sounds from the file it names (hasSounds: whether they were)
-Song.readSong* :: proc(t: String) -> Bool
+# (readSongIn: for a song whose file is in folder, to its last /: a path to its sounds there from that folder)
+Song.readSongIn* :: proc(t: String, folder: String) -> Bool
   self.stop()
   for pass in 0..<2
     filling = pass == 1
@@ -686,12 +721,13 @@ Song.readSong* :: proc(t: String) -> Bool
         at = i + 1
       end
     end
-    if k < 2 or (pass == 0 and not self.counted(""))
+    if k < 2 or (pass == 0 and not self.counted(folder))
       return false
     end
   end
   return self.filled()
 end
+Song.readSong* :: proc(t: String) -> Bool do return self.readSongIn(t, "")
 # a .mus file, read a line at a time (twice), and its sounds: false if it can't be, and the log says
 # why (the room it needs, say)
 Song.load* :: proc(p: String) -> Bool

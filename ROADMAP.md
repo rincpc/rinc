@@ -85,7 +85,11 @@ app is a Rio program.
      docs, examples and templates: a module's name repeats at every use, so short there cuts noise,
      though other names stay long and readable.
   5. Studio: state kept per file, not per app.
-  6. A card's stale /rinc/lib copy shown (with listing /rinc/lib).
+  6. A card's stale /rinc/lib copy shown: done (2026-11-13): after a compile, each /rinc/lib file read
+     that isn't Rinc's own of that name is said, in the app's log and on the screen (tests/stalelib.py).
+     And each app an island (the user): paths relative to the file that names them, not absolute ones.
+     Done for songs' sounds (the song library reads them from the song's folder; Music saves them so);
+     next for Maps' sheets (a map's sheet path, Maps and tilemap).
   7. A read-only tilemap for games (load, at, spriteAt, things), importable on its own: Cloudlamp pays
      4,350 of its 4,845 instructions for all of tilemap, editing and writing included (less once 1 is
      done; still worth it).

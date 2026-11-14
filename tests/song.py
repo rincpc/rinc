@@ -6,7 +6,7 @@ file isn't there or isn't a song); version 1 songs converted (a pattern a line, 
 sound's speed); version 2's levers, patterns of placements and uses read, written back the same, and
 read again; each channel's notes worked out as hand-figured here (shifts, ramps, a slide's repeat, a
 placement cut by the next and held a step); the uses played in turn, a loop's end going back to its
-start, a stop stopping it; the song on the voices from its voice on; a sound on its own (a game's
+start, a stop stopping it; a sounds path from the song's folder (.. and . followed); the song on the voices from its voice on; a sound on its own (a game's
 effects); the levers set as it plays."""
 import os, shutil, subprocess, sys
 
@@ -25,6 +25,7 @@ put('game/loops.mus', 'rinc music 1\nsounds /rinc/save/sound/elsewhere/notes.snd
 put('game/stops.mus', 'rinc music 1\r\nsounds notes.snd\r\n00 -- -- -- -\r\n01 -- -- -- s\r\n00 -- -- -- -\r\n')
 put('game/tune2.mus', 'rinc music 2\nsounds notes.snd\nlevers 2 6 150\npattern 8 6\n0 6 1 5 4 6 0\n0 1 1 0 8 12 0\n6 1 0 0 8 0 0\n2 6 0 -3 8 0 1\npattern 4 3\n0 0 2 0 8 0 0\nsong\n0 0 4 8 0 100 b\n1 0 0 8 8 200 2 e\n')
 put('game/twice.mus', 'rinc music 2\nsounds notes.snd\nlevers 0 8 100\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 8 8 8 100 2 s\n')
+put('game/songs/up.mus', 'rinc music 2\nsounds ../notes.snd\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 0 8 8 100 1 -\n')
 put('game/game.rio', r'''
 import song
 notes: Blob[song.ALL_SOUNDS]
@@ -64,6 +65,12 @@ log("tiny", tune3.readSong("hello"), tune3.uses, tune5.readSong(text.asString())
 room6: Blob[60]
 tune6 := song.Song{notes = notes2[], room = room6[], voice = 0}
 fine := tune6.load("twice.mus")
+notes7: Blob[song.ALL_SOUNDS]
+room7: Blob[200]
+tune7 := song.Song{notes = notes7[], room = room7[]}
+log("relative", tune7.load("songs/up.mus"), tune7.hasSounds, tune7.soundsPath.asString(), tune7.notesOf(0))
+tune8 := song.Song{notes = notes7[], room = room7[]}
+log("relative text", tune8.readSongIn("rinc music 2\nsounds ./sub/../../notes.snd\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 0 8 8 100 1 -\n", "songs/"), tune8.hasSounds, tune8.soundsPath.asString())
 fine = tune.play(0, false)
 frame := 0
 rep := -1
@@ -173,7 +180,9 @@ want = [
   'levers 3 4',
   'rep 0 24 0 5 0 25 0 5 0 26 0 5 0 27 0 5 0', # (played twice, its shift ramped 0 to 8 across both)
   'rep 1 28 0 5 0 29 0 5 0 30 0 5 0 31 0 5 0',
-  'reps done false']
+  'reps done false',
+  'relative true true notes.snd 4',   # (a path from the song's folder: songs/../notes.snd)
+  'relative text true true notes.snd']
 bad = [w for w in want if w not in lines]
 loops = [l for l in lines if l.startswith('loops played ')]
 if not loops or not loops[0].split()[2:7] == ['0', '1', '2', '1', '2']:

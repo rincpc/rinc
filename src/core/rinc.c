@@ -1644,6 +1644,35 @@ int rinc_start(rio_Vm *vm, void *mem, uint32_t memsize, void (*put)(const char *
   return 0;
 }
 
+static void rinc_noticeSay(const char *what, const char *name); /* (below) */
+/* after a compile: each file of the card's library (/rinc/lib) it read that isn't Rinc's own of that
+   name (built in: an older copy, or a changed one), said, in the log and on the screen; it's the one
+   used (a card's own wins), so it's what to look at when an app that imports it goes wrong */
+static void rinc_staleLib(void) {
+  int i, j;
+  for (i = 0; i < rinc_srcCount; i++) {
+    rinc_Reader *r = &rinc_srcFiles[i];
+    uint64_t own = 0xcbf29ce484222325ull, card = r->x; uint32_t k;
+    if (r->host || strncmp(r->path, "/rinc/lib/", 10)) continue;
+    for (j = 0; rinc_library[j].path && strcmp(rinc_library[j].path, r->path + 10); j++) {}
+    if (!rinc_library[j].path) continue; /* (none built in of that name: the card's own library) */
+    for (k = 0; k < rinc_library[j].len; k++) own = (own ^ (uint8_t)rinc_library[j].data[k]) * 0x100000001b3ull;
+    if (!r->ended) { /* (not read to its end: a compile that stopped in it) */
+      static char chunk[128]; int got; /* (static: off the stack, small on a board) */
+      card = 0xcbf29ce484222325ull;
+      if (!rinc_fs || rinc_fs->open(r->path, 0)) continue;
+      while ((got = rinc_fs->read(chunk, sizeof chunk)) > 0)
+        for (k = 0; k < (uint32_t)got; k++) card = (card ^ (uint8_t)chunk[k]) * 0x100000001b3ull;
+      rinc_fs->close();
+    }
+    if (card != own) {
+      static char said[160];
+      int n = snprintf(said, sizeof said, "(the card's %s isn't Rinc's own: an older or changed copy, used instead)", r->path);
+      rinc_logLine(0, said, n < (int)sizeof said ? n : (int)sizeof said - 1);
+      rinc_noticeSay("Card lib copy: ", r->path + 10); /* (15: a name of 32 fits) */
+    }
+  }
+}
 /* an app's source compiled (as rinc.h says): in memory (src), or read a part at a time from path (as are
    its other files) */
 static int rinc_compileSource(rio_Vm *vm, const char *src, uint32_t len, const char *path, int host) {
@@ -1662,6 +1691,7 @@ static int rinc_compileSource(rio_Vm *vm, const char *src, uint32_t len, const c
   }
   rinc_srcOn = 0;
   if (rinc_readerOpen) { rinc_fs->close(); rinc_readerOpen = 0; }
+  rinc_staleLib();
 #endif
   return res;
 }
