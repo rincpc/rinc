@@ -104,6 +104,13 @@ app is a Rio program.
      space or code in flash, which carry risks.
      Constraints breed creativity: getting by on little is part of the point, so limits are loosened
      with care, and the hardware Rinc needs kept as small as it can be.
+  9b. Sizes on disk (the user, 2026-11-13), for later: exported programs and web pages (rinc -export,
+     -web) compressed, each app whole at a go maybe, the players inflating them as they're read (they
+     have inflate already, for PNG): no oversized .exe or page, whatever a web server does. Maps, and
+     maybe other formats, binary too, later. And run lengths
+     for sheets' pixels, if their size on the card matters (a 128x128 sheet: 19.5 KB as Rinc's own,
+     7 KB as a PNG). Binary where it's for speed and size (sheets' pixels and flag records), text where
+     it's for people (their heads, songs, maps).
   10. Drawing speed (docs/guide/fruit-jam.md, Speed): a scaled sprite takes the slow path, a pixel at a
      time as blocks (a solid 16x16 at 2x, 33 us: 299 in 10 ms, where Cloudlamp draws everything at 2x),
      and a small rect or blit costs about 3.4 us before its first pixel (2,960 8x8 rects in 10 ms).

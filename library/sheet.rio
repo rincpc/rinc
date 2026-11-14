@@ -1,0 +1,379 @@
+# sheet: sprite sheets as studio's Paint makes them (a .sheet file, Rinc's own: text), and their sprites'
+# flags; a PNG's pixels too (with no flags), as before. (The plan: studio/plans/sprite-flags.md.)
+#
+# A sheet file is a head of text (its size, its sprites' size, its flags' names, how many flag records
+# it has), then "pixels" and its pixels, a byte each, row by row, read straight into the app's room; then
+# its flag records, 12 bytes each (x, y, flags: 4 bytes each, the low byte first), one for each sprite
+# with any: its top left pixel, and its flags (up to 32, each named, or not). Flags go with a sprite's
+# pixels whatever its size; a record whose place no longer starts a sprite (its size changed) is
+# stranded: kept, and counted, for Paint to show. (So Rinc's editor won't open one: it isn't text.)
+#
+#   import sheet
+#   pixels: Blob[..128 * 128]                (room for its pixels)
+#   flagRoom: [256]Int                       (each sprite's flags: one each)
+#   tiles := sheet.Sheet{pixels = pixels, flags = flagRoom[]}
+#   if tiles.load("tiles.sheet")             (else the log says why: the room it needs, say)
+#     SOLID := tiles.flag("solid")           (its bit, once: 0 if it has no flag of that name)
+#     pc.blit(tiles.image(), {x, y}, {from = tiles.spriteAt(n), size = tiles.sprite})
+#     if tiles.flagsOf(n) & SOLID != 0 ...   (sprite n's flags: a number's bits, no strings in the loop)
+#   end
+
+FLAGS* :: 32              # a sheet's flags, at most (an Int's bits)
+NAME* :: 16               # a flag's name, at most
+MAX_W* :: 4096            # a sheet's width, at most
+
+Sheet* :: struct
+  pixels: Blob[..]        # the app's: its pixels, a byte each, row by row (load clears it, then fills it)
+  flags: []Int            # the app's: each sprite's flags, by number (as many as it has room for)
+  marks: []Int            # the app's, if it wants the file's flag lines as they are (Paint): 3 each, x, y, flags
+  size: [2]Int            # its pixels across and down
+  sprite: [2]Int          # a sprite's (8 by 8, unless it says)
+  across: Int             # sprites across, and in all
+  sprites: Int
+  marked: Int             # its flag lines (in marks, if it has room)
+  stranded: Int           # those whose place doesn't start a sprite
+  names: Blob[FLAGS * NAME] # each flag's name ("" for none)
+  nameLen: Blob[FLAGS]
+end
+fine := true
+
+hexDigit :: proc(c: Int) -> Int
+  if c >= '0' and c <= '9'
+    return c - '0'
+  case c >= 'a' and c <= 'f'
+    return c - 'a' + 10
+  case c >= 'A' and c <= 'F'
+    return c - 'A' + 10
+  end
+  return -1
+end
+hexDigits := "0123456789abcdef"
+startsWith :: proc(t: String, w: String) -> Bool do return t.len() >= w.len() and t[0..<w.len()] == w
+endsWith :: proc(t: String, w: String) -> Bool do return t.len() >= w.len() and t[t.len() - w.len()..<t.len()] == w
+
+# ---------------------------------------------------------------- reading, a line at a time
+
+# read a chunk at a time (a read of the card each line costs far more than reading them), a line at a
+# time from it: the line starting at byte at, from lineFrom to lineEnd in chunk (its break left off)
+CHUNK :: 1024             # (more than a head's line; a piece of flag records; reading and writing share it)
+chunk: Blob[..CHUNK]
+chunkAt := -1             # (where the chunk starts in the file, and how long the file is)
+fileLen := 0
+lineFrom := 0
+lineEnd := 0
+# where the next line starts, or -1 (none: the file's end, or no such file)
+lineAt :: proc(p: String, at: Int) -> Int
+  for tries in 0..<2 # (in the chunk, else the chunk read from at, and again)
+    if chunkAt >= 0 and at >= chunkAt and at < chunkAt + chunk.len()
+      for i in at - chunkAt..<chunk.len()
+        if chunk[i] == 10
+          lineFrom = at - chunkAt
+          lineEnd = i
+          if i > lineFrom and chunk[i - 1] == 13
+            lineEnd = i - 1
+          end
+          return chunkAt + i + 1
+        end
+      end
+      if chunkAt + chunk.len() >= fileLen # (the last line, with no break)
+        lineFrom = at - chunkAt
+        lineEnd = chunk.len()
+        return fileLen
+      end
+    end
+    if tries == 1
+      return -1
+    end
+    chunk.clear()
+    fileLen = pc.fileReadAt(p, at, chunk)
+    chunkAt = at
+    if fileLen < 0 or at >= fileLen
+      chunkAt = -1
+      return -1
+    end
+  end
+  return -1
+end
+lineText :: proc() -> String do return chunk[lineFrom..<lineEnd].asString()
+# the 4 bytes at k of chunk, the low first, as a number
+wordAt :: proc(k: Int) -> Int do return chunk[k] | chunk[k + 1] << 8 | chunk[k + 2] << 16 | chunk[k + 3] << 24
+# a line's numbers, and the word after them (a flag's name; a size's x)
+nums: [4]Int
+numCount := 0
+numbers :: proc(l: String, from: Int, hex: Bool)
+  numCount = 0
+  k := from
+  for k < l.len() and numCount < 4
+    for k < l.len() and (l[k] == ' ' or l[k] == 'x')
+      k += 1
+    end
+    v := 0
+    any := false
+    for k < l.len() and hexDigit(l[k]) >= 0 and (hex or hexDigit(l[k]) < 10)
+      v = v * (10 + 6 * hex.toInt()) + hexDigit(l[k])
+      any = true
+      k += 1
+    end
+    if not any
+      return
+    end
+    nums[numCount] = v
+    numCount += 1
+  end
+end
+why: Blob[..160]
+Sheet.fails :: proc(p: String, s: String) -> Bool
+  why.clear()
+  said: Blob[..300]
+  _ = said.print(p, ": ", s)
+  fine = why.pushAll(s)
+  log(said.asString())
+  return false
+end
+# why the last load failed
+Sheet.reason* :: proc() -> String do return why.asString()
+
+Sheet.setSprite :: proc(w: Int, h: Int)
+  self.sprite = {max(1, w), max(1, h)}
+  self.across = max(1, self.size.x / self.sprite.x)
+  self.sprites = self.across * max(1, self.size.y / self.sprite.y)
+end
+# sprite n's top left pixel
+Sheet.spriteAt* :: proc(n: Int) -> [2]Int do return {n % self.across * self.sprite.x, n / self.across * self.sprite.y}
+# the sprite whose top left is at p, or -1 (none starts there)
+Sheet.spriteOf* :: proc(p: [2]Int) -> Int
+  if p.x < 0 or p.y < 0 or p.x % self.sprite.x != 0 or p.y % self.sprite.y != 0 or p.x / self.sprite.x >= self.across
+    return -1
+  end
+  n := p.y / self.sprite.y * self.across + p.x / self.sprite.x
+  if n >= self.sprites
+    return -1
+  end
+  return n
+end
+# the flag line at x, y, mask: in its sprite's place in flags (if it starts one), and kept in marks
+Sheet.mark :: proc(x: Int, y: Int, mask: Int)
+  if self.marked * 3 + 3 <= self.marks.len()
+    self.marks[self.marked * 3] = x
+    self.marks[self.marked * 3 + 1] = y
+    self.marks[self.marked * 3 + 2] = mask
+  end
+  self.marked += 1
+  n := self.spriteOf({x, y})
+  if n < 0
+    self.stranded += 1
+  case n < self.flags.len()
+    self.flags[n] = self.flags[n] | mask
+  end
+end
+# its pixels, from byte at of file p: straight into the app's room (and what came past them taken back),
+# then its flag records, a chunk at a time
+Sheet.readRest :: proc(p: String, at: Int, records: Int) -> Bool
+  want := self.size.x * self.size.y
+  _ = pc.fileReadAt(p, at, self.pixels)
+  for self.pixels.len() > want
+    _ = self.pixels.pop()
+  end
+  for self.pixels.len() < want # (a file cut short: the rest, 0)
+    fine = self.pixels.push(0)
+  end
+  r := at + want
+  left := records
+  for left > 0
+    chunk.clear()
+    if pc.fileReadAt(p, r, chunk) < 0 or chunk.len() < 12
+      break
+    end
+    n := min(left, chunk.len() / 12)
+    for k in 0..<n
+      self.mark(wordAt(k * 12), wordAt(k * 12 + 4), wordAt(k * 12 + 8))
+    end
+    left -= n
+    r += n * 12
+  end
+  chunkAt = -1 # (the chunk's not lines of the file now)
+  return true
+end
+# a sheet file (.sheet), or a PNG (no flags: its sprites 8 by 8): false if it can't be, and the log says why
+Sheet.load* :: proc(p: String) -> Bool
+  self.pixels.clear()
+  self.marked = 0
+  self.stranded = 0
+  for k in 0..<self.flags.len()
+    self.flags[k] = 0
+  end
+  for k in 0..<FLAGS
+    self.nameLen[k] = 0
+  end
+  if endsWith(p, ".png") or endsWith(p, ".PNG")
+    image := pc.imageRead(p, self.pixels)
+    self.size = image.size
+    self.setSprite(8, 8)
+    if image.size.x == 0
+      return self.fails(p, "not a picture, or no room for it")
+    end
+    return true
+  end
+  chunkAt = -1 # (the file read anew)
+  at := lineAt(p, 0)
+  if at < 0
+    return self.fails(p, "no such file")
+  case lineText() != "rinc sheet 1"
+    return self.fails(p, "not a sheet of Paint's")
+  end
+  self.size = {0, 0}
+  self.setSprite(8, 8)
+  records := 0
+  for at >= 0
+    at = lineAt(p, at)
+    if at < 0
+      break
+    end
+    l := lineText()
+    if startsWith(l, "size ")
+      numbers(l, 5, false)
+      if numCount < 2 or nums[0] < 1 or nums[1] < 1 or nums[0] > MAX_W
+        return self.fails(p, "its size isn't one it can be")
+      end
+      self.size = {nums[0], nums[1]}
+      if nums[0] * nums[1] > self.pixels.cap()
+        said: Blob[..80]
+        _ = said.print("it needs pixels Blob[..", nums[0] * nums[1], "] (has ", self.pixels.cap(), ")")
+        return self.fails(p, said.asString())
+      end
+      self.setSprite(self.sprite.x, self.sprite.y)
+    case startsWith(l, "sprite ")
+      numbers(l, 7, false)
+      if numCount >= 1
+        self.setSprite(nums[0], nums[numCount - 1])
+      end
+    case startsWith(l, "marks ")
+      numbers(l, 6, false)
+      if numCount >= 1
+        records = nums[0]
+      end
+    case startsWith(l, "flag ")
+      numbers(l, 5, false)
+      k := 5
+      for k < l.len() and l[k] != ' '
+        k += 1
+      end
+      if numCount >= 1 and nums[0] < FLAGS
+        name := l[min(k + 1, l.len())..<l.len()]
+        n := min(name.len(), NAME)
+        for j in 0..<n
+          self.names[nums[0] * NAME + j] = name[j]
+        end
+        self.nameLen[nums[0]] = n
+      end
+    case l == "pixels"
+      if self.size.x == 0
+        return self.fails(p, "its pixels before its size")
+      end
+      return self.readRest(p, at, records)
+    end
+  end
+  return self.fails(p, "no pixels in it")
+end
+
+# ---------------------------------------------------------------- using it
+
+# its pixels, for pc.blit
+Sheet.image* :: proc() -> pc.Image do return pc.Image{pixels = self.pixels[0..<self.pixels.len()], size = self.size}
+# flag k's name ("" for none)
+Sheet.flagName* :: proc(k: Int) -> String
+  if k < 0 or k >= FLAGS
+    return ""
+  end
+  return self.names[k * NAME..<k * NAME + self.nameLen[k]].asString()
+end
+# the flag named so: its bit (1 shifted by its number), or 0 if none is
+Sheet.flag* :: proc(name: String) -> Int
+  for k in 0..<FLAGS
+    if self.nameLen[k] > 0 and self.flagName(k) == name
+      return 1 << k
+    end
+  end
+  return 0
+end
+# sprite n's flags (0 for one past those flags has room for)
+Sheet.flagsOf* :: proc(n: Int) -> Int
+  if n < 0 or n >= self.flags.len()
+    return 0
+  end
+  return self.flags[n]
+end
+
+# ---------------------------------------------------------------- writing (Paint's)
+
+written: Blob[..] = chunk # (writing: the same room as reading's, never at once)
+# the chunk written after what's in the file, and begun again (when the next would not fit: room for)
+spill :: proc(p: String, room: Int) -> Bool
+  if written.len() + room <= CHUNK
+    return true
+  end
+  ok := pc.fileWriteAt(p, -1, written.asString()) >= 0
+  written.clear()
+  return ok
+end
+# a flag record, after the last: x, y and flags, 4 bytes each, the low first
+Sheet.writeMark :: proc(p: String, x: Int, y: Int, mask: Int) -> Bool
+  ok := spill(p, 12)
+  vals := [3]Int{x, y, mask}
+  for v in vals
+    ok = ok and written.push(v & 255) and written.push((v >> 8) & 255) and written.push((v >> 16) & 255) and written.push((v >> 24) & 255)
+  end
+  return ok
+end
+# the sheet as a file (made, or written over): its flags from marks (all its records, stranded ones too),
+# or, with no room there, from flags; false if it couldn't be
+Sheet.write* :: proc(p: String) -> Bool
+  chunkAt = -1 # (what's in the chunk: not the file's lines now)
+  fromMarks := self.marks.len() > 0 and self.marked * 3 <= self.marks.len()
+  records := self.marked
+  if not fromMarks
+    records = 0
+    for n in 0..<min(self.sprites, self.flags.len())
+      if self.flags[n] != 0
+        records += 1
+      end
+    end
+  end
+  written.clear()
+  ok := written.print("rinc sheet 1\nsize ", self.size.x, " ", self.size.y, "\nsprite ", self.sprite.x, "x", self.sprite.y, "\n")
+  for k in 0..<FLAGS
+    if self.nameLen[k] > 0
+      ok = ok and written.print("flag ", k, " ", self.flagName(k), "\n")
+    end
+  end
+  ok = ok and written.print("marks ", records, "\npixels\n")
+  if not ok or pc.fileWrite(p, written.asString()) != 0 # (anew; then its pixels, then its records)
+    return false
+  end
+  ok = pc.fileWriteAt(p, -1, self.pixels[0..<min(self.pixels.len(), self.size.x * self.size.y)].asString()) >= 0
+  written.clear()
+  if fromMarks
+    for i in 0..<self.marked
+      ok = ok and self.writeMark(p, self.marks[i * 3], self.marks[i * 3 + 1], self.marks[i * 3 + 2])
+    end
+  else
+    for n in 0..<min(self.sprites, self.flags.len())
+      if self.flags[n] != 0
+        o := self.spriteAt(n)
+        ok = ok and self.writeMark(p, o.x, o.y, self.flags[n])
+      end
+    end
+  end
+  return ok and spill(p, CHUNK + 1) # (what's left)
+end
+# its flags' names: flag k named name ("" takes it away)
+Sheet.nameFlag* :: proc(k: Int, name: String)
+  if k < 0 or k >= FLAGS
+    return
+  end
+  n := min(name.len(), NAME)
+  for j in 0..<n
+    self.names[k * NAME + j] = name[j]
+  end
+  self.nameLen[k] = n
+end

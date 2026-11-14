@@ -211,6 +211,48 @@ sourceLen :: proc(name: String) -> Int
   none: Blob[..] = one[0..<0]
   return pc.appSource(name, none)
 end
+# is file p text, n bytes long: UTF-8, with no control bytes but tab, line breaks and a 13 before a 10?
+# (Anything else, a sheet's pixels say, saving here would change: 13s are taken out as it's read, and
+# bytes that aren't text can't be shown.) Read a piece at a time, before what's open is let go
+piece: Blob[..256]
+isText :: proc(p: String, n: Int) -> Bool
+  more := 0 # (bytes still to come in a character of UTF-8)
+  was13 := false
+  at := 0
+  for at < n
+    piece.clear()
+    if pc.fileReadAt(p, at, piece) < 0 or piece.len() == 0
+      return true # (what can be read of it)
+    end
+    for i in 0..<piece.len()
+      c := piece[i]
+      if was13 and c != 10
+        return false
+      end
+      was13 = c == 13
+      if more > 0
+        if c < 128 or c >= 192
+          return false
+        end
+        more -= 1
+      case c >= 128
+        if c >= 194 and c < 224
+          more = 1
+        case c >= 224 and c < 240
+          more = 2
+        case c >= 240 and c < 245
+          more = 3
+        else
+          return false
+        end
+      case c < 32 and c != 9 and c != 10 and c != 13 or c == 127
+        return false
+      end
+    end
+    at += piece.len()
+  end
+  return more == 0 and not was13
+end
 # the file at p: false if it can't be had (a new one, if it isn't there yet and it could be saved)
 load :: proc(p: String) -> Bool
   sizeOnly: Blob[..] = one[0..<0]
@@ -223,6 +265,10 @@ load :: proc(p: String) -> Bool
   end
   if n > CAP
     say("Too big for the editor: 32 KB at most", errorColor)
+    return false
+  end
+  if n > 0 and not bundled and not isText(p, n)
+    say("Not a text file (not UTF-8, or control bytes): not opened", errorColor)
     return false
   end
   fresh()

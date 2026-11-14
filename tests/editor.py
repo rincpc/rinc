@@ -129,4 +129,20 @@ pasted = get('projects/undo/undo.rio')
 typing(UNDO + SAVE)
 check(pasted is not None and len(pasted) > 2000 and get('projects/undo/undo.rio') == 'a\n',
       'a paste of 3000 bytes (in pieces) undone at once, in the next run: %r %r' % (pasted and len(pasted), get('projects/undo/undo.rio')))
+# a file that isn't text (a sheet's raw pixels: a 0, a 13 not before a 10) isn't opened, so saving can't
+# change it; a text of UTF-8 (an e with an accent), its line breaks Windows', opens as ever
+def putBytes(path, bytes_):
+  full = os.path.join(data, *path.split('/'))
+  os.makedirs(os.path.dirname(full), exist_ok=True)
+  open(full, 'wb').write(bytes_)
+sheet = b'rinc sheet 1\nsize 2 1\npixels\n\x00\x0d'
+putBytes('projects/bin/pic.sheet', sheet)
+putBytes('projects/bin/u.txt', 'caf\u00e9\r\nok\n'.encode('utf-8'))
+for name in ('pic.sheet', 'u.txt'):
+  put('apps/opener/opener.rio', 'out: Blob[..8]\nif pc.result(out) < 0\n  pc.call("edit", "open /rinc/projects/bin/%s")\nend\n' % name)
+  subprocess.run([rinc, '-data', data, '-app', 'opener', '-frames', '120', '-type', 'x' + SAVE], capture_output=True, text=True, timeout=60)
+got = open(os.path.join(data, 'projects', 'bin', 'pic.sheet'), 'rb').read()
+check(got == sheet, 'a file not text, opened, typed at and saved: changed: %r' % got)
+got = open(os.path.join(data, 'projects', 'bin', 'u.txt'), 'rb').read()
+check(got == 'xcaf\u00e9\nok\n'.encode('utf-8'), 'a text of UTF-8 opened and saved: %r' % got)
 print('the editor came through')
