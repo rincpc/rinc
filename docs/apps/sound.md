@@ -1,6 +1,6 @@
 # Sound
 
-Rinc plays sound on 8 voices, numbered 0 to 7. A voice plays bytes from the app's own memory, at
+Rinc plays sound on 16 voices, numbered 0 to 15. A voice plays bytes from the app's own memory, at
 whatever rate it's told, so an app can make sound by computing it, or carry recorded sound as data.
 
 ```rio

@@ -16,7 +16,7 @@ A Rinc provides:
 - **[Running apps](running.md):** compiling one, then its frames, 60 a second.
 - **[The screen](screen.md):** 320x240, a 256-color palette, and a 5x8 font.
 - **[Input](input.md):** buttons, a controller's sticks and triggers, typed text and time.
-- **[Sound](sound.md):** 8 voices playing from the app's memory.
+- **[Sound](sound.md):** 16 voices playing from the app's memory.
 - **[Memory](memory.md):** 256 KB for each app, and nothing allocated while it runs.
 - **[Apps and storage](apps.md):** apps, home, the console and the system key.
 - **[Rio inside an app](rio.md):** a session of Rio that an app runs, for a console or an editor.

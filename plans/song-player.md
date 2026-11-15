@@ -1,6 +1,9 @@
 # Songs played by the host
 
-Status: plan (2026-11-15), for the user to look over before it's built.
+Status: done (2026-11-15), as planned, but: the sounds' speeds and loops are a table of their own in
+room (3 bytes a sound the song plays: the notes are 32 notes of 4 bytes, no room for them); songAt
+also says how far into its pattern (Music's playhead); and each Song has an id, so a Song only
+reports and stops what it started (one song at a time).
 
 ## Why
 

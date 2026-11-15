@@ -72,7 +72,7 @@ app is a Rio program.
      is; and an editor's draft lost through the firmware's console (Ctrl-B gave no leaving*: the editor
      keeps a draft, and says how to drop it, when it's left).
   6. Studio: state kept per file, not per app (5 below).
-  7. Songs played by the host (9c below).
+  7. Songs played by the host (9c below): done (2026-11-15).
   8. Drawing speed (10 below): fast paths for scaled and mirrored sprites, less per call; the half and
      quarter screens take much of the need away for games drawn big.
   9. Sizes: on disk (9b below), Maps' memory (9 below); more fonts, maybe a font mode in Paint (9d).
@@ -210,9 +210,12 @@ app is a Rio program.
      for sheets' pixels, if their size on the card matters (a 128x128 sheet: 19.5 KB as Rinc's own,
      7 KB as a PNG). Binary where it's for speed and size (sheets' pixels and flag records), text where
      it's for people (their heads, songs, maps).
-  9c. Songs played by the host (the user, 2026-11-14: roadmapped): the song library's sequencing in C,
-     so a game starts a song and forgets it (no tune.tick() each frame), as sounds play now; its timing
-     steadier too, not tied to frames.
+  9c. Songs played by the host: done (2026-11-15, plans/song-player.md): a sequencer in the mixer
+     (audio.c), a tick at a time (1/120 s), each placement started at its step at its own speed from
+     the app's tables and notes (pc.songPlay, songStop, songPause, songLevers, songAt: sound.md#songs),
+     one song at a time. A song's room is its tables now (Cloudlamp's: 94 bytes, from 3,694; a song
+     that took 6,703, 53), placements start on their tick, and a game calls nothing each frame (tick
+     only tells where it's playing). On the board, 148 bytes of SRAM; 1,092 left with 16 voices.
   9d. More fonts (the user, 2026-11-14: later), maybe a font mode in Paint; a small one for the half and
      quarter screens (until then, text there is drawn big, as the screen is).
   10. Drawing speed (docs/guide/fruit-jam.md, Speed): a scaled sprite takes the slow path, a pixel at a
@@ -303,6 +306,16 @@ app is a Rio program.
   the screen in a bigger font; and half and quarter resolutions (160x120, 80x60) for apps that want
   big pixels. Each would need the HDMI line code (video.c) to read a different layout, apps a call to
   pick one, and the desktop and web players the same modes.
+- The system volume: done (2026-11-15): a keyboard's volume keys (up, down, mute) set it on the board,
+  and it's kept in the settings (`/rinc/settings/volume`), so it's the same after a restart (written a
+  second after it last changed). Next, in order (the user, 2026-11-15):
+  1. Shown while it changes: a bar over whatever's on the screen, for a second or so after the last
+     step (the level of 16, or muted), drawn by Rinc, not the app, as the command list is.
+  2. Keys for it on any keyboard, not only ones with volume keys: Sys with + and -, and Sys+M to mute
+     (as Sys+L sleeps); and a controller's (Start with up and down, say).
+  3. A settings app's slider (with the theme and the other settings), and `pc.settingRead("volume")`
+     for an app that wants to show it.
+  4. On the desktop and the web: their own volume (the window's, the page's), or the same keys.
 - Sleep, Sys+L: done (2026-11-06): the screen black and the sound silent everywhere, and on the board
   the HDMI pins let go of, so the monitor sees no signal and goes to standby; the app goes on; any key
   or button wakes it, once everything's been let go. Later: a lock (a PIN, say) on waking, on the same

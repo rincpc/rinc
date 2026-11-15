@@ -191,7 +191,7 @@ checkRio* :: host proc(main: String, path: String, code: String, room: Blob) -> 
 # value), a tab, its type or signature. How long
 completeRio* :: host proc(line: String, out: Blob[..]) -> Int
 
-# ---------------------------------------------------------------- sound: 8 voices, 0 to 7
+# ---------------------------------------------------------------- sound: 16 voices, 0 to 15
 
 # how sound reads its data; left out, 16-bit mono at 16000 frames a second
 Sound* :: struct
@@ -230,6 +230,14 @@ synthWave* :: host proc(w: Int, cycle: Blob)
 # on from frame at (on the synth, note at), as it plays
 soundSeek* :: host proc(v, at: Int)
 audioLoad* :: host proc() -> [2]Int # mixing's share of its time, in percent: on average and at most, since last asked ({-1, -1}: not measured here; the board measures it)
+# a song, played by Rinc (docs/spec/sound.md#songs): rinc's song library's tables in room (patterns,
+# uses, placements, then its sounds' speeds and loops), its sounds' notes in notes, from use from, its
+# channels on voices v on; how: 1 just that use, 2 round again at its end. One at a time
+songPlay* :: host proc(v: Int, room: Blob, notes: Blob, patterns: Int, uses: Int, from: Int, how: Int)
+songStop* :: host proc()
+songPause* :: host proc(on: Int)                     # 1 holds it where it is, 0 goes on
+songLevers* :: host proc(shift: Int, volume: Int, speed: Int) # semitones, eighths, percent (speed: from its next placements)
+songAt* :: host proc() -> [3]Int                     # the use playing, its time round, thousandths of its pattern played ({-1, 0, 0}: none)
 
 # ---------------------------------------------------------------- apps, for home and the console
 

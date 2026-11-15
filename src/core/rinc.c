@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include "rinc.h"
@@ -1363,6 +1364,30 @@ static void rinc_hostStashDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_stashPath(v, a, path, sizeof path);
   a[0].i = named && rinc_fs && !rinc_fs->remove(path) ? 0 : -1;
 }
+/* the system volume, kept (rinc.h): what was last kept, and what it was last seen as, and since when */
+static int rinc_volumeSaved = -1, rinc_volumeSeen = -1;
+static float rinc_volumeAt;
+static int rinc_volumeNow(void) { return rinc_audioStep() * 2 + (rinc_audioLevel() < 0); }
+void rinc_volumeRead(void) {
+  char b[16]; uint32_t n;
+  if (rinc_fs && !rinc_readFile("/rinc/settings/volume", b, sizeof b - 1, &n) && n < sizeof b) {
+    b[n] = 0;
+    if (b[0] >= '0' && b[0] <= '9') rinc_audioSet(atoi(b), strstr(b, "muted") != 0);
+  }
+  rinc_volumeSaved = rinc_volumeSeen = rinc_volumeNow();
+}
+void rinc_volumeKeep(void) {
+  int now = rinc_volumeNow(); float t = rinc_time ? rinc_time() : 0;
+  if (!rinc_fs) return;
+  if (rinc_volumeSaved < 0) rinc_volumeSaved = rinc_volumeSeen = now;
+  if (now != rinc_volumeSeen) { rinc_volumeSeen = now; rinc_volumeAt = t; }
+  if (now != rinc_volumeSaved && t - rinc_volumeAt >= 1) {
+    char b[16]; int k = snprintf(b, sizeof b, "%d%s", now / 2, now & 1 ? " muted" : "");
+    if (!rinc_fs->open("/rinc/settings/volume", rinc_REPLACE)) { rinc_fs->write(b, k); rinc_fs->close(); }
+    rinc_volumeSaved = now;
+  }
+}
+
 /* the settings, /rinc/settings/<key>: the whole Rinc's, not an app's, shared by every app (such as
    "active": the app or project being worked on, chord or chord+). settingRead(key, out) -> Int: as much
    as fits, and its whole length, or -1 if there's none; settingWrite(key, data) -> Int: 0, or -1. Keys

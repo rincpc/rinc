@@ -951,7 +951,8 @@ int main(int argc, char **argv) {
       if (rinc_ctrlFrames || rinc_shiftFrames) rinc_modsHeld = (i < rinc_ctrlFrames ? 2 : 0) | (i < rinc_shiftFrames ? 1 : 0);
       if (rinc_gameFrame(&rinc_vm) < 0) return 1; /* (it said why) */
       if (rinc_launch) rinc_switch();
-      if (wavout && i < 60 * 60) rinc_audioMix(rinc_wav + i * (rinc_RATE / 60) * 2, rinc_RATE / 60); /* (a frame's worth of sound) */
+      { static int16_t heard[rinc_RATE / 60 * 2]; /* (a frame's worth of sound, each frame: into -wav's, else let go, so sound's time goes on as it would heard: a song's) */
+        rinc_audioMix(wavout && i < 60 * 60 ? rinc_wav + i * (rinc_RATE / 60) * 2 : heard, rinc_RATE / 60); }
     }
     rinc_appLeave(&rinc_vm); /* (Rinc stopping: the app keeps where it is, as when it gives way) */
     if (wavout && rinc_saveWav(wavout, (uint32_t)(frames < 3600 ? frames : 3600) * (rinc_RATE / 60))) { fprintf(stderr, "rinc: can't write %s\n", wavout); return 1; }

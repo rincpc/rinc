@@ -629,13 +629,14 @@ Built into every Rinc (and installed in `/rinc/lib` with the system apps, where 
 
 - `tilemap`: tile maps, read, written and drawn, as studio's Maps makes them ([maps](maps.md)).
 - `song`: songs as studio's Music makes them, and their sounds (Sound's file): read a line at a time,
-  and played on up to 8 voices (from its `voice`). A song has patterns, each sounds placed in time (at
+  and played by Rinc (`pc.songPlay`, [sound](sound.md#songs)) on up to 8 voices (from its `voice`),
+  one song at a time. A song has patterns, each sounds placed in time (at
   a step, on a channel, at a pitch shift, a volume and a speed), and uses them in turn, each use with
   its own shift, volume and speed (shift and volume ramped across it), round its loops; levers over the
   whole song (shift, volume, speed) change as it plays. A sound of the file on its own plays too, for a
   game's effects. The app gives it room, one Blob (its `buffer`, as big as Music shows): `load` puts
   the sounds' notes first, 128 bytes a sound (`song.SOUND_BYTES`), from the first to the last the song
-  plays, then the song's patterns and the notes its channels play. (Or the two apart, `notes` and
+  plays, then the song's patterns, uses and placements, and its sounds' speeds and loops. (Or the two apart, `notes` and
   `room`: for sounds alone, as many as the app likes from the first, as Sound shows.) `load` logs it
   when there isn't enough. The sounds come from the path the song names, or a file of that name beside
   the song, so a game keeps its song and sounds together in its folder. Music plays songs with it, so a
@@ -648,12 +649,11 @@ tune := song.Song{buffer = buffer[], voice = 4} # voices from 4 on: 0 to 3 the g
 if tune.load("tune.mus")                  # its sounds too; else the log says why
   _ = tune.play(0, false)                 # from its first pattern (true: that one alone); or
   _ = tune.loop()                         # round and round: from its start again at its end, till tune.stop()
-end
-update* :: proc()
-  tune.tick()                             # each frame: on to the next pattern when one's done
-end
+end                                       # (Rinc plays it from here: nothing to call each frame)
 tune.sound(0, 2)                          # sound 2, once, on voice 0
 tune.setShift(2)                          # the whole song 2 semitones up, at once (setVolume, setSpeed too)
+tune.pause(true)                          # held where it is (false: on again)
+tune.tick()                               # only to show where it's playing: tune.playUse, tune.playPart
 ```
 
 - `undolog`: undo and redo kept on the card, in the app's stash, so they reach back as far as the app

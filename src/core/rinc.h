@@ -230,7 +230,7 @@ int rinc_gameFrame(rio_Vm *vm);
    thread or in an interrupt (called with 1 before a host proc changes a voice, 0 after) */
 #define rinc_RATE 48000
 #ifndef rinc_VOICES /* (a build may try more: -Drinc_VOICES=16) */
-#define rinc_VOICES 8
+#define rinc_VOICES 16
 #endif
 /* how long mixing takes, where the platform measures it (the board: the firmware console's audio says):
    microseconds in all, the most for one block, and blocks of rinc_mixFrames frames, since last asked */
@@ -246,6 +246,13 @@ void rinc_audioReset(void); /* every voice stops */
 #define rinc_VOLUME_STEPS 16
 void rinc_audioVolume(int step); /* the system volume: +1 or -1 steps (2.5 dB), 0 to mute or unmute */
 int rinc_audioLevel(void);       /* 0 to rinc_VOLUME_STEPS (full), or -1 muted */
+int rinc_audioStep(void);        /* 0 to rinc_VOLUME_STEPS, muted or not */
+void rinc_audioSet(int level, int muted); /* the system volume, at once: a step, and muted or not */
+/* the system volume, kept in the settings (/rinc/settings/volume: "12", or "12 muted"), so it's the
+   same after a restart: read as Rinc starts (once storage is there), and written a second after it
+   last changed (a knob turned is many steps: one write), from a platform's frame */
+void rinc_volumeRead(void);
+void rinc_volumeKeep(void);
 extern void (*rinc_audioLock)(int on);
 int rinc_audioProcs(rio_Vm *vm);
 

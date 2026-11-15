@@ -1,11 +1,14 @@
 # Sound
 
-A Rinc mixes 8 voices, numbered 0 to 7, into 48,000 frames a second of 16-bit stereo. Each voice plays
+A Rinc mixes 16 voices, numbered 0 to 15, into 48,000 frames a second of 16-bit stereo. Each voice plays
 sound data straight from the app's memory, reading it as it plays, or notes, on [the synth](#the-synth).
+(The Fruit Jam mixes on its second core, beside the HDMI, so sound takes none of an app's time: 16 synth
+voices at the synth's starting rate take about 40% of that core's; at its top rate, smoothed, three times
+the work a voice, so 16 of those would be too much, and the sound would break up. `pc.audioLoad` says.)
 
 ## The procs
 
-Each proc takes a voice number first; a number outside 0 to 7 does nothing (and `soundPlaying` gives 0).
+Each proc takes a voice number first; a number outside 0 to 15 does nothing (and `soundPlaying` gives 0).
 
 | proc | |
 |---|---|
@@ -91,3 +94,34 @@ false tones lower down.
 On a synth voice, `soundLoop`'s `start` and `stop` are notes, `soundRate` speeds it up or slows it
 down as a whole (16,000 is as it is, at any `synthRate`), and the rest are the same. Volume and pan
 changes ease in within 64 frames of output. Changing the notes while they play changes what's heard.
+
+## Songs
+
+Rinc plays a song as studio's Music makes it, on its own once started, so a game calls nothing each
+frame: rinc's `song` library reads the files and calls these, one song at a time.
+
+| proc | |
+|---|---|
+| `pc.songPlay(v, room, notes, patterns, uses, from, how)` | play the song in `room`'s tables, its sounds' notes in `notes`, from use `from`, its channel `c` on voice `v + c`; `how`: 1 just that use, 2 round again from the first at its end; in place of the song playing |
+| `pc.songStop()` | its voices fading out, as after a sound's last note |
+| `pc.songPause(on)` | 1 holds it where it is (its voices silent), 0 goes on |
+| `pc.songLevers(shift, volume, speed)` | semitones (-96 to 96), eighths (0 to 8), percent (1 to 400) over the whole song: shift and volume at once, speed from the next placements on |
+| `pc.songAt() -> [3]Int` | the use playing, its time round (from 0), and how far into its pattern, in thousandths; `{-1, 0, 0}` when none plays |
+
+`room` holds, from its start: the patterns, 6 bytes each (its steps; a step's length, in 120ths of a
+second; its first placement, 2 bytes, low first; how many it has; 0); then the uses, 9 bytes each (its
+pattern; its shift and its shift at its end, each plus 64; its volume and at its end, in eighths; its
+speed, in percent, 2 bytes, low first; its marks, 1 a loop begins, 2 a loop ends, 4 the song stops; how
+many times it's played over); then the placements, 8 bytes each (its step; its channel, 0 to 7; its
+sound; its shift plus 64; its volume, in eighths; its speed, or 0 for its sound's; its hold, in steps,
+or 0; 0); then, for each sound the song plays, from 0, its speed and its loop's start and end, 3 bytes.
+`notes` holds the sounds' notes, 128 bytes a sound (32 notes of 4 bytes, as the synth takes them).
+
+Time goes in ticks of 1/120 s, kept by the mixer. At its step a placement starts on its channel's voice
+as `pc.synth` would play its sound, its notes as long as its speed (scaled by its use's speed and the
+speed lever), to its loop's end or its last note heard, round its loop, until its hold is up, the next
+placement on its channel starts, or its pattern ends. Its pitch moves by its shift, its use's (ramped
+across all its times round) and the shift lever's; its volume is its own times its use's (ramped) times
+the volume lever's. At a pattern's end, the next time round, or the next use: after a loop's end, back to
+the use where it began; after a stop, or the last use, the song ends (or, as `how` 2 says, starts
+again). Rinc reads both as it plays, an app's changes too, and checks every index against them.

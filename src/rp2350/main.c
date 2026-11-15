@@ -138,6 +138,7 @@ static void rinc_frameNow(void) {
   static uint32_t last; static int wasConnected; int stop = 0, connected;
   while (rinc_frames == last) { rinc_keyboardPoll(); stop |= rinc_type(); } /* (the USB host runs all the while) */
   last = rinc_frames;
+  rinc_volumeKeep(); /* (the volume keys' level, kept a second after it last changed) */
   stop |= rinc_type();
   if ((connected = stdio_usb_connected()) && !wasConnected) printf("%s", rinc_keyboardEvents()); /* (a terminal arrived: what's plugged in) */
   wasConnected = connected;
@@ -194,6 +195,7 @@ int main(void) {
   rinc_videoStart(); /* (core 1: video, then sound) */
   rinc_keyboardStart();
   rinc_sdSetup();
+  rinc_volumeRead(); /* (as it was last: the volume keys' level, kept) */
 #ifndef RINC_NO_JIT /* (a build without the JIT, to time the bytecode itself: -DRINC_NO_JIT) */
   rinc_native = rinc_jitApp;
 #endif

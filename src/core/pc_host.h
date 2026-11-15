@@ -115,6 +115,11 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_synthWave_SIG "ib"
 #define pc_soundSeek_SIG "ii"
 #define pc_audioLoad_SIG ">ii"
+#define pc_songPlay_SIG "ibbiiii"
+#define pc_songStop_SIG ""
+#define pc_songPause_SIG "i"
+#define pc_songLevers_SIG "iii"
+#define pc_songAt_SIG ">iii"
 #define pc_apps_SIG ">i"
 #define pc_appName_SIG "iB>i"
 #define pc_appInfo_SIG "iB>i"
@@ -223,6 +228,11 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(synthWave, pc_synthWave_SIG) \
   X(soundSeek, pc_soundSeek_SIG) \
   X(audioLoad, pc_audioLoad_SIG) \
+  X(songPlay, pc_songPlay_SIG) \
+  X(songStop, pc_songStop_SIG) \
+  X(songPause, pc_songPause_SIG) \
+  X(songLevers, pc_songLevers_SIG) \
+  X(songAt, pc_songAt_SIG) \
   X(apps, pc_apps_SIG) \
   X(appName, pc_appName_SIG) \
   X(appInfo, pc_appInfo_SIG) \
@@ -282,7 +292,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0xbe057be8u /* (rio_hashText of the source) */
+#define pc_HASH 0x09b7c6f4u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -477,7 +487,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "# value), a tab, its type or signature. How long\n" \
   "completeRio* :: host proc(line: String, out: Blob[..]) -> Int\n" \
   "\n" \
-  "# ---------------------------------------------------------------- sound: 8 voices, 0 to 7\n" \
+  "# ---------------------------------------------------------------- sound: 16 voices, 0 to 15\n" \
   "\n" \
   "# how sound reads its data; left out, 16-bit mono at 16000 frames a second\n" \
   "Sound* :: struct\n" \
@@ -516,6 +526,14 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "# on from frame at (on the synth, note at), as it plays\n" \
   "soundSeek* :: host proc(v, at: Int)\n" \
   "audioLoad* :: host proc() -> [2]Int # mixing's share of its time, in percent: on average and at most, since last asked ({-1, -1}: not measured here; the board measures it)\n" \
+  "# a song, played by Rinc (docs/spec/sound.md#songs): rinc's song library's tables in room (patterns,\n" \
+  "# uses, placements, then its sounds' speeds and loops), its sounds' notes in notes, from use from, its\n" \
+  "# channels on voices v on; how: 1 just that use, 2 round again at its end. One at a time\n" \
+  "songPlay* :: host proc(v: Int, room: Blob, notes: Blob, patterns: Int, uses: Int, from: Int, how: Int)\n" \
+  "songStop* :: host proc()\n" \
+  "songPause* :: host proc(on: Int)                     # 1 holds it where it is, 0 goes on\n" \
+  "songLevers* :: host proc(shift: Int, volume: Int, speed: Int) # semitones, eighths, percent (speed: from its next placements)\n" \
+  "songAt* :: host proc() -> [3]Int                     # the use playing, its time round, thousandths of its pattern played ({-1, 0, 0}: none)\n" \
   "\n" \
   "# ---------------------------------------------------------------- apps, for home and the console\n" \
   "\n" \
