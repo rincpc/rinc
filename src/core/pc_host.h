@@ -280,7 +280,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x7afb9899u /* (rio_hashText of the source) */
+#define pc_HASH 0x9ccb69f6u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -339,8 +339,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "# character first, on to last; line, pixels from a line to the next (0: its cell's height); colors: its\n" \
   "# own colors (else each glyph's pixels are print's color). A proportional one has glyphs, two bytes for\n" \
   "# each: where it starts in its cell, and how wide it is (its empty columns trimmed; an empty one, a\n" \
-  "# space's width), and gap pixels after each; a fixed one, each glyph its cell's width. A character it\n" \
-  "# hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)\n" \
+  "# space's width); a fixed one, each glyph its cell's width; gap pixels after each (negative: closer). A\n" \
+  "# character it hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)\n" \
   "Font* :: struct\n" \
   "  image: Image\n" \
   "  cell: [2]Int\n" \
@@ -608,14 +608,15 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "  gap: Int\n" \
   "  space: Int\n" \
   "  colors: Bool\n" \
+  "  hasGap: Bool  # (a gap line: else 1 for a proportional font, 0 for a fixed one)\n" \
   "end\n" \
   "# a font sheet's notes, read: a line each, \"font 32 126\" (its first character and its last, in its cells\n" \
   "# across the rows), \"sprite 6x9\" (its cells' size), and as it likes \"proportional\" (each glyph as wide as\n" \
-  "# it is, its empty columns trimmed), \"gap 1\" (after each: 1 if it's left out), \"space 3\" (a space's width:\n" \
-  "# half a cell if it's left out), \"line 10\", \"across 16\" (its cells across a row: else as many as its\n" \
-  "# picture's width has) and \"colors\"\n" \
+  "# it is, its empty columns trimmed), \"gap 1\" (after each, negative closer: if it's left out, 1 for a\n" \
+  "# proportional font, 0 for a fixed one), \"space 3\" (a space's width: half a cell if it's left out),\n" \
+  "# \"line 10\", \"across 16\" (its cells across a row: else as many as its picture's width has) and \"colors\"\n" \
   "fontNotes* :: proc(t: String) -> FontNotes\n" \
-  "  n := FontNotes{gap = 1}\n" \
+  "  n := FontNotes{}\n" \
   "  at := 0\n" \
   "  for at < t.len()\n" \
   "    stop := at\n" \
@@ -635,7 +636,12 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "    case l == \"proportional\"\n" \
   "      n.proportional = true\n" \
   "    case l.len() > 4 and l[0..<4] == \"gap \"\n" \
-  "      n.gap = noteNumber(l, 4)[0]\n" \
+  "      if l[4] == '-'\n" \
+  "        n.gap = -noteNumber(l, 5)[0]\n" \
+  "      else\n" \
+  "        n.gap = noteNumber(l, 4)[0]\n" \
+  "      end\n" \
+  "      n.hasGap = true\n" \
   "    case l.len() > 6 and l[0..<6] == \"space \"\n" \
   "      n.space = noteNumber(l, 6)[0]\n" \
   "    case l.len() > 5 and l[0..<5] == \"line \"\n" \
@@ -658,8 +664,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "  f := Font{image = image, cell = n.cell, across = n.across, first = n.first, last = n.last, line = n.line, gap = n.gap, colors = n.colors}\n" \
   "  space := n.space\n" \
   "  if space == 0 do space = f.cell.x / 2\n" \
+  "  if not n.hasGap and n.proportional do f.gap = 1 # (a proportional font's gap, left out: 1; a fixed one's, 0)\n" \
   "  if not n.proportional\n" \
-  "    f.gap = 0\n" \
   "    return f\n" \
   "  end\n" \
   "  start := room.len()\n" \

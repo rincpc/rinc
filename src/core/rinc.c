@@ -146,12 +146,12 @@ static void rinc_fontOf(rio_Vm *v, const pc_Font *f, rinc_Font *u) {
 static int rinc_advance(const rinc_Font *u, int c) {
   int g;
   if (!u->px) return rinc_CHAR_W;
-  if (!u->glyphs) return u->cw;
+  if (!u->glyphs) return u->cw + u->gap; /* (fixed: its cell, and its gap: negative, closer) */
   g = c - u->first;
   if (g < 0 || g >= u->nglyphs) return u->space + u->gap; /* (none: as a space) */
   return u->glyphs[g * 2 + 1] + u->gap;
 }
-static int rinc_trailing(const rinc_Font *u) { return !u->px ? 1 : u->glyphs ? u->gap : 0; }
+static int rinc_trailing(const rinc_Font *u) { return !u->px ? 1 : u->gap; }
 static void rinc_glyph(const rinc_Font *u, int c, int x, int y, int color) {
   int g = c - u->first, gx, gy, left = 0, w = u->cw, i, j;
   if (!u->px) { rinc_char(c, x, y, color, -1); return; }

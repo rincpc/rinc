@@ -55,8 +55,8 @@ blit* :: host proc(image: Image, at: [2]Int, b?: Blit)
 # character first, on to last; line, pixels from a line to the next (0: its cell's height); colors: its
 # own colors (else each glyph's pixels are print's color). A proportional one has glyphs, two bytes for
 # each: where it starts in its cell, and how wide it is (its empty columns trimmed; an empty one, a
-# space's width), and gap pixels after each; a fixed one, each glyph its cell's width. A character it
-# hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)
+# space's width); a fixed one, each glyph its cell's width; gap pixels after each (negative: closer). A
+# character it hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)
 Font* :: struct
   image: Image
   cell: [2]Int
@@ -324,14 +324,15 @@ FontNotes* :: struct
   gap: Int
   space: Int
   colors: Bool
+  hasGap: Bool  # (a gap line: else 1 for a proportional font, 0 for a fixed one)
 end
 # a font sheet's notes, read: a line each, "font 32 126" (its first character and its last, in its cells
 # across the rows), "sprite 6x9" (its cells' size), and as it likes "proportional" (each glyph as wide as
-# it is, its empty columns trimmed), "gap 1" (after each: 1 if it's left out), "space 3" (a space's width:
-# half a cell if it's left out), "line 10", "across 16" (its cells across a row: else as many as its
-# picture's width has) and "colors"
+# it is, its empty columns trimmed), "gap 1" (after each, negative closer: if it's left out, 1 for a
+# proportional font, 0 for a fixed one), "space 3" (a space's width: half a cell if it's left out),
+# "line 10", "across 16" (its cells across a row: else as many as its picture's width has) and "colors"
 fontNotes* :: proc(t: String) -> FontNotes
-  n := FontNotes{gap = 1}
+  n := FontNotes{}
   at := 0
   for at < t.len()
     stop := at
@@ -351,7 +352,12 @@ fontNotes* :: proc(t: String) -> FontNotes
     case l == "proportional"
       n.proportional = true
     case l.len() > 4 and l[0..<4] == "gap "
-      n.gap = noteNumber(l, 4)[0]
+      if l[4] == '-'
+        n.gap = -noteNumber(l, 5)[0]
+      else
+        n.gap = noteNumber(l, 4)[0]
+      end
+      n.hasGap = true
     case l.len() > 6 and l[0..<6] == "space "
       n.space = noteNumber(l, 6)[0]
     case l.len() > 5 and l[0..<5] == "line "
@@ -374,8 +380,8 @@ fontOf* :: proc(image: Image, n: FontNotes, room: Blob[..]) -> Font
   f := Font{image = image, cell = n.cell, across = n.across, first = n.first, last = n.last, line = n.line, gap = n.gap, colors = n.colors}
   space := n.space
   if space == 0 do space = f.cell.x / 2
+  if not n.hasGap and n.proportional do f.gap = 1 # (a proportional font's gap, left out: 1; a fixed one's, 0)
   if not n.proportional
-    f.gap = 0
     return f
   end
   start := room.len()

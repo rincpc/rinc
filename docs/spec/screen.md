@@ -105,8 +105,8 @@ makes one as it makes a sprite sheet. Its notes say what it is, a line each:
 |---|---|
 | `font 32 126` | it's a font: its first cell's character and its last's |
 | `sprite 6x9` | its cells' size |
-| `proportional` | each glyph as wide as its columns with pixels (its empty ones trimmed, either side); else every glyph its cell's width |
-| `gap 1` | a proportional font's pixels after each glyph (1 if it's left out) |
+| `proportional` | each glyph as wide as its columns with pixels (its empty ones trimmed, either side); else every glyph its cell's width (a 6x12 font of glyphs up to 5x11: `sprite 5x11`, `gap 1`, `line 12`; or `sprite 6x12`, the spare column and row left empty) |
+| `gap 1` | pixels after each glyph, negative for closer (if it's left out: 1 for a proportional font, 0 for a fixed one) |
 | `space 3` | a space's width, and an empty glyph's (half a cell if it's left out) |
 | `line 10` | pixels from a line to the next (its cells' height if it's left out) |
 | `colors` | its glyphs drawn in their own colors (else in the color `print` is given) |
