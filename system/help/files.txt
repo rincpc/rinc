@@ -1,7 +1,0 @@
-help.rio
-opens.txt
-help/README.md
-parts/moving.rio
-parts/reading.rio
-parts/screen.rio
-parts/text.rio

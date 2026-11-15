@@ -13,7 +13,8 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 /rinc/apps/chord/chord.rio    an app: a folder of its name, holding its Rio file of the same name
 /rinc/apps/chord/help/...     its help texts, Markdown (see help texts)
 /rinc/apps/rinc/themes/...     Rinc's own themes (see themes): rinc is no app, so it isn't listed
-/rinc/projects/chord/...      its project, chord+: the app in work (see projects), its own saves in save/
+/rinc/projects/chord/...      its project, chord+: the app in work (see projects)
+/rinc/projects/chord/dev/...  its dev folder: its maker's, not the app's (its own saves, its tests)
 /rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
 /rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
 /rinc/cache/chord/...         what it can make again: anything may clear it
@@ -22,6 +23,11 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 /rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
 /rinc/settings/...            the whole Rinc's settings, shared by the apps: active, the app in work
 ```
+
+An app is all of its folder but one part: its **dev folder**, `dev/`, which is its maker's, not the app's.
+Everything that isn't the app goes there: a project's own saves (`dev/save/`), its tests (`dev/test.rio`),
+notes and drafts. Installing it, copying it as a new project, bundles and exports take all the rest, and
+leave out its dev folder. There's no list of an app's files to keep.
 
 An app's name is 1 to 32 letters, digits, `_` and `-`. If its first line is a comment, that's its
 description, by convention a title, a colon, and what it does:
@@ -125,15 +131,16 @@ where it's listed: home, the switcher, the editor's list.
 ```
 /rinc/projects/chord/chord.rio      its source
 /rinc/projects/chord/help/...       its help texts
-/rinc/projects/chord/save/...       its own save space: the app's saves, copied in on its first run
+/rinc/projects/chord/dev/save/...   its own save space: the app's saves, copied in on its first run
 ```
 
 Only its saves are its own. A project being worked on can do anything to them, and the app's own,
 `/rinc/save/chord`, the live ones, are left alone: on its first run (when it has no save space yet), the
-app's saves are copied in, so it starts from real data. Deleting its `save` folder starts it over from
-the app's again. Nothing goes back the other way.
+app's saves are copied in, so it starts from real data. Deleting its `dev/save` folder starts it over
+from the app's again. Nothing goes back the other way. (A project's saves from before the dev folder, in
+`save/`, are moved into it, as they are, the first time it runs.)
 
-`pc.launch("chord+")` runs the project (and `pc.launch("chord/test")` its tests: see an app's tests), and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
+`pc.launch("chord+")` runs the project (and `pc.launch("chord+/dev/test")` its tests: see an app's tests), and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
 project's name too (`pc.appDelete` removes all of its folder: a project's own saves too, but never the
 app's, in `/rinc/save`). The rest, each 0 or -1:
 
@@ -264,8 +271,8 @@ true false true
 
 ## The app for a file
 
-An app says which files it opens in `opens.txt` in its folder (listed in its `files.txt`, so it
-installs with it): a line each, the extension, then what such a file is.
+An app says which files it opens in `opens.txt` in its folder: a line each, the extension, then what
+such a file is.
 
 ```
 png  picture or sprite sheet
@@ -690,12 +697,13 @@ u.flush()                                 # before leaving (leaving*)
 
 ### An app's tests
 
-An app's tests go in `test.rio`, beside its main file. It includes the parts it tests, and any setup
-part they need, then calls their procs and checks what they do with `assert`, so a failure stops it
-at its line. `pc.launch("game/test")`, or `run game/test` in the console, runs it as the app does, on
-every Rinc: its files from the app's folder and its saves the app's. Being the app's own files, an
-app's tests are left out of installing, bundles and exports (and out of `files.txt`). The editor's
-are an example: `system/edit/test.rio`, with `parts/setup.rio` its sizes and colors.
+An app's tests go in `dev/test.rio`, in its dev folder. It includes the parts it tests (from the app's
+folder: `include "parts/text.rio"`), and any setup part they need, then calls their procs and checks
+what they do with `assert`, so a failure stops it at its line. `pc.launch("game+/dev/test")`, or `run
+game+/dev/test` in the console, runs it as the project does, on every Rinc: its other files from the
+app's folder and its saves the project's. Being in its dev folder, an app's tests are left out of
+installing, bundles and exports. The editor's are an example: `system/edit/dev/test.rio`, with
+`parts/setup.rio` its sizes and colors.
 
 ## The editor
 

@@ -1,5 +1,0 @@
-colors.rio
-help/README.md
-parts/grid.rio
-parts/keys.rio
-parts/screen.rio

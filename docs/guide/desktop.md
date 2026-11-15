@@ -17,7 +17,7 @@ rinc                              home (or the app the home setting names), in a
                                   installed, a window that says so and takes a bundle dropped on it
 rinc -app chord                   an app from storage, by name, home for this session too
 rinc -install apps.zip game/      apps into storage: a bundle of them (a release's rinc-system-apps.zip),
-                                  an app's folder (what its files.txt lists, else all of it), or app.rio
+                                  an app's folder (all of it, but its dev/ folder), or app.rio
   -data folder                    with any of these: storage in this folder instead
 rinc -repl                        Rio typed in the terminal, a line at a time
 rinc app.rio -m                   how near the app comes to its limits (see memory)
@@ -69,8 +69,8 @@ user data folder, laid out as on the Fruit Jam's SD card (`apps/name/name.rio`, 
 `rinc -install rinc-system-apps.zip` gets the same setup as the Fruit Jam: home, the console and the
 rest of the standard apps, and the help texts, from the zip a [release](https://github.com/rincpc/rinc/releases)
 carries (`rinc-demo-apps.zip` has the demos). A bundle's apps replace those of the same names; projects
-and saves stay. `rinc -install mygame/` copies an app of your own in (the files its `files.txt` lists,
-else all of its folder), as does `rinc -install mygame.rio`. Rinc itself never goes on the network.
+and saves stay. `rinc -install mygame/` copies an app of your own in (all of its folder, but its `dev/`
+folder: its tests, notes), as does `rinc -install mygame.rio`. Rinc itself never goes on the network.
 Apps only see their Rinc's folder, never the rest of the computer.
 
 `ctest --test-dir build-desktop -C Release` runs every app headless, checks that an exported game draws
@@ -78,8 +78,8 @@ exactly what rinc does, runs home, the console and the editor (typing at them), 
 in these docs.
 
 An app's parts can be tested without running the app: see [an app's tests](../spec/apps.md#an-apps-tests).
-`rinc mygame/test.rio -frames 1` runs them from the folder, and `rinc -app mygame/test` from storage,
-as every Rinc does. On the Fruit Jam, `uv run tools/send.py mygame --test` sends the app and its tests,
+`rinc mygame/dev/test.rio -frames 1` runs them from the folder (the app's other files from `mygame/`),
+and `rinc -app mygame+/dev/test` a project's from storage, as every Rinc does. On the Fruit Jam, `uv run tools/send.py mygame --test` sends the app and its tests,
 then runs them and prints what they say.
 
 ## Exported games

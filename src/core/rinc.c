@@ -587,13 +587,15 @@ static int rinc_appPath(const char *name, char *path, size_t cap) {
   if (project) n--;
   return snprintf(path, cap, "/rinc/%s/%.*s/%.*s.rio", project ? "projects" : "apps", n, name, n, name) < (int)cap;
 }
-/* what name runs: an app's main file, or app/file, another file in its folder run as the app (edit/test:
-   /rinc/apps/edit/test.rio, its tests, its own files included from beside it); app: the app's name */
+/* what name runs: an app's main file, or app/file, another file in its folder run as the app; or
+   app/dev/file, one in its dev folder (edit+/dev/test: /rinc/projects/edit/dev/test.rio, its tests, the
+   app's own files included from its folder); app: the app's name */
 static int rinc_runPath(const char *name, char *app, size_t appCap, char *path, size_t cap) {
   const char *slash = strchr(name, '/'); int n, project;
   if (!slash) return snprintf(app, appCap, "%s", name) < (int)appCap && rinc_appPath(name, path, cap);
   n = (int)(slash - name);
-  if (!rinc_refOk(name, n) || !rinc_nameOk(slash + 1, (int)strlen(slash + 1), 0) || n >= (int)appCap) return 0;
+  { const char *file = !strncmp(slash + 1, rinc_DEV "/", 4) ? slash + 5 : slash + 1; /* (its dev folder's, dev/test) */
+    if (!rinc_refOk(name, n) || !rinc_nameOk(file, (int)strlen(file), 0) || n >= (int)appCap) return 0; }
   memcpy(app, name, (size_t)n); app[n] = 0;
   project = name[n - 1] == rinc_PROJECT;
   return snprintf(path, cap, "/rinc/%s/%.*s/%s.rio", project ? "projects" : "apps", project ? n - 1 : n, name, slash + 1) < (int)cap;
@@ -855,10 +857,10 @@ static int rinc_argRef(rio_Vm *v, rio_Val *name, char *out) {
   memcpy(out, s, (size_t)n); out[n] = 0;
   return 1;
 }
-/* the save space: the app's, /rinc/save/<app>, or a project's own, in its folder (its first run copies
-   the app's in: rinc_projectSaves), so work on it can't spoil the app's */
+/* the save space: the app's, /rinc/save/<app>, or a project's own, in its dev folder (its first run
+   copies the app's in: rinc_projectSaves), so work on it can't spoil the app's */
 static int rinc_saveSpace(char *path, size_t cap) {
-  return snprintf(path, cap, rinc_appProject ? "/rinc/projects/%s/save" : "/rinc/save/%s", rinc_appNow) < (int)cap;
+  return snprintf(path, cap, rinc_appProject ? "/rinc/projects/%s/" rinc_DEV "/save" : "/rinc/save/%s", rinc_appNow) < (int)cap;
 }
 /* an app's cache space, /rinc/cache/<app> (a project's: <app>+, its own): what it can make again, which
    may go at any time; Rinc keeps the app's log there (log, below). cacheRead, cacheWrite and cacheDelete
@@ -990,7 +992,7 @@ static void rinc_hostAppCopy(rio_Vm *v, rio_Val *a) {
   if (!named || !rinc_fs || (n = (int)strlen(to)) < 2 || to[n - 1] != rinc_PROJECT || !rinc_appFolder(from, fromDir, sizeof fromDir) || !rinc_appFolder(to, toDir, sizeof toDir)) return;
   if (!rinc_appPath(to, path, sizeof path) || !rinc_readFile(path, 0, 0, &total) || !rinc_fs->list(toDir, rinc_treeFound, 0)) { rinc_treeUsed = 0; return; } /* (there already) */
   rinc_treeUsed = 0;
-  if (rinc_copyTree(fromDir, toDir, "save", 0) && rinc_readApp(to, 0, 0) == -1) { /* (-1: not there; -2 is there, too big for no room) */ /* (an app in the bundle: its source, from there) */
+  if (rinc_copyTree(fromDir, toDir, rinc_DEV, 0) && rinc_readApp(to, 0, 0) == -1) { /* (-1: not there; -2 is there, too big for no room) */ /* (an app in the bundle: its source, from there) */
     const rinc_App *b = rinc_bundled(from);
     if (!b || b->image || rinc_fs->open(path, 1)) return;
     k = rinc_fs->write(b->data, (int)b->len) != (int)b->len;
@@ -1234,16 +1236,24 @@ static void rinc_hostFileRename(rio_Vm *v, rio_Val *a) {
   int into = named && !strncmp(to, from, strlen(from)) && to[strlen(from)] == '/'; /* (not into itself) */
   a[0].i = named && !into && rinc_fs && !rinc_exists(to) && rinc_exists(from) && !rinc_fs->rename(from, to) ? 0 : -1;
 }
-/* a project's own save space, the first time it runs: the app's saves, copied in */
+/* a project's own save space, the first time it runs: the app's saves, copied in (or its saves from
+   before the dev folder, its save folder, moved into it) */
 static void rinc_projectSaves(void) {
-  char space[64], app[64];
+  char space[64], app[64], old[64];
   if (!rinc_appProject || !rinc_fs || !rinc_saveSpace(space, sizeof space) || !rinc_fs->list(space, rinc_treeFound, 0)) { rinc_treeUsed = 0; return; }
+  rinc_treeUsed = 0;
+  snprintf(old, sizeof old, "/rinc/projects/%s/save", rinc_appNow);
+  if (!rinc_fs->list(old, rinc_treeFound, 0)) { /* (there: moved, as it is) */
+    rinc_treeUsed = 0;
+    snprintf(app, sizeof app, "/rinc/projects/%s/" rinc_DEV, rinc_appNow);
+    if (!rinc_fs->mkdir(app) && !rinc_fs->rename(old, space)) return;
+  }
   rinc_treeUsed = 0;
   snprintf(app, sizeof app, "/rinc/save/%s", rinc_appNow);
   rinc_copyTree(app, space, 0, 0); /* (none: nothing to copy) */
 }
 /* appInstall(name) -> Int: project name+ installed as the app name: its files copied over the app's
-   (its own save space aside): 0, or -1 */
+   (its dev folder aside: its own saves, its tests): 0, or -1 */
 static void rinc_hostAppInstall(rio_Vm *v, rio_Val *a) {
   char name[33], from[64], to[64];
   int named = rinc_argName(v, a, name, 0);
@@ -1251,7 +1261,7 @@ static void rinc_hostAppInstall(rio_Vm *v, rio_Val *a) {
   if (!named || !rinc_fs) return;
   snprintf(from, sizeof from, "/rinc/projects/%s", name);
   snprintf(to, sizeof to, "/rinc/apps/%s", name);
-  a[0].i = rinc_copyTree(from, to, "save", 0);
+  a[0].i = rinc_copyTree(from, to, rinc_DEV, 0);
 }
 static void rinc_hostAppSource(rio_Vm *v, rio_Val *a) {
   char name[rinc_REF], path[96]; const rinc_App *b;
@@ -3253,7 +3263,7 @@ static int rinc_command(rinc_Repl *r) {
     if (!rinc_nameOk(s + w + 1, k, 0)) { rinc_replSay(r, "names are letters, digits, _ and -\r\n"); return 1; }
     memcpy(name, s + w + 1, (size_t)k); name[k] = 0;
     snprintf(from, sizeof from, "/rinc/projects/%s", name); snprintf(to, sizeof to, "/rinc/apps/%s", name);
-    rinc_replSay(r, rinc_copyTree(from, to, "save", 0) ? "couldn't install " : "installed ");
+    rinc_replSay(r, rinc_copyTree(from, to, rinc_DEV, 0) ? "couldn't install " : "installed ");
     r->put(name, k); rinc_replSay(r, "\r\n");
     return 1;
   }

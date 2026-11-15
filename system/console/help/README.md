@@ -34,7 +34,7 @@ A line on its own can be a command instead:
 | `save name` | what's typed or pasted next, until Ctrl-D, becomes app `name`'s source (Ctrl-C gives up) |
 | `save name/a/file` | likewise, a file of app `name`'s own, in its folder: `save chord/parts/sound.rio` |
 | `delete name` | remove app `name` |
-| `install name` | install project `name+` as app `name` (its own saves stay with the project) |
+| `install name` | install project `name+` as app `name` (its dev folder, its own saves and tests, stays with the project) |
 | `active`, `active name` | say which app or project is active (what the editor opens), or make `name` it |
 | `home` | back home |
 | `history`, `history clear` | the last 20 lines typed, or forget them all (its file too) |

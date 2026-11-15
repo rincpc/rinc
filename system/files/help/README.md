@@ -50,7 +50,7 @@ text shows its first 16 KB, bytes that aren't text as dots; Esc goes back.
 |---|---|
 | O, V | open a folder, view a file |
 | E, R | edit, run: an app or project (its folder, or its main file) |
-| C | copy it, as a name typed (its name to start with, selected: typing takes its place). An app or a project copies as a new project, its main file renamed to match, its own saves left out |
+| C | copy it, as a name typed (its name to start with, selected: typing takes its place). An app or a project copies as a new project, its main file renamed to match, its dev folder left out (its own saves, its tests) |
 | N | rename it: a project, or anything inside an app's or project's folder, or the saves |
 | D | delete it, after typing its whole name: all of it, for good (a project's own saves too; an app's saves, in `/rinc/save`, stay) |
 | I | install a project as its app |

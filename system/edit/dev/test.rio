@@ -1,6 +1,6 @@
-# Editor tests: its parts on their own, without the app. Run as edit/test (run edit/test in the console,
-# where it's beside edit.rio), or on the desktop, rinc system/edit/test.rio. A failed assert stops it at
-# its line. Not one of the app's files (files.txt), so it's not installed with it.
+# Editor tests: its parts on their own, without the app. Run as edit/dev/test (run edit/dev/test in the
+# console, the editor's parts included from its folder). A failed assert stops it at its line. In the
+# editor's dev folder, its maker's, so it's not installed with it.
 
 import undolog
 include "parts/setup.rio"

@@ -1,4 +1,4 @@
-# Editor: its sizes, keys and colors (part of edit.rio, included there first; test.rio includes it too)
+# Editor: its sizes, keys and colors (part of edit.rio, included there first; dev/test.rio includes it too)
 
 CAP :: 32768          # the most text
 MAX_LINES :: 4096

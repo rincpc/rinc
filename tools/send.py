@@ -7,9 +7,9 @@
                                                              (/rinc/apps/sent/, replaced each time) and run
   uv run tools/send.py apps/bounce.rio [COM3] --save         to /rinc/apps/bounce/bounce.rio
   uv run tools/send.py apps/*.rio --save                     several at once
-  uv run tools/send.py system/files [COM3]                   an app of a folder: saved, every file
-                                                             its files.txt lists (else its .rio files)
-  uv run tools/send.py system/edit --test                    and its test.rio too, then run as edit/test:
+  uv run tools/send.py system/files [COM3]                   an app of a folder: saved, every text file
+                                                             but its dev folder's (install.py puts the rest)
+  uv run tools/send.py system/edit --test                    and its dev/test.rio too, then run as edit/dev/test:
                                                              what it says, and a failed assert's line
 
 Ctrl-C over serial opens the console, in place of whatever's running, so this also replaces a game
@@ -45,15 +45,15 @@ def text(path):
   return src.replace('\n', '\r').encode('ascii', errors='ignore') + (b'\r' if not src.endswith('\n') else b'')
 
 def runTest(s, ref):
-  """run ref/test (an app's test.rio, beside its main file): what it says until it's done or fails"""
+  """run ref/dev/test (an app's tests, dev/test.rio): what it says until it's done or fails"""
   global failed
-  s.write(b'run ' + ref.encode() + b'/test\r')
+  s.write(b'run ' + ref.encode() + b'/dev/test\r')
   out, t = b'', time.time()
   while time.time() - t < 30 and not any(w in out for w in (b'passed', b'error', b'no file', b'(done)')):
     out += s.read(4096)
   out += s.read(4096)
   lines = [l for l in out.decode(errors='replace').replace('\r', '').split('\n') if l.strip() and not l.startswith(('> run', 'run '))]
-  print('\n'.join(lines) if lines else ref + '/test: no answer')
+  print('\n'.join(lines) if lines else ref + '/dev/test: no answer')
   if not any('passed' in l for l in lines): failed = 1
 
 def saveAs(s, target, path):
@@ -63,15 +63,14 @@ def saveAs(s, target, path):
   print('%s: %s' % (target, saved[-1] if saved else 'no answer'))
 
 def folderFiles(folder, name):
-  """an app folder's files, relative to it: its files.txt's, else its .rio files (but its tests,
-  test.rio); the main one first"""
-  listed = os.path.join(folder, 'files.txt')
-  if os.path.exists(listed):
-    files = [l.strip() for l in open(listed, encoding='utf-8') if l.strip() and not l.startswith('#')]
-  else:
-    files = sorted(os.path.relpath(p, folder).replace('\\', '/') for p in glob.glob(os.path.join(folder, '**', '*.rio'), recursive=True))
+  """an app folder's text files (the console's save takes text: tools/install.py puts the rest, its
+  pictures and songs), relative to it, all but its dev folder (its maker's); the main one first"""
+  files = sorted(os.path.relpath(p, folder).replace('\\', '/') for p in glob.glob(os.path.join(folder, '**', '*'), recursive=True) if os.path.isfile(p))
+  files = [f for f in files if not f.startswith('dev/')]
+  skipped = [f for f in files if not f.endswith(('.rio', '.md', '.txt'))]
+  if skipped: print('not sent (not text: tools/install.py puts them): ' + ', '.join(skipped))
   main = name + '.rio'
-  return [main] + [f for f in files if f not in (main, 'test.rio')]
+  return [main] + [f for f in files if f != main and f not in skipped]
 
 with serial.Serial(port, 115200, timeout=0.2) as s:
   s.dtr = True
@@ -84,8 +83,8 @@ with serial.Serial(port, 115200, timeout=0.2) as s:
       ref = name + ('+' if project else '')
       for f in folderFiles(folder, name):
         saveAs(s, ref if f == name + '.rio' else ref + '/' + f, os.path.join(folder, f))
-      if test and os.path.exists(os.path.join(folder, 'test.rio')):
-        saveAs(s, ref + '/test.rio', os.path.join(folder, 'test.rio'))
+      if test and os.path.exists(os.path.join(folder, 'dev', 'test.rio')):
+        saveAs(s, ref + '/dev/test.rio', os.path.join(folder, 'dev', 'test.rio'))
         runTest(s, ref)
     elif save:
       saveAs(s, os.path.splitext(os.path.basename(app))[0], app)

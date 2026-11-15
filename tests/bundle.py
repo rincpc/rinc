@@ -69,7 +69,9 @@ if r.returncode == 0 or os.path.exists(os.path.join(data, 'evil.rio')) or os.pat
   fail('a zip naming ../ was installed, or part of it')
 
 r = run('-install', os.path.join(root, 'system', 'colors') + '/')
-listed = [l.strip() for l in open(os.path.join(root, 'system', 'colors', 'files.txt')) if l.strip()]
+folder = os.path.join(root, 'system', 'colors') # (all of it: but its dev folder, its maker's)
+listed = [os.path.relpath(os.path.join(d, f), folder).replace('\\', '/') for d, _, fs in os.walk(folder) for f in fs]
+listed = [l for l in listed if not l.startswith('dev/')]
 for l in listed:
   if not os.path.exists(os.path.join(data, 'apps', 'colors', *l.split('/'))): fail('the folder install left out ' + l)
 if r.returncode: fail('installing a folder: ' + r.stdout + r.stderr)

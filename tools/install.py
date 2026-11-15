@@ -29,18 +29,13 @@ def rel(path, base):
 
 def appFiles(name):
   """an app's files, as (path under /rinc, file here): a system app's, or a demo's (a folder, else a
-  .rio file); None if there's no app of that name. A folder's files.txt lists them, else its .rio files
-  and help texts"""
+  .rio file); None if there's no app of that name. A folder's: all of it, but its dev folder (its
+  maker's: its tests, notes, a project's own saves)"""
   for top in ('system', 'apps'):
     folder = os.path.join(ROOT, top, name)
     if os.path.isdir(folder):
-      listed = os.path.join(folder, 'files.txt')
-      if os.path.exists(listed):
-        files = [l.strip() for l in open(listed, encoding='utf-8') if l.strip() and not l.startswith('#')]
-      else:
-        files = sorted(rel(p, folder) for p in glob.glob(os.path.join(folder, '**', '*.rio'), recursive=True) +
-                       glob.glob(os.path.join(folder, 'help', '**', '*.md'), recursive=True))
-        files = [f for f in files if f != 'test.rio'] # (its tests: not installed)
+      files = sorted(rel(p, folder) for p in glob.glob(os.path.join(folder, '**', '*'), recursive=True) if os.path.isfile(p))
+      files = [f for f in files if not f.startswith('dev/')]
       return [('apps/%s/%s' % (name, f), os.path.join(folder, f)) for f in files]
   single = os.path.join(ROOT, 'apps', name + '.rio')
   if os.path.exists(single):
@@ -48,7 +43,7 @@ def appFiles(name):
   return None
 
 def systemApps():
-  return sorted(os.path.basename(os.path.dirname(p)) for p in glob.glob(os.path.join(ROOT, 'system', '*', 'files.txt')))
+  return sorted(n for n in os.listdir(os.path.join(ROOT, 'system')) if os.path.exists(os.path.join(ROOT, 'system', n, n + '.rio'))) # (a folder with its main file)
 
 def demoApps():
   names = [os.path.basename(p) for p in glob.glob(os.path.join(ROOT, 'apps', '*')) if os.path.isdir(p)]

@@ -1,6 +1,0 @@
-cloudlamp.map
-cloudlamp.mus
-cloudlamp.png
-cloudlamp.rio
-cloudlamp.snd
-title.png

@@ -66,6 +66,17 @@ app is a Rio program.
          8 layers) though Maps and others give their own: two lines saved in a game.
   3. Copy as Rio, in studio's apps (Paint: an enum of its flags' names and the calls that read them;
      Maps', Music's likewise), after a clipboard apps share (text at least: below, 3 of 2026-11-13).
+     The order (the user, 2026-11-15): Cloudlamp made as simple as generalizes first, so what's copied
+     is what simple looks like. The clipboard (the user, 2026-11-15): one for every app, in Rinc's own
+     storage (/rinc/stash/rinc/clipboard, say: not /rinc/clipboard, the editor's, nor each app's own
+     stash "clip", as Maps' and Music's are now), with flavors (text; Rio, a kind of text; an app's own,
+     sprites or uses, beside text for the rest), and the last few kept, the newest pasted; a fancier
+     clipboard view later (the recent ones, picked from).
+  - The dev folder: done (2026-11-15): an app is all of its folder but dev/, its maker's (a project's
+    own saves, dev/save, moved in from save/ as it first runs; its tests, dev/test.rio, run as
+    game+/dev/test); installing, copying as a project, bundles and exports leave it out. files.txt is
+    gone (each listed its whole folder; Paint's had fallen behind), and tools/install.py and send.py
+    take folders as the desktop does (tests/devfolder.py).
   4. Cloudlamp as a walkthrough in the docs (8 below), now its code's settled.
   5. Tools for working on the board: an app's log over serial as it runs, without stopping it (a
      screenshot stops it today); a frame-time readout (is a game keeping 60 frames a second?).

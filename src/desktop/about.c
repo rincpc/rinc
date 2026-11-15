@@ -10,7 +10,7 @@ const char rinc_help[] =
   "  rinc game/  (or rinc .)    an app of a folder: game/game.rio, its other files beside it\n"
   "  rinc -app name             an app from storage, by name, home for this session too\n"
   "  rinc -install apps.zip     apps into storage: a bundle of them (a release's rinc-system-apps.zip),\n"
-  "                             an app's folder (game/: what its files.txt lists, else all of it), or app.rio\n"
+  "                             an app's folder (game/: all of it, but game/dev/), or app.rio\n"
   "    -data folder             with any of these: storage in this folder\n"
   "  rinc app.rio -m            how near the app comes to its limits\n"
   "  rinc app.rio -frames 120   no window: run 120 frames (A held for the first 3, unless -type)\n"

@@ -1,2 +1,0 @@
-chord.rio
-parts/sound.rio

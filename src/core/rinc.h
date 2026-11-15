@@ -277,6 +277,9 @@ int rinc_themeColor(int role);
    after it (chord+), its project, /rinc/projects/<name>, the app in work. rinc_REF holds either */
 #define rinc_REF 34
 #define rinc_PROJECT '+' /* what marks a project's name: chord+ */
+/* an app's dev folder: its maker's, not the app's (a project's own saves, dev/save; its tests, dev/test.rio;
+   notes), left out of installing, copying it as a project, bundles and exports (docs/spec/apps.md#storage) */
+#define rinc_DEV "dev"
 enum { rinc_READ, rinc_REPLACE, rinc_UPDATE };
 typedef struct {
   int (*open)(const char *path, int how);
