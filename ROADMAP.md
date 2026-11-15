@@ -29,7 +29,7 @@ app is a Rio program.
 
 - Priorities (2026-11-14), in order (open now; the 2026-11-13 list below has the history, its numbers
   as they were):
-  1. A print that wraps (begun 2026-11-14): `pc.print(s, pos, c, how?)` with a `pc.Text` (its width:
+  1. A print that wraps: done (2026-11-15): `pc.print(s, pos, c, how?)` with a `pc.Text` (its width:
      lines broken at spaces, 9 pixels apart for now) and `pc.textSize`; Cloudlamp's hand wrapping
      goes. Then fonts (the user, 2026-11-14), in steps: font sheets (a grid of any cell size; a glyph's
      width found by trimming its empty columns, a gap after each, the space's width in the notes; one
@@ -41,9 +41,13 @@ app is a Rio program.
      fontNotes: docs/spec/screen.md#fonts); Paint's notes kept (a font's, another program's), any sprite
      size (Set the sprites' size: 6x9), Make it a font, the picked cell's character, and a line of the
      font's drawn letters in it; Cloudlamp's title in a font drawn in Paint on the board, over serial.
-     Still to do: the quick zoom key; a font's range set in Paint (32 to 126 now); each cell's character
-     shown over the sheet. Met on the way: the firmware's console (Ctrl-B) didn't let the app keep its
-     state (no leaving*): fixed.
+     Done (2026-11-15), the rest: Paint's M (the sheet twice, four times as big, following the picked
+     sprite), its "Set the font's characters" (32 126, typed), and each cell's character over the
+     sheet (with the grid, where a cell has room); a gap for fixed fonts too, negative closer, and a
+     loaded font's gap changed before drawing. Met on the way: the firmware's console (Ctrl-B) didn't
+     let the app keep its state (no leaving*): fixed; Paint's files.txt lacked four of its parts (an
+     install from its folder, or a release, couldn't start it): fixed, and studio/tests/filelists.py
+     checks every app's.
   2. Tilemap's last rough edges from Cloudlamp: a thing's name a plain String (no `.asString()`); a
      map's sheets and layers its own, once Rio can keep a view of a struct's own array (Rio's ROADMAP:
      a static lifetime marker), so a game gives just its room; a song's two buffers one.
@@ -213,7 +217,7 @@ app is a Rio program.
   9c. Songs played by the host: done (2026-11-15, plans/song-player.md): a sequencer in the mixer
      (audio.c), a tick at a time (1/120 s), each placement started at its step at its own speed from
      the app's tables and notes (pc.songPlay, songStop, songPause, songLevers, songAt: sound.md#songs),
-     one song at a time. A song's room is its tables now (Cloudlamp's: 94 bytes, from 3,694; a song
+     one song at a time. A song's room is its tables now (Cloudlamp's: 841 bytes, from 3,694; a song
      that took 6,703, 53), placements start on their tick, and a game calls nothing each frame (tick
      only tells where it's playing). On the board, 148 bytes of SRAM; 1,092 left with 16 voices.
   9d. More fonts (the user, 2026-11-14: later), maybe a font mode in Paint; a small one for the half and
@@ -311,8 +315,10 @@ app is a Rio program.
   second after it last changed). Next, in order (the user, 2026-11-15):
   1. Shown while it changes: a bar over whatever's on the screen, for a second or so after the last
      step (the level of 16, or muted), drawn by Rinc, not the app, as the command list is.
-  2. Keys for it on any keyboard, not only ones with volume keys: Sys with + and -, and Sys+M to mute
-     (as Sys+L sleeps); and a controller's (Start with up and down, say).
+  2. Keys for it on any keyboard, not only ones with volume keys, and a controller's. Not Sys with +
+     and - (those would suit a text zoom, if one comes). To decide: Sys+V then the arrows, the bar
+     showing, until a key or a second's pause; Sys+M to mute (as Sys+L sleeps); a controller's Start
+     held with up and down; or only the settings app's slider, keys left to keyboards that have them.
   3. A settings app's slider (with the theme and the other settings), and `pc.settingRead("volume")`
      for an app that wants to show it.
   4. On the desktop and the web: their own volume (the window's, the page's), or the same keys.

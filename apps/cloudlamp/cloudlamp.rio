@@ -22,8 +22,8 @@ room: Blob[2000]                       # the map's cells, things and names (as M
 pixels: Blob[..(64 + 1) * 8]           # its sheet's pixels and flags (as Paint says)
 m := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[], pixels = pixels}
 _ = m.load("cloudlamp.map")            # (and its sheet)
-songRoom: Blob[4846]                   # the song's sounds' notes and the song, together (as Music says)
-tune := song.Song{buffer = songRoom[], voice = 1} # (its 7 channels: voices 1 to 7)
+songRoom: Blob[1993]                   # the song's sounds' notes and the song, together (as Music says)
+tune := song.Song{buffer = songRoom[], voice = 1} # (its 8 channels: voices 1 to 8)
 _ = tune.load("cloudlamp.mus")
 _ = tune.loop()
 pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels
@@ -84,7 +84,6 @@ step :: proc(d: [2]Int)
 end
 
 update* :: proc()
-  tune.tick()
   d := pc.dpadp()
   if d != {0, 0} do step(d)
   saidFor = max(saidFor - 1, 0)
