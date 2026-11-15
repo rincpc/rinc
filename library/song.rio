@@ -744,8 +744,14 @@ Song.start :: proc(from: Int, how: Int) -> Bool
 end
 # the song from use from on (alone: just that one): false with nothing to play
 Song.play* :: proc(from: Int, alone: Bool) -> Bool do return self.start(from, alone.toInt())
-# the song, round and round: from its start again when it ends (until stop, or a use that stops it)
-Song.loop* :: proc() -> Bool do return self.start(0, 2)
+# the song, round and round: from its start again when it ends (until stop, or a use that stops it); given
+# a path, read first (load: tune.loop("tune.mus"))
+Song.loop* :: proc(path?: String) -> Bool
+  if path.len() > 0 and not self.load(path)
+    return false
+  end
+  return self.start(0, 2)
+end
 # where it's playing, into playing, playUse, playRep and playPart (Music's playhead): only for showing
 # it, since Rinc plays the song on its own
 Song.tick* :: proc()

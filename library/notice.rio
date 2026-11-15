@@ -1,0 +1,45 @@
+# notice: a few words shown for a while, then gone: a game's "Keeper: our lamp went out", or an app's
+# "Saved". Said once; drawn each frame while it lasts (its frames counted as it's drawn: 60 a second, the
+# same on every Rinc), in a box at the screen's bottom, or where the app says, wrapped to its width.
+#
+#   import notice
+#   said := notice.Notice{}                  (or {box = pc.Rect.of({0, 98}, {160, 22}), seconds = 3.0})
+#   said.say("The lamp burns bright.")       (a literal, or a view that lasts: kept as it is, not copied)
+#   draw* :: proc()
+#     said.draw()                            (while it lasts: its box, then its words)
+#   end
+
+Notice* :: struct
+  text: static String     # what's said (a literal's, a constant's or a global's: kept, not copied)
+  seconds: Float          # how long it shows (0: 4)
+  box: pc.Rect            # where (none: the screen's bottom, two lines high, across it)
+  color: Int              # its words' (0: 7, white)
+  back: Int               # its box's (0: black)
+  left: Int               # (its frames still to show)
+end
+
+# s shown, from now, for its seconds
+Notice.say* :: proc(s: static String)
+  lasts := self.seconds
+  if lasts <= 0.0 do lasts = 4.0
+  self.text = s
+  self.left = (lasts * 60.0).toInt()
+end
+# is it showing still?
+Notice.showing* :: proc() -> Bool do return self.left > 0
+# its box and its words, while it lasts (a frame of it counted)
+Notice.draw* :: proc()
+  if not self.showing()
+    return
+  end
+  self.left -= 1
+  b := self.box
+  if b.size.x <= 0 or b.size.y <= 0 # (the screen's bottom: two lines, across it)
+    screen := pc.screenSize()
+    b = pc.Rect.of({0, screen.y - 22}, {screen.x, 22})
+  end
+  c := self.color
+  if c == 0 do c = 7
+  pc.rect(b.pos, b.size, self.back)
+  pc.print(self.text, b.pos + {2, 2}, c, {width = b.size.x - 4})
+end

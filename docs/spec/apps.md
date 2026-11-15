@@ -653,14 +653,28 @@ Built into every Rinc (and installed in `/rinc/lib` with the system apps, where 
 import song
 buffer: Blob[1112]                        # its sounds' notes and the song, together (as Music says)
 tune := song.Song{buffer = buffer[], voice = 4} # voices from 4 on: 0 to 3 the game's own
-if tune.load("tune.mus")                  # its sounds too; else the log says why
-  _ = tune.play(0, false)                 # from its first pattern (true: that one alone); or
-  _ = tune.loop()                         # round and round: from its start again at its end, till tune.stop()
+_ = tune.loop("tune.mus")                 # read (its sounds too; else the log says why), then round and round
+if tune.load("tune.mus")                  # or read, then
+  _ = tune.play(0, false)                 # from its first pattern (true: that one alone)
 end                                       # (Rinc plays it from here: nothing to call each frame)
 tune.sound(0, 2)                          # sound 2, once, on voice 0
 tune.setShift(2)                          # the whole song 2 semitones up, at once (setVolume, setSpeed too)
 tune.pause(true)                          # held where it is (false: on again)
 tune.tick()                               # only to show where it's playing: tune.playUse, tune.playPart
+```
+
+- `notice`: a few words shown for a while, then gone (a game's "Keeper: our lamp went out", an app's
+  "Saved"): said once, drawn each frame while it lasts (counted as it's drawn: 4 seconds, or as long as
+  it's told), in a box at the screen's bottom, or where the app says, wrapped to it. What's said is kept
+  as it is, not copied (`say(s: static String)`: a literal, or a view that lasts).
+
+```rio fragment
+import notice
+said := notice.Notice{}                   # (or {box = pc.Rect.of({0, 0}, {160, 22}), seconds = 2.0})
+said.say("The lamp burns bright.")
+draw* :: proc()
+  said.draw()                             # while it lasts: its box, then its words
+end
 ```
 
 - `undolog`: undo and redo kept on the card, in the app's stash, so they reach back as far as the app

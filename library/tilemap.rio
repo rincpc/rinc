@@ -4,13 +4,12 @@
 #
 # It keeps nothing of a map's own. A map's bytes (its cells, 2 bytes each; its things, 10 each; and
 # their names) are in the app's own Blob, its room, as big as the app likes, and its sheets and layers
-# in the app's own arrays: so an app sizes its maps as it likes, and reads each new level into the same
-# room. Each sheet's picture is the app's too: it reads it (pc.imageRead) and passes it to draw.
+# in the library's own arrays (4 and 8: for one map at a time), or the app's: so an app sizes its maps as
+# it likes, and reads each new level into the same room. Each sheet's picture is the app's too: it reads it (pc.imageRead) and passes it to draw.
 #
-#   sheetRoom: [4]tilemap.Sheet
-#   layerRoom: [8]tilemap.Layer
 #   room: Blob[12000]                        (as Maps' top bar says, at least)
-#   level := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[]}
+#   level := tilemap.Map{room = room[]}      (its sheets and layers: the library's own, 4 and 8; or the
+#                                             app's, sheets = sheetRoom[], layers = layerRoom[], for more)
 #   if level.load("/rinc/save/maps/level1.map") (else the log says why: room it needs, say)
 #     pixels: Blob[..(128 + 1) * 128]        (a 128 by 128 sheet of the palette's: pc.imageRead says)
 #     sheet := pc.imageRead(level.sheetPath(0), pixels)
@@ -64,15 +63,24 @@ Room* :: struct           # what a map needs: its room's bytes, and its sheets a
   layers: Int
 end
 Map* :: struct
-  sheets: []Sheet         # the app's: as many as it has room for
+  sheets: []Sheet         # the app's: as many as it has room for (none given: the library's own, 4)
   sheetCount: Int
-  layers: []Layer         # the app's, as many as it has room for
+  layers: []Layer         # the app's, as many as it has room for (none given: the library's own, 8)
   count: Int              # layers
   room: Blob              # the app's: the cells (from the start), then the things, and the names (at its end)
   cells: Int              # in all its tiles layers
   thingCount: Int         # things, in all its things layers
   names: Int              # their bytes, at the room's end
   pixels: Blob[..]        # the app's, if it gives one: its sheets' pictures and flags, read as it loads (readSheets)
+end
+
+# the library's own sheets and layers, for a map given none (a game's one map, each level read into it):
+# 4 sheets, 8 layers, for one such map at a time (a second map needs arrays of its own)
+ownSheets: [4]Sheet
+ownLayers: [8]Layer
+Map.own :: proc()
+  if self.sheets.len() == 0 do self.sheets = ownSheets[]
+  if self.layers.len() == 0 do self.layers = ownLayers[]
 end
 
 # ---------------------------------------------------------------- cells
@@ -794,6 +802,7 @@ end
 # a new map: one tiles layer of size, all empty, from the sheet at path (its sprites sprite big, across
 # of them across). False if there's no room
 Map.start* :: proc(size: [2]Int, path: String, sprite: [2]Int, across: Int) -> Bool
+  self.own()
   if size.x * size.y * 2 > self.room.len() or self.layers.len() < 1 or self.sheets.len() < 1
     return false
   end
@@ -1354,6 +1363,7 @@ end
 # a map's file, or what's under a key of the app's stash, read into it: false if it can't be, and the
 # log says why (the room it needs, say), and the map's as it was
 Map.loadFrom :: proc(kind: Int, name: String) -> Bool
+  self.own()
   mapFolder.clear()
   if kind == FROM_FILE
     fine := mapFolder.pushAll(folderOf(name))

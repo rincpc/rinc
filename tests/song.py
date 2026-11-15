@@ -148,6 +148,10 @@ update* :: proc()
   if frame == 290
     log("reps", reps.asString(), tune6.playing)
   end
+  if frame == 292 # (read and started in one: loop(path))
+    looped := tune9.loop("stops.mus")
+    log("loop a path", looped, tune9.playing, tune9.looping, tune9.uses)
+  end
 end
 ''')
 r = subprocess.run([rinc, os.path.join(work, 'game') + '/', '-data', os.path.join(work, 'data'), '-frames', '300'], capture_output=True, text=True, timeout=60)
@@ -179,6 +183,7 @@ want = [
   'v2 voices 0 1 1',
   'levers 3 4',
   'reps 0 1  false',                  # (played twice over, then its stop mark)
+  'loop a path true true true 3',      # (stops.mus read, and played round)
   'relative true true notes.snd 4',   # (a path from the song's folder: songs/../notes.snd)
   'relative text true true notes.snd',
   'one buffer true 128 472 4',          # (one Blob for both: sound 0's notes, then the room)

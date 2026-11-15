@@ -60,16 +60,18 @@ app's too: it reads it (`pc.imageRead`) and passes it to `draw`. The library's o
 in memory. Between its calls nothing's left in it, so an app can use it for its own work too (Maps keeps
 its undo's steps there, and writes them to the card before it loads or saves a map).
 
+Its sheets and layers go in arrays of `tilemap.Sheet` and `tilemap.Layer`: the library's own (4 sheets
+and 8 layers, for one map at a time: a game's map, each level read into it), or the app's, as many as it
+likes (`tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], ...}`: a second map, or a bigger one).
+
 How much room: Maps shows it at its top right, as the `Blob` a game needs (and says so when it saves);
 `tilemap.roomIn(path)` says from a map's file; and `load`, when a map doesn't fit, logs what it needs.
 
 ```rio fragment
 import tilemap
-sheetRoom: [4]tilemap.Sheet
-layerRoom: [8]tilemap.Layer
 room: Blob[12000]                            # its cells, things and names
 pixels: Blob[..(128 + 1) * 128 + 256]       # its sheet's pixels and flags (as Paint says)
-level := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[], pixels = pixels}
+level := tilemap.Map{room = room[], pixels = pixels} # (its sheets and layers: the library's own)
 if level.load("/rinc/save/maps/cave.map")    # (and its sheet; else the log says why: the room it needs, say)
   actors := level.layerNamed("actors")       # -1: none
   for i in 0..<level.things(actors)

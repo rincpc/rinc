@@ -11,7 +11,9 @@ checking a change on the board, not just on the desktop:
   tap B            button B pressed and let go (left right up down a b x y): kitty's key down, then up
   hold B S         button B held S seconds
   type TEXT        TEXT typed as keys, with rinc -type's escapes (\n Enter, \e Esc, \t Tab, \xHH a byte:
-                   \x1b[A up), each escape sequence sent whole, a key every 0.08 s
+                   \x1b[A up), each escape sequence sent whole, a key every 0.08 s; Ctrl+C and
+                   Ctrl+B (\x03, \x02) sent as kitty's keys, so the app gets them (as bytes, over
+                   serial, they'd open the console)
   as NAME          the app on the screen is NAME now (one another app started: its shots are named for it)
   shot FILE        Print Screen (the board saves /rinc/shots/<app>-<n>.png), then it fetched (the firmware
                    console's get: the app is left) and written to FILE, 4 times as big, to look at
@@ -71,7 +73,8 @@ def keysOf(text):
   """text as rinc -type takes it (\\n Enter, \\e Esc, \\t Tab, \\xHH a byte: \\x1b[A the up arrow), as keys:
   each a byte, or an escape sequence whole (sent at once, so the board reads it as one key)"""
   b = re.sub(r'\\(x[0-9a-fA-F]{2}|[nte\\])', lambda m: {'n': '\r', 't': '\t', 'e': '\x1b', '\\': '\\'}.get(m.group(1)) or chr(int(m.group(1)[1:], 16)), text).encode('latin-1')
-  return [m.group() for m in re.finditer(rb'\x1b\[[0-9;:?]*[\x40-\x7e]|.', b, re.S)]
+  keys = [m.group() for m in re.finditer(rb'\x1b\[[0-9;:?]*[\x40-\x7e]|\x1bO.|.', b, re.S)] # (ESC [ ... and ESC O x, F1 to F4: whole)
+  return [{b'\x03': b'\x1b[99;5u', b'\x02': b'\x1b[98;5u'}.get(k, k) for k in keys] # (Ctrl+C and Ctrl+B as kitty's keys: over serial, 3 opens the console and 2 the firmware's)
 read(0.3)
 shots, app, cleared = 0, None, False
 i = 0

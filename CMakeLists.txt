@@ -232,6 +232,9 @@ else()
   # pc.Field: a line of text edited as a text box is (pc.rio)
   add_test(NAME field COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/field.rio -frames 1)
   set_tests_properties(field PROPERTIES PASS_REGULAR_EXPRESSION "field tests passed")
+  # notice (library/notice.rio): a few words shown for their seconds, in their box, then gone
+  add_test(NAME notice COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/notice.rio -frames 12)
+  set_tests_properties(notice PROPERTIES PASS_REGULAR_EXPRESSION "notice came through")
   add_test(NAME synth COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/synth.rio -frames 1)
   set_tests_properties(synth PROPERTIES PASS_REGULAR_EXPRESSION "synth tests passed")
   # pc.btnp: a press at once, then again after 15 frames and each 4th; pc.dpadp: one way at a time

@@ -165,6 +165,9 @@ assert(not g.load("/rinc/save/tf.map") and g.flagsAt(0, {0, 0}) == 0, "no room f
 assert(f.start({1, 1}, "/rinc/save/none.png", {8, 8}, 2) and not f.readSheets() and f.flagsAt(0, {0, 0}) == 0, "no sheet: false, no flags")
 old := tilemap.Map{sheets = oldSheets[], layers = oldLayers[], room = oldRoom[]}
 assert(old.load("/rinc/save/two.map") and m.load("/rinc/save/three.map"), "")
+ownRoom: Blob[400] # (no sheets or layers given: the library's own, 4 and 8)
+own := tilemap.Map{room = ownRoom[]}
+assert(own.load("/rinc/save/two.map") and own.sheets.len() == 4 and own.layers.len() == 8 and own.count == old.count and own.at(0, {0, 0}) == old.at(0, {0, 0}), "a map given no arrays: the library's own")
 old.set(0, {0, 1}, 9)
 pixels: Blob[..1024] # (room for the file's rows as they come, too)
 sheet := pc.imageRead("/rinc/save/t.png", pixels)

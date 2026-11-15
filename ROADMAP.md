@@ -61,9 +61,11 @@ app is a Rio program.
          long memory lasts, not what's in it. The copy stays (`.asString()` stays).
        - Not taken: Paint's, Sound's and Maps' `say`. Each builds some messages in its buffer, which
          stays, so static only moves the copy, no simpler.
-       - To decide: a map's own sheets and layers. `self: static` makes it possible (a global map's
-         views of its own arrays), but every Map then carries them (about 930 bytes for 4 sheets and
-         8 layers) though Maps and others give their own: two lines saved in a game.
+       - Done (2026-11-15), another way: the library's own sheets and layers (4 and 8, about 930
+         bytes once in an app, not in each Map: a Map inside a local, roomIn's, stays small), for a
+         map given none, one map at a time. With notice (a few words shown a while, counted as drawn)
+         and song's loop(path), Cloudlamp went from 106 lines (87 of code) to 85 (67): its two
+         screens one wide map in Maps (a screen at a time by its camera), made on the board.
   3. Copy as Rio, in studio's apps (Paint: an enum of its flags' names and the calls that read them;
      Maps', Music's likewise), after a clipboard apps share (text at least: below, 3 of 2026-11-13).
      The order (the user, 2026-11-15): Cloudlamp made as simple as generalizes first, so what's copied

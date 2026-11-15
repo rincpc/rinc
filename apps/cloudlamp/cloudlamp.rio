@@ -4,80 +4,63 @@
 #
 # The arrows (or the d-pad) walk; walking into someone talks to them. Its files are its own, beside it:
 # the sheet (cloudlamp.png, Paint's: its rock and cloud flagged solid, which walking can't cross), the
-# map (cloudlamp.map, Maps': two screens, island and yard, each with a things layer of its folk, by
-# name), the sounds (cloudlamp.snd, Sound's: a step, a chirp, a tune and its bass) and the song
-# (cloudlamp.mus, Music's). Made with studio's apps on a Fruit Jam, typed at over its serial port; it
-# needs only rinc (and rinc's library: tilemap, song) to run.
-# Its title is in a font of its own, title.png, drawn in Paint (pc.fontRead).
-# Its song is after Satie's Gymnopedie No. 1 (1888): sounds 4 to 8, bass, pad, lead, bell and wind.
+# map (cloudlamp.map, Maps': ground, the island and the yard side by side, a screen each, and folk, its
+# things, by name), the sounds (cloudlamp.snd, Sound's: a step, a chirp, and the song's) and the song
+# (cloudlamp.mus, Music's: after Satie's Gymnopedie No. 1, 1888). Its title is in a font of its own,
+# title.png, drawn in Paint. Made with studio's apps on a Fruit Jam, typed at over its serial port; it
+# needs only rinc (and rinc's library: tilemap, song, notice) to run.
 
 import tilemap
 import song
+import notice
 
 PLAYER :: 4                            # the sheet's sprite for the visitor
 
-sheetRoom: [2]tilemap.Sheet
-layerRoom: [6]tilemap.Layer
 room: Blob[2000]                       # the map's cells, things and names (as Maps says)
 pixels: Blob[..(64 + 1) * 8]           # its sheet's pixels and flags (as Paint says)
-m := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[], pixels = pixels}
+m := tilemap.Map{room = room[], pixels = pixels}
 _ = m.load("cloudlamp.map")            # (and its sheet)
-songRoom: Blob[1993]                   # the song's sounds' notes and the song, together (as Music says)
-tune := song.Song{buffer = songRoom[], voice = 1} # (its 8 channels: voices 1 to 8)
-_ = tune.load("cloudlamp.mus")
-_ = tune.loop()
+songRoom: Blob[1993]                   # the song's sounds and the song (as Music says)
+tune := song.Song{buffer = songRoom[], voice = 1}
+_ = tune.loop("cloudlamp.mus")
 pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels
 titleRoom: Blob[..(96 + 1) * 36 + 200] # (the title font, Paint's: its picture, then its letters' widths)
 title := pc.fontRead("title.png", titleRoom)
 
-grounds := [2]Int{m.layerNamed("island"), m.layerNamed("yard")}
-folks := [2]Int{m.layerNamed("isle_folk"), m.layerNamed("yard_folk")}
-solid := m.flag(grounds[0], "solid")
+ground := m.layerNamed("ground")
+folk := m.layerNamed("folk")
+solid := m.flag(ground, "solid")
 lamp := m.find("lamp")                 # (its layer and number)
-screen := 0                            # 0 the island, 1 the yard
 at := {3, 7}                           # the visitor, in cells
 lit := false
-said := ""                             # what's said: a literal (say's s is static: kept as it is)
-saidFor := 0
+said := notice.Notice{}                # (at the screen's bottom, for 4 seconds)
+said.say("Cloudlamp. The lamp is dark: walk east.")
 
-say :: proc(s: static String)
-  said = s
-  saidFor = 240
-end
-say("Cloudlamp. The lamp is dark: walk east.")
 talk :: proc(name: String)
   tune.sound(0, 1)
   switch name
   case "keeper"
     if lit
-      say("Keeper: the airships see us again. Thank you!")
+      said.say("Keeper: the airships see us again. Thank you!")
     else
-      say("Keeper: our lamp went out. Its yard is east.")
+      said.say("Keeper: our lamp went out. Its yard is east.")
     end
   case "gull"
-    say("Gull: Kree! Clouds below, stars above. Kree!")
+    said.say("Gull: Kree! Clouds below, stars above. Kree!")
   case "lamp"
     if lit
-      say("The lamp burns bright.")
+      said.say("The lamp burns bright.")
     else
-      say("The lamp burns! Far off, an airship turns home.")
+      said.say("The lamp burns! Far off, an airship turns home.")
     end
     lit = true
   end
 end
 step :: proc(d: [2]Int)
   to := at + d
-  if to.x >= 20 and screen == 0        # (the path's east end: the yard)
-    screen = 1
-    to.x = 0
-  case to.x < 0 and screen == 1
-    screen = 0
-    to.x = 19
-  end
-  g := grounds[screen]
-  if t := m.thingIn(folks[screen], to)
+  if t := m.thingIn(folk, to)
     talk(t.name.asString())
-  case m.at(g, to) != tilemap.EMPTY and m.flagsAt(g, to) & solid == 0
+  case m.at(ground, to) != tilemap.EMPTY and m.flagsAt(ground, to) & solid == 0
     at = to
     tune.sound(0, 0)
   end
@@ -86,21 +69,17 @@ end
 update* :: proc()
   d := pc.dpadp()
   if d != {0, 0} do step(d)
-  saidFor = max(saidFor - 1, 0)
 end
 
 draw* :: proc()
-  camera := m.layers[grounds[screen]].at # (the screen's own place on the map)
+  camera := at / {20, 15} * {160, 120} # (the screen the visitor's on: a screen at a time)
   pc.cls(1)
-  m.draw(grounds[screen], camera)
-  if lit and lamp.x == folks[screen]   # (the lamp's light, under it)
-    pc.rect(m.thing(lamp.x, lamp.y).at - 3, {14, 14}, 10)
+  m.draw(ground, camera)
+  if lit                               # (the lamp's light, under it)
+    pc.rect(m.thing(lamp.x, lamp.y).at - camera - 3, {14, 14}, 10)
   end
-  m.draw(folks[screen], camera)
-  m.sprite(grounds[screen], PLAYER, at * 8)
-  if screen == 0 and not lit do pc.print("CLOUDLAMP", {44, 6}, 7, {font = title})
-  if saidFor > 0
-    pc.rect({0, 98}, {160, 22}, 0)
-    pc.print(said, {2, 100}, 7, {width = 156})
-  end
+  m.draw(folk, camera)
+  m.sprite(ground, PLAYER, at * 8 - camera)
+  if camera.x == 0 and not lit do pc.print("CLOUDLAMP", {44, 6}, 7, {font = title})
+  said.draw()
 end

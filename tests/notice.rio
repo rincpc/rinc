@@ -1,0 +1,35 @@
+# notice (library/notice.rio): a few words said, shown for their seconds (0.1 here: 6 frames, counted as
+# it's drawn), in their box, then gone; the box the screen's bottom when none's given.
+# Run with -frames 12: it logs "notice came through"
+import notice
+said := notice.Notice{seconds = 0.1, box = pc.Rect.of({0, 0}, {100, 22})}
+low := notice.Notice{} # (none given: the screen's bottom)
+assert(not said.showing(), "nothing said: nothing shown")
+said.say("Hello")
+low.say("Low")
+frame := 0
+inked :: proc(at: [2]Int, size: [2]Int, c: Int) -> Bool # (any pixel of color c there)
+  for y in at.y..<at.y + size.y
+    for x in at.x..<at.x + size.x
+      if pc.pget({x, y}) == c do return true
+    end
+  end
+  return false
+end
+update* :: proc()
+  frame += 1
+end
+draw* :: proc()
+  pc.cls(1)
+  said.draw()
+  low.draw()
+  bottom := pc.screenSize().y
+  if frame == 2
+    assert(said.showing() and pc.pget({0, 0}) == 0 and inked({2, 2}, {30, 8}, 7), "said: its box (black), its words in it (white)")
+    assert(pc.pget({0, bottom - 1}) == 0 and pc.pget({0, bottom - 23}) == 1 and inked({2, bottom - 20}, {20, 8}, 7), "none given: the screen's bottom, 22 high")
+  end
+  if frame == 10
+    assert(not said.showing() and pc.pget({0, 0}) == 1 and low.showing(), "its seconds gone: not shown (the other's 4 seconds, still)")
+    log("notice came through")
+  end
+end
