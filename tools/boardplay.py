@@ -5,6 +5,8 @@ r"""Play an app on the board as a person would, over serial, and look at it: uv 
 step step ... Meant for trying a game or an app as its user meets it (what's awkward shows), and for
 checking a change on the board, not just on the desktop:
   con:LINE         Ctrl-C (the console app), then LINE typed and Enter (run cloudlamp, say)
+  fw:LINE          Ctrl-B (the firmware's own console: the app is left), LINE, what it says printed, then
+                   home (fw:audio: how long mixing takes)
   wait S           S seconds
   tap B            button B pressed and let go (left right up down a b x y): kitty's key down, then up
   hold B S         button B held S seconds
@@ -81,6 +83,13 @@ while i < len(steps):
     m = re.match(r'run (\S+)', line) or re.search(r'pc\.call\("([^"]+)"', line) # (the app its shots are named for)
     if m: app = m.group(1)
     print(re.sub(r'\x1b\[[0-9;?]*[A-Za-z]', '', console(line).decode('utf-8', 'replace')).strip()[-300:])
+  elif st.startswith('fw:'):
+    s.dtr = True
+    send(b'\x02'); read(2.0)
+    s.reset_input_buffer()
+    send(st[3:].encode() + b'\r')
+    print(re.sub(r'\x1b\[[0-9;?]*[A-Za-z]', '', read(1.5).decode('utf-8', 'replace')).strip()[-300:])
+    send(b'home\r'); read(1.0)
   elif st == 'wait': read(float(steps[i + 1])); i += 1
   elif st == 'as': app = steps[i + 1]; i += 1 # (the app on the screen now, its shots' name: one an app started)
   elif st == 'tap': button(steps[i + 1], True); read(0.12); button(steps[i + 1], False); read(0.12); i += 1

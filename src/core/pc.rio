@@ -229,6 +229,7 @@ synthSmooth* :: host proc(v, on: Int)
 synthWave* :: host proc(w: Int, cycle: Blob)
 # on from frame at (on the synth, note at), as it plays
 soundSeek* :: host proc(v, at: Int)
+audioLoad* :: host proc() -> [2]Int # mixing's share of its time, in percent: on average and at most, since last asked ({-1, -1}: not measured here; the board measures it)
 
 # ---------------------------------------------------------------- apps, for home and the console
 

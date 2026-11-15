@@ -114,6 +114,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_synthSmooth_SIG "ii"
 #define pc_synthWave_SIG "ib"
 #define pc_soundSeek_SIG "ii"
+#define pc_audioLoad_SIG ">ii"
 #define pc_apps_SIG ">i"
 #define pc_appName_SIG "iB>i"
 #define pc_appInfo_SIG "iB>i"
@@ -221,6 +222,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(synthSmooth, pc_synthSmooth_SIG) \
   X(synthWave, pc_synthWave_SIG) \
   X(soundSeek, pc_soundSeek_SIG) \
+  X(audioLoad, pc_audioLoad_SIG) \
   X(apps, pc_apps_SIG) \
   X(appName, pc_appName_SIG) \
   X(appInfo, pc_appInfo_SIG) \
@@ -280,7 +282,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x9ccb69f6u /* (rio_hashText of the source) */
+#define pc_HASH 0xbe057be8u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -513,6 +515,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "synthWave* :: host proc(w: Int, cycle: Blob)\n" \
   "# on from frame at (on the synth, note at), as it plays\n" \
   "soundSeek* :: host proc(v, at: Int)\n" \
+  "audioLoad* :: host proc() -> [2]Int # mixing's share of its time, in percent: on average and at most, since last asked ({-1, -1}: not measured here; the board measures it)\n" \
   "\n" \
   "# ---------------------------------------------------------------- apps, for home and the console\n" \
   "\n" \

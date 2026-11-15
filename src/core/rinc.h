@@ -229,7 +229,12 @@ int rinc_gameFrame(rio_Vm *vm);
    A platform pulls samples with rinc_audioMix, and sets rinc_audioLock when that runs on another
    thread or in an interrupt (called with 1 before a host proc changes a voice, 0 after) */
 #define rinc_RATE 48000
+#ifndef rinc_VOICES /* (a build may try more: -Drinc_VOICES=16) */
 #define rinc_VOICES 8
+#endif
+/* how long mixing takes, where the platform measures it (the board: the firmware console's audio says):
+   microseconds in all, the most for one block, and blocks of rinc_mixFrames frames, since last asked */
+extern volatile uint32_t rinc_mixUs, rinc_mixPeak, rinc_mixBlocks, rinc_mixFrames;
 #ifdef rinc_HOT_SECTION /* where code that runs all the time goes: the RP2350 puts it in RAM, not flash */
 #define rinc_HOT __attribute__((section(rinc_HOT_SECTION)))
 #else

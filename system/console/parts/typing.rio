@@ -36,10 +36,9 @@ mode: Mode
 acc: Blob[..4096]  # an unfinished input's lines so far
 line: Blob[..200]  # the line being typed
 cur := 0           # where in it
-Hist :: struct
-  text: Blob[..200]
-end
-hist: [16]Hist
+HISTORY :: "/rinc/save/console/history.txt" # the lines typed: up and down bring them back, after a restart too
+HISTORY_MOST :: 8192
+hist: Blob[..HISTORY_MOST] # (its lines, oldest first, a newline after each)
 histCount := 0
 back := 0          # how far back up and down have gone (0: the line being typed)
 saveName: Blob[..100] # (an app, or a file of its own: chord/parts/sound.rio)
@@ -73,19 +72,57 @@ setLine :: proc(t: String)
   cur = line.len()
 end
 
-remember :: proc(t: String)
-  if blank(t)
+# line b of the history from its end (1: the last)
+histLine :: proc(b: Int) -> String
+  stop := hist.len() - 1 # (the newline after it)
+  for _ in 1..<b
+    stop -= 1
+    for hist[stop] != 10 do stop -= 1
+  end
+  start := stop
+  for start > 0 and hist[start - 1] != 10 do start -= 1
+  return hist[start..<stop].asString()
+end
+# a line typed, kept for up and down (the same again: once); the oldest go, to make room
+addLine :: proc(t: String)
+  if blank(t) or (histCount > 0 and histLine(1) == t)
     return
   end
-  if histCount == 16
-    for i in 0..<15
-      hist[i] = hist[i + 1]
-    end
+  for histCount > 0 and hist.len() + t.len() + 1 > HISTORY_MOST
+    k := 0
+    for hist[k] != 10 do k += 1
+    k += 1
+    n := hist.len()
+    for i in 0..<n - k do hist[i] = hist[i + k]
+    for _ in 0..<k do _ = hist.pop()
     histCount -= 1
   end
-  hist[histCount].text.clear()
-  _ = hist[histCount].text.pushAll(t)
+  _ = hist.pushAll(t)
+  _ = hist.push(10)
   histCount += 1
+end
+remember :: proc(t: String) # (and in its file: there again after a restart, or another app's run)
+  addLine(t)
+  _ = pc.fileWrite(HISTORY, hist.asString())
+end
+readHistory :: proc() # (as it starts: the lines kept, back)
+  hist.clear()
+  histCount = 0
+  if pc.fileRead(HISTORY, hist) <= 0
+    hist.clear()
+    return
+  end
+  if hist[hist.len() - 1] != 10 do _ = hist.push(10) # (cut short, or written by hand: a last line)
+  for c in hist
+    if c == 10 do histCount += 1
+  end
+end
+readHistory()
+clearHistory :: proc()
+  hist.clear()
+  histCount = 0
+  back = 0
+  _ = pc.fileDelete(HISTORY)
 end
 
 recall :: proc(step: Int)
@@ -97,7 +134,7 @@ recall :: proc(step: Int)
   if b == 0
     setLine("")
   else
-    setLine(hist[histCount - b].text[].asString())
+    setLine(histLine(b))
   end
 end
 

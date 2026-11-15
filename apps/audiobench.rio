@@ -1,0 +1,104 @@
+# audio's cost on the board. Run on its own: a loop timed with no voices playing, then with 4, 8 and 16
+# synth voices (as many as Rinc has: a voice past them plays nothing), each a looping saw with vibrato,
+# at the synth's starting rate (16,000 samples a second) and its highest, smoothed (48,000: the most
+# work); the loop's slowing is the mixer's share of the app's core (none, where it mixes on the other),
+# shown, and written to /rinc/save/audiobench.txt (and logged). Called with "N RATE"
+# (pc.call("audiobench", "16 48000")): those voices play, at that rate, until it's left, with mixing's
+# share of its own core shown each second (pc.audioLoad; over serial, the firmware console's audio too)
+notes: Blob[16]
+for k in 0..<4
+  notes[k * 4] = 24 + k * 5 # (C2 and up: a pitch, a saw, the loudest, vibrato)
+  notes[k * 4 + 1] = 2
+  notes[k * 4 + 2] = 7
+  notes[k * 4 + 3] = 2
+end
+out: Blob[..800]
+fine := true
+silence :: proc()
+  for v in 0..<16 do pc.soundStop(v)
+end
+playOn :: proc(count: Int, rate: Float)
+  silence()
+  for v in 0..<count
+    pc.synth(v, notes[], 6)
+    pc.soundLoop(v, 0, 4)
+    pc.synthRate(v, rate)
+    pc.synthSmooth(v, (rate > 16000.0).toInt())
+    pc.soundVolume(v, 0.05)
+  end
+end
+playing :: proc() -> Int
+  n := 0
+  for v in 0..<16 do n += pc.soundPlaying(v)
+  return n
+end
+spin :: proc() -> Float
+  t := pc.time()
+  n := 0
+  for i in 0..<2000000
+    n += i % 7
+  end
+  if n == 1 do log(n) # (so the loop counts)
+  return pc.time() - t
+end
+number :: proc(t: String, at: Int) -> [2]Int # (a number in t from at, and where it ends)
+  v := 0
+  i := at
+  for i < t.len() and t[i] >= '0' and t[i] <= '9'
+    v = v * 10 + t[i] - '0'
+    i += 1
+  end
+  return {v, i}
+end
+rincVoices := 0 # (how many voices Rinc has: the ones that play)
+playOn(16, 16000.0)
+rincVoices = playing()
+silence()
+called: Blob[..40]
+held := 0
+if pc.args(called) > 0 # ("N RATE": those voices, at that rate, till it's left)
+  a := number(called.asString(), 0)
+  b := number(called.asString(), a[1] + 1)
+  playOn(a[0], b[0].toFloat())
+  held = a[0]
+else
+  base := spin()
+  fine = out.print("none: ", base, " s\n")
+  counts := [3]Int{4, 8, 16}
+  for r in 0..<2
+    rate := 16000.0
+    if r == 1 do rate = 48000.0
+    for count in counts
+      playOn(count, rate)
+      t := spin()
+      fine = out.print(rate.toInt(), " a second, ", count, " voices (", playing(), " playing): ", t, " s, audio ", ((1.0 - base / t) * 100.0).toInt(), "% of the app's core\n")
+    end
+  end
+  silence()
+  log(out.asString())
+  fine = pc.fileWrite("/rinc/save/audiobench.txt", out.asString()) >= 0
+end
+load := [2]Int{-1, -1} # (mixing's share, each second: pc.audioLoad)
+frames := 0
+update* :: proc()
+  frames += 1
+  if held > 0 and frames % 60 == 0 do load = pc.audioLoad()
+end
+draw* :: proc()
+  pc.cls(1)
+  if held > 0
+    said: Blob[..60]
+    fine = said.print(playing(), " of ", held, " voices playing (Rinc has ", rincVoices, ")")
+    pc.print(said.asString(), {8, 8}, 7)
+    if load.x < 0
+      pc.print("Mixing's share isn't measured here (the board measures it)", {8, 24}, 6)
+    else
+      said.clear()
+      fine = said.print("Mixing: ", load.x, "% of its core's time, at most ", load.y, "%")
+      pc.print(said.asString(), {8, 24}, 7)
+    end
+  else
+    pc.print(out.asString(), {8, 8}, 7, {width = 304})
+    pc.print("On the board the mixer has a core of its own (with the HDMI), so it takes none of the app's time. To see its share of its own core, from the console: pc.call(\"audiobench\", \"16 48000\") (16 voices, at the top rate) shows it as they play.", {8, 150}, 6, {width = 304})
+  end
+end

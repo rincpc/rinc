@@ -63,10 +63,13 @@ static void rinc_lockAudio(int on) { if (on) spin_lock_unsafe_blocking(rinc_lock
 
 /* a buffer went out: mix the next frames into it, in short turns at the lock */
 static void __not_in_flash_func(rinc_refill)(uint32_t *b) {
-  int16_t *s = (int16_t *)(void *)b; int f, k;
+  int16_t *s = (int16_t *)(void *)b; int f, k; uint32_t t = time_us_32();
   for (k = 0; k < rinc_FRAMES; k += 64) { spin_lock_unsafe_blocking(rinc_lock); rinc_audioMix(s + k * 2, 64); spin_unlock_unsafe(rinc_lock); }
   rinc_hdmiSound(s, rinc_FRAMES); /* the same sound over HDMI */
   for (f = 0; f < rinc_FRAMES; f++) b[f] = b[f] << 16 | b[f] >> 16; /* (memory has left first, in the low half) */
+  t = time_us_32() - t; /* (how long it took: the firmware console's audio says) */
+  rinc_mixUs += t; rinc_mixBlocks++; rinc_mixFrames = rinc_FRAMES;
+  if (t > rinc_mixPeak) rinc_mixPeak = t;
 }
 static void __not_in_flash_func(rinc_audioDone)(void) {
   int k;

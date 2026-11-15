@@ -170,6 +170,7 @@ pc.soundLoop(0, 0, 1)
 pc.synthRate(0, 48000.0)
 pc.synthSmooth(0, 1)
 assert(pc.soundPlaying(0) == 1, "playing")
+assert(pc.audioLoad() == {-1, -1}, "audioLoad: not measured on the desktop (the board measures it)")
 log("synth tests passed")
 
 # frame by frame (rinc -frames 40, for tests/synth.py): seeking, on the synth and not, and stopping

@@ -108,6 +108,17 @@ command :: proc(t: String) -> Bool
   case "home"
     pc.launch("home")
     return true
+  case "history"                         # the lines typed lately, the last 20 of them, oldest first
+    n := min(histCount, 20)
+    for b in 0..<n
+      say(histLine(n - b), softColor)
+    end
+    if histCount == 0 do say("no history: the lines typed are kept, up and down bring them back", softColor)
+    return true
+  case "history clear"                   # forgotten, its file too
+    clearHistory()
+    say("history cleared", softColor)
+    return true
   case "active"                          # the active app or project, the whole Rinc's setting
     v: Blob[..34]
     if pc.settingRead("active", v) > 0

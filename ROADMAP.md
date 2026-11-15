@@ -90,6 +90,17 @@ app is a Rio program.
       first match (it keeps the row's number now); the picker taking a typed path, as Save does.
     - Low: desktop `-type` keys typed while an app hands back to its caller (Files to Music) land in
       the wrong place; waiting for the switch, as `\w` waits for what's typed.
+  - 16 voices, measured (2026-11-15; the user: people would appreciate them, if they fit): a voice's
+    sound and synth parts now share their room (244 bytes to 152: 8 voices leave 2,820 bytes of SRAM
+    free, 16 leave 1,460, with room for 120 host procs; a build tries 16 with `-Drinc_VOICES=16`). Mixing runs on core 1, with the
+    HDMI, so it costs the app nothing; the firmware console's `audio` says how much of core 1's time
+    it takes, and apps can ask (`pc.audioLoad()`: apps/audiobench.rio plays N voices at a rate and shows
+    it, `pc.call("audiobench", "16 48000")`, no serial needed). At
+    most, of a block's time: none playing 2%; 8 synth voices 21% at the synth's starting rate (16,000)
+    and 50% at its top, smoothed (48,000); 16 voices 42% and 98%. Recommended: 16 voices, with the top
+    rate's cost in the sound spec (16 at 48,000 smoothed is too much: sound would break up), or a
+    cheaper synth step first (smoothing and the phaser are the costly parts). To hear on the board
+    before deciding: 16 at the top rate.
 - Priorities (2026-11-13), in order (the 2026-11-09 list's 1 to 3 done: Print Screen and buttons held
   over serial, the song library, Files' save taking a typed path; and Sound's = at a sound's first note):
   1. Rio's bytecode smaller: done (2026-11-13, Rio f328c2f, lib/rio bumped): 35% off an app's code (Maps

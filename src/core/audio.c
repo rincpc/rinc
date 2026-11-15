@@ -24,28 +24,37 @@
    the decoder's state after it */
 typedef struct { uint32_t at, k; const uint8_t *blk; int32_t a[2], b[2], pred[2]; uint8_t index[2]; } rinc_AdpcmState;
 typedef struct {
-  const uint8_t *data; uint32_t frames; /* the sound, in frames (a sample, or a stereo pair) */
-  uint32_t pos, frac, step, fstep;      /* where (a frame, and 32 bits of fraction), and how far each output frame */
+  uint32_t frames;                      /* the sound, in frames (a sample, or a stereo pair) */
+  uint32_t frac, step, fstep;           /* 32 bits of fraction where it is, and how far each output frame */
   uint32_t loop0, loop1;                /* loop1 > loop0: play [loop0, loop1) over and over */
   int32_t gl, gr;                       /* gains, 1.15 (32768 is 1): volume with pan */
   float vol, pan;
   uint8_t bits, stereo, on;             /* bits: 8, 16 or 4 (ADPCM) */
-  uint32_t block, per;                  /* ADPCM: bytes in a block, and frames */
-  rinc_AdpcmState dec, at0;                         /* ADPCM: the decoder, and its state at loop0 */
-  /* the synth's (frames: its notes; loop0 and loop1 in notes): the note it's on, sample k of its len,
-     the wave's place in its cycle (t, and phaser's second wave's t2) and how far a sample (dt, for
-     pitch), the volume as heard (eased toward the note's, so changes don't click), seconds since it
-     began (for vibrato and arpeggios), the noise's state, samples left to fade out in once it ends,
-     and the samples it's between. From its settings (rinc_SynthSet): its rate and soundRate's speed-up
-     (play), a second's part of a sample (inv), its speed, how far the volume eases a sample, rising and
-     falling (up, down), the fade's length, and its bend and smoothing. The gains as heard (cgl, cgr),
-     eased toward gl and gr over a chunk, so volume and pan don't click */
-  const uint8_t *notes; uint32_t note, k, len, eighth, noise, tail, speed, fade;
-  float t, t2, dt, pitch, level, sec, rate, play, inv, up, down, bend;
-  int32_t sa, sb, cgl, cgr; uint8_t synth, smooth, set;
+  union { /* a voice plays a sound or the synth, never both: their own parts share the room (16 voices fit) */
+    struct {
+      const uint8_t *data; uint32_t pos;    /* the sound's, and the frame it's at */
+      uint32_t block, per;                  /* ADPCM: bytes in a block, and frames */
+      rinc_AdpcmState dec, at0;                         /* ADPCM: the decoder, and its state at loop0 */
+    };
+    struct {
+      /* the synth's (frames: its notes; loop0 and loop1 in notes): the note it's on, sample k of its len,
+         the wave's place in its cycle (t, and phaser's second wave's t2) and how far a sample (dt, for
+         pitch), the volume as heard (eased toward the note's, so changes don't click), seconds since it
+         began (for vibrato and arpeggios), the noise's state, samples left to fade out in once it ends,
+         and the samples it's between. From its settings (rinc_SynthSet): its rate and soundRate's speed-up
+         (play), a second's part of a sample (inv), its speed, how far the volume eases a sample, rising and
+         falling (up, down), the fade's length, and its bend and smoothing. The gains as heard (cgl, cgr),
+         eased toward gl and gr over a chunk, so volume and pan don't click */
+      const uint8_t *notes; uint32_t note, k, len, eighth, noise, tail, speed, fade;
+      float t, t2, dt, pitch, level, sec, rate, play, inv, up, down, bend;
+      int32_t sa, sb;
+    };
+  };
+  int32_t cgl, cgr; uint8_t synth, smooth, set;
 } rinc_Voice;
 
 static rinc_Voice rinc_voices[rinc_VOICES], rinc_maker; /* (rinc_maker: synthMake's) */
+volatile uint32_t rinc_mixUs, rinc_mixPeak, rinc_mixBlocks, rinc_mixFrames;
 static volatile int32_t rinc_master = 32768; /* the system's volume, over all of it (1.15) */
 static int rinc_level = rinc_VOLUME_STEPS, rinc_muted;
 void (*rinc_audioLock)(int on);
@@ -568,10 +577,20 @@ static void rinc_hostSeek(rio_Vm *vm, rio_Val *a) {
   rinc_lock(0);
 }
 static void rinc_hostPlaying(rio_Vm *vm, rio_Val *a) { rinc_Voice *v = rinc_voice(a); (void)vm; a[0].i = v && v->on; }
+/* audioLoad() -> [2]Int: mixing's share of its time, in percent, on average and at most, since last asked
+   (or since the firmware console's audio), where the platform measures it (the board); else -1s */
+static void rinc_hostAudioLoad(rio_Vm *vm, rio_Val *a) {
+  uint32_t blocks = rinc_mixBlocks, us = rinc_mixUs, peak = rinc_mixPeak, frames = rinc_mixFrames, span;
+  (void)vm;
+  rinc_mixUs = rinc_mixPeak = rinc_mixBlocks = 0;
+  if (!blocks || !frames) { a[0].i = a[1].i = -1; return; }
+  span = (uint32_t)((uint64_t)frames * 1000000u / rinc_RATE);
+  a[0].i = (int32_t)(us / blocks * 100 / span); a[1].i = (int32_t)(peak * 100 / span);
+}
 
 int rinc_audioProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.sound", pc_sound_SIG, rinc_hostSound) || rio_addFfi(vm, "pc.soundRate", pc_soundRate_SIG, rinc_hostRate) || rio_addFfi(vm, "pc.soundVolume", pc_soundVolume_SIG, rinc_hostVolume) ||
-         rio_addFfi(vm, "pc.soundPan", pc_soundPan_SIG, rinc_hostPan) || rio_addFfi(vm, "pc.soundLoop", pc_soundLoop_SIG, rinc_hostLoop) || rio_addFfi(vm, "pc.soundStop", pc_soundStop_SIG, rinc_hostStop) ||
+         rio_addFfi(vm, "pc.soundPan", pc_soundPan_SIG, rinc_hostPan) || rio_addFfi(vm, "pc.soundLoop", pc_soundLoop_SIG, rinc_hostLoop) || rio_addFfi(vm, "pc.soundStop", pc_soundStop_SIG, rinc_hostStop) || rio_addFfi(vm, "pc.audioLoad", pc_audioLoad_SIG, rinc_hostAudioLoad) ||
          rio_addFfi(vm, "pc.soundPlaying", pc_soundPlaying_SIG, rinc_hostPlaying) || rio_addFfi(vm, "pc.soundWav", pc_soundWav_SIG, rinc_hostWav) ||
          rio_addFfi(vm, "pc.synth", pc_synth_SIG, rinc_hostSynth) || rio_addFfi(vm, "pc.synthMake", pc_synthMake_SIG, rinc_hostSynthMake) ||
          rio_addFfi(vm, "pc.synthRate", pc_synthRate_SIG, rinc_hostSynthRate) || rio_addFfi(vm, "pc.synthBend", pc_synthBend_SIG, rinc_hostSynthBend) ||

@@ -3201,6 +3201,18 @@ static int rinc_command(rinc_Repl *r) {
   while (n && *s == ' ') { s++; n--; }
   for (w = 0; w < n && s[w] != ' '; w++) {}
   if (w == 4 && n == 4 && !memcmp(s, "home", 4)) { memcpy(rinc_launchName, "home", 5); rinc_launch = 1; return 1; } /* (the platform goes back to it) */
+  if (w == 5 && n == 5 && !memcmp(s, "audio", 5)) { /* how much of the time mixing takes (the board measures it), since last asked */
+    char said[160]; uint32_t blocks = rinc_mixBlocks, us = rinc_mixUs, peak = rinc_mixPeak, frames = rinc_mixFrames;
+    rinc_mixUs = rinc_mixPeak = rinc_mixBlocks = 0;
+    if (!blocks || !frames) rinc_replSay(r, "audio: not measured here\r\n");
+    else {
+      uint32_t span = (uint32_t)((uint64_t)frames * 1000000u / rinc_RATE); /* (a block's time, in microseconds) */
+      snprintf(said, sizeof said, "audio: %d voices; mixing %lu%% of the time (%lu us a block of %lu), at most %lu%%, over %lu blocks\r\n", rinc_VOICES,
+               (unsigned long)(us / blocks * 100 / span), (unsigned long)(us / blocks), (unsigned long)span, (unsigned long)(peak * 100 / span), (unsigned long)blocks);
+      rinc_replSay(r, said);
+    }
+    return 1;
+  }
   if (w == 2 && n == 2 && !memcmp(s, "ls", 2)) {
     if (!rinc_fs) rinc_replSay(r, "no storage\r\n");
     else if (rinc_findApps() < 0) rinc_replSay(r, "no apps (or no card): /rinc/apps\r\n");

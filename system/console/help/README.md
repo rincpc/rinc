@@ -8,7 +8,9 @@ apps.
 ## Typing Rio
 
 What's typed is Rio: a statement runs when it's complete, and a block (a proc, an `if`, a loop) when
-its `end` comes. A value on its own is shown. Up and down bring back lines typed before.
+its `end` comes. A value on its own is shown. Up and down bring back lines typed before: they're kept in
+`/rinc/save/console/history.txt` (8 KB of them, a few hundred lines), so they're there after another app's
+run, or a restart.
 
 ```text
 > x := 6 * 7
@@ -35,5 +37,6 @@ A line on its own can be a command instead:
 | `install name` | install project `name+` as app `name` (its own saves stay with the project) |
 | `active`, `active name` | say which app or project is active (what the editor opens), or make `name` it |
 | `home` | back home |
+| `history`, `history clear` | the last 20 lines typed, or forget them all (its file too) |
 
 Each `name` can be a project's, with its +: `run chord+` runs project `chord+`, with its own saves.

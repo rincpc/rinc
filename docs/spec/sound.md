@@ -17,6 +17,7 @@ Each proc takes a voice number first; a number outside 0 to 7 does nothing (and 
 | `pc.soundLoop(v, start, stop)` | on reaching frame `stop`, go on from frame `start`; `stop` past the end is the end; `stop` 0 or less, or `start` not before `stop`, ends any loop |
 | `pc.soundStop(v)` | stops (on the synth, fading out, as after its last note) |
 | `pc.soundSeek(v, at)` | on from frame `at` (on the synth, note `at`), as it plays; past the end, the last |
+| `pc.audioLoad() -> [2]Int` | how much of its time mixing takes, in percent: on average and at most, since last asked; `{-1, -1}` where it isn't measured (the board measures it: it mixes on its second core, with the HDMI, so its share is that core's, not the app's) |
 | `pc.soundPlaying(v) -> Int` | 1 while `v` plays, else 0 |
 | `pc.synth(v, notes, speed)` | play `notes` on the synth, from the first, each `speed` 120ths of a second (1 to 255), full volume, centered, with no loop, in place of whatever `v` was playing; fewer than 4 bytes of notes stops `v` |
 | `pc.synthMake(out, notes, speed) -> Int` | the samples `synth` would make, added to `out` instead: 16-bit, little-endian, with voice -1's settings (below), until the notes end or `out` is full; how many. `speed` 0: on from where the last one stopped (its next sample, in the `notes` given now), so a sound longer than `out` holds can be made a piece at a time |
