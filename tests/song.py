@@ -76,6 +76,14 @@ notes9: Blob[2 * song.SOUND_BYTES]
 room9: Blob[200]
 tune9 := song.Song{notes = notes9[], room = room9[], voice = 2}
 fine = tune9.load("plain.mus") and tune9.loop() # (round and round: from its start again at its end)
+one: Blob[600]
+tune10 := song.Song{buffer = one[]}
+log("one buffer", tune10.load("twice.mus"), tune10.notes.len(), tune10.room.len(), tune10.notesOf(0))
+log("one buffer again", tune10.load("tune2.mus"), tune10.notes.len(), tune10.room.len(), tune10.notesOf(2), tune10.roomNeeds())
+oneShort: Blob[500]
+tune11 := song.Song{buffer = oneShort[]}
+shortOne := tune11.load("tune2.mus") # (its log says why: the whole Blob it needs)
+log("one buffer short", shortOne)
 rows9: Blob[..40]
 was9 := -1
 fine = tune.play(0, false)
@@ -198,7 +206,11 @@ want = [
   'rep 1 28 0 5 0 29 0 5 0 30 0 5 0 31 0 5 0',
   'reps done false',
   'relative true true notes.snd 4',   # (a path from the song's folder: songs/../notes.snd)
-  'relative text true true notes.snd']
+  'relative text true true notes.snd',
+  'one buffer true 128 472 4',          # (one Blob for both: sound 0's notes, then the room)
+  'one buffer again true 384 216 3 198', # (a song with more sounds: split again, sounds 1 and 2 read too)
+  'tune2.mus: it needs buffer Blob[582] (has 500)',
+  'one buffer short false']
 bad = [w for w in want if w not in lines]
 loops = [l for l in lines if l.startswith('loops played ')]
 if not loops or not loops[0].split()[2:7] == ['0', '1', '2', '1', '2']:

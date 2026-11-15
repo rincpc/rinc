@@ -22,9 +22,8 @@ room: Blob[2000]                       # the map's cells, things and names (as M
 pixels: Blob[..(64 + 1) * 8]           # its sheet's pixels and flags (as Paint says)
 m := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[], pixels = pixels}
 _ = m.load("cloudlamp.map")            # (and its sheet)
-notes: Blob[9 * song.SOUND_BYTES]      # the song's 9 sounds, and its room (as Music says)
-songRoom: Blob[3700]
-tune := song.Song{notes = notes[], room = songRoom[], voice = 1} # (its 7 channels: voices 1 to 7)
+songRoom: Blob[4846]                   # the song's sounds' notes and the song, together (as Music says)
+tune := song.Song{buffer = songRoom[], voice = 1} # (its 7 channels: voices 1 to 7)
 _ = tune.load("cloudlamp.mus")
 _ = tune.loop()
 pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels
@@ -38,12 +37,11 @@ lamp := m.find("lamp")                 # (its layer and number)
 screen := 0                            # 0 the island, 1 the yard
 at := {3, 7}                           # the visitor, in cells
 lit := false
-said: Blob[..50]                       # what's said (a copy: a String given a proc can't be kept)
+said := ""                             # what's said: a literal (say's s is static: kept as it is)
 saidFor := 0
 
-say :: proc(s: String)
-  said.clear()
-  _ = said.pushAll(s)
+say :: proc(s: static String)
+  said = s
   saidFor = 240
 end
 say("Cloudlamp. The lamp is dark: walk east.")
@@ -104,6 +102,6 @@ draw* :: proc()
   if screen == 0 and not lit do pc.print("CLOUDLAMP", {44, 6}, 7, {font = title})
   if saidFor > 0
     pc.rect({0, 98}, {160, 22}, 0)
-    pc.print(said.asString(), {2, 100}, 7, {width = 156})
+    pc.print(said, {2, 100}, 7, {width = 156})
   end
 end

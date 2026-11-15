@@ -47,6 +47,19 @@ app is a Rio program.
   2. Tilemap's last rough edges from Cloudlamp: a thing's name a plain String (no `.asString()`); a
      map's sheets and layers its own, once Rio can keep a view of a struct's own array (Rio's ROADMAP:
      a static lifetime marker), so a game gives just its room; a song's two buffers one.
+     - Static views tried (2026-11-14, Rio d2f25c8), where they help and where not:
+       - Done: a song's one buffer (`song.Song{buffer = ...}`, a `static Blob` field: `load` puts the
+         sounds' notes first, as many as the song plays, then its room; Music shows the one Blob a
+         game gives). Cloudlamp's `say` keeps its literal (`s: static String`, no copy), and Music's
+         too (its messages are all literals).
+       - Not taken: a thing's name as a view. Maps keeps Things across edits (undo, the clipboard)
+         with names from buffers it rewrites, so a view would change under them: static is about how
+         long memory lasts, not what's in it. The copy stays (`.asString()` stays).
+       - Not taken: Paint's, Sound's and Maps' `say`. Each builds some messages in its buffer, which
+         stays, so static only moves the copy, no simpler.
+       - To decide: a map's own sheets and layers. `self: static` makes it possible (a global map's
+         views of its own arrays), but every Map then carries them (about 930 bytes for 4 sheets and
+         8 layers) though Maps and others give their own: two lines saved in a game.
   3. Copy as Rio, in studio's apps (Paint: an enum of its flags' names and the calls that read them;
      Maps', Music's likewise), after a clipboard apps share (text at least: below, 3 of 2026-11-13).
   4. Cloudlamp as a walkthrough in the docs (8 below), now its code's settled.

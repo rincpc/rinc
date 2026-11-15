@@ -9,15 +9,15 @@
 # the song stops. Levers over the whole song (shift, volume, speed) are in the file and a game can
 # change them as it plays.
 #
-# All the room is the app's: the sounds' notes (SOUND_BYTES a sound, from the first: a game with a few
-# sounds keeps a few), and room for the patterns, uses, placements and the notes each channel plays
-# (load says how much a song needs when it's short, as Music shows). Files are read a line at a time
-# (twice: counting, then filling), so a game needs no room for their text.
+# All the room is the app's, one Blob (buffer): load puts the sounds' notes there first (SOUND_BYTES a
+# sound, from the first to the last the song plays), then the patterns, uses, placements and the notes
+# each channel plays (load says how much a song needs when it's short, as Music shows). Or the two
+# apart, notes and room (sounds alone, for a game's effects: as many as it likes from the first). Files
+# are read a line at a time (twice: counting, then filling), so a game needs no room for their text.
 #
 #   import song
-#   notes: Blob[4 * song.SOUND_BYTES]        (sounds 0 to 3; song.ALL_SOUNDS for all 32)
-#   room: Blob[2000]                         (as much as Music says the song needs)
-#   tune := song.Song{notes = notes[], room = room[], voice = 4} (its voices from 4 on; 0 to 3 the game's)
+#   buffer: Blob[2000]                       (as much as Music says the song needs)
+#   tune := song.Song{buffer = buffer[], voice = 4} (its voices from 4 on; 0 to 3 the game's)
 #   if tune.load("tune.mus")                 (the song, and its sounds; else the log says why)
 #     _ = tune.play(0, false)                (from its first use, on to its last, or its loops)
 #   end
@@ -51,6 +51,8 @@ LINE :: 166               # a sound's line in its file: 6 hex digits (speed, loo
 TEXT* :: 64000            # a song's text, at most (Music's stash, written whole)
 
 Song* :: struct
+  buffer: static Blob     # the app's, one Blob for both (or notes and room, given apart): load puts the
+                          # sounds' notes first, as many as the song plays, and the room after
   notes: Blob             # the app's: the sounds' notes, SOUND_BYTES a sound, from the first
   room: Blob              # the app's: patterns, uses, placements, then each channel's notes as it plays
   voice: Int              # the first of its voices (channel c plays on voice + c)
@@ -418,6 +420,7 @@ nP := 0
 nU := 0
 nL := 0
 most := 0                 # (channels: the highest, plus one)
+soundsUsed := 0           # (sounds: the highest placed, plus one)
 named: Blob[..96]
 filling := false
 bad := false              # (a line it couldn't take)
@@ -448,6 +451,7 @@ Song.addPlace :: proc(step, c, s, shift, vol, speed, hold: Int)
     self.room[(nP - 1) * PATTERN_BYTES + 4] = self.patternCount(nP - 1) + 1
   end
   most = max(most, max(0, min(c, CHANNELS - 1)) + 1)
+  soundsUsed = max(soundsUsed, max(0, min(s, SOUNDS - 1)) + 1)
   nL += 1
 end
 Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags: Int)
@@ -540,6 +544,7 @@ Song.songLine :: proc(k: Int, l: String) -> Bool
     nU = 0
     nL = 0
     most = 0
+    soundsUsed = 0
     bad = false
     if l == "rinc music 1"
       version = 1
@@ -643,6 +648,14 @@ within :: proc(folder: String, p: String) -> String
   end
   return inPath.asString()
 end
+# why it doesn't fit: the room it needs (and, given one Blob for both, the notes too: that Blob's size)
+Song.short :: proc(need: Int, atLeast: String)
+  if self.buffer.len() > 0
+    _ = why.print("it needs buffer Blob[", self.notes.len() + need, "]", atLeast, " (has ", self.buffer.len(), ")")
+  else
+    _ = why.print("it needs room Blob[", need, "]", atLeast, " (has ", self.room.len(), ")")
+  end
+end
 # after the counting pass: the tables laid out in room, and the sounds read (from the file named, or one
 # of its name beside the song: in folder); false if the room's too small (why says how much)
 Song.counted :: proc(folder: String) -> Bool
@@ -651,9 +664,14 @@ Song.counted :: proc(folder: String) -> Bool
     _ = why.print("not a song of Music's (no patterns used)")
     return false
   end
+  if self.buffer.len() > 0 # (one Blob for both: the notes its sounds need, then the room)
+    k := min(soundsUsed * SOUND_BYTES, self.buffer.len())
+    self.notes = self.buffer[0..<k]
+    self.room = self.buffer[k..<self.buffer.len()]
+  end
   tables := nP * PATTERN_BYTES + nU * USE_BYTES + nL * PLACE_BYTES
   if tables > self.room.len() # (the song as it was, then)
-    _ = why.print("it needs room Blob[", tables, "] at least (has ", self.room.len(), ")")
+    self.short(tables, " at least")
     return false
   end
   self.stop()
@@ -667,7 +685,7 @@ Song.counted :: proc(folder: String) -> Bool
   if p.len() > 0 and p[0] != '/' and folder.len() > 0
     full = within(folder, p)
   end
-  if self.hasSounds and full == self.soundsPath.asString() # (read already: Music plays each change this way)
+  if self.hasSounds and full == self.soundsPath.asString() and self.sounds * SOUND_BYTES >= self.notes.len() # (read already, as many: Music plays each change this way)
     return true
   end
   if full.len() > 0 and not self.loadSounds(full) and not self.loadSounds(beside(folder, p))
@@ -691,7 +709,7 @@ Song.filled :: proc() -> Bool
   end
   if self.roomNeeds() > self.room.len()
     why.clear()
-    _ = why.print("it needs room Blob[", self.roomNeeds(), "] (has ", self.room.len(), ")")
+    self.short(self.roomNeeds(), "")
     self.uses = 0
     self.patterns = 0
     return false

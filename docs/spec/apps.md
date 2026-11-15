@@ -633,18 +633,18 @@ Built into every Rinc (and installed in `/rinc/lib` with the system apps, where 
   a step, on a channel, at a pitch shift, a volume and a speed), and uses them in turn, each use with
   its own shift, volume and speed (shift and volume ramped across it), round its loops; levers over the
   whole song (shift, volume, speed) change as it plays. A sound of the file on its own plays too, for a
-  game's effects. The app gives it room: for the sounds' notes, 128 bytes a sound
-  (`song.SOUND_BYTES`), as many as it likes from the first; and for the song's patterns and the notes
-  its channels play. Music shows what a song needs, Sound what a file's sounds do, and `load` logs it
+  game's effects. The app gives it room, one Blob (its `buffer`, as big as Music shows): `load` puts
+  the sounds' notes first, 128 bytes a sound (`song.SOUND_BYTES`), from the first to the last the song
+  plays, then the song's patterns and the notes its channels play. (Or the two apart, `notes` and
+  `room`: for sounds alone, as many as the app likes from the first, as Sound shows.) `load` logs it
   when there isn't enough. The sounds come from the path the song names, or a file of that name beside
   the song, so a game keeps its song and sounds together in its folder. Music plays songs with it, so a
   game plays them just as Music does.
 
 ```rio fragment
 import song
-notes: Blob[4 * song.SOUND_BYTES]         # sounds 0 to 3 (song.ALL_SOUNDS: all 32)
-room: Blob[600]                           # the song's (as Music says)
-tune := song.Song{notes = notes[], room = room[], voice = 4} # voices from 4 on: 0 to 3 the game's own
+buffer: Blob[1112]                        # its sounds' notes and the song, together (as Music says)
+tune := song.Song{buffer = buffer[], voice = 4} # voices from 4 on: 0 to 3 the game's own
 if tune.load("tune.mus")                  # its sounds too; else the log says why
   _ = tune.play(0, false)                 # from its first pattern (true: that one alone); or
   _ = tune.loop()                         # round and round: from its start again at its end, till tune.stop()
