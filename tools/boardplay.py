@@ -1,14 +1,15 @@
 # /// script
 # dependencies = ["pyserial"]
 # ///
-"""Play an app on the board as a person would, over serial, and look at it: uv run tools/boardplay.py COM3
+r"""Play an app on the board as a person would, over serial, and look at it: uv run tools/boardplay.py COM3
 step step ... Meant for trying a game or an app as its user meets it (what's awkward shows), and for
 checking a change on the board, not just on the desktop:
   con:LINE         Ctrl-C (the console app), then LINE typed and Enter (run cloudlamp, say)
   wait S           S seconds
   tap B            button B pressed and let go (left right up down a b x y): kitty's key down, then up
   hold B S         button B held S seconds
-  type TEXT        TEXT typed as keys (\n Enter)
+  type TEXT        TEXT typed as keys, with rinc -type's escapes (\n Enter, \e Esc, \t Tab, \xHH a byte:
+                   \x1b[A up), each escape sequence sent whole, a key every 0.08 s
   as NAME          the app on the screen is NAME now (one another app started: its shots are named for it)
   shot FILE        Print Screen (the board saves /rinc/shots/<app>-<n>.png), then it fetched (the firmware
                    console's get: the app is left) and written to FILE, 4 times as big, to look at
@@ -64,6 +65,11 @@ def get(path):
   m = re.search(r'got (\d+) bytes', text)
   if not m: return None
   return bytes.fromhex(''.join(l for l in text.split('\n') if re.fullmatch(r'[0-9a-f]+', l)))
+def keysOf(text):
+  """text as rinc -type takes it (\\n Enter, \\e Esc, \\t Tab, \\xHH a byte: \\x1b[A the up arrow), as keys:
+  each a byte, or an escape sequence whole (sent at once, so the board reads it as one key)"""
+  b = re.sub(r'\\(x[0-9a-fA-F]{2}|[nte\\])', lambda m: {'n': '\r', 't': '\t', 'e': '\x1b', '\\': '\\'}.get(m.group(1)) or chr(int(m.group(1)[1:], 16)), text).encode('latin-1')
+  return [m.group() for m in re.finditer(rb'\x1b\[[0-9;:?]*[\x40-\x7e]|.', b, re.S)]
 read(0.3)
 shots, app, cleared = 0, None, False
 i = 0
@@ -80,7 +86,7 @@ while i < len(steps):
   elif st == 'tap': button(steps[i + 1], True); read(0.12); button(steps[i + 1], False); read(0.12); i += 1
   elif st == 'hold': button(steps[i + 1], True); read(float(steps[i + 2])); button(steps[i + 1], False); read(0.1); i += 2
   elif st == 'type':
-    for ch in steps[i + 1].replace('\\n', '\r'): send(ch.encode(), 0.05)
+    for k in keysOf(steps[i + 1]): send(k, 0.15 if k == b'\x1b' else 0.08) # (a lone Esc waited after: not the start of a sequence)
     i += 1
   elif st == 'shot':
     send(b'\x1b[57361u'); read(1.5); shots += 1

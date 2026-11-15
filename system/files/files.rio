@@ -7,9 +7,9 @@
 # shows what else can be done, each with a letter. Ctrl+N starts a new project, Ctrl+Shift+N makes a
 # folder here. Several are selected as in Windows: Shift with the arrows (or a click) from the anchor,
 # Ctrl+Space (or Ctrl+click) one more or less, Ctrl+A all; then Ctrl+X or Ctrl+C, and Ctrl+V in another
-# folder moves or copies them there; Delete deletes them (after typing delete), F2 renames the one
-# picked. Ctrl+Shift+P (or the system key with P) lists every command. Esc closes what's open,
-# else clears what's typed. /rinc is the root; changing is only inside it. Called with
+# folder moves or copies them there; Delete deletes them (after typing its name, for one; delete, for
+# several), F2 renames the one picked. Ctrl+Shift+P (or the system key with P) lists every command. Esc
+# closes what's open, else clears what's typed. /rinc is the root; changing is only inside it. Called with
 # pc.call("files", "pick"), it's a picker: Enter on a file gives its path back (pc.done), Esc nothing.
 # Called with "save", it picks where to save: a name typed, in the folder shown (Enter on a file takes
 # its name), and Enter gives that path back.

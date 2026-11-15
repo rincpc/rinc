@@ -65,6 +65,18 @@ app is a Rio program.
   9. Sizes: on disk (9b below), Maps' memory (9 below); more fonts, maybe a font mode in Paint (9d).
   10. To decide later: the console back to just Rio typed in (5 below); library versions on the card
      (6 below).
+  - Recommended from Cloudlamp's song (2026-11-14, made in Sound and Music on the board; the user
+    decides where they go; studio's ROADMAP, "From Cloudlamp's song", has studio's side):
+    - High, after 2: `song`'s room explodes when sounds' speeds don't divide a pattern's step (each
+      channel's notes written at their gcd: 20,951 bytes for a 4-pattern song at speeds 14 and 100);
+      render each placement at its own speed.
+    - Medium, with 6: an installed app's files and its project's split: Sound and Music changed
+      `/rinc/apps/cloudlamp` in place, while the editor works in `/rinc/projects/cloudlamp` (apps read
+      only), which kept the old song. One rule: changes go to the project, installing carries them.
+    - Medium: Files: a replace choice when pasting onto a taken name; narrowing the list picks the
+      first match (it keeps the row's number now); the picker taking a typed path, as Save does.
+    - Low: desktop `-type` keys typed while an app hands back to its caller (Files to Music) land in
+      the wrong place; waiting for the switch, as `\w` waits for what's typed.
 - Priorities (2026-11-13), in order (the 2026-11-09 list's 1 to 3 done: Print Screen and buttons held
   over serial, the song library, Files' save taking a typed path; and Sound's = at a sound's first note):
   1. Rio's bytecode smaller: done (2026-11-13, Rio f328c2f, lib/rio bumped): 35% off an app's code (Maps

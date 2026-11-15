@@ -9,6 +9,7 @@
 # (cloudlamp.mus, Music's). Made with studio's apps on a Fruit Jam, typed at over its serial port; it
 # needs only rinc (and rinc's library: tilemap, song) to run.
 # Its title is in a font of its own, title.png, drawn in Paint (pc.fontRead).
+# Its song is after Satie's Gymnopedie No. 1 (1888): sounds 4 to 8, bass, pad, lead, bell and wind.
 
 import tilemap
 import song
@@ -21,9 +22,9 @@ room: Blob[2000]                       # the map's cells, things and names (as M
 pixels: Blob[..(64 + 1) * 8]           # its sheet's pixels and flags (as Paint says)
 m := tilemap.Map{sheets = sheetRoom[], layers = layerRoom[], room = room[], pixels = pixels}
 _ = m.load("cloudlamp.map")            # (and its sheet)
-notes: Blob[4 * song.SOUND_BYTES]      # the song's 4 sounds, and its room (as Music says)
-songRoom: Blob[160]
-tune := song.Song{notes = notes[], room = songRoom[], voice = 4}
+notes: Blob[9 * song.SOUND_BYTES]      # the song's 9 sounds, and its room (as Music says)
+songRoom: Blob[3700]
+tune := song.Song{notes = notes[], room = songRoom[], voice = 1} # (its 7 channels: voices 1 to 7)
 _ = tune.load("cloudlamp.mus")
 _ = tune.loop()
 pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels
