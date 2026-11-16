@@ -445,13 +445,14 @@ and after a restart. The last 8 things copied are kept, and the newest is pasted
 | kind | |
 |---|---|
 | `text` | text: every app that takes text pastes it |
-| `line` | whole lines of text (the editor's, copied with nothing selected): pasted above the cursor's line in the editor, as text elsewhere |
 | an app's own | what only it reads: `paint` (a sprite's pixels), `maps` (tiles, or things), `music` (uses, or sounds placed), `files` (paths, cut or copied) |
 
 An app's own kind can carry text beside it, for the apps that take text: Files' paths, say, which the
-editor pastes as text (and copy as Rio, to come: Paint's flags, Maps' layers, as code). An app pasting
-asks for its kind: it gets the newest's data if it's of that kind, or, asking for text, a text or line's,
-or another kind's text beside it.
+editor pastes as text. An app pasting asks for its kind: it gets the newest's data if it's of that kind,
+or, asking for text, a text's, or another kind's text beside it. Each one copied has a number, too
+(`clip.number()`, the newest's), so an app can tell its own copy is still the newest: the editor's whole
+lines (copied with nothing selected) paste above the cursor's line while they are, and any other text
+pastes at the cursor.
 
 ```rio fragment
 import clip
@@ -467,6 +468,33 @@ _ = clip.kind(kind)                        # the newest's kind (back 1: the one 
 `clip.more(data)` adds to the newest (a big one, written a piece at a time), `clip.pasteAt(kind, at, out)`
 reads one a piece at a time, `clip.drop()` lets the newest go (files cut, then moved: not there to paste
 again), and `clip.count()` says how many are kept: a list of them to pick from, to come.
+
+### The code to load a file
+
+Studio's Snippet app shows the code a game needs to load a file of studio's, so it's never typed: a map
+(its room and its sheets' pixels, sized as it needs, the `tilemap.Map`, its load, its layers' numbers by
+name and its sheets' flags), a picture (a sprite sheet and its flags, or a font), a song or sounds. Each
+of studio's apps has the command ("Copy a code snippet to load it", in Sys+P's list) for the file
+it has open, as saved; Snippet run on its own asks Files for one. Enter (or Ctrl+C) copies the code onto
+the clipboard as text, for the editor to paste; E shows a map's layers as an enum, not constants
+(`Layer.ground.toInt()` where tilemap wants a number); Esc goes back without copying. The sizes are just
+what the file needs: a byte less, and it doesn't load (the log says how much it needs).
+
+```rio fragment
+import tilemap
+# cloudlamp.map: its room, its sheets' pixels
+mapRoom: Blob[1247]
+mapPixels: Blob[..520]
+level := tilemap.Map{room = mapRoom[], pixels = mapPixels}
+_ = level.load("cloudlamp.map")
+# its layers
+GROUND :: 0
+FOLK :: 1
+# its flags: level.flagsAt(layer, cell) & one
+SOLID :: 1
+```
+
+The box is rinc's `codebox` library, for any app that shows code to copy.
 
 ## Its cache, and its log
 
@@ -595,7 +623,8 @@ Enter (a controller's A) does the one picked, as does a click on it; Esc (B), or
 closes it. While it's up, the app waits: no `update*` or `draw*`.
 
 An app gives its commands with `commandList*`, which Rinc asks each time the list opens, so it can say
-what makes sense then:
+what makes sense then: up to 240 of them (Rinc reads them where they are, in the app's memory; past
+240, the log says so, and the rest are left out):
 
 ```rio fragment
 commands := [2]pc.Command{
@@ -696,6 +725,7 @@ tune.tick()                               # only to show where it's playing: tun
 ```
 
 - `clip`: the clipboard every app shares (see the clipboard).
+- `codebox`: code shown in a box over an app, to copy (see the code to load a file).
 - `notice`: a few words shown for a while, then gone (a game's "Keeper: our lamp went out", an app's
   "Saved"): said once, drawn each frame while it lasts (counted as it's drawn: 4 seconds, or as long as
   it's told), in a box at the screen's bottom, or where the app says, wrapped to it. What's said is kept

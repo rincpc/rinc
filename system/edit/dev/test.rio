@@ -190,4 +190,24 @@ copy(false)
 start("x")
 paste()
 assert(text[0..<textLen].asString() == "one\nx", "a whole line, pasted as one, above")
+ok := clip.copy("text", "two\n") # (another app's text, with a newline: as it is, at the cursor)
+start("x")
+cursor = 0
+anchor = 0
+paste()
+assert(text[0..<textLen].asString() == "two\nx" and cursor == 4, "another's copy, newest: at the cursor")
+start("x")
+cursor = 1
+anchor = 1
+paste()
+assert(text[0..<textLen].asString() == "xtwo\n", "another's copy, newest: at the cursor, not above")
+start("three\n")
+cursor = 0
+anchor = 0
+copy(false)
+start("x")
+cursor = 1
+anchor = 1
+paste()
+assert(text[0..<textLen].asString() == "three\nx", "its own whole line, newest again: above")
 log("all edit tests passed")

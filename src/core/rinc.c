@@ -2766,12 +2766,17 @@ static const struct { const char *label, *keys; int bit; } rinc_sysCommands[] = 
   {"This app again, from the start", "Sys+R", rinc_SysKey_r}, {"Performance strip, shown or not", "Sys+M", rinc_SysKey_m},
   {"Sleep: the display rests", "Sys+L", rinc_SysKey_l}, {"The whole display, or not", "Sys+Enter", rinc_SysKey_enter}};
 #define rinc_SYS_COMMANDS ((int)(sizeof rinc_sysCommands / sizeof rinc_sysCommands[0]))
-#define rinc_APP_COMMANDS 56
+#define rinc_APP_COMMANDS 240 /* (an index of each shown is a byte: these and Rinc's own) */
 #define rinc_CMD_ROWS 16
-/* the app's, as it gave them: its text stays where it is in the app's memory (the app waits, so it's as
-   it was), Rinc's own after them */
-static rinc_Command rinc_cmdApp[rinc_APP_COMMANDS];
+/* the app's, read where it gave them, in its memory, text and all (the app waits while the list is up, so
+   they're as it gave them), Rinc's own after them */
+static uint32_t rinc_cmdAt;
 static rio_Vm *rinc_cmdVm;
+static rinc_Command rinc_cmdApp(int i) {
+  rinc_Command c;
+  memcpy(&c, rinc_cmdVm->mem + rinc_cmdAt + (uint32_t)i * sizeof c, sizeof c);
+  return c;
+}
 static uint8_t rinc_cmdShown[rinc_APP_COMMANDS + rinc_SYS_COMMANDS];
 static int rinc_cmdAppCount, rinc_cmdCount, rinc_cmdOn, rinc_cmdNShown, rinc_cmdPick, rinc_cmdFilterLen, rinc_cmdButtons, rinc_cmdRepeat, rinc_cmdClicked;
 static char rinc_cmdFilter[24];
@@ -2779,7 +2784,8 @@ static char rinc_cmdFilter[24];
 static const char *rinc_cmdText(int i, int keys, int most, int *len) {
   const char *s; int n;
   if (i < rinc_cmdAppCount) {
-    rio_View v = keys ? rinc_cmdApp[i].keys : rinc_cmdApp[i].label;
+    rinc_Command c = rinc_cmdApp(i);
+    rio_View v = keys ? c.keys : c.label;
     s = (const char *)rio_viewBytes(rinc_cmdVm, v); n = s ? (int)v.len : 0;
   } else {
     s = keys ? rinc_sysCommands[i - rinc_cmdAppCount].keys : rinc_sysCommands[i - rinc_cmdAppCount].label; n = (int)strlen(s);
@@ -2787,7 +2793,7 @@ static const char *rinc_cmdText(int i, int keys, int most, int *len) {
   *len = n < most ? n : most;
   return s;
 }
-static int rinc_cmdKeyOf(int i) { return i < rinc_cmdAppCount ? (rinc_cmdApp[i].key < 0 ? 0 : rinc_cmdApp[i].key) : -rinc_sysCommands[i - rinc_cmdAppCount].bit; }
+static int rinc_cmdKeyOf(int i) { return i < rinc_cmdAppCount ? (rinc_cmdApp(i).key < 0 ? 0 : rinc_cmdApp(i).key) : -rinc_sysCommands[i - rinc_cmdAppCount].bit; }
 static int rinc_cmdHas(int i) { /* (each word typed, anywhere in its label, any case: "delete line" finds "Delete the lines") */
   int n, k, j, w = 0; const char *s = rinc_cmdText(i, 0, 64, &n);
   while (w < rinc_cmdFilterLen) {
@@ -2824,9 +2830,14 @@ static int rinc_cmdOpen(rio_Vm *vm) { /* (the app's, asked now: -1 if that stopp
     rio_Val *r; uint32_t at, n;
     if (rio_call(vm, fn)) return -1;
     r = rio_procResult(vm, fn); at = r[0].u; n = r[1].u;
-    if (n > rinc_APP_COMMANDS) n = rinc_APP_COMMANDS;
+    if (n > rinc_APP_COMMANDS) {
+      char say[96];
+      snprintf(say, sizeof say, "commandList: %u commands, more than the list's %d (the rest left out)\r\n", (unsigned)n, rinc_APP_COMMANDS);
+      rinc_say(say);
+      n = rinc_APP_COMMANDS;
+    }
     if (at <= vm->memSize && n * sizeof(rinc_Command) <= vm->memSize - at) {
-      memcpy(rinc_cmdApp, vm->mem + at, n * sizeof(rinc_Command));
+      rinc_cmdAt = at;
       rinc_cmdAppCount = (int)n;
     }
   }

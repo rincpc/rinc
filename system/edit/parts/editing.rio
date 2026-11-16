@@ -561,6 +561,7 @@ end
 # after Files is called, and after a restart), as text, or as a line (copied with nothing selected:
 # pasted as a line, above the cursor's)
 
+lines: Blob[..12]   # (the number of the editor's last copy of whole lines, as the clipboard numbers them: "" for none)
 copy :: proc(cut: Bool)
   a := selStart()
   b := selEnd()
@@ -577,12 +578,13 @@ copy :: proc(cut: Bool)
     say("Too much to copy: 16 KB at most", errorColor)
     return
   end
-  kind := "text"
-  if line do kind = "line"
-  if not clip.copy(kind, text[a..<b].asString())
+  if not clip.copy("text", text[a..<b].asString())
     say("Couldn't copy (no storage?)", errorColor)
     return
   end
+  lines.clear() # (whole lines: their number kept, so they paste above a line while they're the newest)
+  if line do _ = lines.print(clip.number())
+  _ = pc.stashWrite("lines", lines.asString())
   if cut
     merging = 0
     ok := edit(a, b, "", 0)
@@ -592,15 +594,18 @@ end
 paste :: proc()
   merging = 0
   got: Blob[..] = formatted[0..<CLIP] # (formatted: the check's room, so there's another check after)
-  _ = clip.paste("text", got) # (text, a line, or another app's copy's text: Rio, say)
+  _ = clip.paste("text", got) # (text, or another app's copy's text: Rio, say)
   n := got.len()
   checkedAt = -1
   if n <= 0
     say("Nothing to paste", softColor)
     return
   end
-  kindNow: Blob[..8]
-  if clip.kind(kindNow) and kindNow.asString() == "line" and cursor == anchor # (a whole line: above this one)
+  lines.clear()
+  _ = pc.stashRead("lines", lines)
+  newest: Blob[..12]
+  _ = newest.print(clip.number())
+  if lines.len() > 0 and lines.asString() == newest.asString() and cursor == anchor # (whole lines, the editor's: above this one)
     if formatted[n - 1] != 10
       formatted[n] = 10
       n += 1

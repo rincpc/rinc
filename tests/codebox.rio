@@ -1,0 +1,39 @@
+# codebox (library/codebox.rio): code shown in a box, to copy: E its other form, the arrows scrolling,
+# Enter copying what's showing onto the clipboard (as text) and closing it, Esc closing it uncopied.
+# Run in storage of its own (-data), -frames 1: it logs "codebox came through"
+import codebox
+import clip
+_ = pc.fileDelete("/rinc/stash/rinc/clip") # (from nothing: the storage is kept from run to run)
+code: Blob[..64]
+other: Blob[..64]
+fine := code.pushAll("GROUND :: 0\nFOLK :: 1\n") and other.pushAll("Layer :: enum\n  ground, folk\nend\n")
+box := codebox.Box{}
+assert(not box.open and not box.key('x'), "closed: no keys taken")
+box.show("The code to load it", code.asString(), other.asString(), "E: an enum")
+assert(box.open and box.now() == code.asString() and box.key('q'), "shown: its code, its keys all taken")
+assert(box.key('e') and box.now() == other.asString(), "E: its other form")
+assert(box.key(131) and box.top == 1 and box.key(131) and box.key(131) and box.top == 2, "down: scrolled, to its last line")
+pc.cls(1)
+box.draw()
+assert(pc.pget({5, 5}) == pc.theme(pc.Role.text) and pc.pget({5, 40}) == pc.theme(pc.Role.text), "drawn: its box, framed")
+hint :: proc() -> Int # (the hint for E, drawn: how many of its pixels are lit)
+  n := 0
+  y := pc.screenSize().y - 6 - 11
+  for x in 10 + 6 * 37..<10 + 6 * 48
+    for dy in 0..<8
+      if pc.pget({x, y + dy}) == pc.theme(pc.Role.faint) do n += 1
+    end
+  end
+  return n
+end
+showingOther := hint()
+_ = box.key('e')
+box.draw()
+assert(hint() != showingOther and hint() > 0, "E's hint: back, while its other form shows (not what E shows, again)")
+_ = box.key('e')
+assert(box.key(13) and not box.open and box.copied, "Enter: copied, and closed")
+got: Blob[..64]
+assert(clip.paste("text", got) == other.len() and got.asString() == other.asString(), "the clipboard: what was showing, as text")
+box.show("Again", code.asString())
+assert(box.key('e') and box.now() == code.asString() and box.key(27) and not box.open and not box.copied, "no other form: E does nothing; Esc: closed, not copied")
+log("codebox came through")

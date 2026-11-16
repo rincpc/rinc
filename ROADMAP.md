@@ -80,6 +80,16 @@ app is a Rio program.
      Paint (its copy in memory before: lost as Paint closed), Maps and Music (each its own stash before)
      all on it; tested in each, and on the board (one app's copy pasted in the editor). Next: copy as Rio
      (an app's own kind, its Rio beside as text), and a list of the kept ones to pick from (Sys+V, say).
+     Copy as Rio: done (2026-11-15), as an explicit command, not beside each copy (the user: what's
+     copied should be seen first): studio's Snippet app shows the code to load a map, sheet, font, song or
+     sounds in a box (library/codebox.rio), sized as the file needs, Enter copying it as text; each
+     studio app's command list calls it (docs/spec/apps.md#the-code-to-load-a-file; studio's roadmap).
+     The clipboard's line kind went too: whole lines are text, the editor keeping their number
+     (clip.number()) to paste them above a line while they're the newest.
+     Found on the way: the command list took 56 of an app's commands and left the rest out without a
+     word, so Maps' last 14 (Undo, Redo, Save, Save as, Open, New...) were never in its list. Now Rinc
+     reads them in place, in the app's memory (no copy: 1.1 KB less), up to 240, and the log says when
+     there are more (tests/commands.py: 150 commands, the last picked by name).
      Also: a growable view of part of a Blob works (the editor's paste: got: Blob[..] = formatted[0..<n]),
      so tilemap's room and pixels could be one Blob after all, as Song's are: worth a look.
   - The dev folder: done (2026-11-15): an app is all of its folder but dev/, its maker's (a project's
@@ -93,9 +103,10 @@ app is a Rio program.
       window's real time, the desktop's headless runs' frames / 60 (tests, -frames), and the web's the
       browser's clock, so a game timing itself by pc.time() can differ between a test and the real
       thing (notice's first version did: the exported page, in node, ran faster than its frames).
-      Recommended: pc.frame(), the frames since the app started, the same on every Rinc, for a game's
-      timing (as notice counts its frames); pc.time() documented as wall time, for showing time; and the
-      web test player (tests/webplay.mjs) stepping its clock a frame at a time, as headless runs do.
+      Decided (the user, 2026-11-15): pc.frame(), the frames since the app started, the same on every
+      Rinc, for a game's timing (as notice counts its frames); pc.time() documented as wall time, for
+      showing time; and the web test player (tests/webplay.mjs) stepping its clock a frame at a time, as
+      headless runs do.
     - Messages, grown from notice (the user, 2026-11-15: later): a library for dialog and visual
       novels as well as a status line: text revealed a letter at a time (its speed, a sound a letter),
       styled within a line (colors, a font, a word held), a speaker's name and portrait, pages, a key to

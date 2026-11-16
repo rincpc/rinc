@@ -292,7 +292,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x09b7c6f4u /* (rio_hashText of the source) */
+#define pc_HASH 0x016402cbu /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -439,7 +439,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1\n" \
   "time* :: host proc() -> Float                       # seconds since start\n" \
   "# a command, in the list the system key with P shows (or showCommands): an app's own come from its\n" \
-  "# commandList* :: proc() -> []pc.Command, asked each time the list opens (up to 56 of them), and\n" \
+  "# commandList* :: proc() -> []pc.Command, asked each time the list opens (up to 240 of them), and\n" \
   "# Rinc's are after them. Picking one types its key, as key() gives it next; while the list is up, the\n" \
   "# app waits (no update or draw)\n" \
   "Command* :: struct\n" \

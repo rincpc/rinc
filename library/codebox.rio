@@ -1,0 +1,128 @@
+# codebox: code shown in a box over the app, to copy: what an app's file needs in a game (studio's
+# "Copy the code for this"), seen before it's copied. Enter (or Ctrl+C) copies it onto the clipboard
+# every app shares, as text, and closes the box; Esc closes it; the arrows scroll it; E shows its other
+# form, when it has one (names as an enum, say, or as constants).
+#
+#   import codebox
+#   box := codebox.Box{}
+#   code: Blob[..2000]                           (the app's: what's shown, kept as it is, not copied)
+#   box.show("The code to load it", code.asString(), other.asString(), "E: an enum")
+#   key :: proc(c: Int)
+#     if box.key(c) do return                    (its keys, while it's open)
+#   draw* :: proc()
+#     box.draw()                                 (over the rest, while it's open)
+
+import clip
+
+ENTER :: 13
+ESC :: 27
+CTRL_C :: 3
+LEFT :: 128
+RIGHT :: 129
+UP :: 130
+DOWN :: 131
+SHIFT :: 256
+CTRL :: 512
+
+Box* :: struct
+  title: static String    # what it is ("The code to load it")
+  code: static String     # what's shown, and copied (the app's: kept as it is)
+  other: static String    # its other form ("": none), E switching to it
+  otherSays: static String # what E does ("E: as an enum")
+  open: Bool
+  showingOther: Bool
+  top: Int                # its first line shown
+  left: Int               # its first column shown
+  copied: Bool            # (Enter copied it: the app can say so)
+end
+
+# shown: code, and maybe its other form (E switches)
+Box.show* :: proc(title: static String, code: static String, other?: static String, otherSays?: static String)
+  self.title = title
+  self.code = code
+  self.other = other
+  self.otherSays = otherSays
+  self.open = true
+  self.showingOther = false
+  self.top = 0
+  self.left = 0
+  self.copied = false
+end
+# what's showing (the code, or its other form)
+Box.now* :: proc() -> String
+  if self.showingOther do return self.other
+  return self.code
+end
+lineCount :: proc(t: String) -> Int
+  n := 1
+  for c in t
+    if c == 10 do n += 1
+  end
+  if t.len() > 0 and t[t.len() - 1] == 10 do n -= 1
+  return n
+end
+# a key, while it's open: true if it took it (all of them, while it's open)
+Box.key* :: proc(c: Int) -> Bool
+  if not self.open
+    return false
+  end
+  base := c & 255
+  if c & CTRL != 0 and base == 'c' do base = CTRL_C
+  switch base
+  case ENTER, CTRL_C
+    self.copied = clip.copy("text", self.now())
+    self.open = false
+  case ESC
+    self.open = false
+  case 'e', 'E'
+    if self.other.len() > 0
+      self.showingOther = not self.showingOther
+      self.top = 0
+    end
+  case UP
+    self.top = max(self.top - 1, 0)
+  case DOWN
+    self.top = min(self.top + 1, max(lineCount(self.now()) - 1, 0))
+  case LEFT
+    self.left = max(self.left - 4, 0)
+  case RIGHT
+    self.left += 4
+  end
+  return true
+end
+# over the rest, while it's open: its title, its lines (from top and left), and its keys
+Box.draw* :: proc()
+  if not self.open
+    return
+  end
+  screen := pc.screenSize()
+  at := {6, 6}
+  size := screen - 12
+  pc.rect(at - 1, size + 2, pc.theme(pc.Role.text))
+  pc.rect(at, size, pc.theme(pc.Role.bg))
+  pc.print(self.title, at + {4, 3}, pc.theme(pc.Role.accent))
+  rows := (size.y - 28) / 9
+  cols := (size.x - 8) / 6
+  t := self.now()
+  line := 0
+  start := 0
+  for i in 0..=t.len()
+    if i == t.len() or t[i] == 10
+      if line >= self.top and line < self.top + rows
+        l := t[start..<i]
+        if self.left < l.len()
+          shown := l[self.left..<min(l.len(), self.left + cols)]
+          pc.print(shown, at + {4, 16 + (line - self.top) * 9}, pc.theme(pc.Role.text))
+        end
+      end
+      line += 1
+      start = i + 1
+    end
+  end
+  pc.print("Enter copy  Esc back  arrows scroll", at + {4, size.y - 11}, pc.theme(pc.Role.faint))
+  if self.showingOther
+    pc.print("E: back", at + {4 + 6 * 37, size.y - 11}, pc.theme(pc.Role.faint))
+  case self.other.len() > 0
+    pc.print(self.otherSays, at + {4 + 6 * 37, size.y - 11}, pc.theme(pc.Role.faint))
+  end
+end

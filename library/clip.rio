@@ -1,9 +1,9 @@
 # clip: the clipboard every app shares (docs/spec/apps.md#the-clipboard). On the card, in Rinc's own
 # stash (/rinc/stash/rinc/clip), so it's there in another app and after a restart. The last KEEP things
 # copied are kept, the newest pasted (back: 1 the one before it, and so on, for a list of them to pick
-# from). Each has a kind: "text" (any app pastes it), "line" (whole lines of text: the editor's, pasted
-# above the cursor's line), or an app's own ("maps", "music", "paint": what only it reads), with text
-# beside it, maybe, for the apps that take text (Rio, say).
+# from). Each has a kind: "text" (any app pastes it) or an app's own ("maps", "music", "paint": what only
+# it reads), with text beside it, maybe, for the apps that take text (Rio, say). Each has a number, too,
+# so an app can tell its own copy (the editor's whole lines, pasted above the cursor's line).
 #
 #   import clip
 #   _ = clip.copy("text", "hello")                        (or clip.copy("maps", tiles, rio), then
@@ -37,6 +37,9 @@ newest :: proc() -> Int # (the newest's number: 0, none)
 end
 # how many are kept
 count* :: proc() -> Int do return min(newest(), KEEP)
+# the newest's number (0: none): kept after a copy, an app knows its own copy is still the newest (the
+# editor's whole lines, say), as another app's copy has the next number
+number* :: proc() -> Int do return newest()
 # a new one, the newest: its kind, its data, and maybe text beside it (for apps that take text); false if
 # it couldn't be written
 copy* :: proc(kind: String, data: String, text?: String) -> Bool
@@ -77,7 +80,7 @@ partFor :: proc(n: Int, kind: String) -> String
     return ""
   end
   k := kindText.asString()
-  if k == kind or (kind == "text" and k == "line")
+  if k == kind
     return "data"
   case kind == "text"
     return "text"
@@ -97,8 +100,8 @@ pasteAt* :: proc(kind: String, at: Int, out: Blob[..], back?: Int) -> Int
   end
   return pc.fileReadAt(path(n, part), at, out)
 end
-# the newest's (back: one before it) data, if it's of kind (asked for text: a text or line's data, or
-# another kind's text beside it), added to out (as much as fits): its whole length, or -1 (none, or not
+# the newest's (back: one before it) data, if it's of kind (asked for text: a text's data, or another
+# kind's text beside it), added to out (as much as fits): its whole length, or -1 (none, or not
 # of the kind)
 paste* :: proc(kind: String, out: Blob[..], back?: Int) -> Int
   return pasteAt(kind, 0, out, back)

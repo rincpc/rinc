@@ -1,21 +1,22 @@
 # clip (library/clip.rio): the clipboard every app shares, on the card: copied and pasted by kind; text
-# from a line, or from another kind's text beside it; a big one added to and read a piece at a time; the
+# from another kind's text beside it; each one's number; a big one added to and read a piece at a time; the
 # ones before the newest (back); only the last KEEP kept. Run in storage of its own (-data), -frames 1:
 # it logs "clip came through"
 import clip
 _ = pc.fileDelete("/rinc/stash/rinc/clip") # (from nothing: the storage is kept from run to run)
 got: Blob[..64]
 kind: Blob[..16]
-assert(clip.count() == 0 and clip.paste("text", got) == -1 and not clip.kind(kind), "nothing copied yet")
+assert(clip.count() == 0 and clip.number() == 0 and clip.paste("text", got) == -1 and not clip.kind(kind), "nothing copied yet")
 assert(clip.copy("text", "hello"), "copied")
 assert(clip.paste("text", got) == 5 and got.asString() == "hello" and clip.kind(kind) and kind.asString() == "text", "pasted: its text, its kind")
 got.clear()
 assert(clip.paste("maps", got) == -1 and got.len() == 0, "not of the kind asked for: nothing")
-assert(clip.copy("line", "x := 1\n"), "a line")
-assert(clip.paste("text", got) == 7 and got.asString() == "x := 1\n", "a line pasted as text")
+assert(clip.copy("text", "x := 1\n"), "a line")
+mine := clip.number()
+assert(mine == 2 and clip.paste("text", got) == 7 and got.asString() == "x := 1\n", "its number: the next")
 got.clear()
 assert(clip.copy("maps", "T 2 1 3 4", "tiles := [_]Int{3, 4}") and clip.more(" 5 6"), "an app's own, with text beside it, added to")
-assert(clip.paste("maps", got) == 13 and got.asString() == "T 2 1 3 4 5 6", "its own kind: its data, added to")
+assert(clip.paste("maps", got) == 13 and got.asString() == "T 2 1 3 4 5 6" and clip.number() != mine, "its own kind: its data, added to; another number")
 got.clear()
 assert(clip.paste("text", got) == 21 and got.asString() == "tiles := [_]Int{3, 4}", "asked for text: the text beside it")
 got.clear()
@@ -30,4 +31,5 @@ assert(clip.count() == clip.KEEP and clip.paste("text", got, clip.KEEP - 1) == 1
 assert(pc.fileRead("/rinc/stash/rinc/clip/1.data", got) == -1, "the oldest let go, from the card")
 got.clear()
 assert(clip.copy("files", "x\n/rinc/a\n", "/rinc/a\n") and clip.drop() and clip.paste("text", got) == 1 and got.asString() == "n", "dropped: the one before is the newest again")
+assert(clip.copy("files", "y") and clip.drop() and clip.number() == clip.KEEP + 5, "dropped: its number, the one before's")
 log("clip came through")

@@ -235,6 +235,9 @@ else()
   # clip (library/clip.rio): the clipboard apps share, on the card: by kind, text beside, the last few kept
   add_test(NAME clip COMMAND rinc -data ${CMAKE_CURRENT_BINARY_DIR}/clip-work ${CMAKE_CURRENT_LIST_DIR}/tests/clip.rio -frames 1)
   set_tests_properties(clip PROPERTIES PASS_REGULAR_EXPRESSION "clip came through")
+  # codebox (library/codebox.rio): code shown in a box, its other form, copied as text
+  add_test(NAME codebox COMMAND rinc -data ${CMAKE_CURRENT_BINARY_DIR}/codebox-work ${CMAKE_CURRENT_LIST_DIR}/tests/codebox.rio -frames 1)
+  set_tests_properties(codebox PROPERTIES PASS_REGULAR_EXPRESSION "codebox came through")
   # notice (library/notice.rio): a few words shown for their seconds, in their box, then gone
   add_test(NAME notice COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/notice.rio -frames 12)
   set_tests_properties(notice PROPERTIES PASS_REGULAR_EXPRESSION "notice came through")
