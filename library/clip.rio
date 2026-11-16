@@ -1,0 +1,119 @@
+# clip: the clipboard every app shares (docs/spec/apps.md#the-clipboard). On the card, in Rinc's own
+# stash (/rinc/stash/rinc/clip), so it's there in another app and after a restart. The last KEEP things
+# copied are kept, the newest pasted (back: 1 the one before it, and so on, for a list of them to pick
+# from). Each has a kind: "text" (any app pastes it), "line" (whole lines of text: the editor's, pasted
+# above the cursor's line), or an app's own ("maps", "music", "paint": what only it reads), with text
+# beside it, maybe, for the apps that take text (Rio, say).
+#
+#   import clip
+#   _ = clip.copy("text", "hello")                        (or clip.copy("maps", tiles, rio), then
+#                                                           clip.more(tiles2): added, for a big one)
+#   got: Blob[..64]
+#   n := clip.paste("text", got)                          (its length, or -1: none, or not of the kind)
+#   kind: Blob[..16]
+#   if clip.kind(kind) and kind.asString() == "maps" ...  (the newest's kind)
+
+KEEP* :: 8
+FOLDER :: "/rinc/stash/rinc/clip/"
+LAST :: "/rinc/stash/rinc/clip/last" # (the newest's number)
+
+name: Blob[..48]
+path :: proc(n: Int, part: String) -> String # (item n's part: kind, data or text)
+  name.clear()
+  _ = name.print(FOLDER, n, ".", part)
+  return name.asString()
+end
+digits: Blob[..12]
+newest :: proc() -> Int # (the newest's number: 0, none)
+  digits.clear()
+  if pc.fileRead(LAST, digits) <= 0
+    return 0
+  end
+  n := 0
+  for c in digits
+    if c >= '0' and c <= '9' do n = n * 10 + c - '0'
+  end
+  return n
+end
+# how many are kept
+count* :: proc() -> Int do return min(newest(), KEEP)
+# a new one, the newest: its kind, its data, and maybe text beside it (for apps that take text); false if
+# it couldn't be written
+copy* :: proc(kind: String, data: String, text?: String) -> Bool
+  n := newest() + 1
+  ok := pc.fileWrite(path(n, "kind"), kind) == 0 and pc.fileWrite(path(n, "data"), data) == 0
+  if text.len() > 0
+    ok = ok and pc.fileWrite(path(n, "text"), text) == 0
+  end
+  digits.clear()
+  _ = digits.print(n)
+  ok = ok and pc.fileWrite(LAST, digits.asString()) == 0
+  if n > KEEP # (the oldest kept, let go)
+    _ = pc.fileDelete(path(n - KEEP, "kind"))
+    _ = pc.fileDelete(path(n - KEEP, "data"))
+    _ = pc.fileDelete(path(n - KEEP, "text"))
+  end
+  return ok
+end
+# more of the newest's data, added to its end (a big one written a piece at a time)
+more* :: proc(data: String) -> Bool
+  n := newest()
+  return n > 0 and pc.fileWriteAt(path(n, "data"), -1, data) >= 0
+end
+kindText: Blob[..32]
+# the kind of the newest (back: one before it, and so on), into out: false if there's none
+kind* :: proc(out: Blob[..], back?: Int) -> Bool
+  n := newest() - back
+  if n < 1 or back >= KEEP or back < 0
+    return false
+  end
+  return pc.fileRead(path(n, "kind"), out) > 0
+end
+# which part of item n a paste of kind takes: its data (its kind's), its text (text from another kind),
+# or none
+partFor :: proc(n: Int, kind: String) -> String
+  kindText.clear()
+  if pc.fileRead(path(n, "kind"), kindText) <= 0
+    return ""
+  end
+  k := kindText.asString()
+  if k == kind or (kind == "text" and k == "line")
+    return "data"
+  case kind == "text"
+    return "text"
+  end
+  return ""
+end
+# the newest's (back: one before it) data, if it's of kind, from byte at of it on (a big one read a
+# piece at a time: paste, below, from its start)
+pasteAt* :: proc(kind: String, at: Int, out: Blob[..], back?: Int) -> Int
+  n := newest() - back
+  if n < 1 or back >= KEEP or back < 0
+    return -1
+  end
+  part := partFor(n, kind)
+  if part.len() == 0
+    return -1
+  end
+  return pc.fileReadAt(path(n, part), at, out)
+end
+# the newest's (back: one before it) data, if it's of kind (asked for text: a text or line's data, or
+# another kind's text beside it), added to out (as much as fits): its whole length, or -1 (none, or not
+# of the kind)
+paste* :: proc(kind: String, out: Blob[..], back?: Int) -> Int
+  return pasteAt(kind, 0, out, back)
+end
+# the newest let go (its data no use now: files cut, then moved), the one before the newest again: false
+# if there's none
+drop* :: proc() -> Bool
+  n := newest()
+  if n < 1
+    return false
+  end
+  _ = pc.fileDelete(path(n, "kind"))
+  _ = pc.fileDelete(path(n, "data"))
+  _ = pc.fileDelete(path(n, "text"))
+  digits.clear()
+  _ = digits.print(n - 1)
+  return pc.fileWrite(LAST, digits.asString()) == 0
+end

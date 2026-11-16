@@ -557,10 +557,9 @@ end
 
 # ---------------------------------------------------------------- the clipboard
 
-# the clipboard: shared, a file (so it's there in another app, or after Files is called, and after a
-# restart), and a second file when it's a whole line (copied with nothing selected: pasted as a line)
-CLIPBOARD :: "/rinc/clipboard"
-CLIPBOARD_LINE :: "/rinc/clipboard-line"
+# the clipboard: the one every app shares (rinc's clip: on the card, so it's there in another app, or
+# after Files is called, and after a restart), as text, or as a line (copied with nothing selected:
+# pasted as a line, above the cursor's)
 
 copy :: proc(cut: Bool)
   a := selStart()
@@ -578,14 +577,11 @@ copy :: proc(cut: Bool)
     say("Too much to copy: 16 KB at most", errorColor)
     return
   end
-  if pc.fileWrite(CLIPBOARD, text[a..<b].asString()) < 0
+  kind := "text"
+  if line do kind = "line"
+  if not clip.copy(kind, text[a..<b].asString())
     say("Couldn't copy (no storage?)", errorColor)
     return
-  end
-  if line
-    ok := pc.fileWrite(CLIPBOARD_LINE, "1")
-  else
-    ok := pc.fileDelete(CLIPBOARD_LINE)
   end
   if cut
     merging = 0
@@ -596,15 +592,15 @@ end
 paste :: proc()
   merging = 0
   got: Blob[..] = formatted[0..<CLIP] # (formatted: the check's room, so there's another check after)
-  _ = pc.fileRead(CLIPBOARD, got)
+  _ = clip.paste("text", got) # (text, a line, or another app's copy's text: Rio, say)
   n := got.len()
   checkedAt = -1
   if n <= 0
     say("Nothing to paste", softColor)
     return
   end
-  sizeOnly: Blob[..] = one[0..<0]
-  if pc.fileRead(CLIPBOARD_LINE, sizeOnly) >= 0 and cursor == anchor # (a whole line: above this one)
+  kindNow: Blob[..8]
+  if clip.kind(kindNow) and kindNow.asString() == "line" and cursor == anchor # (a whole line: above this one)
     if formatted[n - 1] != 10
       formatted[n] = 10
       n += 1

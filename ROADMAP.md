@@ -74,12 +74,32 @@ app is a Rio program.
      stash "clip", as Maps' and Music's are now), with flavors (text; Rio, a kind of text; an app's own,
      sprites or uses, beside text for the rest), and the last few kept, the newest pasted; a fancier
      clipboard view later (the recent ones, picked from).
+     The clipboard: done (2026-11-15): rinc's clip library (library/clip.rio, docs/spec/apps.md#the-
+     clipboard), in /rinc/stash/rinc/clip, the last 8 kept: kinds text, line, and an app's own (paint,
+     maps, music, files: Files' paths beside as text), with text beside for the rest. The editor, Files,
+     Paint (its copy in memory before: lost as Paint closed), Maps and Music (each its own stash before)
+     all on it; tested in each, and on the board (one app's copy pasted in the editor). Next: copy as Rio
+     (an app's own kind, its Rio beside as text), and a list of the kept ones to pick from (Sys+V, say).
+     Also: a growable view of part of a Blob works (the editor's paste: got: Blob[..] = formatted[0..<n]),
+     so tilemap's room and pixels could be one Blob after all, as Song's are: worth a look.
   - The dev folder: done (2026-11-15): an app is all of its folder but dev/, its maker's (a project's
     own saves, dev/save, moved in from save/ as it first runs; its tests, dev/test.rio, run as
     game+/dev/test); installing, copying as a project, bundles and exports leave it out. files.txt is
     gone (each listed its whole folder; Paint's had fallen behind), and tools/install.py and send.py
     take folders as the desktop does (tests/devfolder.py).
   4. Cloudlamp as a walkthrough in the docs (8 below), now its code's settled.
+  - Recommended (2026-11-15), to place in the list (the user decides):
+    - Clocks alike everywhere: pc.time() is the board's real time since it started, the desktop's
+      window's real time, the desktop's headless runs' frames / 60 (tests, -frames), and the web's the
+      browser's clock, so a game timing itself by pc.time() can differ between a test and the real
+      thing (notice's first version did: the exported page, in node, ran faster than its frames).
+      Recommended: pc.frame(), the frames since the app started, the same on every Rinc, for a game's
+      timing (as notice counts its frames); pc.time() documented as wall time, for showing time; and the
+      web test player (tests/webplay.mjs) stepping its clock a frame at a time, as headless runs do.
+    - Messages, grown from notice (the user, 2026-11-15: later): a library for dialog and visual
+      novels as well as a status line: text revealed a letter at a time (its speed, a sound a letter),
+      styled within a line (colors, a font, a word held), a speaker's name and portrait, pages, a key to
+      go on or see all, and choices; notice's say and draw as its simplest case.
   5. Tools for working on the board: an app's log over serial as it runs, without stopping it (a
      screenshot stops it today); a frame-time readout (is a game keeping 60 frames a second?).
      tools/board*.py are the start: put, get, paste an app, play one and take screenshots.

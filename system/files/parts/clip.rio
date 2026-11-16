@@ -2,7 +2,7 @@
 
 # ---------------------------------------------------------------- the selection, as Windows' Explorer has it
 
-# what's selected follows the pick, unless Shift or Ctrl is held (mods: pc.key's 256 Shift, 512 Ctrl):
+# what's selected follows the pick, unless Shift or Ctrl is clipHeld (mods: pc.key's 256 Shift, 512 Ctrl):
 # Shift selects from the anchor to the pick (with Ctrl too, as well as what was), Ctrl moves the pick alone
 followPick :: proc(mods: Int)
   if mods & 256 != 0
@@ -156,13 +156,18 @@ end
 
 # ---------------------------------------------------------------- cut, copy and paste
 
-# what's cut or copied: their paths, a line each, after "x" (cut) or "c" (copied) and a line; kept in the
-# stash, so it waits while you go elsewhere
-clip: Blob[..2048]
+# what's cut or copied: their paths, a line each, after "x" (cut) or "c" (copied) and a line; on the
+# clipboard every app shares (rinc's clip, kind "files", the paths beside as text: the editor pastes them),
+# so it waits while you go elsewhere, and after a restart
+clipHeld: Blob[..2048]
+fetch :: proc() # (the newest on the clipboard, if it's Files': another run's too; else none)
+  clipHeld.clear()
+  if clip.paste("files", clipHeld) < 0 do clipHeld.clear()
+end
 clipLines :: proc() -> Int
   n := 0
-  for i in 2..<clip.len()
-    if clip[i] == 10
+  for i in 2..<clipHeld.len()
+    if clipHeld[i] == 10
       n += 1
     end
   end
@@ -176,21 +181,21 @@ take :: proc(cut: Bool)
     say("Can't cut here: only inside /rinc's folders", errorColor)
     return
   end
-  clip.clear()
-  ok := clip.push(99)
+  clipHeld.clear()
+  ok := clipHeld.push(99)
   if cut
-    clip[0] = 120
+    clipHeld[0] = 120
   end
-  ok = clip.push(10)
+  ok = clipHeld.push(10)
   n := 0
   for k in 0..<count
-    if chosen(k) and clip.len() + path.len() + nameLen[k] + 2 < 2048
-      ok = clip.pushAll(pathTo(nameOf(k)))
-      ok = clip.push(10)
+    if chosen(k) and clipHeld.len() + path.len() + nameLen[k] + 2 < 2048
+      ok = clipHeld.pushAll(pathTo(nameOf(k)))
+      ok = clipHeld.push(10)
       n += 1
     end
   end
-  saved := pc.stashWrite("clip", clip[0..<clip.len()].asString())
+  saved := clip.copy("files", clipHeld[0..<clipHeld.len()].asString(), clipHeld[2..<clipHeld.len()].asString())
   message.clear()
   if cut
     _ = message.print(n, " cut: ^V moves them to the folder you paste in")
@@ -229,7 +234,8 @@ end
 pasteFrom: Blob[..160]
 pasteName: Blob[..80]
 paste :: proc()
-  if picking or clip.len() < 3
+  fetch()
+  if picking or clipHeld.len() < 3
     say("Nothing cut or copied", softColor)
     return
   end
@@ -237,14 +243,14 @@ paste :: proc()
     say("Can't paste here: only in /rinc's folders", errorColor)
     return
   end
-  cut := clip[0] == 120
+  cut := clipHeld[0] == 120
   done := 0
   failed := 0
   at := 2
-  for i in 2..<clip.len()
-    if clip[i] == 10
+  for i in 2..<clipHeld.len()
+    if clipHeld[i] == 10
       pasteFrom.clear()
-      ok := pasteFrom.pushAll(clip[at..<i])
+      ok := pasteFrom.pushAll(clipHeld[at..<i])
       at = i + 1
       p := pasteFrom[0..<pasteFrom.len()].asString()
       slash := p.len() - 1
@@ -275,8 +281,8 @@ paste :: proc()
     end
   end
   if cut and failed == 0 # (moved: they're not there to paste again)
-    clip.clear()
-    ok := pc.stashDelete("clip")
+    clipHeld.clear()
+    ok := clip.drop()
   end
   reopen(pasteName[0..<pasteName.len()].asString())
   message.clear()
@@ -289,4 +295,4 @@ paste :: proc()
   end
 end
 
-_ = pc.stashRead("clip", clip)
+fetch()

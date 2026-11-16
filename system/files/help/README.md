@@ -31,7 +31,7 @@ what's selected is filled.
 |---|---|
 | Ctrl+X | cut what's selected (or the one picked): Ctrl+V in another folder moves it there |
 | Ctrl+C | copy it: Ctrl+V puts a copy where you paste (in the same folder: `name-2.png`) |
-| Ctrl+V | paste here (what's cut or copied waits, even while you go to another app) |
+| Ctrl+V | paste here (what's cut or copied waits on the clipboard every app shares: after another app, or a restart; the editor pastes the paths as text) |
 | F2 | rename the one picked |
 | Delete | delete what's selected: one after typing its name, several after typing `delete` |
 | Esc | with several selected, just the one picked again |

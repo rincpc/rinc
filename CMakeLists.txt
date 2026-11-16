@@ -232,6 +232,9 @@ else()
   # pc.Field: a line of text edited as a text box is (pc.rio)
   add_test(NAME field COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/field.rio -frames 1)
   set_tests_properties(field PROPERTIES PASS_REGULAR_EXPRESSION "field tests passed")
+  # clip (library/clip.rio): the clipboard apps share, on the card: by kind, text beside, the last few kept
+  add_test(NAME clip COMMAND rinc -data ${CMAKE_CURRENT_BINARY_DIR}/clip-work ${CMAKE_CURRENT_LIST_DIR}/tests/clip.rio -frames 1)
+  set_tests_properties(clip PROPERTIES PASS_REGULAR_EXPRESSION "clip came through")
   # notice (library/notice.rio): a few words shown for their seconds, in their box, then gone
   add_test(NAME notice COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/notice.rio -frames 12)
   set_tests_properties(notice PROPERTIES PASS_REGULAR_EXPRESSION "notice came through")

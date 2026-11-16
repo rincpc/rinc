@@ -57,7 +57,7 @@ commandList* :: proc() -> []pc.Command
       n += 1
     end
   end
-  if not picking and clip.len() > 2
+  if not picking and clipHeld.len() > 2
     listed[n] = pasteCommand
     n += 1
   end

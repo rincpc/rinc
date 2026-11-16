@@ -436,6 +436,38 @@ leaving* :: proc()
 end
 ```
 
+## The clipboard
+
+Every app copies to and pastes from one clipboard, rinc's `clip` library's, on the card in Rinc's own
+stash (`/rinc/stash/rinc/clip`): so what's copied is there in another app, after Files has been called,
+and after a restart. The last 8 things copied are kept, and the newest is pasted. Each has a **kind**:
+
+| kind | |
+|---|---|
+| `text` | text: every app that takes text pastes it |
+| `line` | whole lines of text (the editor's, copied with nothing selected): pasted above the cursor's line in the editor, as text elsewhere |
+| an app's own | what only it reads: `paint` (a sprite's pixels), `maps` (tiles, or things), `music` (uses, or sounds placed), `files` (paths, cut or copied) |
+
+An app's own kind can carry text beside it, for the apps that take text: Files' paths, say, which the
+editor pastes as text (and copy as Rio, to come: Paint's flags, Maps' layers, as code). An app pasting
+asks for its kind: it gets the newest's data if it's of that kind, or, asking for text, a text or line's,
+or another kind's text beside it.
+
+```rio fragment
+import clip
+_ = clip.copy("text", "hello")             # the newest now (an app's own: clip.copy("maps", data, rio))
+got: Blob[..256]
+if clip.paste("text", got) >= 0            # its whole length, or -1: none, or not of the kind
+  log(got.asString())
+end
+kind: Blob[..16]
+_ = clip.kind(kind)                        # the newest's kind (back 1: the one before it, and so on)
+```
+
+`clip.more(data)` adds to the newest (a big one, written a piece at a time), `clip.pasteAt(kind, at, out)`
+reads one a piece at a time, `clip.drop()` lets the newest go (files cut, then moved: not there to paste
+again), and `clip.count()` says how many are kept: a list of them to pick from, to come.
+
 ## Its cache, and its log
 
 What an app can always make again (thumbnails, an index, a download) goes in its cache space,
@@ -663,6 +695,7 @@ tune.pause(true)                          # held where it is (false: on again)
 tune.tick()                               # only to show where it's playing: tune.playUse, tune.playPart
 ```
 
+- `clip`: the clipboard every app shares (see the clipboard).
 - `notice`: a few words shown for a while, then gone (a game's "Keeper: our lamp went out", an app's
   "Saved"): said once, drawn each frame while it lasts (counted as it's drawn: 4 seconds, or as long as
   it's told), in a box at the screen's bottom, or where the app says, wrapped to it. What's said is kept

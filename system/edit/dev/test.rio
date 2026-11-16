@@ -3,6 +3,7 @@
 # editor's dev folder, its maker's, so it's not installed with it.
 
 import undolog
+import clip
 include "parts/setup.rio"
 include "parts/text.rio"
 include "parts/editing.rio"
@@ -172,7 +173,7 @@ showNumbers(true)
 assert(textX == TEXT_X and cols == COLS, "line numbers")
 showNumbers(false)
 assert(textX < TEXT_X and cols > COLS, "and not")
-# the clipboard: a file, so it's there after another file's opened (and in other apps)
+# the clipboard: rinc's clip, on the card, so it's there after another file's opened (and in other apps)
 start("hello world")
 anchor = 0
 cursor = 5

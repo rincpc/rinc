@@ -27,7 +27,7 @@ with what's active (another app can pick one for it), else the file it had last,
 | Ctrl+R, Ctrl+N | save and run its app or project, start a new file |
 | Ctrl+Shift+P | every command, to type to narrow and pick one (the system's list: the system key with P too) |
 | Ctrl+Z, Ctrl+Y (or Ctrl+Shift+Z) | undo, redo |
-| Ctrl+X, Ctrl+C, Ctrl+V | cut, copy, paste (the whole line, with nothing selected) |
+| Ctrl+X, Ctrl+C, Ctrl+V | cut, copy, paste (the whole line, with nothing selected), on the clipboard every app shares: text another app copied pastes here too |
 | Ctrl+A, Ctrl+L | select all, select the line (and the next, again) |
 | Tab, Shift+Tab | indent, outdent (the selected lines) |
 | Alt+Up, Alt+Down, Ctrl+Shift+K | move the lines up or down, delete them |
