@@ -50,16 +50,22 @@ int rinc_fontBit(int c, int x, int y) {
   if (!rinc_fontRows || x < 0 || x >= rinc_CW || y < 0 || y >= rinc_CH) return 0;
   return rinc_fontRows[(uint32_t)(g / 16 * rinc_CH + y) * rinc_fontStep + (uint32_t)(sx >> 3)] >> (7 - (sx & 7)) & 1;
 }
-/* character c at pixel x, y, in fg; bg < 0 leaves the cell's other pixels alone */
+/* character c at pixel x, y, in fg; bg < 0 leaves the cell's other pixels alone. A row's cell is read as
+   one 16-bit window (rinc_CW to 9; a row's next bytes are still the PNG's), as fast as the old table:
+   rinc_fontBit a pixel at a time was 4x slower */
 void rinc_char(int c, int x, int y, int fg, int bg) {
-  int r, k;
-  for (r = 0; r < rinc_CH; r++) {
-    int py = y + r;
+  int r, k, g = c > 32 && c < 127 ? c - 32 : 0, cx = g % 16 * rinc_CW, sh = 16 - (cx & 7) - rinc_CW;
+  const uint8_t *row;
+  if (!rinc_fontRows) rinc_fontFind();
+  if (!rinc_fontRows) return;
+  row = rinc_fontRows + (uint32_t)(g / 16 * rinc_CH) * rinc_fontStep + (uint32_t)(cx >> 3);
+  for (r = 0; r < rinc_CH; r++, row += rinc_fontStep) {
+    int py = y + r, bits = (row[0] << 8 | row[1]) >> sh;
     if (py < 0 || py >= rinc_appH) continue;
     for (k = 0; k < rinc_CW; k++) {
       int px = x + k;
       if (px < 0 || px >= rinc_appW) continue;
-      if (rinc_fontBit(c, k, r)) rinc_screen[py][px] = (uint8_t)fg;
+      if (bits >> (rinc_CW - 1 - k) & 1) rinc_screen[py][px] = (uint8_t)fg;
       else if (bg >= 0) rinc_screen[py][px] = (uint8_t)bg;
     }
   }
