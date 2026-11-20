@@ -102,8 +102,12 @@ Of the RP2350's 520 KB of SRAM:
 |---|---|
 | the app space | 256 KB: Rio's memory, for an app's code and data (and its source, read from the card, while it compiles); Rio compiles the app's simple loops and procs to Thumb-2 code in what the app leaves free |
 | the screen | 150 KB: the one drawn into, and the copy being shown |
-| Rio's interpreter loop | 12 KB: it runs from SRAM, as that's faster than flash |
-| USB, the console, sound and stacks | the rest; about 4 KB is free |
+| code kept in SRAM, as it's faster than flash | 36 KB: Rio's interpreter loop (13.5 KB, with its jump table), sound's mixing (5 KB), the USB host's (4 KB: the keyboard, its timing tight), HDMI's sound packets (2 KB), the USB serial port's interrupts (2 KB), malloc's arena (1 KB), the rest small |
+| the sound's 16 voices | 2.4 KB |
+| USB host buffers, the big stack | 6 KB each |
+| the log, the serial port's ring | 4 KB each |
+| the command list's overlay, the VM, the console's line, the rest | about 15 KB |
+| free | about 2.5 KB (measured 2026-11-15), and a few hundred bytes of a scratch bank |
 
 No PSRAM is needed. Every app, home and the console included, gets the whole app space (see
 [memory](../spec/memory.md)); the console's own Rio session lives in the console's memory.

@@ -1813,6 +1813,15 @@ static int rinc_readerStart(rinc_Reader *r, const char *path, int host) {
    there are too many */
 static int rinc_loadFile(const char *path, rio_Source *out, int host) {
   rinc_Reader *r = &rinc_srcFiles[rinc_srcCount];
+  int i;
+  for (i = 0; i < rinc_srcCount; i++) /* (read before in this compile: Rio compiling again, with room for more, reads it again) */
+    if (rinc_srcFiles[i].host == (uint8_t)host && !strcmp(rinc_srcFiles[i].path, path)) {
+      r = &rinc_srcFiles[i];
+      if (!rinc_readerStart(r, path, host)) return 1;
+      out->src = 0; out->len = 0; out->read = rinc_readAt; out->readData = r;
+      out->name = host ? r->path : r->path + 6;
+      return 0;
+    }
   if (rinc_srcCount == rinc_SRC_FILES) return 2;
   if (!rinc_readerStart(r, path, host)) return 1;
   rinc_srcCount++;

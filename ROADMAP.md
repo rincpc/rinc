@@ -27,6 +27,95 @@ app is a Rio program.
 
 ## Next
 
+- **Priorities (2026-11-15), in order** (the user: keep them all listed; the 2026-11-14 list below is
+  the history):
+  1. Rio's compiler tables sharing their room (Rio's ROADMAP, Next), before Maps is trimmed (9 below).
+     Begun (2026-11-20): a program a little past a table compiled again with room for it (Maps: 397
+     procs, or 240 more lines); next, sized from a check's exact counts. Maps' limit now is its code.
+  2. Board speed everywhere, by default (the user, 2026-11-16): the desktop and the web run an app no
+     faster than the Fruit Jam would (Rio's instructions metered to the board's measured rate, drawing
+     and sound calls charged their board cost, a frame waiting when its budget's spent), so a game
+     made on a computer isn't a surprise on the board, and a too-slow frame shows on the desktop and
+     in tests (Paint's font line, 2026-11-16, was fine on the desktop and unusable on the board).
+     Not perfect, but close; a turbo mode only when asked (a setting, or rinc -turbo). With it: a
+     frame-time readout, and tests that fail when a frame runs over on board time.
+  3. pc.frame() (decided: "Clocks alike everywhere", under 4 below): the frames since the app started,
+     the same on every Rinc; the web test player stepping a frame at a time.
+  4. Cloudlamp as a walkthrough (4 below), its setup made of studio's snippets as they come.
+  5. Board tools (5 below): the app's log over serial while it runs, a frame-time readout.
+  6. Studio from Cloudlamp: state per file (6 below); Maps' paste anchor, Ctrl+T for every layer
+     (studio's ROADMAP).
+  7. To get on the list (the user, 2026-11-15), guesses to check first:
+     - USB thumb drives: files, apps and projects in and out with no serial and no card taken out. The
+       keyboard is on the Fruit Jam's USB host already (PIO-USB, TinyUSB), and TinyUSB has a mass
+       storage host, with FatFS (the card's) reading the drive: a few KB of RAM (a sector buffer, a
+       volume), full speed (12 Mbit/s, about 1 MB/s). Files would show the drive beside /rinc.
+     - Rotated, scaled and skewed drawing (SNES's mode 7: a whole layer turned and stretched a line at a
+       time, and sprites turned), and textured triangles for simple 3D: the RP2350's interpolators
+       (two a core) are made for exactly that lookup (u, v stepped along a line). Little RAM (it draws
+       into the screen there is); the question is time a frame, and how pc says it (a transform on
+       blit, a triangle call).
+     - RAM outside app space (measured 2026-11-15, build-rio's rinc.elf): about 2.5 KB of the 512 KB
+       free (app space 256 KB, the screen and the frame shown 75 KB each, .data 36 KB, mostly code in
+       RAM for speed, PIO-USB's buffers 6 KB, the big stack 6 KB, the rest of .bss about 25 KB).
+       Transformed drawing fits (code in flash, the interpolators' state in hardware, only stack); a
+       thumb drive is borderline (a volume, a sector buffer, the class's buffers: 1.5 to 3 KB), so free
+       a few KB first, keeping the 256 KB app space and the 16 voices (2.4 KB all told, so cutting
+       them would buy little). .data is code kept in RAM (docs/guide/fruit-jam.md, Memory): the
+       interpreter and sound's mixing stay (they run every frame). Candidates: the log's and the serial
+       ring's 4 KB each, halved (if serial keeps up); malloc's 1 KB arena, if nothing calls malloc; the
+       command list's 3.5 KB overlay, shared with something not used at once; code that rarely runs
+       moved back to flash; then the PSRAM (8 MB, unused) for what isn't speed-critical; the second
+       screen buffer last.
+     - MIDI keyboards over USB (the user, 2026-11-15: of most interest): playing Sound's and Music's
+       notes from a keyboard plugged in beside the computer keyboard (TinyUSB's MIDI host; under 1 KB).
+     - A debugger (the user, 2026-11-15: of most interest): breakpoints, stepping, a look at variables,
+       in the editor or the console (a few KB).
+     - CJK, sometime (the user, 2026-11-15): fonts big enough that they'd live in flash, or be read
+       from the card.
+     - Fonts from more than one sheet (the user, 2026-11-16): a font made of several of Paint's sheets,
+       each for a range of its own (Latin, accents, symbols, kana...), so a font isn't one picture.
+     - Rinc's own font 3 pixels taller (the user, 2026-11-16, considering): 5x11 glyphs in 6x12 cells,
+       room for Latin's accents and less padding around text everywhere, and closer to what CJK will
+       want; the editor then dropping its top or bottom bar to keep 19 lines. Paint's fonts first, to
+       explore Latin (32 to 255).
+     - Paint unresponsive on a font of 32 to 255 (the user, 2026-11-16, rinc12extra.png, 5x11): fixed
+       (studio): the line of the font's drawn letters read every cell of its 224 and made the font again
+       each frame, too slow on the board to keep up with keys; now redone only after input. No test yet
+       (the desktop is fast enough to hide it): a frame-time readout (board tools, 4 above) would catch
+       it. Still open: the file's notes say 16 across, but Paint saved its picture 40 wide (8 cells of
+       5: "saves as" trims to what's drawn), so a font read from it has its characters in the wrong
+       cells. Fixed (2026-11-16): a font's saved at least its across's cells wide and its characters'
+       rows high (studio/tests/paint.py); rinc12extra.png re-saved on the board: 80 by 154.
+     - A font's layout (the user, 2026-11-16, then 2026-11-20): rather than fonts 32 across, Paint's
+       limit a number of pixels, not a width and a height (at least 320 by 240's), so a font of 224
+       characters stays 16 across, a row a hex digit (0x20, 0x30...), and grows taller as it needs. Done meanwhile: - and = step a font's
+       cells in its characters' order, and the status line gives a character's code point in hex, as
+       Unicode tables do (U+00A2).
+     - Sheets read in place (the user, 2026-11-20, considering): a font, or Paint's brushes across
+       sheets, read from the card or flash where they are, a glyph or a sprite at a time, without the
+       whole sheet in RAM, and one font format everywhere. Recommended: still PNG, but saved
+       uncompressed: zlib's stored blocks (5 bytes of header each), a row a block, 8-bit palette pixels,
+       filter 0 (as Rinc writes now), so pixel (x, y) is at a sum (start + y * (6 + w) + 6 + x) and any
+       program still opens it. Reading in place is free; a pixel written in place means Adler-32 and the
+       chunk's CRC done again, so saves stay whole-file writes. Others' PNGs (compressed) are read as
+       now, until saved again in Paint. Rather than a format of Rinc's own (tried, and back to PNG).
+     - The editor's completion and error reporting, exactly where they belong, may be broken again (the
+       user, 2026-11-16): to check.
+     - Pan in songs and sounds (the user, 2026-11-16; studio's ROADMAP, Pan): the C song player taking a
+       pan for each sound placed and each use, the files carrying it.
+     - More than one controller (the user, 2026-11-16): two or more players, each controller its own
+       pc.btn (a player number).
+     - Mouse and pointer measured (2026-11-16): about 90 bytes of RAM and 1.5 KB of flash; the USB HID
+       code that reads a mouse is the keyboard's too. So dropping them frees nearly nothing: mouseless
+       would be a design choice, not a memory one. If chosen, desktop and web users moving the mouse
+       over the screen would get a note in the window or page (not Rinc's drawing): "Rinc uses the
+       keyboard". Not decided (the user: worth considering).
+  8. Smaller, any time: a picker for the clipboard's kept ones (Sys+V, say); the volume shown as it
+     changes; one snippet for a whole project.
+  9. Later: the messages library (dialog, visual novels: under 4 below); drawing speed (8 below);
+     sizes on disk (9b below).
+
 - Priorities (2026-11-14), in order (open now; the 2026-11-13 list below has the history, its numbers
   as they were):
   1. A print that wraps: done (2026-11-15): `pc.print(s, pos, c, how?)` with a `pc.Text` (its width:
@@ -98,6 +187,16 @@ app is a Rio program.
     gone (each listed its whole folder; Paint's had fallen behind), and tools/install.py and send.py
     take folders as the desktop does (tests/devfolder.py).
   4. Cloudlamp as a walkthrough in the docs (8 below), now its code's settled.
+     - With it (the user, 2026-11-15: for later): Cloudlamp's setup made of studio's snippets as they
+       come (Maps', Music's, Paint's "Copy a code snippet": docs/spec/apps.md#the-code-to-load-a-file),
+       so a tutorial can say "paste the snippet" and the game reads the same. That means the snippets'
+       names (level, GROUND, FOLK, SOLID: 12 uses in its body renamed, on the board, in the editor) and
+       their sizes, exact.
+     - To reconsider then (the user, 2026-11-15): a snippet's sizes are just what the file needs now
+       (the map's room 1247; Cloudlamp gives 2000, with room to spare). Room to spare lets a map grow a
+       while without the code changing, but not forever: a map grown past it fails to load and the log
+       says how much it needs, so a new snippet's copied. Maybe a snippet rounds up, or says what the
+       room is for, or a game's room grows on its own (a Blob[..] with a most, say).
   - Recommended (2026-11-15), to place in the list (the user decides):
     - Clocks alike everywhere: pc.time() is the board's real time since it started, the desktop's
       window's real time, the desktop's headless runs' frames / 60 (tests, -frames), and the web's the
@@ -246,7 +345,11 @@ app is a Rio program.
      it calls. Needs rinc's lib/rio bumped once Rio's commit is in.
   8. Cloudlamp as a walkthrough in the docs ("making a game with studio").
   9. Maps' memory: 36.6 KB free since Rio's smaller code (2026-11-13; was 2 KB), so less pressing; what
-     binds now is the compiler's instruction table, 84% full (12,560 of 14,945). Before, the plan was
+     binds now is the compiler's instruction table, 84% full (12,560 of 14,945).
+     Now (2026-11-15): 31.9 KB free, instructions 92% (13,758 of 14,868: the shared clipboard took
+     about 300, Snippet's command 30) and procs 92% (277 of 300), while the compiler's slots are 17%
+     used. First (the user, 2026-11-15): Rio's compiler tables sharing their room (Rio's ROADMAP, Next),
+     which frees both; then Maps trimmed only if it still needs it (its clipboard code first). Before, the plan was
      Maps made smaller on its own (handling smaller maps to start with, say), rather than a bigger app
      space or code in flash, which carry risks.
      Constraints breed creativity: getting by on little is part of the point, so limits are loosened
@@ -520,6 +623,20 @@ app is a Rio program.
      images (3) and the stash get most of it.
 
 ## Maybe
+
+- Ideas that take RAM (brainstormed 2026-11-15; the user's picks are in Next: MIDI keyboards, a
+  debugger, CJK sometime). Guesses: the PSRAM (8 MB, unused) is where most would go.
+  - Apps switched instantly, each kept whole (256 KB each: PSRAM; Later, below).
+  - An echo or reverb on the sound, as the SNES had (8 to 32 KB of delay).
+  - Recorded sounds: sampled instruments, voices (the app's, or PSRAM).
+  - Drawing a scanline at a time from tile and sprite layers, as old consoles did: this one gives RAM
+    back (no second 75 KB screen buffer), paying for others.
+  - A bigger screen (640 by 480, 256 colors: 300 KB a buffer): PSRAM, if HDMI can read it fast enough
+    (doubtful).
+  - Local multiplayer or sharing over a USB Wi-Fi stick (radios optional, local only): 20 to 40 KB of
+    network stack.
+  - A GIF of play recorded, or the last 10 seconds rewound (100s of KB: PSRAM).
+  - Longer console and log scrollback (PSRAM).
 
 - An input method for Chinese and Japanese.
 - Right-to-left text: drawing first, editing much later if ever.

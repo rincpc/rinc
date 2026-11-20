@@ -1,0 +1,19 @@
+# compiled again with room for more procs (Rio's tables sharing their room), its files read again: nine
+# parts of 45 procs each (405), and five of the library's (as files: run with -data, its lib/ copied in). Each file read again takes the reader it had (rinc.c's rinc_loadFile), not
+# another, so the second try finds them all (16 readers: two tries of nine would need 18). Logs "retried,
+# every file read again"
+import tilemap
+import song
+import notice
+import clip
+import codebox
+include "parts/a.rio"
+include "parts/b.rio"
+include "parts/c.rio"
+include "parts/d.rio"
+include "parts/e.rio"
+include "parts/f.rio"
+include "parts/g.rio"
+include "parts/h.rio"
+include "parts/i.rio"
+log("retried, every file read again:", a0() + i44())

@@ -235,6 +235,11 @@ else()
   # clip (library/clip.rio): the clipboard apps share, on the card: by kind, text beside, the last few kept
   add_test(NAME clip COMMAND rinc -data ${CMAKE_CURRENT_BINARY_DIR}/clip-work ${CMAKE_CURRENT_LIST_DIR}/tests/clip.rio -frames 1)
   set_tests_properties(clip PROPERTIES PASS_REGULAR_EXPRESSION "clip came through")
+  # an app compiled again with room for more procs (Rio's tables sharing their room): its files read again,
+  # each taking the reader it had (tests/retryfiles: nine parts and five of the library's, as files)
+  add_test(NAME retryfiles_setup COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_LIST_DIR}/library ${CMAKE_CURRENT_BINARY_DIR}/retryfiles-data/lib)
+  add_test(NAME retryfiles COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/retryfiles -data ${CMAKE_CURRENT_BINARY_DIR}/retryfiles-data -frames 1)
+  set_tests_properties(retryfiles PROPERTIES DEPENDS retryfiles_setup PASS_REGULAR_EXPRESSION "retried, every file read again")
   # codebox (library/codebox.rio): code shown in a box, its other form, copied as text
   add_test(NAME codebox COMMAND rinc -data ${CMAKE_CURRENT_BINARY_DIR}/codebox-work ${CMAKE_CURRENT_LIST_DIR}/tests/codebox.rio -frames 1)
   set_tests_properties(codebox PROPERTIES PASS_REGULAR_EXPRESSION "codebox came through")
