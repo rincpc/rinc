@@ -111,7 +111,10 @@ app is a Rio program.
        filter 0 (as Rinc writes now), so pixel (x, y) is at a sum (start + y * (6 + w) + 6 + x) and any
        program still opens it. Reading in place is free; a pixel written in place means Adler-32 and the
        chunk's CRC done again, so saves stay whole-file writes. Others' PNGs (compressed) are read as
-       now, until saved again in Paint. Rather than a format of Rinc's own (tried, and back to PNG).
+       now, until saved again in Paint. Rather than a format of Rinc's own (tried, and back to PNG). Planned (2026-11-20): plans/sheets.md: sheets
+       at 1, 2, 4 or 8 bits with their own palette and a color map on blit (palette swaps; a 1-bit font
+       about 1.5 KB, not 12), saved uncompressed, drawn from storage through an app's cache or from flash.
+       Next after the current work, before thumb drives (the user, 2026-11-20).
      - The editor's completion and error reporting, exactly where they belong, may be broken again (the
        user, 2026-11-16): to check.
      - Pan in songs and sounds (the user, 2026-11-16; studio's ROADMAP, Pan): the C song player taking a

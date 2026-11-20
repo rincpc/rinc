@@ -431,12 +431,12 @@ int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h, ui
   return rinc_pngBad ? -1 : n;
 }
 
-int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need) {
+int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need, int packed, int *depthOut) {
   uint8_t *map = rinc_png.r.map; /* (an indexed PNG's colors, as the palette's) */
   uint32_t w = 0, h = 0, rowBytes, base, end = 0, x, y, len, type;
   int depth = 0, kind = -1, channels, pixelBytes, i, b;
   uint8_t sig[8];
-  size[0] = size[1] = 0; *need = 0;
+  size[0] = size[1] = 0; *need = 0; *depthOut = 8;
   if (!out || rinc_pngOpen(path)) return -1;
   rinc_pngBad = 0; rinc_pngInLen = rinc_pngInAt = 0; rinc_pngLeft = 0;
   for (i = 0; i < 8; i++) sig[i] = (uint8_t)rinc_pngByteIn();
@@ -475,6 +475,8 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2],
   pixelBytes = (channels * depth + 7) / 8;
   size[0] = w; size[1] = h;
   *need = h * ((rowBytes > w ? rowBytes : w) + 1); /* (the rows as they come, as its end) */
+  packed = packed && kind == 3 && depth < 8; /* (kept as it is: an indexed one of 1, 2 or 4 bits; then its palette) */
+  if (packed && *need < h * rowBytes + (1u << depth)) *need = h * rowBytes + (1u << depth);
   base = *need - h * (rowBytes + 1);
   if (*need > cap) { rinc_pngClose(); return -2; }
   if (rinc_inflate(out, base, *need, &end) || end - base < h * (rowBytes + 1)) { rinc_pngClose(); return -1; }
@@ -489,6 +491,12 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2],
       row[x] = (uint8_t)(row[x] + (f == 1 ? a : f == 2 ? u : f == 3 ? (a + u) / 2 : f == 4 ? rinc_paeth(a, u, c) : 0));
     }
   }
+  if (packed) { /* each row as it is (its pixels, packed), where it goes; then its palette: index -> Rinc's color */
+    for (y = 0; y < h; y++) memmove(out + y * rowBytes, out + base + y * (rowBytes + 1) + 1, rowBytes);
+    memcpy(out + h * rowBytes, map, (size_t)(1u << depth));
+    *depthOut = depth;
+    return (int)(h * rowBytes + (1u << depth));
+  }
   for (y = 0; y < h; y++) { /* each row's pixels, as the palette's colors, where they go */
     const uint8_t *row = out + base + y * (rowBytes + 1) + 1;
     uint8_t *to = out + y * w; /* (each pixel onto bytes already read) */
@@ -502,5 +510,5 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2],
       to[x] = lastColor;
     }
   }
-  return 0;
+  return (int)(w * h);
 }

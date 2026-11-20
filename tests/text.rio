@@ -17,7 +17,7 @@ check(size("hello there world", {width = 66}) == {65, 17}, "a line just fitting 
 check(size("hello there world", {width = 60}) == {29, 26}, "each word on a line of its own")
 check(size("abcdefghijklmnop", {width = 30}) == {29, 35}, "a word longer than a line: broken where it must")
 check(size("ab cdefghijkl", {width = 30}) == {29, 26}, "a short word, then a long one broken")
-check(size("a\nb", {line = 12}) == {5, 20}, "lines 12 apart")
+check(size("a\nb", {font = {line = 12}}) == {5, 20}, "lines 12 apart (Rinc's own font's line)")
 check(size("hello", {width = 3}) == {29, 8}, "a width under a letter's: no wrapping")
 # drawn: what print wraps, where textSize says
 pc.cls(0)

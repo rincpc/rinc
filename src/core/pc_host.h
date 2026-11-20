@@ -8,17 +8,19 @@
 typedef struct {
   rio_View pixels;
   int32_t size[2];
+  int32_t depth;
 } pc_Image;
-typedef char pc_Image_size[sizeof(pc_Image) == 16 ? 1 : -1]; /* (Rio's size) */
-#define pc_Image_LAYOUT "{pixels:Blob,size:[2]Int}"
+typedef char pc_Image_size[sizeof(pc_Image) == 20 ? 1 : -1]; /* (Rio's size) */
+#define pc_Image_LAYOUT "{pixels:Blob,size:[2]Int,depth:Int}"
 
 typedef struct {
   int32_t from[2];
   int32_t size[2];
   int32_t scale[2];
+  rio_View map;
 } pc_Blit;
-typedef char pc_Blit_size[sizeof(pc_Blit) == 24 ? 1 : -1]; /* (Rio's size) */
-#define pc_Blit_LAYOUT "{from:[2]Int,size:[2]Int,scale:[2]Int}"
+typedef char pc_Blit_size[sizeof(pc_Blit) == 32 ? 1 : -1]; /* (Rio's size) */
+#define pc_Blit_LAYOUT "{from:[2]Int,size:[2]Int,scale:[2]Int,map:[]Int}"
 
 typedef struct {
   pc_Image image;
@@ -31,16 +33,15 @@ typedef struct {
   int32_t colors;
   rio_View glyphs;
 } pc_Font;
-typedef char pc_Font_size[sizeof(pc_Font) == 56 ? 1 : -1]; /* (Rio's size) */
-#define pc_Font_LAYOUT "{image:{pixels:Blob,size:[2]Int},cell:[2]Int,across:Int,first:Int,last:Int,line:Int,gap:Int,colors:Int,glyphs:Blob}"
+typedef char pc_Font_size[sizeof(pc_Font) == 60 ? 1 : -1]; /* (Rio's size) */
+#define pc_Font_LAYOUT "{image:{pixels:Blob,size:[2]Int,depth:Int},cell:[2]Int,across:Int,first:Int,last:Int,line:Int,gap:Int,colors:Int,glyphs:Blob}"
 
 typedef struct {
   int32_t width;
-  int32_t line;
   pc_Font font;
 } pc_Text;
 typedef char pc_Text_size[sizeof(pc_Text) == 64 ? 1 : -1]; /* (Rio's size) */
-#define pc_Text_LAYOUT "{width:Int,line:Int,font:{image:{pixels:Blob,size:[2]Int},cell:[2]Int,across:Int,first:Int,last:Int,line:Int,gap:Int,colors:Int,glyphs:Blob}}"
+#define pc_Text_LAYOUT "{width:Int,font:{image:{pixels:Blob,size:[2]Int,depth:Int},cell:[2]Int,across:Int,first:Int,last:Int,line:Int,gap:Int,colors:Int,glyphs:Blob}}"
 
 typedef struct {
   int32_t bits;
@@ -146,7 +147,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
 #define pc_fileCopy_SIG "ss>i"
 #define pc_fileRename_SIG "ss>i"
 #define pc_dirMake_SIG "s>i"
-#define pc_imageLoad_SIG "sB>ii"
+#define pc_imageLoad_SIG "sBi>iii"
 #define pc_imageNotes_SIG "sB>i"
 #define pc_imageWrite_SIG "s" pc_Image_LAYOUT pc_ImageWrite_LAYOUT ">i"
 #define pc_imageFlags_SIG "s[i]>i"
@@ -292,7 +293,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x016402cbu /* (rio_hashText of the source) */
+#define pc_HASH 0x7f981003u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -338,12 +339,17 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "Image* :: struct\n" \
   "  pixels: Blob\n" \
   "  size: [2]Int\n" \
+  "  depth: Int      # bits a pixel: 0 (or 8), a byte a pixel, Rinc's color, as most are; 1, 2 or 4, its rows\n" \
+  "                  # packed (a row's bytes: (width * depth + 7) / 8), each pixel an index into its own colors,\n" \
+  "                  # its palette, after its rows in pixels (2^depth bytes: index -> Rinc's color, 0 see-through)\n" \
   "end\n" \
   "# which part of a picture blit draws, and how; left out, the whole picture at its size\n" \
   "Blit* :: struct\n" \
   "  from: [2]Int  # the part's top left, in the picture\n" \
   "  size: [2]Int  # the part's size (a 0: the rest of the picture, that way)\n" \
   "  scale: [2]Int # each pixel so many wide and high (a 0: 1); negative mirrors it that way: {-1, 1}, left for right\n" \
+  "  map: []Int    # its colors this time: a pixel's index (or, a byte a pixel, its color) -> the color drawn (0\n" \
+  "                # or -1 see-through), instead of its own palette: a sheet in other colors (empty: as it is)\n" \
   "end\n" \
   "# a picture, or part of it, as b says, its top left at at; color 0 is see-through: blit(image, {10, 20})\n" \
   "blit* :: host proc(image: Image, at: [2]Int, b?: Blit)\n" \
@@ -352,7 +358,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "# own colors (else each glyph's pixels are print's color). A proportional one has glyphs, two bytes for\n" \
   "# each: where it starts in its cell, and how wide it is (its empty columns trimmed; an empty one, a\n" \
   "# space's width); a fixed one, each glyph its cell's width; gap pixels after each (negative: closer). A\n" \
-  "# character it hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)\n" \
+  "# character it hasn't: half a cell. The zero Font is Rinc's own, 5x8 (15 words: a pc.Text holding one is 16)\n" \
   "Font* :: struct\n" \
   "  image: Image\n" \
   "  cell: [2]Int\n" \
@@ -369,8 +375,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "# Rinc's own); font (left out: Rinc's own, 5x8, 6 pixels a character)\n" \
   "Text* :: struct\n" \
   "  width: Int\n" \
-  "  line: Int\n" \
-  "  font: Font\n" \
+  "  font: Font   # its line spacing too: font.line (0: its cell's height; Rinc's own, 9): {font = {line = 12}}\n" \
   "end\n" \
   "print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in how's font (Rinc's 5x8, 6 pixels a character); a newline starts a line\n" \
   "textSize* :: host proc(s: String, how?: Text) -> [2]Int # how big print draws it: its widest line's width, and its lines' height\n" \
@@ -599,11 +604,34 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "  fromName\n" \
   "  png\n" \
   "end\n" \
-  "imageLoad :: host proc(path: String, pixels: Blob[..]) -> [2]Int # (imageRead's: the pixels added, and its size)\n" \
-  "imageRead* :: proc(path: String, pixels: Blob[..]) -> Image\n" \
+  "# how imageRead reads one; left out, at its own depth (a 1, 2 or 4 bit one, packed, with its palette)\n" \
+  "ImageRead* :: struct\n" \
+  "  bytes: Bool  # a byte a pixel, each Rinc's color, whatever its depth: for an app that reads or edits pixels\n" \
+  "end\n" \
+  "imageLoad :: host proc(path: String, pixels: Blob[..], bytes: Bool) -> [3]Int # (imageRead's: what it added; its size, its depth)\n" \
+  "imageRead* :: proc(path: String, pixels: Blob[..], o?: ImageRead) -> Image\n" \
   "  start := pixels.len()\n" \
-  "  size := imageLoad(path, pixels)\n" \
+  "  got := imageLoad(path, pixels, o.bytes)\n" \
+  "  size := {got[0], got[1]}\n" \
+  "  if got[2] < 8 and size.x > 0 # (packed: its rows, then its palette)\n" \
+  "    return {pixels = pixels[start..<pixels.len()], size = size, depth = got[2]}\n" \
+  "  end\n" \
   "  return {pixels = pixels[start..<pixels.len()], size = size}\n" \
+  "end\n" \
+  "# a pixel's color, Rinc's, at p in a picture of any depth (0, see-through, outside it)\n" \
+  "imageAt* :: proc(image: Image, p: [2]Int) -> Int\n" \
+  "  if p.x < 0 or p.y < 0 or p.x >= image.size.x or p.y >= image.size.y\n" \
+  "    return 0\n" \
+  "  end\n" \
+  "  d := image.depth\n" \
+  "  if d <= 0 or d >= 8\n" \
+  "    return image.pixels[p.y * image.size.x + p.x]\n" \
+  "  end\n" \
+  "  row := (image.size.x * d + 7) / 8\n" \
+  "  bit := p.x * d\n" \
+  "  i := image.pixels[p.y * row + bit / 8] >> (8 - d - bit % 8) & ((1 << d) - 1)\n" \
+  "  if row * image.size.y + i < image.pixels.len() do return image.pixels[row * image.size.y + i] # (its palette's)\n" \
+  "  return i\n" \
   "end\n" \
   "imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)\n" \
   "# a number in t from at on, and where it stops\n" \
@@ -698,8 +726,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "    hi := -1\n" \
   "    for x in 0..<f.cell.x\n" \
   "      for y in 0..<f.cell.y\n" \
-  "        p := (corner.y + y) * image.size.x + corner.x + x\n" \
-  "        if corner.y + y < image.size.y and corner.x + x < image.size.x and image.pixels[p] != 0\n" \
+  "        if imageAt(image, corner + {x, y}) != 0\n" \
   "          lo = min(lo, x)\n" \
   "          hi = max(hi, x)\n" \
   "        end\n" \

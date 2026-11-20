@@ -35,7 +35,9 @@ check(pc.textSize("AB", with) == {6, 5}, "AB: 3, a gap, 2 (the last gap not coun
 check(pc.textSize("AD", with) == {8, 5}, "AD")
 check(pc.textSize("AZ", with) == {6, 5}, "a character it hasn't: a space's width")
 check(pc.textSize("AB AB", {font = prop, width = 8}) == {6, 10}, "wrapped at the space: two lines, its cells' height apart")
-check(pc.textSize("A\nA", {font = prop, line = 7}) == {3, 12}, "its own line spacing")
+spaced := prop
+spaced.line = 7
+check(pc.textSize("A\nA", {font = spaced}) == {3, 12}, "its own line spacing")
 fixed := pc.fontRead("/rinc/save/fixed.png", room)
 check(fixed.glyphs.len() == 0 and pc.textSize("AB", {font = fixed}) == {8, 5}, "fixed: each glyph its cell's width")
 fixedGap := pc.fontRead("/rinc/save/fixedgap.png", room)

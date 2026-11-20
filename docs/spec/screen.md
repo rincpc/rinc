@@ -15,7 +15,7 @@ where what it logs shows until it draws, and where Rinc shows what went wrong if
 | `pc.rect({x, y}, {w, h}, c)` | pixels from `x` up to `x + w`, and `y` up to `y + h`, become `c`; cut off at the screen's edges; nothing when `w` or `h` is 0 or less |
 | `pc.rgb(c) -> Int` | color `c` of the palette (0 to 255), as `0xRRGGBB` |
 | `pc.print(s, {x, y}, c)` | the text's characters, one every 6 pixels from `x`, drawn at `y` in color `c` |
-| `pc.blit(image, at, b?)` | a picture (a `pc.Image`: its `pixels`, a byte each, row by row, and its `size`; as `pc.imageRead` gives one, see [apps](apps.md#files)), its top left at `at`, or `b.size` of it from `b.from` (a 0 in `size`: the rest of it that way), each pixel `b.scale` wide and high (a 0: 1; negative mirrors it that way: `{-1, 1}` flips it left for right); its 0s are see-through. `b` is a `pc.Blit` (`from`, `size` and `scale`, each a `[2]Int`), so what's left out of `{...}` is 0, and `b` left out is all 0s: `pc.blit(image, {10, 20})` draws all of it at its size |
+| `pc.blit(image, at, b?)` | a picture (a `pc.Image`: its `pixels`, row by row, a byte each or packed as its `depth` says, and its `size`; as `pc.imageRead` gives one, see [apps](apps.md#files)), its top left at `at`, or `b.size` of it from `b.from` (a 0 in `size`: the rest of it that way), each pixel `b.scale` wide and high (a 0: 1; negative mirrors it that way: `{-1, 1}` flips it left for right); its 0s are see-through. `b` is a `pc.Blit` (`from`, `size` and `scale`, each a `[2]Int`, and `map`), so what's left out of `{...}` is 0, and `b` left out is all 0s: `pc.blit(image, {10, 20})` draws all of it at its size. `b.map`, a `[]Int`, draws it in other colors: each pixel's index (a byte-a-pixel picture's color) to the color drawn, 0 or -1 see-through, instead of its own palette: a sheet's red team blue, a hit's flash |
 
 A color is the low 8 bits of the number given: `pc.cls(257)` is `pc.cls(1)`.
 
@@ -82,8 +82,9 @@ character, bit 0 the leftmost pixel.
 
 A newline starts the next line, 9 pixels down. `pc.print(s, pos, c, how)` lays the text out as `how`, a
 `pc.Text`, says: `width`, in pixels, wraps it, a line breaking at the last space that fits (the space
-not drawn) and a word longer than a line breaking where it must; `line` is the pixels from a line to
-the next (0: the font's, 9). `pc.textSize(s, how?)` is how big `print` draws it: its widest line's width
+not drawn) and a word longer than a line breaking where it must; its `font`'s `line` is the pixels from a
+line to the next (0: its cell's height; Rinc's own, 9): `{font = {line = 12}}` spaces Rinc's own font 12
+apart. `pc.textSize(s, how?)` is how big `print` draws it: its widest line's width
 and its lines' height, for a box around it or text placed by its size.
 
 ```rio
@@ -111,8 +112,9 @@ makes one as it makes a sprite sheet. Its notes say what it is, a line each:
 | `line 10` | pixels from a line to the next (its cells' height if it's left out) |
 | `colors` | its glyphs drawn in their own colors (else in the color `print` is given) |
 
-`pc.fontRead(path, room)` reads one into the `Blob[..]` `room` (its picture, as `pc.imageRead` does, then
-two bytes a glyph for a proportional one: where it starts in its cell, and its width), as a `pc.Font`;
+`pc.fontRead(path, room)` reads one into the `Blob[..]` `room` (its picture, as `pc.imageRead` does, at its
+own depth: a font of 1 bit, 2 colors, takes an eighth of the room of 8; then two bytes a glyph for a
+proportional one: where it starts in its cell, and its width), as a `pc.Font`;
 `pc.Text`'s `font` draws in it (`print`) and measures it (`textSize`), wrapping as its glyphs' widths
 say. A picture that isn't a font, or isn't there, reads as a `pc.Font` with no cells: Rinc's own.
 

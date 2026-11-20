@@ -53,9 +53,9 @@ for name, (depth, kind, rows, pl, rowNeed) in kinds.items():
   open(os.path.join(folder, name + '.png'), 'wb').write(png(w, h, depth, kind, rows, pl))
   need = rowNeed * h
   lines.append(f'''a: Blob[..{need}]
-i := pc.imageRead("/rinc/save/k/{name}.png", a)
+i := pc.imageRead("/rinc/save/k/{name}.png", a, {{bytes = true}})
 b: Blob[..{need - 1}]
-j := pc.imageRead("/rinc/save/k/{name}.png", b)
+j := pc.imageRead("/rinc/save/k/{name}.png", b, {{bytes = true}})
 sum := 0
 for k in 0..<i.pixels.len() do sum = (sum * 31 + i.pixels[k]) % 1000003
 log("{name}", i.size, i.pixels.len(), j.size, j.pixels.len(), sum)'''.replace('\n', '\nend\n', 0))

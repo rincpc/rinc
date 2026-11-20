@@ -68,21 +68,48 @@ static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   (void)v;
   a[0].i = x < (uint32_t)rinc_appW && y < (uint32_t)rinc_appH ? rinc_screen[y][x] : 0;
 }
-/* blit(image, at, b: Blit): a picture (pc.Image: its pixels, a byte each, row by row, and its width and
-   height), or b.size of it from b.from (a 0 in size: the rest of it that way),
+/* a picture as drawing reads it (pc.Image): a byte a pixel (depth 0 or 8), or 1, 2 or 4 bits, its rows packed
+   and its palette after them (index -> Rinc's color); and a map, if one's given (Blit.map: index -> color,
+   0 or less see-through), instead of its palette */
+typedef struct { const uint8_t *px, *pal; const int32_t *map; int w, h, depth, row, npal, nmap; } rinc_Pic;
+static int rinc_picOf(rio_Vm *v, const pc_Image *im, const rio_View *map, rinc_Pic *q) {
+  uint32_t rows;
+  memset(q, 0, sizeof *q);
+  q->px = (const uint8_t *)rio_viewBytes(v, im->pixels); q->w = im->size[0]; q->h = im->size[1];
+  q->depth = im->depth == 1 || im->depth == 2 || im->depth == 4 ? im->depth : 8;
+  if (!q->px || q->w <= 0 || q->h <= 0) return 0;
+  q->row = q->depth == 8 ? q->w : (q->w * q->depth + 7) / 8;
+  rows = (uint32_t)q->row * (uint32_t)q->h;
+  if ((uint64_t)q->row * (uint32_t)q->h > im->pixels.len) return 0;
+  if (q->depth < 8) { q->pal = q->px + rows; q->npal = (int)(im->pixels.len - rows); }
+  if (map && map->len) { q->map = (const int32_t *)rio_viewBytes(v, *map); q->nmap = q->map ? (int)map->len : 0; } /* (its length: Ints) */
+  return 1;
+}
+/* the color drawn for pixel x, y of q (0: see-through) */
+static int rinc_picAt(const rinc_Pic *q, int x, int y) {
+  int i;
+  if (q->depth == 8) i = q->px[y * q->row + x];
+  else { int bit = x * q->depth; i = q->px[y * q->row + bit / 8] >> (8 - q->depth - bit % 8) & ((1 << q->depth) - 1); }
+  if (q->map) return i < q->nmap && q->map[i] > 0 ? q->map[i] & 255 : 0;
+  if (q->pal) return i < q->npal ? q->pal[i] : 0;
+  return i;
+}
+/* blit(image, at, b: Blit): a picture (pc.Image: its pixels row by row, a byte each or packed, as its depth
+   says, and its width and height), or b.size of it from b.from (a 0 in size: the rest of it that way),
    drawn at at, each pixel b.scale wide and high (0: 1; negative: mirrored that way); color 0 is
    see-through. b left out: all zeros */
 static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
-  pc_Image im; pc_Blit b; const uint8_t *p; uint32_t n;
-  int pw, ph, sx, sy, w, h, x0, y0, kx, ky, flipX, flipY, i, j;
+  pc_Image im; pc_Blit b; const uint8_t *p; rinc_Pic q;
+  int pw, ph, sx, sy, w, h, x0, y0, kx, ky, flipX, flipY, i, j, plain;
   memset(&im, 0, sizeof im); memset(&b, 0, sizeof b);
   rio_getStruct(v, a, &im, sizeof im);
   rio_getStruct(v, a + 4, &b, sizeof b);
-  p = (const uint8_t *)rio_viewBytes(v, im.pixels); n = im.pixels.len; pw = im.size[0]; ph = im.size[1];
+  if (!rinc_picOf(v, &im, &b.map, &q)) return;
+  p = q.px; pw = q.w; ph = q.h;
+  plain = q.depth == 8 && !q.map; /* (a byte a pixel, as it is: read straight) */
   sx = b.from[0]; sy = b.from[1]; w = b.size[0]; h = b.size[1]; x0 = a[2].i; y0 = a[3].i;
   flipX = b.scale[0] < 0; flipY = b.scale[1] < 0;
   kx = flipX ? -b.scale[0] : b.scale[0] ? b.scale[0] : 1; ky = flipY ? -b.scale[1] : b.scale[1] ? b.scale[1] : 1;
-  if (!p || pw <= 0 || ph <= 0 || (uint64_t)pw * (uint32_t)ph > n) return;
   if (w <= 0) w = pw - (sx > 0 ? sx : 0); /* (0: the rest of the picture) */
   if (h <= 0) h = ph - (sy > 0 ? sy : 0);
   if (sx < 0) { w += sx; x0 -= sx * kx; sx = 0; } /* (the part that's in the picture) */
@@ -92,23 +119,30 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   if (kx == 1 && ky == 1 && !flipX) { /* (the usual: a pixel for a pixel, a row at a time; a map's tiles are many) */
     int i0 = x0 < 0 ? -x0 : 0, i1 = x0 + w > rinc_appW ? rinc_appW - x0 : w;
     for (j = 0; j < h; j++) {
-      int y = y0 + j;
-      const uint8_t *row = p + (sy + (flipY ? h - 1 - j : j)) * pw + sx;
+      int y = y0 + j, ry = sy + (flipY ? h - 1 - j : j);
+      const uint8_t *row = p + ry * pw + sx;
       uint8_t *out;
       if (y < 0 || y >= rinc_appH) continue;
       out = rinc_screen[y];
-      for (i = i0; i < i1; i++)
-        if (row[i]) out[x0 + i] = row[i];
+      if (plain) {
+        for (i = i0; i < i1; i++)
+          if (row[i]) out[x0 + i] = row[i];
+      } else
+        for (i = i0; i < i1; i++) {
+          int c = rinc_picAt(&q, sx + i, ry);
+          if (c) out[x0 + i] = (uint8_t)c;
+        }
     }
     return;
   }
   for (j = 0; j < h; j++) {
-    const uint8_t *row = p + (sy + (flipY ? h - 1 - j : j)) * pw + sx; /* (mirrored: the rows from the bottom) */
+    int ry = sy + (flipY ? h - 1 - j : j); /* (mirrored: the rows from the bottom) */
+    const uint8_t *row = p + ry * pw + sx;
     int y = y0 + j * ky, ya = y < 0 ? 0 : y, yb = y + ky > rinc_appH ? rinc_appH : y + ky;
     if (ya >= yb) continue;
     for (i = 0; i < w; i++) {
-      int x = x0 + i * kx, xa = x < 0 ? 0 : x, xb = x + kx > rinc_appW ? rinc_appW : x + kx, yy;
-      uint8_t c = row[flipX ? w - 1 - i : i];
+      int x = x0 + i * kx, xa = x < 0 ? 0 : x, xb = x + kx > rinc_appW ? rinc_appW : x + kx, yy, ix = flipX ? w - 1 - i : i;
+      uint8_t c = plain ? row[ix] : (uint8_t)rinc_picAt(&q, sx + ix, ry);
       if (!c || xa >= xb) continue;
       for (yy = ya; yy < yb; yy++) memset(&rinc_screen[yy][xa], c, (size_t)(xb - xa));
     }
@@ -124,19 +158,20 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
   for (y = y0; y < y1 && x0 < x1; y++) memset(&rinc_screen[y][x0], (uint8_t)a[4].i, (size_t)(x1 - x0));
 }
 /* print(s, pos, c, how?) and textSize(s, how?): text laid out (rinc_textLay), 6 pixels a character and
-   how.line a line (0: the font's, 9), a newline starting one, and with how.width (pc.Text) lines broken to fit it: at the last
+   how.font.line a line (0: its cell's height; Rinc's own, 9), a newline starting one, and with how.width (pc.Text) lines broken to fit it: at the last
    space that fits (the space itself not drawn), or, for a word longer than a line, where it must. Drawn
    (draw: at x, y in color c), or just measured: its widest line's width (a character 5 wide, the last
    one's gap not counted) and its height, into size */
 #define rinc_CHAR_W 6
 #define rinc_LINE_H 9
 /* a font, as print uses it (pc.Font, its views read): none (font.px NULL) for Rinc's own, 5x8 in 6x9 */
-typedef struct { const uint8_t *px, *glyphs; int pw, ph, cw, ch, first, last, line, gap, space, colors, across, nglyphs; } rinc_Font;
+typedef struct { const uint8_t *px, *glyphs; int pw, ph, cw, ch, first, last, line, gap, space, colors, across, nglyphs; rinc_Pic pic; } rinc_Font;
 static void rinc_fontOf(rio_Vm *v, const pc_Font *f, rinc_Font *u) {
   memset(u, 0, sizeof *u);
+  u->line = f->line; /* (Rinc's own font's line spacing too: {font = {line = 12}}) */
   if (f->cell[0] <= 0 || f->cell[1] <= 0 || f->last < f->first || f->image.size[0] <= 0) return;
-  u->px = (const uint8_t *)rio_viewBytes(v, f->image.pixels);
-  if (!u->px || (uint64_t)f->image.size[0] * (uint32_t)f->image.size[1] > f->image.pixels.len) { u->px = 0; return; }
+  if (!rinc_picOf(v, &f->image, 0, &u->pic)) return; /* (its picture: any depth) */
+  u->px = u->pic.px;
   u->pw = f->image.size[0]; u->ph = f->image.size[1]; u->cw = f->cell[0]; u->ch = f->cell[1];
   u->first = f->first; u->last = f->last; u->line = f->line; u->gap = f->gap; u->space = u->cw / 2; u->colors = f->colors;
   u->across = f->across > 0 ? f->across : u->pw / u->cw > 0 ? u->pw / u->cw : 1;
@@ -163,9 +198,9 @@ static void rinc_glyph(const rinc_Font *u, int c, int x, int y, int color) {
     int sy = gy + j, py = y + j;
     if (sy >= u->ph || py < 0 || py >= rinc_appH) continue;
     for (i = 0; i < w; i++) {
-      int sx = gx + i, px = x + i; uint8_t p;
+      int sx = gx + i, px = x + i, p;
       if (sx >= u->pw || px < 0 || px >= rinc_appW) continue;
-      if ((p = u->px[sy * u->pw + sx]) != 0) rinc_screen[py][px] = (uint8_t)(u->colors ? p : color);
+      if ((p = rinc_picAt(&u->pic, sx, sy)) != 0) rinc_screen[py][px] = (uint8_t)(u->colors ? p : color);
     }
   }
 }
@@ -203,14 +238,14 @@ static void rinc_hostPrint(rio_Vm *v, rio_Val *a) {
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 5, &how, sizeof how);
   rinc_fontOf(v, &how.font, &u);
-  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, &u, 1, a[2].i, a[3].i, a[4].i & 255, size);
+  if (s) rinc_textLay(s, (int)a[1].u, how.width, u.line, &u, 1, a[2].i, a[3].i, a[4].i & 255, size);
 }
 static void rinc_hostTextSize(rio_Vm *v, rio_Val *a) {
   const char *s = (const char *)rio_sliceBytes(v, a); pc_Text how; rinc_Font u; int size[2] = {0, 0};
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 2, &how, sizeof how);
   rinc_fontOf(v, &how.font, &u);
-  if (s) rinc_textLay(s, (int)a[1].u, how.width, how.line, &u, 0, 0, 0, 0, size);
+  if (s) rinc_textLay(s, (int)a[1].u, how.width, u.line, &u, 0, 0, 0, 0, size);
   a[0].i = size[0]; a[1].i = size[1];
 }
 /* key() -> Int: the next key typed, or -1 when there's none waiting (docs/spec/input.md#typed-text):
@@ -1150,14 +1185,14 @@ static void rinc_hostFileWriteAt(rio_Vm *v, rio_Val *a) {
    .png), with the app's notes, o.notes (text; "": none): 0, or -1. imageNotes(path, out) -> Int: those
    notes, added to out: how many bytes, or -1 */
 static void rinc_hostImageLoad(rio_Vm *v, rio_Val *a) {
-  char path[96], say[160]; rinc_Out o; uint32_t size[2] = {0, 0}, need = 0;
-  int named = rinc_argPath(v, a, path, 0), r = named && rinc_into(v, a + 2, &o) ? rinc_pngRead(path, o.end, o.room, size, &need) : -1;
-  a[0].i = (int32_t)size[0]; a[1].i = (int32_t)size[1];
+  char path[96], say[160]; rinc_Out o; uint32_t size[2] = {0, 0}, need = 0; int depth = 8;
+  int named = rinc_argPath(v, a, path, 0), r = named && rinc_into(v, a + 2, &o) ? rinc_pngRead(path, o.end, o.room, size, &need, !a[5].i, &depth) : -1;
+  a[0].i = (int32_t)size[0]; a[1].i = (int32_t)size[1]; a[2].i = r > 0 ? depth : 8;
   if (r == -2) {
     snprintf(say, sizeof say, "imageRead: %.96s needs %u bytes of room, and has %u\r\n", path, (unsigned)need, (unsigned)o.room);
     rinc_say(say);
   }
-  if (!r) rinc_outAdd(v, &o, size[0] * size[1]);
+  if (r > 0) rinc_outAdd(v, &o, (uint32_t)r);
 }
 static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
   char path[96]; pc_Image im; pc_ImageWrite o; const uint8_t *p; int w, h, named = rinc_argPath(v, a, path, 1);

@@ -36,7 +36,10 @@ extern int rinc_pngStride; /* (the next rinc_pngWrite's bytes from a row to the 
    byte a sprite (its flags, counted across the rows), *sprites of them (as many as the picture has: none
    written if that's over cap). How many records the picture has, or -1 */
 int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h, uint8_t *bytes, uint32_t *sprites);
-int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need);
+/* a picture read into out (its room, cap): a byte a pixel, Rinc's colors; or (packed) an indexed one of 1, 2
+   or 4 bits as it is, its rows packed, then its palette (2^depth bytes: index -> Rinc's color), *depthOut its
+   depth (else 8). The bytes added, or -1 (not read), or -2 (no room: *need says how much) */
+int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need, int packed, int *depthOut);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 /* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */
 int rinc_inflateRaw(int (*read)(char *buf, int n), uint32_t size, uint8_t *out, uint32_t cap);

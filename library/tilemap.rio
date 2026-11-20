@@ -150,7 +150,7 @@ Map.readSheets* :: proc() -> Bool
   for s in 0..<self.sheetCount
     sh := &self.sheets[s]
     sh.at = self.pixels.len()
-    image := pc.imageRead(sh.path.asString(), self.pixels)
+    image := pc.imageRead(sh.path.asString(), self.pixels, {bytes = true}) # (a byte a pixel: its tiles read as they're drawn)
     sh.size = image.size
     sh.flagsAt = self.pixels.len()
     sh.flagCount = 0

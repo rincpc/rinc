@@ -42,12 +42,17 @@ end
 Image* :: struct
   pixels: Blob
   size: [2]Int
+  depth: Int      # bits a pixel: 0 (or 8), a byte a pixel, Rinc's color, as most are; 1, 2 or 4, its rows
+                  # packed (a row's bytes: (width * depth + 7) / 8), each pixel an index into its own colors,
+                  # its palette, after its rows in pixels (2^depth bytes: index -> Rinc's color, 0 see-through)
 end
 # which part of a picture blit draws, and how; left out, the whole picture at its size
 Blit* :: struct
   from: [2]Int  # the part's top left, in the picture
   size: [2]Int  # the part's size (a 0: the rest of the picture, that way)
   scale: [2]Int # each pixel so many wide and high (a 0: 1); negative mirrors it that way: {-1, 1}, left for right
+  map: []Int    # its colors this time: a pixel's index (or, a byte a pixel, its color) -> the color drawn (0
+                # or -1 see-through), instead of its own palette: a sheet in other colors (empty: as it is)
 end
 # a picture, or part of it, as b says, its top left at at; color 0 is see-through: blit(image, {10, 20})
 blit* :: host proc(image: Image, at: [2]Int, b?: Blit)
@@ -56,7 +61,7 @@ blit* :: host proc(image: Image, at: [2]Int, b?: Blit)
 # own colors (else each glyph's pixels are print's color). A proportional one has glyphs, two bytes for
 # each: where it starts in its cell, and how wide it is (its empty columns trimmed; an empty one, a
 # space's width); a fixed one, each glyph its cell's width; gap pixels after each (negative: closer). A
-# character it hasn't: half a cell. The zero Font is Rinc's own, 5x8 (14 words: a pc.Text holding one is 16)
+# character it hasn't: half a cell. The zero Font is Rinc's own, 5x8 (15 words: a pc.Text holding one is 16)
 Font* :: struct
   image: Image
   cell: [2]Int
@@ -73,8 +78,7 @@ end
 # Rinc's own); font (left out: Rinc's own, 5x8, 6 pixels a character)
 Text* :: struct
   width: Int
-  line: Int
-  font: Font
+  font: Font   # its line spacing too: font.line (0: its cell's height; Rinc's own, 9): {font = {line = 12}}
 end
 print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in how's font (Rinc's 5x8, 6 pixels a character); a newline starts a line
 textSize* :: host proc(s: String, how?: Text) -> [2]Int # how big print draws it: its widest line's width, and its lines' height
@@ -303,11 +307,34 @@ ImageFormat* :: enum
   fromName
   png
 end
-imageLoad :: host proc(path: String, pixels: Blob[..]) -> [2]Int # (imageRead's: the pixels added, and its size)
-imageRead* :: proc(path: String, pixels: Blob[..]) -> Image
+# how imageRead reads one; left out, at its own depth (a 1, 2 or 4 bit one, packed, with its palette)
+ImageRead* :: struct
+  bytes: Bool  # a byte a pixel, each Rinc's color, whatever its depth: for an app that reads or edits pixels
+end
+imageLoad :: host proc(path: String, pixels: Blob[..], bytes: Bool) -> [3]Int # (imageRead's: what it added; its size, its depth)
+imageRead* :: proc(path: String, pixels: Blob[..], o?: ImageRead) -> Image
   start := pixels.len()
-  size := imageLoad(path, pixels)
+  got := imageLoad(path, pixels, o.bytes)
+  size := {got[0], got[1]}
+  if got[2] < 8 and size.x > 0 # (packed: its rows, then its palette)
+    return {pixels = pixels[start..<pixels.len()], size = size, depth = got[2]}
+  end
   return {pixels = pixels[start..<pixels.len()], size = size}
+end
+# a pixel's color, Rinc's, at p in a picture of any depth (0, see-through, outside it)
+imageAt* :: proc(image: Image, p: [2]Int) -> Int
+  if p.x < 0 or p.y < 0 or p.x >= image.size.x or p.y >= image.size.y
+    return 0
+  end
+  d := image.depth
+  if d <= 0 or d >= 8
+    return image.pixels[p.y * image.size.x + p.x]
+  end
+  row := (image.size.x * d + 7) / 8
+  bit := p.x * d
+  i := image.pixels[p.y * row + bit / 8] >> (8 - d - bit % 8) & ((1 << d) - 1)
+  if row * image.size.y + i < image.pixels.len() do return image.pixels[row * image.size.y + i] # (its palette's)
+  return i
 end
 imageNotes* :: host proc(path: String, out: Blob[..]) -> Int  # how many bytes, or -1 (none)
 # a number in t from at on, and where it stops
@@ -402,8 +429,7 @@ fontOf* :: proc(image: Image, n: FontNotes, room: Blob[..]) -> Font
     hi := -1
     for x in 0..<f.cell.x
       for y in 0..<f.cell.y
-        p := (corner.y + y) * image.size.x + corner.x + x
-        if corner.y + y < image.size.y and corner.x + x < image.size.x and image.pixels[p] != 0
+        if imageAt(image, corner + {x, y}) != 0
           lo = min(lo, x)
           hi = max(hi, x)
         end
