@@ -30,8 +30,20 @@ app is a Rio program.
 - **Priorities (2026-11-15), in order** (the user: keep them all listed; the 2026-11-14 list below is
   the history):
   1. Rio's compiler tables sharing their room (Rio's ROADMAP, Next), before Maps is trimmed (9 below).
-     Begun (2026-11-20): a program a little past a table compiled again with room for it (Maps: 397
-     procs, or 240 more lines); next, sized from a check's exact counts. Maps' limit now is its code.
+     Done (2026-11-20): a program past a table compiled again with its tables as a check counted them
+     (Maps: 397 procs, or about 15,900 instructions, from 14,800). Maps' limit now is its code; code
+     packed while compiling assessed and written up for later (Rio's ROADMAP: about +5,000 instructions
+     for Maps, then its running memory binds: its data, 146 KB of 256, is the place to look first).
+  1b. In and out, one way everywhere (the user, 2026-11-20: once current work settles, a priority):
+     getting files, apps and projects into and out of a Rinc made easy and the same on every Rinc.
+     A thumb drive on the board, a zip dropped on the desktop or web player, an export (rinc -export,
+     -web), a download from the web player: each one a volume that comes and goes, as a drive does
+     (a zip dropped is a drive plugged in; taking it out is saving it back). An app for it (Files', or
+     its own): what came in and what went out, when and from where, so work can be followed both ways;
+     and it ties to local history (what changed on the Rinc, and since when), so "what's new since I
+     last took this out" is one look. Recommended: one volume layer under Files (the card, a drive, a
+     zip, the host's folder alike: a path like /drive/...), so every app gets it at once; the in-and-out
+     app built on it; the thumb drive's RAM first (6 below: a few KB to free).
   2. Board speed everywhere, by default (the user, 2026-11-16): the desktop and the web run an app no
      faster than the Fruit Jam would (Rio's instructions metered to the board's measured rate, drawing
      and sound calls charged their board cost, a frame waiting when its budget's spent), so a game
