@@ -119,6 +119,8 @@ app is a Rio program.
        user, 2026-11-16): to check.
      - Pan in songs and sounds (the user, 2026-11-16; studio's ROADMAP, Pan): the C song player taking a
        pan for each sound placed and each use, the files carrying it.
+     - Parallel tracks in songs (the user, 2026-11-20; studio's ROADMAP): patterns side by side (a drum
+       track kept going), voices shifted to free ones and the last over dropped; with pan's file change.
      - More than one controller (the user, 2026-11-16): two or more players, each controller its own
        pc.btn (a player number).
      - Mouse and pointer measured (2026-11-16): about 90 bytes of RAM and 1.5 KB of flash; the USB HID
@@ -128,12 +130,17 @@ app is a Rio program.
        keyboard". Not decided (the user: worth considering).
   8. Smaller, any time: a picker for the clipboard's kept ones (Sys+V, say); the volume shown as it
      changes; one snippet for a whole project.
-     Also (the user, 2026-11-20): Paint feels sluggish drawing pixels and moving round the sprite grid:
-     arrows held move several cells before the screen shows any (it catches up when they're let go).
-     Measure a frame's drawing on the board (fw: timing, or pc.time around Paint's draw) and look at
-     both sides: Paint redrawing only what changed (the big sprite, the sheet, the colors each frame
-     now?) and Rinc's drawing calls in C (rect, blit, print: per-pixel clipping and calls, as the font's
-     was, 4x). The editor's full lines (a line of 12, the font whole) as a setting, compact the default:
+     Also (the user, 2026-11-20): Paint feels sluggish drawing pixels and moving round the sprite grid.
+     Measured on the board (the firmware console's new `frame`): Paint's draw is 3 to 6 ms (9 at most,
+     32x32 sprites), well inside a frame, so Rinc's C drawing wasn't it. It was Paint: on a font sheet,
+     its line of the font's letters was read and measured again each frame anything was held (48 ms a
+     frame: 209 of 1,194 frames slow with an arrow held; now 4 in 2,243, held 20 s), and its stash (the
+     whole sheet, 0.1 to 0.2 s on the card) was written every 3 seconds even while the arrows were held.
+     Done: the line redone only when a pixel or a key (not an arrow) may have changed it, and after a
+     stroke, not during it; the stash 3 seconds after the last input. Left: drawing a stroke on a font
+     sheet still has one 48 ms frame as it ends (the line could be kept glyph by glyph); a gap of about
+     0.3 s between frames shows while a key is held over serial (boardplay's hold), not yet looked at
+     with a USB keyboard (Sys+M's strip shows it there). The editor's full lines (a line of 12, the font whole) as a setting, compact the default:
      its 9s made a line height it keeps (keys.rio, screen.rio); the console app the same, later.
      Also (the user, 2026-11-20): Ctrl+Tab in every studio app as in the editor (the files had lately,
      walked while Ctrl's held), from one library (the editor's files.rio recent list and walk, moved

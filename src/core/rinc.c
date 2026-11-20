@@ -3005,8 +3005,13 @@ static void rinc_shot(void) {
   if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_appW, rinc_appH, "", 0, 1, 0, 0, 0)) rinc_noticeSay("Can't save ", path + 6);
   else rinc_noticeSay("Saved ", path + 6);
 }
+/* how long an app's frames take (the firmware console's frame says, since last asked): update's and draw's
+   time, in microseconds, summed and at most, over the frames counted */
+static double rinc_updSum, rinc_drawSum, rinc_updPeak, rinc_drawPeak, rinc_gapPeak, rinc_lastFrame;
+static uint32_t rinc_framesTimed, rinc_framesSlow; /* (slow: update and draw over a 60th of a second) */
 int rinc_frame(rio_Vm *vm) {
   int u = rio_findProc(vm, "update"), d = rio_findProc(vm, "draw");
+  double t0, t1, t2;
   /* the left stick pushed well over also counts as the arrows, as on PICO-8 (but not in pointer mode:
      there it moves the pointer) */
   if (rinc_pointerMode != 1) {
@@ -3023,8 +3028,19 @@ int rinc_frame(rio_Vm *vm) {
     if (rinc_cmdOn) { rinc_cmdFrame(); if (rinc_shotWanted) rinc_shot(); return 0; } /* (Print Screen: the list too) */
     if (rinc_cmdSettle && !rinc_buttons && !rinc_pointerHeld) rinc_cmdSettle = 0;
   }
+  t0 = rinc_time ? rinc_time() : 0;
   if (u >= 0 && rio_call(vm, u)) return -1;
+  t1 = rinc_time ? rinc_time() : 0;
   if (d >= 0 && rio_call(vm, d)) return -1;
+  t2 = rinc_time ? rinc_time() : 0;
+  if (vm != &rinc_nest) {
+    rinc_updSum += t1 - t0; rinc_drawSum += t2 - t1; rinc_framesTimed++;
+    if (t2 - t0 > 1.0 / 60) rinc_framesSlow++;
+    if (rinc_lastFrame > 0 && t0 - rinc_lastFrame > rinc_gapPeak) rinc_gapPeak = t0 - rinc_lastFrame; /* (from one frame's start to the next's) */
+    rinc_lastFrame = t0;
+    if (t1 - t0 > rinc_updPeak) rinc_updPeak = t1 - t0;
+    if (t2 - t1 > rinc_drawPeak) rinc_drawPeak = t2 - t1;
+  }
   if (rinc_shotWanted) rinc_shot();
   return 0;
 }
@@ -3328,6 +3344,17 @@ static int rinc_command(rinc_Repl *r) {
                (unsigned long)(us / blocks * 100 / span), (unsigned long)(us / blocks), (unsigned long)span, (unsigned long)(peak * 100 / span), (unsigned long)blocks);
       rinc_replSay(r, said);
     }
+    return 1;
+  }
+  if (w == 5 && n == 5 && !memcmp(s, "frame", 5)) { /* how long the app's frames take, since last asked (a frame is 16.7 ms at 60 a second) */
+    char said[200];
+    if (!rinc_framesTimed) rinc_replSay(r, "frame: none timed yet\r\n");
+    else {
+      snprintf(said, sizeof said, "frame: update %lu us (at most %lu), draw %lu us (at most %lu), over %lu frames, %lu slow; frames at most %lu us apart\r\n",
+               (unsigned long)(rinc_updSum * 1e6 / rinc_framesTimed), (unsigned long)(rinc_updPeak * 1e6), (unsigned long)(rinc_drawSum * 1e6 / rinc_framesTimed), (unsigned long)(rinc_drawPeak * 1e6), (unsigned long)rinc_framesTimed, (unsigned long)rinc_framesSlow, (unsigned long)(rinc_gapPeak * 1e6));
+      rinc_replSay(r, said);
+    }
+    rinc_updSum = rinc_drawSum = rinc_updPeak = rinc_drawPeak = rinc_gapPeak = rinc_lastFrame = 0; rinc_framesTimed = rinc_framesSlow = 0;
     return 1;
   }
   if (w == 2 && n == 2 && !memcmp(s, "ls", 2)) {

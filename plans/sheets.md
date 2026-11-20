@@ -189,7 +189,15 @@ read as it's drawn.
 
 Each step stands on its own; 1 and 2 give most of it.
 
-## Step 4: a brush is what's copied (proposed, 2026-11-20; revised with the user's notes)
+## Step 4: a brush is what's copied (done, 2026-11-20)
+
+Done as below: Ctrl+C and Ctrl+X hold the copy as the brush, Space, a click or A stamps it (0s
+see-through, a stamp an undo), Esc or a tool puts it down, H V T on the brush (T any shape), Ctrl+V picks
+up the newest (in the sheet view, a whole sprite pasted, 0s too), K the Brushes view. K keeps a 16x16
+thumbnail of each (2 KB: 8 whole ones, 8 KB, left Paint out of memory) and reads the one picked whole
+from the clipboard again (gone since: it says so). Tests in studio's tests/paint.py (8 cases), each
+shown to fail with its part taken out; the view checked on the board. Ctrl+Tab in the studio apps is
+next on its own (rinc's ROADMAP).
 
 Today Ctrl+C puts the selection (or the sprite: to 32x32) on the clipboard every app shares, kind
 "paint" (its width, height, whether it was a selection, its pixels), and Ctrl+V writes it once, at the
