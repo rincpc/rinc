@@ -108,7 +108,44 @@ for c in inks
   pc.print("01234567", {0, 20}, c, {font = twin})
   assert(same({0, 0}, {0, 20}, {40, 6}) and pc.pget({0, 1}) == c, "a 1-bit font printed as its twin, in its color")
 end
+# sheets written (imageWrite's sheet): the colors they use, as few bits as hold them, read back the same
+pic: Blob[13 * 7]
+counts := [4]Int{2, 3, 11, 21}
+bitsFor := [4]Int{1, 2, 4, 0}
+for k in 0..<4
+  for i in 0..<13 * 7 do pic[i] = (i * 7 + i / 13) % counts[k] # (0 to counts - 1: Rinc's colors, 0 see-through)
+  sheetName: Blob[..24]
+  _ = sheetName.print("/rinc/save/s", k, ".png") # (in its storage: an app run from a folder doesn't write there)
+  assert(pc.imageWrite(sheetName.asString(), {pixels = pic[], size = {13, 7}}, {sheet = true}) == 0, "a sheet written")
+  room.clear()
+  back := pc.imageRead(sheetName.asString(), room)
+  assert(back.depth == bitsFor[k], "as few bits as its colors need")
+  for i in 0..<13 * 7
+    assert(pc.imageAt(back, {i % 13, i / 13}) == pic[i], "read back as it was written")
+  end
+end
 log("depths came through")
 ''')
 r = subprocess.run([rinc, app, '-data', os.path.join(work, 'data'), '-frames', '1'], capture_output=True, text=True, timeout=60)
-print((r.stdout + r.stderr).strip())
+said = (r.stdout + r.stderr).strip()
+# each sheet's shape, for reading in place: one IDAT, zlib's header, then each row in a stored block of its own
+def shapeOf(path):
+  b, i, idats, depth, w, h = open(path, 'rb').read(), 8, [], 0, 0, 0
+  while i < len(b):
+    n, t = struct.unpack('>I4s', b[i:i + 8])
+    if t == b'IHDR': w, h, depth = struct.unpack('>IIB', b[i + 8:i + 17])
+    if t == b'IDAT': idats.append(b[i + 8:i + 8 + n])
+    i += 12 + n
+  if len(idats) != 1: return 'IDATs: %d' % len(idats)
+  d, rowBytes = idats[0], (w * depth + 7) // 8
+  for y in range(h):
+    at = 2 + y * (5 + 1 + rowBytes)
+    final, length, nlen = d[at], d[at + 1] | d[at + 2] << 8, d[at + 3] | d[at + 4] << 8
+    if final != (y == h - 1) or length != rowBytes + 1 or nlen != (~length & 0xffff) or d[at + 5] != 0: return 'row %d' % y
+  if zlib.decompress(d) is None: return 'not zlib'
+  return 'ok'
+for k in range(4):
+  path = os.path.join(work, 'data', 'save', 's%d.png' % k)
+  shape = shapeOf(path) if os.path.exists(path) else 'not written'
+  if shape != 'ok': said += '\nFAIL s%d.png, its shape: %s' % (k, shape)
+print(said)

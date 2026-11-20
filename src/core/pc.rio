@@ -463,6 +463,8 @@ ImageWrite* :: struct
   notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)
   format: ImageFormat  # fromName: as its name ends
   flags: []Int         # a sprite sheet's flags: x, y, flags for each sprite with any (8 bits), by its top left pixel
+  sheet: Bool          # as a sheet: the colors it uses its own palette, at as few bits as hold them (2 colors, 0
+                       # with them: 1 bit; 4: 2; 16: 4; else 8), its rows uncompressed, to be read in place
 end
 imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1
 # a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags

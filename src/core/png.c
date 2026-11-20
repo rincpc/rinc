@@ -117,18 +117,80 @@ static void rinc_pngFlagChunk(const int32_t *flags, int count, int w, int h) {
   if (rinc_fs->write((const char *)head, 4) != 4) rinc_pngBad = 1;
 }
 
-int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n0, int solid, const int32_t *flags, int flagCount) {
+/* a sheet's pixel data (sheet: rinc_pngWrite), streamed as one IDAT chunk of known length, its CRC as it goes */
+static uint32_t rinc_pngCrcRun;
+static void rinc_pngStreamOut(void) {
+  if (!rinc_pngOutLen) return;
+  rinc_pngCrcRun = rinc_crc(rinc_pngCrcRun, rinc_pngOut, rinc_pngOutLen);
+  if (rinc_fs->write((const char *)rinc_pngOut, (int)rinc_pngOutLen) != (int)rinc_pngOutLen) rinc_pngBad = 1;
+  rinc_pngOutLen = 0;
+}
+static void rinc_pngStreamByte(uint8_t b) {
+  rinc_pngOut[rinc_pngOutLen++] = b;
+  if (rinc_pngOutLen == sizeof rinc_pngOut) rinc_pngStreamOut();
+}
+/* a sheet's rows: each in a stored (uncompressed) block of its own, its filter byte 0 then its pixels packed
+   at depth, each pixel index[its color]; so row y is at a sum in the IDAT chunk (plans/sheets.md) */
+static void rinc_pngSheetData(const uint8_t *pixels, int w, int h, int depth, const uint8_t *index) {
+  uint32_t rowBytes = ((uint32_t)w * (uint32_t)depth + 7) / 8, len = 2 + (uint32_t)h * (5 + 1 + rowBytes) + 4, a = 1, b = 0;
+  uint8_t head[8], tail[4];
+  int x, y;
+  rinc_put32be(head, len);
+  memcpy(head + 4, "IDAT", 4);
+  if (rinc_fs->write((const char *)head, 8) != 8) rinc_pngBad = 1;
+  rinc_pngCrcRun = rinc_crc(0, head + 4, 4);
+  rinc_pngOutLen = 0;
+  rinc_pngStreamByte(0x78); rinc_pngStreamByte(0x01); /* (zlib: deflate, a 32 KB window) */
+  for (y = 0; y < h; y++) {
+    uint32_t n = rowBytes + 1, acc = 0, bits = 0;
+    rinc_pngStreamByte(y == h - 1); /* (stored; the last block: the last row) */
+    rinc_pngStreamByte((uint8_t)n); rinc_pngStreamByte((uint8_t)(n >> 8));
+    rinc_pngStreamByte((uint8_t)~n); rinc_pngStreamByte((uint8_t)(~n >> 8));
+#define rinc_SHEET_OUT(v) do { uint8_t o_ = (uint8_t)(v); rinc_pngStreamByte(o_); a = (a + o_) % 65521; b = (b + a) % 65521; } while (0)
+    rinc_SHEET_OUT(0); /* (filter: none) */
+    for (x = 0; x < w; x++) {
+      acc = acc << depth | index[pixels[(uint32_t)y * (uint32_t)w + (uint32_t)x]];
+      bits += (uint32_t)depth;
+      if (bits == 8) { rinc_SHEET_OUT(acc); acc = bits = 0; }
+    }
+    if (bits) rinc_SHEET_OUT(acc << (8 - bits));
+#undef rinc_SHEET_OUT
+  }
+  {
+    uint32_t d = b << 16 | a;
+    rinc_pngStreamByte((uint8_t)(d >> 24)); rinc_pngStreamByte((uint8_t)(d >> 16)); rinc_pngStreamByte((uint8_t)(d >> 8)); rinc_pngStreamByte((uint8_t)d);
+  }
+  rinc_pngStreamOut();
+  rinc_put32be(tail, rinc_pngCrcRun);
+  if (rinc_fs->write((const char *)tail, 4) != 4) rinc_pngBad = 1;
+}
+int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n0, int solid, const int32_t *flags, int flagCount, int sheet) {
   static const uint8_t signature[8] = {137, 'P', 'N', 'G', 13, 10, 26, 10};
-  uint8_t head[13], plte[768], trns[1] = {0};
-  uint32_t n, k, d, i;
+  uint8_t head[13], plte[768], trns[1] = {0}, index[256], used[256];
+  uint32_t n, k, d, i, colors = 256;
+  int depth = 8;
   if (!rinc_fs || w < 1 || h < 1 || w > 4096 || h > 4096 || n0 < 0 || n0 > rinc_PNG_NOTES || rinc_fs->open(path, 1)) return -1;
+  for (i = 0; i < 256; i++) index[i] = (uint8_t)i;
+  memset(used, 1, sizeof used); /* (a picture: every color, Rinc's palette as its own) */
+  if (sheet) { /* (a sheet: the colors it uses, 0 first, in order, as its own palette, as few bits as hold them) */
+    memset(used, 0, sizeof used);
+    used[0] = 1;
+    for (k = 0; k < (uint32_t)w * (uint32_t)h; k++) used[pixels[k]] = 1;
+    for (i = 0, colors = 0; i < 256; i++) if (used[i]) index[i] = (uint8_t)colors++;
+    depth = colors <= 2 ? 1 : colors <= 4 ? 2 : colors <= 16 ? 4 : 8;
+    if (depth == 8) { for (i = 0; i < 256; i++) index[i] = (uint8_t)i, used[i] = 1; colors = 256; } /* (8 bits: Rinc's palette, as ever) */
+  }
   rinc_pngBad = rinc_fs->write((const char *)signature, 8) != 8;
   rinc_put32be(head, (uint32_t)w);
   rinc_put32be(head + 4, (uint32_t)h);
-  head[8] = 8; head[9] = 3; head[10] = head[11] = head[12] = 0; /* (8 bits a pixel, indexed, not interlaced) */
+  head[8] = (uint8_t)depth; head[9] = 3; head[10] = head[11] = head[12] = 0; /* (indexed, at depth bits a pixel, not interlaced) */
   rinc_pngChunk("IHDR", head, 13);
-  for (i = 0; i < 256; i++) { uint32_t c = rinc_rgb((int)i); plte[i * 3] = (uint8_t)(c >> 16); plte[i * 3 + 1] = (uint8_t)(c >> 8); plte[i * 3 + 2] = (uint8_t)c; }
-  rinc_pngChunk("PLTE", plte, 768);
+  for (i = 0; i < 256; i++) {
+    uint32_t c = rinc_rgb((int)i), at = index[i];
+    if (!used[i]) continue; /* (a color it doesn't use: not in its palette) */
+    plte[at * 3] = (uint8_t)(c >> 16); plte[at * 3 + 1] = (uint8_t)(c >> 8); plte[at * 3 + 2] = (uint8_t)c;
+  }
+  rinc_pngChunk("PLTE", plte, colors * 3);
   if (!solid) rinc_pngChunk("tRNS", trns, 1); /* (color 0: see-through, but for a solid picture: the screen) */
   if (n0 > 0) { /* the app's notes: text, named Rinc (in plte's room, done with) */
     memcpy(plte, "Rinc", 5);
@@ -136,6 +198,12 @@ int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const c
     rinc_pngChunk("tEXt", plte, 5 + (uint32_t)n0);
   }
   if (flags && flagCount > 0) rinc_pngFlagChunk(flags, flagCount, w, h);
+  if (sheet) {
+    rinc_pngSheetData(pixels, w, h, depth, index);
+    rinc_pngChunk("IEND", 0, 0);
+    if (rinc_fs->close()) rinc_pngBad = 1;
+    return rinc_pngBad ? -1 : 0;
+  }
   rinc_pngPixels = pixels; rinc_pngW = (uint32_t)w; rinc_pngRow = rinc_pngStride > w ? (uint32_t)rinc_pngStride : (uint32_t)w;
   rinc_pngStride = 0;
   rinc_pngOutLen = rinc_pngBits = rinc_pngBitCount = 0; rinc_pngAdlerA = 1; rinc_pngAdlerB = 0;

@@ -126,6 +126,12 @@ read as it's drawn.
   tests/depths.py: each depth read, drawn (plain, scaled, mirrored, a part) and mapped as its bytes are, and
   a 1-bit font printed as its 8-bit twin. Fonts save memory once Paint writes low depths (step 2).
 
+- Step 2 done (2026-11-20): `ImageWrite.sheet`: the colors used, 0 first and then in order, as the file's
+  own palette, at 1, 2, 4 or 8 bits, its rows in stored blocks, one IDAT (so a row's at a sum). Paint saves
+  so: a sheet re-saved in Paint shrinks (a 1-color font, 1 bit). tests/depths.py: sheets of 2, 3, 11 and 21
+  colors written, read back at 1, 2, 4 and 8 bits, and each file's shape checked; Paint's tests read any
+  depth.
+
 ## Steps
 
 1. Low-depth sheets in memory, and the map: `Image.depth` and `palette`, `imageRead` at the file's depth

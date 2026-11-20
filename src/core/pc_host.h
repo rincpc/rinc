@@ -64,9 +64,10 @@ typedef struct {
   rio_View notes;
   int32_t format;
   rio_View flags;
+  int32_t sheet;
 } pc_ImageWrite;
-typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's size) */
-#define pc_ImageWrite_LAYOUT "{notes:String,format:Enum{fromName,png},flags:[]Int}"
+typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's size) */
+#define pc_ImageWrite_LAYOUT "{notes:String,format:Enum{fromName,png},flags:[]Int,sheet:Int}"
 
 #define pc_cls_SIG "i"
 #define pc_screen_SIG "Enum{full,half,quarter}"
@@ -293,7 +294,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x7f981003u /* (rio_hashText of the source) */
+#define pc_HASH 0xd10de3a2u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -760,6 +761,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 20 ? 1 : -1]; /* (Rio's
   "  notes: String        # the app's notes about it (text, up to 512 bytes, kept in the file: a sprite sheet's sprite size, say)\n" \
   "  format: ImageFormat  # fromName: as its name ends\n" \
   "  flags: []Int         # a sprite sheet's flags: x, y, flags for each sprite with any (8 bits), by its top left pixel\n" \
+  "  sheet: Bool          # as a sheet: the colors it uses its own palette, at as few bits as hold them (2 colors, 0\n" \
+  "                       # with them: 1 bit; 4: 2; 16: 4; else 8), its rows uncompressed, to be read in place\n" \
   "end\n" \
   "imageWrite* :: host proc(path: String, image: Image, o?: ImageWrite) -> Int # 0, or -1\n" \
   "# a sprite sheet's flags, as imageWrite kept them (docs/spec/apps.md#sprite-flags): imageFlags puts x, y, flags\n" \

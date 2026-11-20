@@ -29,7 +29,9 @@ uint32_t rinc_rgb(int i);                 /* the same, as 0xRRGGBB */
    pngNotes reads them back into out: how many bytes, or -1 (no such file, not a PNG, or none). solid:
    color 0 drawn as the rest are (the screen), not see-through (a sprite sheet) */
 #define rinc_PNG_NOTES 512
-int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n, int solid, const int32_t *flags, int flagCount);
+/* (sheet: as a sprite sheet, the colors it uses its own palette, at as few bits as hold them, 1, 2, 4 or 8,
+   its rows uncompressed, a stored block each, so a row can be read in place: plans/sheets.md) */
+int rinc_pngWrite(const char *path, const uint8_t *pixels, int w, int h, const char *notes, int n, int solid, const int32_t *flags, int flagCount, int sheet);
 extern int rinc_pngStride; /* (the next rinc_pngWrite's bytes from a row to the next: 0, w; the screen's, rinc_W) */
 /* a sprite sheet's flags (rinc_pngWrite's: x, y, flags, 3 Ints each, by a sprite's top left pixel), from the
    rnFg chunk: into out, 3 Ints each, as many as fit in cap Ints; or, with sprite w and h given, into bytes, a

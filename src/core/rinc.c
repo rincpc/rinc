@@ -1205,7 +1205,7 @@ static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
   if (!named || !p || w <= 0 || h <= 0 || (uint64_t)w * (uint32_t)h > im.pixels.len || o.notes.len > rinc_PNG_NOTES) return;
   if (!o.format && !(k > 4 && path[k - 4] == '.' && (path[k - 3] | 32) == 'p' && (path[k - 2] | 32) == 'n' && (path[k - 1] | 32) == 'g')) return; /* (fromName) */
   a[0].i = rinc_pngWrite(path, p, w, h, (const char *)rio_viewBytes(v, o.notes), (int)o.notes.len, 0,
-                         (const int32_t *)rio_viewBytes(v, o.flags), (int)(o.flags.len / 3));
+                         (const int32_t *)rio_viewBytes(v, o.flags), (int)(o.flags.len / 3), o.sheet);
 }
 /* imageFlags(path, out: []Int), imageSpriteFlags(path, w, h, out: []Int) -> Int: a sprite sheet's flags
    (rinc_pngFlags); imageFlag(path, name) -> Int: a flag's bit, by the name its notes give it ("flag 0 solid") */
@@ -2975,7 +2975,7 @@ static void rinc_shot(void) {
     if (!rinc_exists(path)) break;
   }
   rinc_pngStride = rinc_W; /* (the app's screen, as big as it is: its rows in the screen's) */
-  if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_appW, rinc_appH, "", 0, 1, 0, 0)) rinc_noticeSay("Can't save ", path + 6);
+  if (n == 1000 || rinc_pngWrite(path, &rinc_screen[0][0], rinc_appW, rinc_appH, "", 0, 1, 0, 0, 0)) rinc_noticeSay("Can't save ", path + 6);
   else rinc_noticeSay("Saved ", path + 6);
 }
 int rinc_frame(rio_Vm *vm) {
