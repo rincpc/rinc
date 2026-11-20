@@ -267,7 +267,9 @@ int rinc_audioProcs(rio_Vm *vm);
    that scrolls the screen (console.c) */
 extern const uint8_t rinc_fontSheet[]; /* Rinc's own font, a sheet's PNG (font.c: tools/fontsheet.py) */
 extern const uint32_t rinc_fontSheetLen;
-int rinc_fontBit(int c, int x, int y); /* (pixel x, y of c's 6x9 cell in it: 1, drawn) */
+int rinc_fontBit(int c, int x, int y); /* (pixel x, y of c's cell, compact, in it: 1, drawn) */
+int rinc_fontHeight(void), rinc_fontTopRows(void); /* (its glyphs' rows, and those above every ASCII one) */
+void rinc_charRows(int c, int x, int y, int fg, int bg, int top, int rows); /* (rows of c's cell from row top) */
 extern uint8_t rinc_textFg, rinc_textBg;
 void rinc_char(int c, int x, int y, int fg, int bg); /* bg < 0: transparent */
 void rinc_consolePut(const char *s, int n);

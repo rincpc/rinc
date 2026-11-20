@@ -169,6 +169,11 @@ read as it's drawn.
   glyphs; a pixel at a time, 0.601 s). Replacing the font (a 5x11 in 6x12, say) needs no name: the PNG
   replaced, and console.c's rinc_CW and rinc_CH (and print's 6 across) changed to its cell.
 
+- Rinc's own font replaced (2026-11-20): the user's rinc12 (5x11 in 6x12, 32 to 255, fixed width), its
+  cells from its notes; compact by default (a line of 9: the top 3 rows, above every ASCII glyph, worked out
+  and left out), whole at a line of 12; print reads UTF-8. p q r s t v w ~ were blank in it: the old
+  glyphs kept as placeholders. 2,609 bytes of flash. Paint's "Font: fixed width" command.
+
 ## Steps
 (3a, parts read into memory, comes before 3: simpler, no cache, and most of the use.)
 
@@ -184,35 +189,44 @@ read as it's drawn.
 
 Each step stands on its own; 1 and 2 give most of it.
 
-## Step 4: a brush is what's copied (proposed, 2026-11-20)
+## Step 4: a brush is what's copied (proposed, 2026-11-20; revised with the user's notes)
 
 Today Ctrl+C puts the selection (or the sprite: to 32x32) on the clipboard every app shares, kind
 "paint" (its width, height, whether it was a selection, its pixels), and Ctrl+V writes it once, at the
 cursor (a selection) or the sprite's corner, its 0s too. A brush and a copy are the same thing, some
 pixels of a size, so make them one:
 
-- **Ctrl+V picks the copy up as the brush.** It's shown at the cursor, under the mouse or the arrows,
-  not yet drawn; a click, Space or A stamps it, and stamps again as often as wanted (held and moved: a
-  stroke of it, as the pencil's); Esc or another tool puts it down. Pasting once is picking it up and
-  stamping once, so nothing is lost: Ctrl+V then Space is today's paste.
-- **Its 0s are see-through when stamped,** as pc.blit draws, so a brush has a shape (a round one, a
-  leaf). Ctrl+Shift+V stamps them too, writing a block as today's paste does.
-- **The brush is the clipboard's newest "paint" item;** the last 8 kept (clip's KEEP) are a kit to pick
-  from. Digits are flags in Paint, so the kit is rinc's clipboard picker (the roadmap's Next 8, Sys+V),
-  shown with the kind's pictures: one picker for every app, Paint's brushes among them.
+- **Ctrl+C (and Ctrl+X) picks the copy up as the brush, at once** (recommended, the user's idea). It's
+  shown at the cursor, under the mouse or the arrows, not yet drawn; a click, Space or A stamps it, and
+  stamps again as often as wanted (held and moved: a stroke of it, as the pencil's). Esc or a tool's key
+  puts it down (it stays on the clipboard). One undo a stamp, or a stroke.
+- **Its 0s are see-through when stamped,** as pc.blit draws, so a brush has a shape (the user: great).
+- **Ctrl+V:** in the pixel view, the clipboard's newest "paint" item picked up as the brush (another
+  run's, another sheet's); in the sheet view at the right, a whole sprite pasted into the sprite picked
+  there, all its pixels, 0s too, as today (the user: a sprite at a time still wanted).
+- **H, V and T act on the brush while it's held** (the sprite otherwise; the user likes it). T turns any
+  brush, square or not: it's its own block of pixels, so turned its width and height swap. A brush is
+  32x32 at most (the clipboard's room).
+- **Recent brushes:** the clipboard keeps the last 8 (clip's KEEP). A strip of them on Paint's screen if
+  there's room; there isn't much at 320x240 (the sprite and sheet are 128 square each, the colors at the
+  right), so a Brushes view, K, opened as C opens Colors: the 8 drawn in a row, the arrows or a click
+  picking one up, Esc back. Each kept brush is its own pixels, in clip's stash on the card (32x32 at most, a
+  file each), not a reference to its sheet, so a sheet moved, deleted or no longer a PNG costs nothing:
+  the view reads only the stash, and a stash file missing or short is skipped (as clip.paste skips one
+  now). If brushes were ever kept as a sheet's path and part, to save room, that fallback is needed: a
+  part that won't read drawn as an empty, crossed cell, and dropped from the list. Rinc's clipboard picker (the roadmap's Next 8, Sys+V) can share its drawing.
 - **From other sheets:** the clipboard is on the card and outlives a run, so a brush from another sheet
-  is Ctrl+O there, select, Ctrl+C, then back. Make the back one key: Ctrl+Tab (or Ctrl+O's list, its
-  first) opens the sheet before, at the sprite it was on, its undo kept. Showing a second sheet beside
-  Paint's own, read in part (3a), saves the trip but costs memory Paint's 80 KB sheet already uses on
-  the board (about 2.5 KB free): left for later, if the trip is felt.
-- **Brush tools:** H, V and T flip and turn the brush while it's held (not the sprite), and Z's sizes stay
-  the sprite's; a brush stays 32x32 at most (the clipboard's room).
-- **Maps:** its kit is tiles, already a brush; a "paint" item could be pasted there as tiles later, not in
-  this step.
+  is Ctrl+O there, Ctrl+C, then back with Ctrl+Tab: the editor's Ctrl+Tab (the files had lately, walked
+  while Ctrl's held) in every studio app, a library they share (rinc's ROADMAP). Showing a second sheet
+  beside Paint's own, read in part (3a), saves the trip but costs memory Paint's 80 KB sheet already uses
+  on the board (about 2.5 KB free): left for later, if the trip is felt.
+- **Later, not this step:** a gradients view (the user: likely needed); Maps pasting a "paint" item as
+  tiles.
 
-Tests: a brush stamped twice, then undone once (one undo a stamp); 0s see-through, and with Ctrl+Shift+V
-written; Ctrl+V and Space equal to today's paste; flipped while held; a brush copied in one Paint run
-and stamped in the next (another sheet); the back key's sheet and sprite.
+Tests: Ctrl+C then Space stamping (0s left alone), twice, undone once; Ctrl+V in the sheet view equal to
+today's paste; H, V and T on a held brush, T on a 3x5 one (5x3 after); Esc putting it down with the
+clipboard kept; a brush copied in one Paint run and stamped in the next; K's view picking the one
+before; Ctrl+Tab's walk, in each app.
 
 ## To decide (the user)
 
@@ -221,6 +235,7 @@ and stamped in the next (another sheet); the back key's sheet and sprite.
 - Whether Paint picks the depth by itself (recommended) or asks.
 - Whether a sheet's own palette is shown in Paint as its own row of colors.
 - Rinc's own font moved into flash as a sheet (step 3), replacing the font built into the code.
-- Step 4: Ctrl+V picking the copy up as a brush (recommended) or a separate brush tool; 0s see-through
-  when stamped (recommended) and Ctrl+Shift+V for a block; the kit as rinc's clipboard picker
-  (recommended) or Paint's own; the back key (Ctrl+Tab, recommended); a second sheet shown beside, later.
+- Step 4 (left to decide): Ctrl+C holding the brush at once (recommended); Ctrl+Tab from a library every studio app shares (recommended); a second sheet beside,
+  later. K for the Brushes view: the user left the key to the assistant (2026-11-20; Ctrl+Tab is the
+  recent sheets, to pick brushes from). The user's already: 0s see-through, Ctrl+V a whole sprite in the sheet view, H/V/T on the
+  brush, T turning any shape.

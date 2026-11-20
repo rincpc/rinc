@@ -164,11 +164,17 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
    one's gap not counted) and its height, into size */
 #define rinc_CHAR_W 6
 #define rinc_LINE_H 9
-/* a font, as print uses it (pc.Font, its views read): none (font.px NULL) for Rinc's own, 5x8 in 6x9 */
-typedef struct { const uint8_t *px, *glyphs; int pw, ph, cw, ch, first, last, line, gap, space, colors, across, nglyphs; rinc_Pic pic; } rinc_Font;
+/* a font, as print uses it (pc.Font, its views read): none (font.px NULL) for Rinc's own, 5x11 in 6x12, compact
+   unless the line asks for more: a line of 9 (the default) leaves out its glyphs' top 3 rows (above every ASCII
+   glyph: the accents over capitals), a line of 12 has them all (top: the rows left out; rows: those drawn) */
+typedef struct { const uint8_t *px, *glyphs; int pw, ph, cw, ch, first, last, line, gap, space, colors, across, nglyphs, top, rows; rinc_Pic pic; } rinc_Font;
 static void rinc_fontOf(rio_Vm *v, const pc_Font *f, rinc_Font *u) {
+  int lh, cut;
   memset(u, 0, sizeof *u);
   u->line = f->line; /* (Rinc's own font's line spacing too: {font = {line = 12}}) */
+  lh = u->line > 0 ? u->line : rinc_LINE_H; cut = rinc_fontHeight() + 1 - lh;
+  u->top = cut < 0 ? 0 : cut > rinc_fontTopRows() ? rinc_fontTopRows() : cut;
+  u->rows = rinc_fontHeight() - u->top;
   if (f->cell[0] <= 0 || f->cell[1] <= 0 || f->last < f->first || f->image.size[0] <= 0) return;
   if (!rinc_picOf(v, &f->image, 0, &u->pic)) return; /* (its picture: any depth) */
   u->px = u->pic.px;
@@ -190,7 +196,7 @@ static int rinc_advance(const rinc_Font *u, int c) {
 static int rinc_trailing(const rinc_Font *u) { return !u->px ? 1 : u->gap; }
 static void rinc_glyph(const rinc_Font *u, int c, int x, int y, int color) {
   int g = c - u->first, gx, gy, left = 0, w = u->cw, i, j;
-  if (!u->px) { rinc_char(c, x, y, color, -1); return; }
+  if (!u->px) { rinc_charRows(c, x, y, color, -1, u->top, u->rows); return; }
   if (g < 0 || c > u->last) return;
   if (u->glyphs) { if (g >= u->nglyphs) return; left = u->glyphs[g * 2]; w = u->glyphs[g * 2 + 1]; }
   gx = g % u->across * u->cw + left; gy = g / u->across * u->ch;
@@ -204,16 +210,28 @@ static void rinc_glyph(const rinc_Font *u, int c, int x, int y, int color) {
     }
   }
 }
+/* the code point at s[*i] (UTF-8), *i past it: a byte that isn't UTF-8's, U+FFFD (drawn as the font's
+   missing ones are) */
+static int rinc_utf8(const char *s, int n, int *i) {
+  int b = (unsigned char)s[*i], more = b >= 0xF0 && b < 0xF8 ? 3 : b >= 0xE0 ? 2 : b >= 0xC0 ? 1 : 0, c = b & (0x3F >> more), k;
+  if (b < 0x80 || !more) { (*i)++; return b < 0x80 ? b : 0xFFFD; }
+  for (k = 1; k <= more; k++) {
+    if (*i + k >= n || ((unsigned char)s[*i + k] & 0xC0) != 0x80) { (*i)++; return 0xFFFD; }
+    c = c << 6 | ((unsigned char)s[*i + k] & 0x3F);
+  }
+  *i += more + 1;
+  return c;
+}
 static void rinc_textLay(const char *s, int n, int width, int lineH, const rinc_Font *u, int draw, int x, int y, int c, int size[2]) {
-  int lh = lineH > 0 ? lineH : !u->px ? rinc_LINE_H : u->line > 0 ? u->line : u->ch, glyphH = !u->px ? 8 : u->ch;
+  int lh = lineH > 0 ? lineH : !u->px ? rinc_LINE_H : u->line > 0 ? u->line : u->ch, glyphH = !u->px ? u->rows : u->ch;
   int trail = rinc_trailing(u), wraps = width > 0 && width >= (u->px ? u->cw : rinc_CHAR_W) - trail, i = 0, line = 0, widest = 0;
   while (i < n) {
     int end = i, k, take, w = 0, lastSpace = -1, j, px; /* (this line: i to take, then on from k) */
     while (end < n && s[end] != '\n') {
-      int a = rinc_advance(u, (unsigned char)s[end]);
+      int at = end, a = rinc_advance(u, rinc_utf8(s, n, &at));
       if (wraps && end > i && w + a - trail > width) break; /* (it doesn't fit: the line ends before it) */
       if (s[end] == ' ') lastSpace = end;
-      w += a; end++;
+      w += a; end = at;
     }
     take = end; k = end;
     if (end < n && s[end] == '\n') k = end + 1;
@@ -221,9 +239,10 @@ static void rinc_textLay(const char *s, int n, int width, int lineH, const rinc_
       if (s[end] == ' ') k = end + 1;
       else if (lastSpace > i) { take = lastSpace; k = lastSpace + 1; }
     }
-    for (j = i, px = 0; j < take; j++) { /* (drawn, and measured: the gap past its last character not counted) */
-      if (draw) rinc_glyph(u, (unsigned char)s[j], x + px, y + line * lh, c);
-      px += rinc_advance(u, (unsigned char)s[j]);
+    for (j = i, px = 0; j < take;) { /* (drawn, and measured: the gap past its last character not counted) */
+      int ch = rinc_utf8(s, take, &j);
+      if (draw) rinc_glyph(u, ch, x + px, y + line * lh, c);
+      px += rinc_advance(u, ch);
     }
     if (take > i && px - trail > widest) widest = px - trail;
     line++;

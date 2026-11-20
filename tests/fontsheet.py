@@ -1,6 +1,7 @@
 """python fontsheet.py path/to/rinc work-folder: Rinc's own font, drawn from its sheet where it lies (font.c:
-src/core/rinc-font.png's bytes): every character 32 to 126 printed in a grid, each pixel as the PNG has it
-(decoded here, apart from Rinc). Prints "fontsheet came through" """
+src/core/rinc-font.png's bytes, its cells as its notes say): every ASCII character printed in a grid, compact
+(print's default, a line of 9: the rows above every ASCII glyph left out) and full (a line of 12), and Latin-1
+ones as UTF-8, each pixel as the PNG has it (decoded here, apart from Rinc). Prints "fontsheet came through" """
 import os, shutil, struct, subprocess, sys, zlib
 
 rinc, work = os.path.abspath(sys.argv[1]), sys.argv[2]
@@ -11,28 +12,34 @@ b, i, c = open(os.path.join(here, '..', 'src', 'core', 'rinc-font.png'), 'rb').r
 while i < len(b):
     n, t = struct.unpack('>I4s', b[i:i + 8]); c[t] = c.get(t, b'') + b[i + 8:i + 8 + n]; i += 12 + n
 w, h, depth = struct.unpack('>IIB', c[b'IHDR'][:9])
+notes = dict(l.split(' ', 1) for l in c[b'tEXt'].split(b'\0', 1)[1].decode().splitlines() if ' ' in l)
+cw, ch = map(int, notes['sprite'].split('x'))
+first, last = map(int, notes['font'].split())
+across = int(notes['across'])
 rows, rb = zlib.decompress(c[b'IDAT']), (w * depth + 7) // 8
-def bit(x, y): return rows[y * (rb + 1) + 1 + x // 8] >> (7 - x % 8) & 1
+def bit(ch_, x, y):
+    if ch_ <= first or ch_ > last: return 0
+    g = ch_ - first; sx, sy = g % across * cw + x, g // across * ch + y
+    return rows[sy * (rb + 1) + 1 + sx // 8] >> (7 - sx % 8) & 1
+top = min(y for k in range(33, 127) for y in range(ch) for x in range(cw) if bit(k, x, y))
+chars = list(range(33, 127)) + [0xC9, 0xE9, 0xF1, 0xA9] # (É é ñ ©: UTF-8, two bytes each)
 app = os.path.join(work, 'grid.rio')
-open(app, 'w', newline='\n').write('''pc.cls(1)
-line: Blob[..16]
-for ch in 32..<127
-  line.clear()
-  _ = line.push(ch)
-  pc.print(line.asString(), {(ch - 32) % 16 * 6, (ch - 32) / 16 * 9}, 7)
-end
-update* :: proc() # (running on: no "(done)" over it)
-end
-''')
+src = ['pc.cls(1)', 'line: Blob[..16]', 'chars := []Int{%s}' % ', '.join(map(str, chars)), 'for i in 0..<chars.len()',
+       '  line.clear()', '  k := chars[i]', '  if k < 128', '    _ = line.push(k)', '  else',
+       '    _ = line.push(192 + k / 64) and line.push(128 + k % 64)', '  end',
+       '  pc.print(line.asString(), {i % 32 * 6, i / 32 * 9}, 7)',
+       '  pc.print(line.asString(), {i % 32 * 6, 60 + i / 32 * 12}, 7, {font = {line = 12}})', 'end',
+       'update* :: proc() # (running on: no "(done)" over it)', 'end', '']
+open(app, 'w', newline='\n').write('\n'.join(src))
 shot = os.path.join(work, 'grid.ppm')
-subprocess.run([rinc, app, '-data', os.path.join(work, 'data'), '-frames', '1', '-o', shot], capture_output=True, timeout=60)
+out = subprocess.run([rinc, app, '-data', os.path.join(work, 'data'), '-frames', '1', '-o', shot], capture_output=True, text=True, timeout=60)
 px = open(shot, 'rb').read()[-320 * 240 * 3:]
 bad = []
-for ch in range(32, 127):
-    g = ch - 32
-    for y in range(8): # (print draws a glyph's 8 rows of its 9)
-        for x in range(6):
-            sx, sy = g % 16 * 6 + x, g // 16 * 9 + y
-            lit = px[(sy * 320 + sx) * 3:(sy * 320 + sx) * 3 + 3] != px[0:3] # (not the background)
-            if lit != bool(bit(sx, sy)): bad.append((chr(ch), x, y))
-print('fontsheet came through' if not bad else 'FAIL: %d pixels differ, first %r' % (len(bad), bad[:4]))
+for n, k in enumerate(chars):
+    for y0, cut, tall in ((n // 32 * 9, top, ch - top), (60 + n // 32 * 12, 0, ch)):
+        for y in range(tall):
+            for x in range(cw + 1):
+                sx, sy = n % 32 * 6 + x, y0 + y
+                lit = px[(sy * 320 + sx) * 3:(sy * 320 + sx) * 3 + 3] != px[0:3] # (not the background)
+                if lit != bool(x < cw and bit(k, x, y + cut)): bad.append((chr(k), cut, x, y))
+print('fontsheet came through' if not bad else 'FAIL: %d pixels differ, first %r %s' % (len(bad), bad[:4], out.stdout[-300:]))

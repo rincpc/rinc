@@ -1,4 +1,4 @@
-/* text on the screen: 53 columns by 26 rows of 6x9 cells in the 5x8 font, a pixel in from the left
+/* text on the screen: 53 columns by 26 rows of 6x9 cells in Rinc's font, compact (5x11 glyphs, their top 3 rows left out), a pixel in from the left
    and top (320 = 53 x 6 + 2: a pixel each side; 240 = 26 x 9 + 6: the bottom gets the other 5).
    Writing past the last row scrolls the whole screen up a row, drawings included, as on PICO-8. A
    line cursor marks where the next character goes: a pixel wide, in the gap just before it (each
@@ -28,47 +28,91 @@ static int rinc_esc; /* escapes: 0 none, 1 ESC seen, 2 in ESC [ */
 static const uint8_t rinc_ansi[16] = {0, 8, 11, 10, 12, 14, 12, 6, 5, 8, 11, 10, 12, 14, 12, 7};
 static int rinc_escp[3], rinc_nescp; /* an escape's numbers so far */
 
-/* Rinc's own font: a sheet like any user font (font.c: rinc-font.png's bytes, 6x9 cells, 16 across, 32 to 126,
-   1 bit, its rows uncompressed), read where it lies: its first row's pixels, and a row's step (its pixels, and
-   the next row's stored block header and filter byte) */
+/* Rinc's own font: a sheet like any user font (font.c: rinc-font.png's bytes, 1 bit, its rows uncompressed),
+   read where it lies: its first row's pixels, a row's step (its pixels, and the next row's stored block header
+   and filter byte), and its cells as its notes say ("sprite 5x11", "font 32 255", "across 16"). Fixed width:
+   a glyph and a gap column, rinc_CW. Its top: the rows above every ASCII glyph (the accents' room, over
+   capitals), which a compact line leaves out: 11 tall, its top 3, a line of 9 (rinc_CH, the console's) */
 static const uint8_t *rinc_fontRows;
 static uint32_t rinc_fontStep;
+static int rinc_fontW = 5, rinc_fontH = 8, rinc_fontFirst = 32, rinc_fontLast = 126, rinc_fontAcross = 16, rinc_fontTop;
+static int rinc_noted(const uint8_t *t, uint32_t n, const char *key, int *a, int *b) { /* "key A" or "key AxB", "key A B" */
+  uint32_t i, k = (uint32_t)strlen(key);
+  for (i = 0; i + k < n; i++) if ((i == 0 || t[i - 1] == '\n' || t[i - 1] == 0) && !memcmp(t + i, key, k) && t[i + k] == ' ') {
+    int v = 0, w = 0, two = 0;
+    for (i += k + 1; i < n && t[i] != '\n'; i++) {
+      if (t[i] >= '0' && t[i] <= '9') { if (two) w = w * 10 + t[i] - '0'; else v = v * 10 + t[i] - '0'; }
+      else two = 1;
+    }
+    *a = v; if (b) *b = w;
+    return 1;
+  }
+  return 0;
+}
+static int rinc_fontRowAt(int c, int y, int x) { /* (its glyph's pixel x, y: c a character it has) */
+  int g = c - rinc_fontFirst, sx = g % rinc_fontAcross * rinc_fontW + x;
+  return rinc_fontRows[(uint32_t)(g / rinc_fontAcross * rinc_fontH + y) * rinc_fontStep + (uint32_t)(sx >> 3)] >> (7 - (sx & 7)) & 1;
+}
 static void rinc_fontFind(void) {
   uint32_t at = 8, w = 0;
+  int c, y, x, top;
   while (at + 8 <= rinc_fontSheetLen) {
     uint32_t len = (uint32_t)rinc_fontSheet[at] << 24 | (uint32_t)rinc_fontSheet[at + 1] << 16 | (uint32_t)rinc_fontSheet[at + 2] << 8 | rinc_fontSheet[at + 3];
     const uint8_t *t = rinc_fontSheet + at + 4;
     if (!memcmp(t, "IHDR", 4)) w = (uint32_t)t[4] << 24 | (uint32_t)t[5] << 16 | (uint32_t)t[6] << 8 | t[7];
-    if (!memcmp(t, "IDAT", 4)) { rinc_fontStep = (w + 7) / 8 + 6; rinc_fontRows = t + 4 + 2 + 6; return; } /* (zlib's header; a row's block header and filter) */
+    if (!memcmp(t, "tEXt", 4)) {
+      rinc_noted(t + 4, len, "sprite", &rinc_fontW, &rinc_fontH);
+      rinc_noted(t + 4, len, "font", &rinc_fontFirst, &rinc_fontLast);
+      rinc_noted(t + 4, len, "across", &rinc_fontAcross, 0);
+    }
+    if (!memcmp(t, "IDAT", 4)) { rinc_fontStep = (w + 7) / 8 + 6; rinc_fontRows = t + 4 + 2 + 6; break; } /* (zlib's header; a row's block header and filter) */
     at += 12 + len;
   }
+  if (rinc_fontW < 1 || rinc_fontW > rinc_CW - 1) rinc_fontW = rinc_CW - 1; /* (to 9: one 16-bit window a row) */
+  if (rinc_fontAcross < 1) rinc_fontAcross = 16;
+  for (top = rinc_fontH, c = 33; rinc_fontRows && c < 127; c++)
+    for (y = 0; y < top && c >= rinc_fontFirst && c <= rinc_fontLast; y++)
+      for (x = 0; x < rinc_fontW; x++) if (rinc_fontRowAt(c, y, x)) { top = y; break; }
+  rinc_fontTop = top < rinc_fontH ? top : 0;
 }
-/* pixel x, y of character c's 6x9 cell in Rinc's own font: 1 if it's drawn (a character it hasn't: a space) */
+/* its glyphs' height and the rows above the ASCII ones (print: a line shorter than the full one, height + 1,
+   leaves out as many of those as it needs) */
+int rinc_fontHeight(void) { if (!rinc_fontRows) rinc_fontFind(); return rinc_fontH; }
+int rinc_fontTopRows(void) { if (!rinc_fontRows) rinc_fontFind(); return rinc_fontTop; }
+/* pixel x, y of character c's cell, compact (from its top), in Rinc's own font: 1 if it's drawn (a character it
+   hasn't: a space) */
 int rinc_fontBit(int c, int x, int y) {
-  int g = c > 32 && c < 127 ? c - 32 : 0, sx = g % 16 * rinc_CW + x;
   if (!rinc_fontRows) rinc_fontFind();
-  if (!rinc_fontRows || x < 0 || x >= rinc_CW || y < 0 || y >= rinc_CH) return 0;
-  return rinc_fontRows[(uint32_t)(g / 16 * rinc_CH + y) * rinc_fontStep + (uint32_t)(sx >> 3)] >> (7 - (sx & 7)) & 1;
+  if (c <= rinc_fontFirst || c > rinc_fontLast) c = rinc_fontFirst;
+  if (!rinc_fontRows || x < 0 || x >= rinc_fontW || y < 0 || y + rinc_fontTop >= rinc_fontH) return 0;
+  return rinc_fontRowAt(c, y + rinc_fontTop, x);
 }
-/* character c at pixel x, y, in fg; bg < 0 leaves the cell's other pixels alone. A row's cell is read as
-   one 16-bit window (rinc_CW to 9; a row's next bytes are still the PNG's), as fast as the old table:
-   rinc_fontBit a pixel at a time was 4x slower */
-void rinc_char(int c, int x, int y, int fg, int bg) {
-  int r, k, g = c > 32 && c < 127 ? c - 32 : 0, cx = g % 16 * rinc_CW, sh = 16 - (cx & 7) - rinc_CW;
+/* character c (a code point: one the font hasn't, a space) at pixel x, y, in fg: rows of its cell from row
+   top, its glyph's, then gap; bg < 0 leaves the cell's other pixels alone. A row's cell is read as one 16-bit
+   window (a row's next bytes are still the PNG's), as fast as the old table: a pixel at a time was 4x slower */
+void rinc_charRows(int c, int x, int y, int fg, int bg, int top, int rows) {
+  int r, k, g, cx, sh;
   const uint8_t *row;
   if (!rinc_fontRows) rinc_fontFind();
   if (!rinc_fontRows) return;
-  row = rinc_fontRows + (uint32_t)(g / 16 * rinc_CH) * rinc_fontStep + (uint32_t)(cx >> 3);
-  for (r = 0; r < rinc_CH; r++, row += rinc_fontStep) {
-    int py = y + r, bits = (row[0] << 8 | row[1]) >> sh;
+  if (c <= rinc_fontFirst || c > rinc_fontLast) c = rinc_fontFirst;
+  g = c - rinc_fontFirst; cx = g % rinc_fontAcross * rinc_fontW; sh = 16 - (cx & 7) - rinc_fontW;
+  row = rinc_fontRows + (uint32_t)(g / rinc_fontAcross * rinc_fontH + top) * rinc_fontStep + (uint32_t)(cx >> 3);
+  for (r = 0; r < rows; r++, row += rinc_fontStep) {
+    int py = y + r, bits = top + r < rinc_fontH ? (row[0] << 8 | row[1]) >> sh : 0;
     if (py < 0 || py >= rinc_appH) continue;
     for (k = 0; k < rinc_CW; k++) {
       int px = x + k;
       if (px < 0 || px >= rinc_appW) continue;
-      if (bits >> (rinc_CW - 1 - k) & 1) rinc_screen[py][px] = (uint8_t)fg;
+      if (k < rinc_fontW && bits >> (rinc_fontW - 1 - k) & 1) rinc_screen[py][px] = (uint8_t)fg;
       else if (bg >= 0) rinc_screen[py][px] = (uint8_t)bg;
     }
   }
+}
+/* the console's: compact, a line of rinc_CH */
+void rinc_char(int c, int x, int y, int fg, int bg) {
+  if (!rinc_fontRows) rinc_fontFind();
+  rinc_charRows(c, x, y, fg, bg, rinc_fontTop, rinc_CH);
 }
 
 static void rinc_cursor(int on) { /* a line in its own color, with the pixels beneath kept */

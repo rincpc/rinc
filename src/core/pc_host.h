@@ -302,7 +302,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x5821bec9u /* (rio_hashText of the source) */
+#define pc_HASH 0x16ba7bc3u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -367,7 +367,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "# own colors (else each glyph's pixels are print's color). A proportional one has glyphs, two bytes for\n" \
   "# each: where it starts in its cell, and how wide it is (its empty columns trimmed; an empty one, a\n" \
   "# space's width); a fixed one, each glyph its cell's width; gap pixels after each (negative: closer). A\n" \
-  "# character it hasn't: half a cell. The zero Font is Rinc's own, 5x8 (15 words: a pc.Text holding one is 16)\n" \
+  "# character it hasn't: half a cell. The zero Font is Rinc's own, 5x11 in 6x12, compact (15 words: a pc.Text holding one is 16)\n" \
   "Font* :: struct\n" \
   "  image: Image\n" \
   "  cell: [2]Int\n" \
@@ -381,12 +381,12 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "end\n" \
   "# how print lays text out: its width, in pixels (0: no wrapping; past it, a line breaks at a space, and a\n" \
   "# word longer than a line where it must); line, pixels from a line to the next (0: the font's: 9 for\n" \
-  "# Rinc's own); font (left out: Rinc's own, 5x8, 6 pixels a character)\n" \
+  "# Rinc's own); font (left out: Rinc's own, 5x11, 6 pixels a character)\n" \
   "Text* :: struct\n" \
   "  width: Int\n" \
-  "  font: Font   # its line spacing too: font.line (0: its cell's height; Rinc's own, 9): {font = {line = 12}}\n" \
+  "  font: Font   # its line spacing too: font.line (0: its cell's height; Rinc's own, 9, compact: its top 3 rows left out): {font = {line = 12}}, whole\n" \
   "end\n" \
-  "print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in how's font (Rinc's 5x8, 6 pixels a character); a newline starts a line\n" \
+  "print* :: host proc(s: String, pos: [2]Int, c: Int, how?: Text) # text at its top left, in how's font (Rinc's 5x11, 6 pixels a character; UTF-8); a newline starts a line\n" \
   "textSize* :: host proc(s: String, how?: Text) -> [2]Int # how big print draws it: its widest line's width, and its lines' height\n" \
   "\n" \
   "# ---------------------------------------------------------------- input\n" \

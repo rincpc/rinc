@@ -128,6 +128,23 @@ app is a Rio program.
        keyboard". Not decided (the user: worth considering).
   8. Smaller, any time: a picker for the clipboard's kept ones (Sys+V, say); the volume shown as it
      changes; one snippet for a whole project.
+     Also (the user, 2026-11-20): Paint feels sluggish drawing pixels and moving round the sprite grid:
+     arrows held move several cells before the screen shows any (it catches up when they're let go).
+     Measure a frame's drawing on the board (fw: timing, or pc.time around Paint's draw) and look at
+     both sides: Paint redrawing only what changed (the big sprite, the sheet, the colors each frame
+     now?) and Rinc's drawing calls in C (rect, blit, print: per-pixel clipping and calls, as the font's
+     was, 4x). The editor's full lines (a line of 12, the font whole) as a setting, compact the default:
+     its 9s made a line height it keeps (keys.rio, screen.rio); the console app the same, later.
+     Also (the user, 2026-11-20): Ctrl+Tab in every studio app as in the editor (the files had lately,
+     walked while Ctrl's held), from one library (the editor's files.rio recent list and walk, moved
+     out), with Paint's step 4 (plans/sheets.md). A gradients view in Paint, later.
+     To fix later: a map's tile numbers are a sheet's sprites counted across its rows, so a sheet saved
+     wider (Paint saves as wide as what's drawn) renumbers them. Maps notes each sheet's across and
+     renumbers when it opens a map (tilemap's refit), but a game's tilemap.load doesn't, so the game
+     shows the wrong tiles until the map is opened in Maps and saved; and Rio code naming sprites by
+     number (pc.spr) has nothing to renumber it. Recommended: Paint keeps a sheet's across in its notes
+     and saves at least that wide (as it does for fonts), so numbers never move; readSheets refitting
+     too, as a fallback.
   9. Later: the messages library (dialog, visual novels: under 4 below); drawing speed (8 below);
      sizes on disk (9b below).
 

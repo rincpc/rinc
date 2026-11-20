@@ -74,17 +74,19 @@ log(pc.screenSize())
 
 ## Text
 
-`pc.print` draws each byte of the text with Rinc's 5x8 font: the pixels of the character's glyph become
-`c`, and the rest are left as they are. Characters other than ASCII 33 to 126 draw nothing, and every
-character moves 6 pixels to the right. The glyphs are the table in
-[`src/core/font.c`](https://github.com/rincpc/rinc/blob/main/src/core/font.c): 8 rows of 5 bits for each
-character, bit 0 the leftmost pixel.
+`pc.print` draws each character of the text (UTF-8: a code point each) with Rinc's own font, 5x11 glyphs
+in 6x12 cells, fixed width: the pixels of the character's glyph become `c`, and the rest are left as they
+are. It has ASCII and Latin-1, 33 to 255 (é, ñ, ©); the others draw nothing, and every character moves 6
+pixels to the right. It's compact unless asked: a line of 9 pixels (the default) leaves out the glyphs' top
+3 rows, which no ASCII glyph uses (the accents over capitals: É is drawn as E there), and a line of 12
+(`{font = {line = 12}}`) has them all; a line between leaves out what it must. Rinc works the 3 out from
+the glyphs themselves (the rows above every ASCII one), so a font with other proportions needs no note.
 
 A newline starts the next line, 9 pixels down. `pc.print(s, pos, c, how)` lays the text out as `how`, a
 `pc.Text`, says: `width`, in pixels, wraps it, a line breaking at the last space that fits (the space
 not drawn) and a word longer than a line breaking where it must; its `font`'s `line` is the pixels from a
-line to the next (0: its cell's height; Rinc's own, 9): `{font = {line = 12}}` spaces Rinc's own font 12
-apart. `pc.textSize(s, how?)` is how big `print` draws it: its widest line's width
+line to the next (0: its cell's height; Rinc's own, 9, compact): `{font = {line = 12}}` spaces Rinc's own
+font 12 apart, its glyphs whole. `pc.textSize(s, how?)` is how big `print` draws it: its widest line's width
 and its lines' height, for a box around it or text placed by its size.
 
 ```rio
@@ -99,9 +101,11 @@ log(pc.textSize("a\nbc"))
 
 ## Fonts
 
-Rinc's own font is such a sheet too: `src/core/rinc-font.png` (6x9 cells, 16 across, 32 to 126, 1 bit,
-saved uncompressed), carried in the firmware as the file's bytes and drawn from where they lie (edit it in
-Paint, then `python tools/fontsheet.py` makes `font.c` again).
+Rinc's own font is such a sheet too: `src/core/rinc-font.png` (5x11 cells, 16 across, 32 to 255, 1 bit,
+saved uncompressed), carried in the firmware as the file's bytes and drawn from where they lie, its cells
+as its notes say. To change it, draw it in Paint (any depth), then `python tools/fontsheet.py --from
+it.png`: it writes `rinc-font.png` and `font.c` (an ASCII glyph left blank keeps the one there now, named
+as a placeholder).
 
 A font is a sheet of glyphs, a picture in cells of one size, a character a cell across its rows: Paint
 makes one as it makes a sprite sheet. Its notes say what it is, a line each:
