@@ -28,17 +28,38 @@ static int rinc_esc; /* escapes: 0 none, 1 ESC seen, 2 in ESC [ */
 static const uint8_t rinc_ansi[16] = {0, 8, 11, 10, 12, 14, 12, 6, 5, 8, 11, 10, 12, 14, 12, 7};
 static int rinc_escp[3], rinc_nescp; /* an escape's numbers so far */
 
+/* Rinc's own font: a sheet like any user font (font.c: rinc-font.png's bytes, 6x9 cells, 16 across, 32 to 126,
+   1 bit, its rows uncompressed), read where it lies: its first row's pixels, and a row's step (its pixels, and
+   the next row's stored block header and filter byte) */
+static const uint8_t *rinc_fontRows;
+static uint32_t rinc_fontStep;
+static void rinc_fontFind(void) {
+  uint32_t at = 8, w = 0;
+  while (at + 8 <= rinc_fontSheetLen) {
+    uint32_t len = (uint32_t)rinc_fontSheet[at] << 24 | (uint32_t)rinc_fontSheet[at + 1] << 16 | (uint32_t)rinc_fontSheet[at + 2] << 8 | rinc_fontSheet[at + 3];
+    const uint8_t *t = rinc_fontSheet + at + 4;
+    if (!memcmp(t, "IHDR", 4)) w = (uint32_t)t[4] << 24 | (uint32_t)t[5] << 16 | (uint32_t)t[6] << 8 | t[7];
+    if (!memcmp(t, "IDAT", 4)) { rinc_fontStep = (w + 7) / 8 + 6; rinc_fontRows = t + 4 + 2 + 6; return; } /* (zlib's header; a row's block header and filter) */
+    at += 12 + len;
+  }
+}
+/* pixel x, y of character c's 6x9 cell in Rinc's own font: 1 if it's drawn (a character it hasn't: a space) */
+int rinc_fontBit(int c, int x, int y) {
+  int g = c > 32 && c < 127 ? c - 32 : 0, sx = g % 16 * rinc_CW + x;
+  if (!rinc_fontRows) rinc_fontFind();
+  if (!rinc_fontRows || x < 0 || x >= rinc_CW || y < 0 || y >= rinc_CH) return 0;
+  return rinc_fontRows[(uint32_t)(g / 16 * rinc_CH + y) * rinc_fontStep + (uint32_t)(sx >> 3)] >> (7 - (sx & 7)) & 1;
+}
 /* character c at pixel x, y, in fg; bg < 0 leaves the cell's other pixels alone */
 void rinc_char(int c, int x, int y, int fg, int bg) {
-  const uint8_t *g = c > 32 && c < 127 ? rinc_font[c - 32] : rinc_font[0];
   int r, k;
   for (r = 0; r < rinc_CH; r++) {
-    int py = y + r, bits = r < 8 ? g[r] : 0;
+    int py = y + r;
     if (py < 0 || py >= rinc_appH) continue;
     for (k = 0; k < rinc_CW; k++) {
       int px = x + k;
       if (px < 0 || px >= rinc_appW) continue;
-      if (bits >> k & 1) rinc_screen[py][px] = (uint8_t)fg;
+      if (rinc_fontBit(c, k, r)) rinc_screen[py][px] = (uint8_t)fg;
       else if (bg >= 0) rinc_screen[py][px] = (uint8_t)bg;
     }
   }

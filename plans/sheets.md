@@ -155,6 +155,16 @@ read as it's drawn.
   tests/depths.py: parts at each depth from each column in a byte, packed and as bytes, against the whole;
   an edge; a compressed one refused; a font's second row printing as the whole font prints it.
 
+- Step 3, as far as it makes sense (2026-11-20): Rinc's own font is a sheet like any user font,
+  src/core/rinc-font.png (6x9 cells, 16 across, 32 to 126, 1 bit, uncompressed: tools/fontsheet.py made it
+  from the old table, glyph for glyph, and makes font.c from it: the file's bytes), drawn from where it
+  lies in flash (rinc_fontBit: a row at a sum, its stored blocks' 6 bytes stepped over). 1,116 bytes of
+  flash for the font (760 as a table). tests/fontsheet.py: every character printed, each pixel as the PNG
+  has it. Drawing sheets from the card through an app's cache, set aside: reading the card a frame at a
+  time is slow, and parts read into memory (3a) give what's needed once. Next, when wanted: other fonts in
+  flash an app can name (a 5x11 default, CJK), which needs a way for a Font to name one (a field: pc.Text
+  is at Rio's 16 words, so likely a Font's cell or first, or Rio passing more).
+
 ## Steps
 (3a, parts read into memory, comes before 3: simpler, no cache, and most of the use.)
 

@@ -99,6 +99,10 @@ log(pc.textSize("a\nbc"))
 
 ## Fonts
 
+Rinc's own font is such a sheet too: `src/core/rinc-font.png` (6x9 cells, 16 across, 32 to 126, 1 bit,
+saved uncompressed), carried in the firmware as the file's bytes and drawn from where they lie (edit it in
+Paint, then `python tools/fontsheet.py` makes `font.c` again).
+
 A font is a sheet of glyphs, a picture in cells of one size, a character a cell across its rows: Paint
 makes one as it makes a sprite sheet. Its notes say what it is, a line each:
 

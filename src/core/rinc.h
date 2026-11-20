@@ -265,7 +265,9 @@ int rinc_audioProcs(rio_Vm *vm);
 
 /* text: the 5x8 font (ASCII 32-126, bit 0 leftmost) in 6x9 cells, and a console of 53x26 of them
    that scrolls the screen (console.c) */
-extern const uint8_t rinc_font[95][8];
+extern const uint8_t rinc_fontSheet[]; /* Rinc's own font, a sheet's PNG (font.c: tools/fontsheet.py) */
+extern const uint32_t rinc_fontSheetLen;
+int rinc_fontBit(int c, int x, int y); /* (pixel x, y of c's 6x9 cell in it: 1, drawn) */
 extern uint8_t rinc_textFg, rinc_textBg;
 void rinc_char(int c, int x, int y, int fg, int bg); /* bg < 0: transparent */
 void rinc_consolePut(const char *s, int n);

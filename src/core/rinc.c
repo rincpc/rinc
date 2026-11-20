@@ -2179,10 +2179,9 @@ volatile int rinc_overlayOn;
 /* text into the overlay, at pixel x on its row */
 static int rinc_overlayText(const char *s, int x, int fg) {
   for (; *s; s++, x += 6) {
-    const uint8_t *g = *s > 32 && *s < 127 ? rinc_font[*s - 32] : rinc_font[0];
     int r, k;
     for (r = 0; r < 8; r++)
-      for (k = 0; k < 6 && x + k < rinc_W; k++) if (g[r] >> k & 1) rinc_overlay[2 + r][x + k] = (uint8_t)fg;
+      for (k = 0; k < 6 && x + k < rinc_W; k++) if (rinc_fontBit((unsigned char)*s, k, r)) rinc_overlay[2 + r][x + k] = (uint8_t)fg;
   }
   return x;
 }

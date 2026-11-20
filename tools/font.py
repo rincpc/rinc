@@ -1,4 +1,5 @@
-"""Make src/core/font.c from a font made in the spry font editor (JSON: a character code -> 16 rows,
+"""(Superseded: Rinc's own font is a sheet now, src/core/rinc-font.png, and font.c its bytes: tools/fontsheet.py.
+This made the old table, the sheet's glyphs' first source.) Make src/core/font.c from a font made in the spry font editor (JSON: a character code -> 16 rows,
 each row's bit 2 the leftmost column), for the 5x8 font: rows 4-11, columns from bit 2.
 
   python tools/font.py spry5x8-font.json > src/core/font.c
