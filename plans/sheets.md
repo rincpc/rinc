@@ -93,6 +93,22 @@ IEND
   and bundles can compress again as they're made (roadmap 9b: sizes on disk).
 - Writing stays whole-file (Adler-32 and the chunk's CRC cover all of it): Paint saves as now.
 
+## 3a. Parts of a sheet, read into memory
+
+The user's idea (2026-11-20): `imageRead` with a part, `{from, size}` in `pc.ImageRead`, reads just that
+rectangle of a sheet into memory, at its depth, with its palette: a font's range of glyphs, a few sprites,
+a character's frames, for reuse, without the rest ever in memory.
+
+- A sheet saved uncompressed (Paint's, step 2): each row it needs read from where it is (a sum), its
+  columns kept, shifted to start on a byte at 1, 2 or 4 bits. No cache, no room past the part itself.
+- Any other PNG (compressed: another program's): its rows can't be reached without inflating all before
+  them, so a part fails (`size` {0, 0}) and the log says so (save it in Paint). Not read whole quietly: the
+  point is the memory a part saves.
+- A font from a part: `fontRead` takes the same part (whole rows of cells: a range of characters), its
+  notes' first and last moved to match.
+- Tests: a part at each depth, from every column offset in a byte, equal to the same part of the whole
+  read; a part past an edge; a compressed PNG refused, and said so.
+
 ## 3. Drawing from storage (and flash)
 
 A sheet opened in place (`sheetOpen(path, cache)`) is drawn without its pixels in memory: each row is
@@ -132,7 +148,15 @@ read as it's drawn.
   colors written, read back at 1, 2, 4 and 8 bits, and each file's shape checked; Paint's tests read any
   depth.
 
+- Step 3a done (2026-11-20): `ImageRead.from` and `size`: a part of a sheet saved uncompressed read into
+  memory a row at a time (its rows checked as stored blocks; its columns shifted to start on a byte), at
+  its depth with its palette, or as bytes; a part past the edges clipped; a compressed PNG refused, the log
+  saying why. `fontRead` takes the same, as whole rows of cells (its first and last moved to match).
+  tests/depths.py: parts at each depth from each column in a byte, packed and as bytes, against the whole;
+  an edge; a compressed one refused; a font's second row printing as the whole font prints it.
+
 ## Steps
+(3a, parts read into memory, comes before 3: simpler, no cache, and most of the use.)
 
 1. Low-depth sheets in memory, and the map: `Image.depth` and `palette`, `imageRead` at the file's depth
    (and `{bytes = true}`, `imageAt`), blit and print unpacking rows, `Blit.map`; every app and library

@@ -61,6 +61,14 @@ typedef char pc_AppError_size[sizeof(pc_AppError) == 16 ? 1 : -1]; /* (Rio's siz
 #define pc_AppError_LAYOUT "{line:Int,col:Int,len:Int,runtime:Int}"
 
 typedef struct {
+  int32_t bytes;
+  int32_t from[2];
+  int32_t size[2];
+} pc_ImageRead;
+typedef char pc_ImageRead_size[sizeof(pc_ImageRead) == 20 ? 1 : -1]; /* (Rio's size) */
+#define pc_ImageRead_LAYOUT "{bytes:Int,from:[2]Int,size:[2]Int}"
+
+typedef struct {
   rio_View notes;
   int32_t format;
   rio_View flags;
@@ -148,7 +156,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_fileCopy_SIG "ss>i"
 #define pc_fileRename_SIG "ss>i"
 #define pc_dirMake_SIG "s>i"
-#define pc_imageLoad_SIG "sBi>iii"
+#define pc_imageLoad_SIG "sB" pc_ImageRead_LAYOUT ">iii"
 #define pc_imageNotes_SIG "sB>i"
 #define pc_imageWrite_SIG "s" pc_Image_LAYOUT pc_ImageWrite_LAYOUT ">i"
 #define pc_imageFlags_SIG "s[i]>i"
@@ -294,7 +302,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0xd10de3a2u /* (rio_hashText of the source) */
+#define pc_HASH 0x5821bec9u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -607,12 +615,14 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "end\n" \
   "# how imageRead reads one; left out, at its own depth (a 1, 2 or 4 bit one, packed, with its palette)\n" \
   "ImageRead* :: struct\n" \
-  "  bytes: Bool  # a byte a pixel, each Rinc's color, whatever its depth: for an app that reads or edits pixels\n" \
+  "  bytes: Bool    # a byte a pixel, each Rinc's color, whatever its depth: for an app that reads or edits pixels\n" \
+  "  from: [2]Int   # just a part of it, size big from from (a size of 0: all of it), read into memory, the rest\n" \
+  "  size: [2]Int   # never there: a sheet saved uncompressed (Paint's), else none, and the log says so\n" \
   "end\n" \
-  "imageLoad :: host proc(path: String, pixels: Blob[..], bytes: Bool) -> [3]Int # (imageRead's: what it added; its size, its depth)\n" \
+  "imageLoad :: host proc(path: String, pixels: Blob[..], o: ImageRead) -> [3]Int # (imageRead's: what it added; its size, its depth)\n" \
   "imageRead* :: proc(path: String, pixels: Blob[..], o?: ImageRead) -> Image\n" \
   "  start := pixels.len()\n" \
-  "  got := imageLoad(path, pixels, o.bytes)\n" \
+  "  got := imageLoad(path, pixels, o)\n" \
   "  size := {got[0], got[1]}\n" \
   "  if got[2] < 8 and size.x > 0 # (packed: its rows, then its palette)\n" \
   "    return {pixels = pixels[start..<pixels.len()], size = size, depth = got[2]}\n" \
@@ -747,14 +757,22 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "# a font, from a sheet (Paint's: docs/spec/screen.md#fonts), its picture read into room, then, for a\n" \
   "# proportional one, two bytes for each glyph; its notes say what it is (fontNotes). Not a font (no such\n" \
   "# picture, no room, no \"font\" line): a Font with no cell, which print takes as Rinc's own\n" \
-  "fontRead* :: proc(path: String, room: Blob[..]) -> Font\n" \
-  "  image := imageRead(path, room)\n" \
+  "fontRead* :: proc(path: String, room: Blob[..], o?: ImageRead) -> Font\n" \
+  "  image := imageRead(path, room, o)\n" \
   "  if image.size.x == 0 or image.pixels.len() == 0\n" \
   "    return Font{}\n" \
   "  end\n" \
   "  notes: Blob[..512]\n" \
   "  _ = imageNotes(path, notes)\n" \
-  "  return fontOf(image, fontNotes(notes.asString()), room)\n" \
+  "  n := fontNotes(notes.asString())\n" \
+  "  if o.size.x > 0 and o.size.y > 0 and n.cell.y > 0 # (a part: whole rows of its cells, from its first column: those characters)\n" \
+  "    across := n.across\n" \
+  "    if across <= 0 do across = image.size.x / max(n.cell.x, 1)\n" \
+  "    n.first += o.from.y / n.cell.y * across\n" \
+  "    n.last = min(n.last, n.first + image.size.y / n.cell.y * across - 1)\n" \
+  "    n.across = across\n" \
+  "  end\n" \
+  "  return fontOf(image, n, room)\n" \
   "end\n" \
   "# how imageWrite writes a picture; left out, as its name ends (.png), with no notes\n" \
   "ImageWrite* :: struct\n" \

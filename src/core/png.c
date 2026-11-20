@@ -499,7 +499,50 @@ int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h, ui
   return rinc_pngBad ? -1 : n;
 }
 
-int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need, int packed, int *depthOut) {
+/* part of a sheet saved uncompressed (rinc_pngWrite's sheet): its rows read in turn, each a stored block,
+   those in the part kept (its columns, shifted to start on a byte), the rest passed over: into out, packed
+   (an indexed one of 1, 2 or 4 bits, then its palette) or a byte a pixel. -3 if it isn't such a sheet */
+static int rinc_pngPart(uint8_t *out, uint32_t cap, uint32_t w, uint32_t h, int depth, int kind, uint32_t rowBytes, const int32_t *part,
+                        int packed, const uint8_t *map, uint32_t size[2], uint32_t *need, int *depthOut) {
+  int32_t x0 = part[0] < 0 ? 0 : part[0], y0 = part[1] < 0 ? 0 : part[1];
+  int32_t x1 = part[0] + part[2] > (int32_t)w ? (int32_t)w : part[0] + part[2], y1 = part[1] + part[3] > (int32_t)h ? (int32_t)h : part[1] + part[3];
+  uint32_t pw, ph, outRow, bytes, y, i;
+  uint8_t *stage;
+  int b0, b1;
+  if (kind != 3) return -3;
+  if (x1 <= x0 || y1 <= y0) return -1; /* (nothing of it in the picture) */
+  pw = (uint32_t)(x1 - x0); ph = (uint32_t)(y1 - y0);
+  packed = packed && depth < 8;
+  outRow = packed ? (pw * (uint32_t)depth + 7) / 8 : pw;
+  bytes = ph * outRow + (packed ? 1u << depth : 0);
+  size[0] = pw; size[1] = ph;
+  *need = bytes + rowBytes; /* (and a row, read in, after it) */
+  if (*need > cap) return -2;
+  stage = out + bytes;
+  b0 = rinc_pngData8(); b1 = rinc_pngData8();
+  if (b0 < 0 || b1 < 0 || (b0 & 15) != 8) return -3; /* (zlib's header: deflate) */
+  for (y = 0; y < (uint32_t)y1; y++) {
+    int hd[5], f;
+    for (i = 0; i < 5; i++) hd[i] = rinc_pngData8();
+    if (hd[0] < 0 || (hd[0] & 6) || (uint32_t)(hd[1] | hd[2] << 8) != rowBytes + 1 || ((hd[1] | hd[2] << 8) ^ (hd[3] | hd[4] << 8)) != 0xffff) return -3; /* (a stored block, a row) */
+    if ((f = rinc_pngData8()) != 0) return -3; /* (its filter: none) */
+    for (i = 0; i < rowBytes; i++) { int c = rinc_pngData8(); if (c < 0) return -3; stage[i] = (uint8_t)c; }
+    if (y < (uint32_t)y0) continue;
+    {
+      uint8_t *to = out + (y - (uint32_t)y0) * outRow;
+      if (packed) memset(to, 0, outRow);
+      for (i = 0; i < pw; i++) {
+        uint32_t bit = ((uint32_t)x0 + i) * (uint32_t)depth;
+        int v = depth == 8 ? stage[(uint32_t)x0 + i] : stage[bit / 8] >> (8 - depth - (int)(bit % 8)) & ((1 << depth) - 1);
+        if (packed) { uint32_t o = i * (uint32_t)depth; to[o / 8] |= (uint8_t)(v << (8 - depth - (int)(o % 8))); }
+        else to[i] = map[v];
+      }
+    }
+  }
+  if (packed) { memcpy(out + ph * outRow, map, (size_t)(1u << depth)); *depthOut = depth; }
+  return (int)bytes;
+}
+int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need, int packed, int *depthOut, const int32_t *part) {
   uint8_t *map = rinc_png.r.map; /* (an indexed PNG's colors, as the palette's) */
   uint32_t w = 0, h = 0, rowBytes, base, end = 0, x, y, len, type;
   int depth = 0, kind = -1, channels, pixelBytes, i, b;
@@ -542,6 +585,11 @@ int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2],
   rowBytes = (w * (uint32_t)channels * (uint32_t)depth + 7) / 8;
   pixelBytes = (channels * depth + 7) / 8;
   size[0] = w; size[1] = h;
+  if (part) { /* (a part of it: a sheet saved uncompressed, read a row at a time) */
+    int r = rinc_pngPart(out, cap, w, h, depth, kind, rowBytes, part, packed, map, size, need, depthOut);
+    rinc_pngClose();
+    return r;
+  }
   *need = h * ((rowBytes > w ? rowBytes : w) + 1); /* (the rows as they come, as its end) */
   packed = packed && kind == 3 && depth < 8; /* (kept as it is: an indexed one of 1, 2 or 4 bits; then its palette) */
   if (packed && *need < h * rowBytes + (1u << depth)) *need = h * rowBytes + (1u << depth);

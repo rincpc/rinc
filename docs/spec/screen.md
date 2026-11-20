@@ -112,8 +112,10 @@ makes one as it makes a sprite sheet. Its notes say what it is, a line each:
 | `line 10` | pixels from a line to the next (its cells' height if it's left out) |
 | `colors` | its glyphs drawn in their own colors (else in the color `print` is given) |
 
-`pc.fontRead(path, room)` reads one into the `Blob[..]` `room` (its picture, as `pc.imageRead` does, at its
-own depth: a font of 1 bit, 2 colors, takes an eighth of the room of 8; then two bytes a glyph for a
+`pc.fontRead(path, room, o?)` reads one into the `Blob[..]` `room` (its picture, as `pc.imageRead` does, at its
+own depth, or, `o` a `pc.ImageRead` with `from` and `size`, just whole rows of its cells: those characters,
+`{from = {0, 12}, size = {80, 24}}` the second and third rows of a 16-across 5x12 font; at its own
+depth: a font of 1 bit, 2 colors, takes an eighth of the room of 8; then two bytes a glyph for a
 proportional one: where it starts in its cell, and its width), as a `pc.Font`;
 `pc.Text`'s `font` draws in it (`print`) and measures it (`textSize`), wrapping as its glyphs' widths
 say. A picture that isn't a font, or isn't there, reads as a `pc.Font` with no cells: Rinc's own.

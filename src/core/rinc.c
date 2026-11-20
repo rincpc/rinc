@@ -1185,9 +1185,18 @@ static void rinc_hostFileWriteAt(rio_Vm *v, rio_Val *a) {
    .png), with the app's notes, o.notes (text; "": none): 0, or -1. imageNotes(path, out) -> Int: those
    notes, added to out: how many bytes, or -1 */
 static void rinc_hostImageLoad(rio_Vm *v, rio_Val *a) {
-  char path[96], say[160]; rinc_Out o; uint32_t size[2] = {0, 0}, need = 0; int depth = 8;
-  int named = rinc_argPath(v, a, path, 0), r = named && rinc_into(v, a + 2, &o) ? rinc_pngRead(path, o.end, o.room, size, &need, !a[5].i, &depth) : -1;
+  char path[96], say[160]; rinc_Out o; uint32_t size[2] = {0, 0}, need = 0; int depth = 8, r = -1; pc_ImageRead how; int32_t part[4];
+  int named = rinc_argPath(v, a, path, 0);
+  memset(&how, 0, sizeof how);
+  rio_getStruct(v, a + 5, &how, sizeof how);
+  part[0] = how.from[0]; part[1] = how.from[1]; part[2] = how.size[0]; part[3] = how.size[1];
+  if (named && rinc_into(v, a + 2, &o)) r = rinc_pngRead(path, o.end, o.room, size, &need, !how.bytes, &depth, how.size[0] > 0 && how.size[1] > 0 ? part : 0);
+  if (r < 0 && r != -2) size[0] = size[1] = 0;
   a[0].i = (int32_t)size[0]; a[1].i = (int32_t)size[1]; a[2].i = r > 0 ? depth : 8;
+  if (r == -3) {
+    snprintf(say, sizeof say, "imageRead: a part of %.96s needs it saved as a sheet, uncompressed (Paint saves so)\r\n", path);
+    rinc_say(say);
+  }
   if (r == -2) {
     snprintf(say, sizeof say, "imageRead: %.96s needs %u bytes of room, and has %u\r\n", path, (unsigned)need, (unsigned)o.room);
     rinc_say(say);

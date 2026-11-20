@@ -34,13 +34,13 @@ pals = {1: [0, 8], 2: [0, 8, 11, 12], 4: [0] + list(range(1, 16)), 8: [0] + list
 for d in (1, 2, 4, 8):
     n = 1 << d
     png(os.path.join(app, 'd%d.png' % d), W, H, d, pals[d], [(x * 3 + y * 5 + x * y) % n for y in range(H) for x in range(W)])
-# a 1-bit font: 4x6 cells, 8 across, characters 48 (0) to 55 (7), each a different bar
-font = [0] * (32 * 6)
-for g in range(8):
+# a 1-bit font: 4x6 cells, 8 across, two rows: characters 48 (0) to 63 (?), each a different bar
+font = [0] * (32 * 12)
+for g in range(16):
     for y in range(1, 5):
         for x in range(4):
-            if (x + y + g) % 3 != 0 and x < 3: font[y * 32 + g * 4 + x] = 1
-png(os.path.join(app, 'font.png'), 32, 6, 1, [0, 7], font, 'sprite 4x6\nfont 48 55\nacross 8\nproportional\n')
+            if (x + y + g) % 3 != 0 and x < 3 - g // 8: font[(g // 8 * 6 + y) * 32 + g % 8 * 4 + x] = 1
+png(os.path.join(app, 'font.png'), 32, 12, 1, [0, 7], font, 'sprite 4x6\nfont 48 63\nacross 8\nproportional\n')
 
 open(os.path.join(app, 'depths.rio'), 'w', newline='\n').write('''
 room: Blob[..4000]
@@ -124,6 +124,54 @@ for k in 0..<4
     assert(pc.imageAt(back, {i % 13, i / 13}) == pic[i], "read back as it was written")
   end
 end
+# parts of a sheet saved uncompressed, at each depth, from each column in a byte, as the whole has them
+for k in 0..<4
+  partName: Blob[..24]
+  _ = partName.print("/rinc/save/s", k, ".png")
+  room.clear()
+  whole := pc.imageRead(partName.asString(), room, {bytes = true})
+  for x0 in 0..<8
+    for asBytes in 0..<2
+      bytesRoom.clear()
+      part := pc.imageRead(partName.asString(), bytesRoom, {bytes = asBytes == 1, from = {x0, 2}, size = {5, 4}})
+      assert(part.size == {5, 4} and (asBytes == 1 or part.depth == bitsFor[k]), "a part: its size, its depth")
+      for y in 0..<4
+        for x in 0..<5
+          assert(pc.imageAt(part, {x, y}) == whole.pixels[(2 + y) * 13 + x0 + x], "a part's pixel, as the whole has it")
+        end
+      end
+    end
+  end
+  bytesRoom.clear()
+  edge := pc.imageRead(partName.asString(), bytesRoom, {from = {10, 5}, size = {8, 8}})
+  assert(edge.size == {3, 2} and pc.imageAt(edge, {2, 1}) == whole.pixels[6 * 13 + 12], "a part past its edges: what's in it")
+end
+# a part of a compressed PNG: none (the log says why)
+bytesRoom.clear()
+squeezed := pc.imageRead("d4.png", bytesRoom, {from = {1, 1}, size = {4, 4}})
+assert(squeezed.size == {0, 0} and bytesRoom.len() == 0, "a part of a compressed one: none")
+# a font, its second row of characters read alone, prints as the whole one does
+fontNotes: Blob[..128]
+_ = pc.imageNotes("font.png", fontNotes)
+fontPic: Blob[..600]
+wholeFont := pc.imageRead("font.png", fontPic, {bytes = true})
+assert(pc.imageWrite("/rinc/save/font.png", wholeFont, {notes = fontNotes.asString(), sheet = true}) == 0, "the font, as a sheet")
+allRoom: Blob[..600]
+all := pc.fontRead("/rinc/save/font.png", allRoom)
+rowRoom: Blob[..600]
+row := pc.fontRead("/rinc/save/font.png", rowRoom, {from = {0, 6}, size = {32, 6}})
+assert(row.first == 56 and row.last == 63 and row.image.size == {32, 6}, "a font's second row: its characters")
+assert(rowRoom.len() < allRoom.len(), "a part: less room")
+pc.cls(1)
+pc.print("89:;<=>?", {0, 0}, 7, {font = all})
+pc.print("89:;<=>?", {0, 20}, 7, {font = row})
+lit := 0
+for y in 0..<6
+  for x in 0..<40
+    if pc.pget({x, y}) == 7 do lit += 1
+  end
+end
+assert(same({0, 0}, {0, 20}, {40, 6}) and lit > 0, "printed as the whole font prints them")
 log("depths came through")
 ''')
 r = subprocess.run([rinc, app, '-data', os.path.join(work, 'data'), '-frames', '1'], capture_output=True, text=True, timeout=60)

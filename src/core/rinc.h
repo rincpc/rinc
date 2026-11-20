@@ -41,7 +41,9 @@ int rinc_pngFlags(const char *path, int32_t *out, uint32_t cap, int w, int h, ui
 /* a picture read into out (its room, cap): a byte a pixel, Rinc's colors; or (packed) an indexed one of 1, 2
    or 4 bits as it is, its rows packed, then its palette (2^depth bytes: index -> Rinc's color), *depthOut its
    depth (else 8). The bytes added, or -1 (not read), or -2 (no room: *need says how much) */
-int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need, int packed, int *depthOut);
+/* (part, if given: x, y, w, h, just that of a sheet saved uncompressed (its size, clipped, in size); -3 if
+   it isn't one) */
+int rinc_pngRead(const char *path, uint8_t *out, uint32_t cap, uint32_t size[2], uint32_t *need, int packed, int *depthOut, const int32_t *part);
 int rinc_pngNotes(const char *path, char *out, uint32_t cap);
 /* raw deflate data (a zip's file, size bytes of it) from read, inflated into out: its length, or -1 */
 int rinc_inflateRaw(int (*read)(char *buf, int n), uint32_t size, uint8_t *out, uint32_t cap);
