@@ -160,7 +160,7 @@ static void rinc_frameNow(void) {
   if (rinc_launch) { rinc_launch = 0; rinc_open(rinc_launchName); } /* (pc.launch: after the frame) */
 }
 
-static float rinc_now(void) { return (float)((double)time_us_64() / 1e6); }
+static double rinc_now(void) { return (double)time_us_64() / 1e6; }
 
 /* compiling on a stack of its own (pc.checkRio's: the compiler, the SD card's reader under it, from inside
    an app's call), as the 4 KB main stack, in scratch Y, isn't enough from there; and with MSPLIM moved to its bottom,

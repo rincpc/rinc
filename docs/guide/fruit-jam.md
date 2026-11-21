@@ -76,9 +76,11 @@ With no home app on the card, the board starts in the firmware's own console, on
 serial: Rio, with `ls`, `save`, `delete`, `home`, and `put path`, any file under `/rinc` as hex (how
 `install.py` sends them); `get path` sends one back the same way (a screen saved with Print Screen,
 `get shots/<app>-1.png`). With no console app, Ctrl-C opens it too. `audio` says how much of the time
-mixing takes, and `frame` how long the app's frames took since last asked: update's and draw's time
-(each on average and at most), how many frames ran over a 60th of a second, and the longest gap between
-two frames' starts (`uv run tools/boardplay.py COM3 "con:run paint" wait 5 hold right 10 "fw:frame"`).
+mixing takes, and `frame` how long the app's frames took since it started or since last asked: update's
+and draw's time (each on average and at most), how many frames ran over a 60th of a second, and the
+longest gap between two frames' starts (`uv run tools/boardplay.py COM3 "con:run paint" wait 5 hold
+right 10 "fw:frame"`: ask once, at the end, as the console leaves the app for home). `jit off` and `jit
+on` start apps from then on without native code, or with it (tools/boardspeed.py times both).
 
 For working on the board from a PC, tools/ has a few more, each `uv run tools/<name>.py COM3 ...` (their
 first lines say how): `boardput.py` puts files on the card and `boardget.py` brings them back (a second

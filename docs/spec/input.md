@@ -184,4 +184,5 @@ end
 
 ## Time
 
-`pc.time()` is the seconds since the Rinc started, as a `Float`.
+`pc.time()` is the seconds since the Rinc started, as a `Float`. On the desktop and the web, it's the
+board's clock (board speed: what the app's work would have taken on the Fruit Jam), unless `-turbo`.

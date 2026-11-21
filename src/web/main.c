@@ -12,7 +12,7 @@
 #define rinc_EXPORT(name) __attribute__((export_name(#name)))
 #define rinc_IMPORT(name) __attribute__((import_module("env"), import_name(#name)))
 rinc_IMPORT(put) extern void js_put(const char *s, int n);
-rinc_IMPORT(now) extern float js_now(void);
+rinc_IMPORT(now) extern double js_now(void);
 /* storage: a file is a key in localStorage, its path (as rinc_Fs gives it) under the storage name */
 rinc_IMPORT(fs_open) extern int js_fsOpen(const char *key, int n, int write);
 rinc_IMPORT(fs_read) extern int js_fsRead(char *buf, int n);
@@ -104,6 +104,7 @@ static void rinc_webOpen(const char *name) {
 /* start the bundle in source() at its home app: 0, or -1 if it's no bundle (error() says why) */
 rinc_EXPORT(start) int rinc_webStart(int len) {
   rinc_time = js_now;
+  rinc_boardSpeed = 1; /* (as fast as the board: plans/board-speed.md) */
   if (rinc_bundleRead(rinc_src, (uint32_t)len)) return -1;
   if (*rinc_bundleName()) snprintf(rinc_store, sizeof rinc_store, "%s", rinc_bundleName());
   rinc_fs = &rinc_webFs;

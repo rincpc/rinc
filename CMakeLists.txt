@@ -44,6 +44,10 @@ set(RINC_MAX_FFI 120)
 # rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
 # so an app behaves the same everywhere: its log lines and error texts as long, say
 target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})
+# board speed on the desktop and the web (plans/board-speed.md): rio counts each instruction it runs
+if(NOT RINC_PLATFORM STREQUAL rp2350)
+  target_compile_definitions(riocore PUBLIC rio_METER)
+endif()
 # the build's id (rinc_buildId): made again with every build, so another build's cached app images go
 set(RINC_BUILD_ID ${CMAKE_BINARY_DIR}/build_id.c)
 execute_process(COMMAND ${CMAKE_COMMAND} -DOUT=${RINC_BUILD_ID} -P ${CMAKE_CURRENT_LIST_DIR}/tools/buildid.cmake)
@@ -180,7 +184,8 @@ else()
       continue() # (a folder app's other files)
     endif()
     get_filename_component(name ${app} NAME_WE)
-    add_test(NAME app_${name} COMMAND rinc ${app} -frames 180 -o ${CMAKE_CURRENT_BINARY_DIR}/${name}.ppm)
+    add_test(NAME app_${name} COMMAND rinc ${app} -frames 180 -o ${CMAKE_CURRENT_BINARY_DIR}/${name}.ppm
+             -data ${CMAKE_CURRENT_BINARY_DIR}/app-data) # (storage of the tests' own: speed writes its save files)
   endforeach()
   # the built-in apps: home runs, and the console, typed at, runs Rio and its commands
   # storage in a folder of the tests' own (never the user's): apps installed there, then run by name
@@ -348,6 +353,14 @@ else()
     add_test(NAME print_screen COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/shot.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/print-screen-work)
     add_test(NAME typed_buttons COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/typedbuttons.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/typed-buttons-work)
     add_test(NAME frame_time COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/frametime.rio -frames 130)
+    # board speed (plans/board-speed.md): -board's frames as the board would run them: a frame over 1/60 s
+    # on the board takes more, the ones after skipped; a loop the board's JIT compiles costs what it would there
+    add_test(NAME board_text COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/boardtext.rio -board -frames 60)
+    set_tests_properties(board_text PROPERTIES PASS_REGULAR_EXPRESSION "board text: draws by 0.9 s: (18|19|20)[^0-9]")
+    add_test(NAME board_loop_jit COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/boardloop.rio -board -frames 60)
+    set_tests_properties(board_loop_jit PROPERTIES PASS_REGULAR_EXPRESSION "board loop: updates by 0.9 s: (54|55)[^0-9]")
+    add_test(NAME board_loop_nojit COMMAND rinc ${CMAKE_CURRENT_LIST_DIR}/tests/boardloop.rio -board -nojit -frames 60)
+    set_tests_properties(board_loop_nojit PROPERTIES PASS_REGULAR_EXPRESSION "board loop: updates by 0.9 s: (18|19|20)[^0-9]")
     # the console's load: an app's source in its session (room for a big one's code; its relative paths from its folder)
     add_test(NAME console_load COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/consoleload.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system/console ${CMAKE_CURRENT_BINARY_DIR}/console-load-work)
     set_tests_properties(console_load PROPERTIES PASS_REGULAR_EXPRESSION "console load: all came through")
@@ -408,6 +421,10 @@ else()
   add_executable(rinc_volume_test tests/volume.c)
   target_link_libraries(rinc_volume_test PRIVATE rinccore)
   add_test(NAME volume COMMAND rinc_volume_test)
+  # frame times on a clock that's been running long (the performance strip's)
+  add_executable(rinc_clock_test tests/clock.c)
+  target_link_libraries(rinc_clock_test PRIVATE rinccore)
+  add_test(NAME clock COMMAND rinc_clock_test)
   set_tests_properties(keys PROPERTIES PASS_REGULAR_EXPRESSION "all keys came through")
   # an exported program's own files, and -files', read as storage's are (pc.dir, pc.fileRead)
   set(bf ${CMAKE_CURRENT_BINARY_DIR}/bf-game${CMAKE_EXECUTABLE_SUFFIX})

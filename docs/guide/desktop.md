@@ -23,6 +23,11 @@ rinc -repl                        Rio typed in the terminal, a line at a time
 rinc app.rio -m                   how near the app comes to its limits (see memory)
 rinc app.rio -frames 120          no window: run 120 frames (A held for the first 3, unless -type), as
                                   fast as they go, pc.time() the frames' (60 a second), as the sound is
+  -board                          and as the board would run them (below): a frame its board time spans
+  -nojit                          and count no code as compiled by the board's JIT (as on a Rinc without)
+  -meter counts.txt               and write what's counted, at each pc.time and each frame's end
+                                  (tools/boardspeed.py, tools/boardframe.py)
+rinc app.rio -turbo               in a window as fast as this computer goes, not the board
   -o screen.ppm                   then save the screen
   -wav sound.wav                  and the sound those frames made
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,
@@ -42,6 +47,20 @@ rinc a.rio b.rio -export game     a program to hand out (game.exe on Windows): r
 rinc a.rio b.rio -web game.html   a page that plays them (see the web)
 rinc -help                        all this; and rinc -license, the licenses of what's in it
 ```
+
+## Board speed
+
+An app in a window (and in a web page) runs no faster than on the Fruit Jam: what it does is counted
+(each Rio instruction, apart those the board's JIT would compile, and each drawing and file call with
+its pixels or bytes), each frame takes as many 60ths of a second as the board would need, and the ones
+past its first are skipped, as the board would still be busy. pc.time() reads that board clock, so an
+app timing itself sees the board's numbers. So a game made on a computer isn't a surprise on the
+board. It's within about 10% on Rinc's own tests of each cost and within 15 to 20% on apps (Paint,
+falling sand); `-turbo` turns it off. What each thing costs is measured on the board by
+`tools/boardspeed.py` (plans/board-speed.md), into src/core/boardcost.h; `rinc app.rio -frames 300
+-board` ends with what the board's `frame` would say, and `tools/boardframe.py` says where a frame's
+time went.
+
 
 In a window, the arrows and V, C, X and Z are the buttons (in a game: in a pointer app, such as home,
 the letters type, and a controller's A and B are Enter and Esc), any controller SDL knows is player 1 (Xbox,

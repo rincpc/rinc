@@ -3,6 +3,7 @@
    file) and feeds keys to the REPL. No allocation: the platform hands over every buffer. */
 #ifndef rinc_CORE_H
 #define rinc_CORE_H
+#include <stddef.h>
 #include <stdint.h>
 #include "rio.h"
 
@@ -67,7 +68,17 @@ int rinc_zipInstall(rinc_Zip *zip);
 /* after a drop on the screen (bad: nothing installed): home, if there is one now (rinc_launch), else
    it says what to do */
 void rinc_dropped(int bad);
-extern float (*rinc_time)(void);          /* seconds since start, from the platform */
+extern double (*rinc_time)(void);         /* seconds since start, from the platform (a double: a float since the board started loses microseconds within the hour) */
+/* board speed (rinc.c): the costs counted (rinc_charge), by kind (boardcost.h's), for the desktop and the web */
+#define rinc_COST_KINDS(X) X(cls) X(rect) X(rectRows) X(pset) X(pget) X(blit) X(blitPacked) X(blitScaled) X(blitBlocks) X(print) X(printFont) X(textSize) \
+  X(fileRead) X(fileWrite) X(dir) X(imageLoad) X(imageWrite)
+#define rinc_COST_ENUM(k) rinc_Cost_##k,
+#define rinc_COST_NAME(k) #k,
+extern int rinc_boardSpeed;  /* 1: the desktop and the web as fast as the board (the platform sets it; -turbo not) */
+#ifdef rio_METER
+extern int rinc_meterJit;    /* 0: no code counted as the board's JIT would compile it (-nojit) */
+extern void (*rinc_meterOut)(const char *line); /* the counts, a line at each pc.time and each frame's end (-meter) */
+#endif
 /* calls fn(arg) on a stack big enough for compiling (pc.checkRio's), from the platform: the board's
    main stack is small; 0 (elsewhere): called as it is */
 extern void (*rinc_onBigStack)(void (*fn)(void *), void *arg);
@@ -179,6 +190,8 @@ static inline uint8_t rinc_shownAt(int x, int y) {
 /* one frame of a game: the app's update* and then draw* (each optional). 0: ran, 1: the app has
    neither (it isn't a game), -1: a runtime error (rio_error says) */
 int rinc_frame(rio_Vm *vm);
+float rinc_msSince(double t0); /* milliseconds since t0 (rinc_clock's), kept apart in double: a Float of seconds since start loses them */
+void rinc_frameSummary(char *said, size_t cap); /* the frames' times since last asked, a line (the firmware console's frame) */
 /* Print Screen, as a platform sees it: the screen saved after this frame (/rinc/shots/<app>-<n>.png) */
 void rinc_shotAsk(void);
 /* starting an app, the same on every Rinc: rinc_appBegin (0, or -1), then rinc_appRun with its source

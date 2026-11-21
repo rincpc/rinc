@@ -19,8 +19,8 @@ static int fsWrite(const char *buf, int n) { memcpy(file + fileLen, buf, (size_t
 static int fsClose(void) { return 0; }
 static int32_t fsSize(void) { return fileLen; }
 static int fsSeek(uint32_t to) { at = (int)to; return 0; }
-static float now;
-static float clock(void) { return now; }
+static double now;
+static double clock(void) { return now; }
 static int failed;
 static void check(int ok, const char *what) { printf("%s%s\n", ok ? "ok   " : "FAIL ", what); failed += !ok; }
 

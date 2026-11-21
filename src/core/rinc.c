@@ -24,7 +24,78 @@ static void rinc_zoomIn(int z) {
   for (y = 0; y < rinc_H >> z; y++) for (x = 0; x < rinc_W >> z; x++) rinc_screen[y][x] = rinc_screen[y << z][x << z];
 }
 uint16_t rinc_palette[256];
-float (*rinc_time)(void);
+double (*rinc_time)(void);
+
+/* ------------------------------------------------------------------ board speed (plans/board-speed.md) */
+
+/* On the desktop and the web (rio_METER), an app runs no faster than on the Fruit Jam: rio counts each
+   instruction it runs (by op; apart, those in code the board's JIT would compile), and the drawing and
+   file calls count theirs (rinc_charge: a call, and its pixels or bytes). boardcost.h, which
+   tools/boardspeed.py makes from the board's measurements, says what each costs there. A frame's cost
+   is how many 60ths of a second it takes on the board; the ones past its first are frames skipped
+   (rinc_gameFrame), as the board would still be busy, and pc.time reads the board's clock. */
+int rinc_boardSpeed; /* (on: the platform's choice, -turbo off) */
+enum { rinc_COST_KINDS(rinc_COST_ENUM) rinc_Cost_count };
+#ifdef rio_METER
+#include "boardcost.h"
+static const char *const rinc_costNames[] = {rinc_COST_KINDS(rinc_COST_NAME)};
+uint64_t rinc_meterOps[512];
+static uint64_t rinc_meterKinds[rinc_Cost_count][2]; /* (calls, and their pixels or bytes) */
+static uint8_t *rinc_meterNative; static uint32_t rinc_meterNativeCap;
+int rinc_meterJit = 1; /* (-nojit: nothing counted as native) */
+void (*rinc_meterOut)(const char *line); /* (-meter's: the counts, each time pc.time's asked, for tools/boardspeed.py) */
+void rinc_charge(int kind, uint32_t units) { rinc_meterKinds[kind][0]++; rinc_meterKinds[kind][1] += units; }
+/* everything counted so far, in the board's nanoseconds */
+static double rinc_meterNs(void) {
+  double ns = 0; int i;
+  for (i = 0; i < 512; i++) if (rinc_meterOps[i]) ns += (double)rinc_meterOps[i] * rinc_groupNs[rinc_opGroup[i]];
+  for (i = 0; i < rinc_Cost_count; i++) ns += (double)rinc_meterKinds[i][0] * rinc_kindNs[i][0] + (double)rinc_meterKinds[i][1] * rinc_kindNs[i][1];
+  return ns;
+}
+static void rinc_meterWrite(const char *what) { /* (a line: what, then each count) */
+  static char line[512 * 24 + rinc_Cost_count * 48];
+  int i, n = snprintf(line, sizeof line, "%s", what);
+  for (i = 0; i < 512; i++) if (rinc_meterOps[i]) n += snprintf(line + n, sizeof line - (size_t)n, " o%d=%lu", i, (unsigned long)rinc_meterOps[i]);
+  for (i = 0; i < rinc_Cost_count; i++) if (rinc_meterKinds[i][0]) n += snprintf(line + n, sizeof line - (size_t)n, " %s=%lu,%lu", rinc_costNames[i], (unsigned long)rinc_meterKinds[i][0], (unsigned long)rinc_meterKinds[i][1]);
+  rinc_meterOut(line);
+}
+/* an app's vm counted from now on, its code the board would compile marked (rinc_native's, here) */
+static int rinc_meterApp(rio_Vm *vm) {
+  if (vm->codeLen > rinc_meterNativeCap) {
+    uint8_t *m = (uint8_t *)realloc(rinc_meterNative, vm->codeLen);
+    if (!m) { rio_meter(vm, rinc_meterOps, 0); return 0; }
+    rinc_meterNative = m; rinc_meterNativeCap = vm->codeLen;
+  }
+  if (rinc_meterJit && rio_jitPlan(vm, rinc_meterNative) >= 0) rio_meter(vm, rinc_meterOps, rinc_meterNative);
+  else rio_meter(vm, rinc_meterOps, 0);
+  return 0;
+}
+static double rinc_boardTicks, rinc_meterAtTick; /* (the board's clock: whole frames, then what's been counted since) */
+static int rinc_boardOwe; /* (frames still to skip: the last one's board time past its own) */
+static double rinc_boardNow(void) { return rinc_boardTicks / 60.0 + (rinc_meterNs() - rinc_meterAtTick) / 1e9; }
+/* a frame's end: its board time in frames (at least 1), the clock moved on that much */
+static void rinc_boardFrameEnd(void) {
+  double now, ticks;
+  int whole;
+  if (rinc_meterOut) rinc_meterWrite("frame"); /* (-meter: each frame's counts too, a line "frame") */
+  now = rinc_meterNs(); ticks = (now - rinc_meterAtTick) / (1e9 / 60);
+  whole = ticks <= 1 ? 1 : (int)ticks + (ticks > (int)ticks);
+  if (whole > 600) whole = 600; /* (10 s: a hang's not waited out) */
+  rinc_boardOwe = whole - 1;
+  rinc_boardTicks += whole;
+  rinc_meterAtTick = now;
+}
+#else
+#define rinc_charge(kind, units) ((void)0)
+#endif
+/* the time an app sees, and its frames are timed by: the board's, with board speed */
+static double rinc_clock(void) {
+#ifdef rio_METER
+  if (rinc_boardSpeed) return rinc_boardNow();
+#endif
+  return rinc_time ? rinc_time() : 0;
+}
+float rinc_msSince(double t0) { return (float)((rinc_clock() - t0) * 1000.0); }
 uint16_t rinc_buttons;
 int16_t rinc_axes[6];
 static void (*rinc_put)(const char *s, int n);
@@ -47,6 +118,7 @@ static void rinc_initPalette(void) {
 static void rinc_hostCls(rio_Vm *v, rio_Val *a) {
   int y;
   (void)v;
+  rinc_charge(rinc_Cost_cls, (uint32_t)(rinc_appW * rinc_appH));
   if (!rinc_zoom) { memset(rinc_screen, (uint8_t)a[0].i, sizeof rinc_screen); return; }
   for (y = 0; y < rinc_appH; y++) memset(rinc_screen[y], (uint8_t)a[0].i, (size_t)rinc_appW);
 }
@@ -57,6 +129,7 @@ static void rinc_hostScreenSize(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_
 static void rinc_hostPset(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
+  rinc_charge(rinc_Cost_pset, 0);
   if (x < (uint32_t)rinc_appW && y < (uint32_t)rinc_appH) rinc_screen[y][x] = (uint8_t)a[2].i;
 }
 static void rinc_hostRgb(rio_Vm *v, rio_Val *a) {
@@ -66,6 +139,7 @@ static void rinc_hostRgb(rio_Vm *v, rio_Val *a) {
 static void rinc_hostPget(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
+  rinc_charge(rinc_Cost_pget, 0);
   a[0].i = x < (uint32_t)rinc_appW && y < (uint32_t)rinc_appH ? rinc_screen[y][x] : 0;
 }
 /* a picture as drawing reads it (pc.Image): a byte a pixel (depth 0 or 8), or 1, 2 or 4 bits, its rows packed
@@ -118,6 +192,10 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   if (h > ph - sy) h = ph - sy;
   if (kx == 1 && ky == 1 && !flipX) { /* (the usual: a pixel for a pixel, a row at a time; a map's tiles are many) */
     int i0 = x0 < 0 ? -x0 : 0, i1 = x0 + w > rinc_appW ? rinc_appW - x0 : w;
+#ifdef rio_METER
+    { int r0 = y0 < 0 ? -y0 : 0, r1 = y0 + h > rinc_appH ? rinc_appH - y0 : h; /* (the pixels drawn, for board speed) */
+      rinc_charge(plain ? rinc_Cost_blit : rinc_Cost_blitPacked, i1 > i0 && r1 > r0 ? (uint32_t)((i1 - i0) * (r1 - r0)) : 0); }
+#endif
     for (j = 0; j < h; j++) {
       int y = y0 + j, ry = sy + (flipY ? h - 1 - j : j);
       const uint8_t *row = p + ry * pw + sx;
@@ -135,6 +213,7 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
     }
     return;
   }
+  rinc_charge(rinc_Cost_blitScaled, w > 0 && h > 0 ? (uint32_t)(w * h) : 0); /* (its pixels, each drawn as a block: below) */
   for (j = 0; j < h; j++) {
     int ry = sy + (flipY ? h - 1 - j : j); /* (mirrored: the rows from the bottom) */
     const uint8_t *row = p + ry * pw + sx;
@@ -144,6 +223,7 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
       int x = x0 + i * kx, xa = x < 0 ? 0 : x, xb = x + kx > rinc_appW ? rinc_appW : x + kx, yy, ix = flipX ? w - 1 - i : i;
       uint8_t c = plain ? row[ix] : (uint8_t)rinc_picAt(&q, sx + ix, ry);
       if (!c || xa >= xb) continue;
+      rinc_charge(rinc_Cost_blitBlocks, (uint32_t)((xb - xa) * (yb - ya))); /* (a block drawn: see-through ones cost little) */
       for (yy = ya; yy < yb; yy++) memset(&rinc_screen[yy][xa], c, (size_t)(xb - xa));
     }
   }
@@ -155,6 +235,8 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
   if (y0 < 0) y0 = 0;
   if (x1 > rinc_appW) x1 = rinc_appW;
   if (y1 > rinc_appH) y1 = rinc_appH;
+  rinc_charge(rinc_Cost_rect, x1 > x0 && y1 > y0 ? (uint32_t)((x1 - x0) * (y1 - y0)) : 0);
+  rinc_charge(rinc_Cost_rectRows, x1 > x0 && y1 > y0 ? (uint32_t)(y1 - y0) : 0);
   for (y = y0; y < y1 && x0 < x1; y++) memset(&rinc_screen[y][x0], (uint8_t)a[4].i, (size_t)(x1 - x0));
 }
 /* print(s, pos, c, how?) and textSize(s, how?): text laid out (rinc_textLay), 6 pixels a character and
@@ -257,6 +339,7 @@ static void rinc_hostPrint(rio_Vm *v, rio_Val *a) {
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 5, &how, sizeof how);
   rinc_fontOf(v, &how.font, &u);
+  rinc_charge(u.px ? rinc_Cost_printFont : rinc_Cost_print, s ? a[1].u : 0);
   if (s) rinc_textLay(s, (int)a[1].u, how.width, u.line, &u, 1, a[2].i, a[3].i, a[4].i & 255, size);
 }
 static void rinc_hostTextSize(rio_Vm *v, rio_Val *a) {
@@ -264,6 +347,7 @@ static void rinc_hostTextSize(rio_Vm *v, rio_Val *a) {
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 2, &how, sizeof how);
   rinc_fontOf(v, &how.font, &u);
+  rinc_charge(rinc_Cost_textSize, s ? a[1].u : 0);
   if (s) rinc_textLay(s, (int)a[1].u, how.width, u.line, &u, 0, 0, 0, 0, size);
   a[0].i = size[0]; a[1].i = size[1];
 }
@@ -446,6 +530,7 @@ static int rinc_addOut(rio_Vm *v, const rio_Val *b, const char *s, int n) {
 static int32_t rinc_readOut(rio_Vm *v, const rio_Val *b, const char *path) {
   rinc_Out o; uint32_t total;
   if (!rinc_into(v, b, &o) || rinc_readFile(path, (char *)o.end, o.room, &total)) return -1;
+  rinc_charge(rinc_Cost_fileRead, total < o.room ? total : o.room);
   rinc_outAdd(v, &o, total < o.room ? total : o.room);
   return (int32_t)total;
 }
@@ -622,6 +707,7 @@ static int32_t rinc_fileFrom(const char *path, uint32_t at, char *buf, uint32_t 
     }
   }
   rinc_fs->close();
+  rinc_charge(rinc_Cost_fileRead, *got);
   return size;
 }
 /* n bytes written over a file from byte at on (-1: at its end; past its end, no), the file made if it
@@ -629,6 +715,7 @@ static int32_t rinc_fileFrom(const char *path, uint32_t at, char *buf, uint32_t 
 static int32_t rinc_fileOver(const char *path, int32_t at, const char *data, int n) {
   int32_t size; int bad;
   if (!rinc_fs || n < 0 || (n && !data) || rinc_fs->open(path, rinc_UPDATE)) return -1;
+  rinc_charge(rinc_Cost_fileWrite, (uint32_t)n);
   size = rinc_fs->size();
   if (at == -1) at = size;
   bad = size < 0 || at < 0 || at > size || rinc_fs->seek((uint32_t)at) || (n && rinc_fs->write(data, n) != n);
@@ -1168,6 +1255,7 @@ static void rinc_hostDir(rio_Vm *v, rio_Val *a) { /* (storage's entries, then th
   listed = named && rinc_fs && !rinc_fs->list(path, rinc_dirFound, 0);
   bundled = named && rinc_dirBundled(path);
   a[0].i = listed || bundled ? rinc_dirCount : -1;
+  rinc_charge(rinc_Cost_dir, (uint32_t)rinc_dirCount);
   rinc_outAdd(v, &o, (uint32_t)rinc_dirUsed);
   rinc_dirOut = 0;
 }
@@ -1221,6 +1309,7 @@ static void rinc_hostImageLoad(rio_Vm *v, rio_Val *a) {
     rinc_say(say);
   }
   if (r > 0) rinc_outAdd(v, &o, (uint32_t)r);
+  rinc_charge(rinc_Cost_imageLoad, size[0] * size[1]);
 }
 static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
   char path[96]; pc_Image im; pc_ImageWrite o; const uint8_t *p; int w, h, named = rinc_argPath(v, a, path, 1);
@@ -1232,6 +1321,7 @@ static void rinc_hostImageWrite(rio_Vm *v, rio_Val *a) {
   a[0].i = -1;
   if (!named || !p || w <= 0 || h <= 0 || (uint64_t)w * (uint32_t)h > im.pixels.len || o.notes.len > rinc_PNG_NOTES) return;
   if (!o.format && !(k > 4 && path[k - 4] == '.' && (path[k - 3] | 32) == 'p' && (path[k - 2] | 32) == 'n' && (path[k - 1] | 32) == 'g')) return; /* (fromName) */
+  rinc_charge(rinc_Cost_imageWrite, (uint32_t)(w * h));
   a[0].i = rinc_pngWrite(path, p, w, h, (const char *)rio_viewBytes(v, o.notes), (int)o.notes.len, 0,
                          (const int32_t *)rio_viewBytes(v, o.flags), (int)(o.flags.len / 3), o.sheet);
 }
@@ -1342,6 +1432,7 @@ static void rinc_writeFile(rio_Vm *v, rio_Val *a, const char *path) {
   const char *text = (const char *)rio_sliceBytes(v, a + 2); int n = (int)a[3].u, bad;
   a[0].i = -1;
   if (!rinc_fs || rinc_fs->open(path, 1)) return;
+  rinc_charge(rinc_Cost_fileWrite, n > 0 ? (uint32_t)n : 0);
   bad = n > 0 && (!text || rinc_fs->write(text, n) != n);
   a[0].i = rinc_fs->close() || bad ? -1 : 0;
 }
@@ -1439,7 +1530,7 @@ static void rinc_hostStashDelete(rio_Vm *v, rio_Val *a) {
 }
 /* the system volume, kept (rinc.h): what was last kept, and what it was last seen as, and since when */
 static int rinc_volumeSaved = -1, rinc_volumeSeen = -1;
-static float rinc_volumeAt;
+static double rinc_volumeAt;
 static int rinc_volumeNow(void) { return rinc_audioStep() * 2 + (rinc_audioLevel() < 0); }
 void rinc_volumeRead(void) {
   char b[16]; uint32_t n;
@@ -1450,7 +1541,7 @@ void rinc_volumeRead(void) {
   rinc_volumeSaved = rinc_volumeSeen = rinc_volumeNow();
 }
 void rinc_volumeKeep(void) {
-  int now = rinc_volumeNow(); float t = rinc_time ? rinc_time() : 0;
+  int now = rinc_volumeNow(); double t = rinc_time ? rinc_time() : 0;
   if (!rinc_fs) return;
   if (rinc_volumeSaved < 0) rinc_volumeSaved = rinc_volumeSeen = now;
   if (now != rinc_volumeSeen) { rinc_volumeSeen = now; rinc_volumeAt = t; }
@@ -1700,7 +1791,13 @@ static float rinc_stickAt(int i) {
 }
 static void rinc_hostStick(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = a[0].u < 4 ? rinc_stickAt(a[0].i) : 0; }
 static void rinc_hostTrigger(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = a[0].u < 2 ? (float)rinc_axes[4 + a[0].i] / 32767.0f : 0; }
-static void rinc_hostTime(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = rinc_time ? rinc_time() : 0; }
+static void rinc_hostTime(rio_Vm *v, rio_Val *a) {
+  (void)v;
+  a[0].f = (float)rinc_clock();
+#ifdef rio_METER
+  if (rinc_meterOut) rinc_meterWrite("time");
+#endif
+}
 /* fromHex(out, text): bytes from hex digits (pairs; anything else between them, such as spaces and
    line breaks, is skipped) added to out, until it's full. Returns how many. For binary data typed into an
    app: sound, pictures */
@@ -1746,7 +1843,7 @@ int rinc_game, rinc_showLog;
 #define rinc_LOG 4096
 static char rinc_log[rinc_LOG], rinc_logApp[40];
 static int rinc_logLen, rinc_logDirty;
-static float rinc_logAt;
+static double rinc_logAt;
 static void rinc_readerDrop(void); /* (below: a source file being read, let go of, as storage has one file open at a time) */
 static void rinc_logFlush(void) {
   char path[64];
@@ -1774,7 +1871,7 @@ static void rinc_logAdd(const char *s, int n) {
 }
 void rinc_logSave(void) { rinc_logFlush(); }
 static void rinc_logTick(void) {
-  float t = rinc_time ? rinc_time() : 0;
+  double t = rinc_time ? rinc_time() : 0;
   if (rinc_logDirty && t - rinc_logAt >= 1) { rinc_logFlush(); rinc_logAt = t; }
 }
 static void rinc_logStart(const char *app) { /* (the last app's written; this one's read back, then a line saying it's started) */
@@ -2246,7 +2343,7 @@ static int rinc_waking;   /* woken, until every key's let go: what's still down 
 /* the locks on, as badges at the bottom right */
 /* a notice at the bottom left, over the screen, for a few seconds (no help for this app, say) */
 static char rinc_notice[48];
-static float rinc_noticeUntil;
+static double rinc_noticeUntil;
 static void rinc_noticeSay(const char *what, const char *name) {
   snprintf(rinc_notice, sizeof rinc_notice, "%s%.32s", what, name);
   rinc_noticeUntil = (rinc_time ? rinc_time() : 0) + 3;
@@ -2590,7 +2687,11 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
 void rinc_appFail(const char *name, const char *why) {
   rinc_say(name); rinc_say(why); rinc_logFlush(); rinc_back();
 }
+#ifdef rio_METER
+int (*rinc_native)(rio_Vm *vm) = rinc_meterApp; /* (here, what the board would compile: only counted) */
+#else
 int (*rinc_native)(rio_Vm *vm);
+#endif
 /* an app compiled (its source in memory, else read from path: host, the host's), or its image loaded:
    0, or -1 (said why) */
 static int rinc_appLoad(rio_Vm *vm, void *space, uint32_t size, const char *name, const char *src, uint32_t len, const void *image, const char *path, int host) {
@@ -2807,7 +2908,7 @@ int rinc_appStart(rio_Vm *vm, void *space, uint32_t size, const char *name) {
 int rinc_gameFrame(rio_Vm *vm) {
   static uint16_t wasButtons;
   int res;
-  float t0;
+  double t0;
   uint16_t pressed = (uint16_t)(rinc_buttons & ~wasButtons);
   wasButtons = rinc_buttons;
   if (pressed & rinc_Button_rb) rinc_textKey(9); /* (a controller's RB and LB type Tab and Shift+Tab too) */
@@ -2815,9 +2916,15 @@ int rinc_gameFrame(rio_Vm *vm) {
   rinc_pointerFrame();
   rinc_logTick();
   if (!rinc_game) return 1;
-  t0 = rinc_time ? rinc_time() : 0;
+#ifdef rio_METER
+  if (rinc_boardSpeed && rinc_boardOwe > 0) { rinc_boardOwe--; return 0; } /* (the board, still busy with the frame before) */
+#endif
+  t0 = rinc_clock();
   res = rinc_frame(vm);
-  rinc_perfNote(rinc_time ? (rinc_time() - t0) * 1000.0f : 0); /* (for the performance strip) */
+  rinc_perfNote(rinc_msSince(t0)); /* (for the performance strip) */
+#ifdef rio_METER
+  if (rinc_boardSpeed) rinc_boardFrameEnd();
+#endif
   if (res != 0) { /* an error, or no update or draw any more */
     rinc_game = 0; rinc_showLog = 1; rinc_audioReset(); rinc_consoleClear(rinc_themeColor(0));
     if (res < 0) rinc_keepError(vm, rinc_appRef);
@@ -3012,6 +3119,15 @@ static void rinc_shot(void) {
 static double rinc_updSum, rinc_drawSum, rinc_updPeak, rinc_drawPeak, rinc_gapPeak, rinc_lastFrame;
 static uint32_t rinc_framesTimed, rinc_framesSlow; /* (slow: update and draw over a 60th of a second) */
 static int rinc_framesOf; /* (the app start they're of: rinc_appStarts) */
+/* how long the app's frames took since it started or this was last asked (the firmware console's frame;
+   rinc -board's, as it ends): a line, and the counts begun again */
+void rinc_frameSummary(char *said, size_t cap) {
+  if (!rinc_framesTimed) snprintf(said, cap, "frame: none timed yet\r\n");
+  else
+    snprintf(said, cap, "frame: update %lu us (at most %lu), draw %lu us (at most %lu), over %lu frames, %lu slow; frames at most %lu us apart\r\n",
+             (unsigned long)(rinc_updSum * 1e6 / rinc_framesTimed), (unsigned long)(rinc_updPeak * 1e6), (unsigned long)(rinc_drawSum * 1e6 / rinc_framesTimed), (unsigned long)(rinc_drawPeak * 1e6), (unsigned long)rinc_framesTimed, (unsigned long)rinc_framesSlow, (unsigned long)(rinc_gapPeak * 1e6));
+  rinc_updSum = rinc_drawSum = rinc_updPeak = rinc_drawPeak = rinc_gapPeak = rinc_lastFrame = 0; rinc_framesTimed = rinc_framesSlow = 0;
+}
 int rinc_frame(rio_Vm *vm) {
   int u = rio_findProc(vm, "update"), d = rio_findProc(vm, "draw");
   double t0, t1, t2;
@@ -3031,15 +3147,18 @@ int rinc_frame(rio_Vm *vm) {
     if (rinc_cmdOn) { rinc_cmdFrame(); if (rinc_shotWanted) rinc_shot(); return 0; } /* (Print Screen: the list too) */
     if (rinc_cmdSettle && !rinc_buttons && !rinc_pointerHeld) rinc_cmdSettle = 0;
   }
-  t0 = rinc_time ? rinc_time() : 0;
+  t0 = rinc_clock();
   if (u >= 0 && rio_call(vm, u)) return -1;
-  t1 = rinc_time ? rinc_time() : 0;
+  t1 = rinc_clock();
   if (d >= 0 && rio_call(vm, d)) return -1;
-  t2 = rinc_time ? rinc_time() : 0;
+  t2 = rinc_clock();
   if (vm != &rinc_nest) {
+    if (rinc_framesOf != rinc_appStarts) { /* (another app: counted from its first frame, after its loading, the app before's left out) */
+      rinc_framesOf = rinc_appStarts;
+      rinc_updSum = rinc_drawSum = rinc_updPeak = rinc_drawPeak = rinc_gapPeak = rinc_lastFrame = 0; rinc_framesTimed = rinc_framesSlow = 0;
+    }
     rinc_updSum += t1 - t0; rinc_drawSum += t2 - t1; rinc_framesTimed++;
     if (t2 - t0 > 1.0 / 60) rinc_framesSlow++;
-    if (rinc_framesOf != rinc_appStarts) { rinc_framesOf = rinc_appStarts; rinc_lastFrame = 0; } /* (another app: its first frame, after its loading, no gap) */
     if (rinc_lastFrame > 0 && t0 - rinc_lastFrame > rinc_gapPeak) rinc_gapPeak = t0 - rinc_lastFrame; /* (from one frame's start to the next's) */
     rinc_lastFrame = t0;
     if (t1 - t0 > rinc_updPeak) rinc_updPeak = t1 - t0;
@@ -3352,13 +3471,15 @@ static int rinc_command(rinc_Repl *r) {
   }
   if (w == 5 && n == 5 && !memcmp(s, "frame", 5)) { /* how long the app's frames take, since last asked (a frame is 16.7 ms at 60 a second) */
     char said[200];
-    if (!rinc_framesTimed) rinc_replSay(r, "frame: none timed yet\r\n");
-    else {
-      snprintf(said, sizeof said, "frame: update %lu us (at most %lu), draw %lu us (at most %lu), over %lu frames, %lu slow; frames at most %lu us apart\r\n",
-               (unsigned long)(rinc_updSum * 1e6 / rinc_framesTimed), (unsigned long)(rinc_updPeak * 1e6), (unsigned long)(rinc_drawSum * 1e6 / rinc_framesTimed), (unsigned long)(rinc_drawPeak * 1e6), (unsigned long)rinc_framesTimed, (unsigned long)rinc_framesSlow, (unsigned long)(rinc_gapPeak * 1e6));
-      rinc_replSay(r, said);
-    }
-    rinc_updSum = rinc_drawSum = rinc_updPeak = rinc_drawPeak = rinc_gapPeak = rinc_lastFrame = 0; rinc_framesTimed = rinc_framesSlow = 0;
+    rinc_frameSummary(said, sizeof said);
+    rinc_replSay(r, said);
+    return 1;
+  }
+  if (w == 3 && (n == 6 || n == 7) && !memcmp(s, "jit", 3)) { /* jit off, jit on: apps started from now on without native code, or with (tools/boardspeed.py times both) */
+    static int (*kept)(rio_Vm *vm);
+    if (n == 7 && !memcmp(s + 4, "off", 3) && rinc_native) { kept = rinc_native; rinc_native = 0; }
+    if (n == 6 && !memcmp(s + 4, "on", 2) && kept) { rinc_native = kept; kept = 0; }
+    rinc_replSay(r, rinc_native ? "jit: on\r\n" : "jit: off\r\n");
     return 1;
   }
   if (w == 2 && n == 2 && !memcmp(s, "ls", 2)) {

@@ -44,6 +44,7 @@ app is a Rio program.
      last took this out" is one look. Recommended: one volume layer under Files (the card, a drive, a
      zip, the host's folder alike: a path like /drive/...), so every app gets it at once; the in-and-out
      app built on it; the thumb drive's RAM first (6 below: a few KB to free).
+  1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
   2. Board speed everywhere, by default (the user, 2026-11-16): the desktop and the web run an app no
      faster than the Fruit Jam would (Rio's instructions metered to the board's measured rate, drawing
      and sound calls charged their board cost, a frame waiting when its budget's spent), so a game
@@ -52,6 +53,13 @@ app is a Rio program.
      Not perfect, but close; a turbo mode only when asked (a setting, or rinc -turbo). With it: a
      frame-time readout, and tests that fail when a frame runs over on board time. What's measured:
      plans/board-speed.md (remeasured every few weeks while drawing and the VM change).
+     Done (2026-11-20), for the user to try: the desktop's window and the web count each instruction and
+     call, skip the frames the board would still be busy for, and pc.time reads the board's clock;
+     `rinc -turbo` turns it off, `rinc -board -frames` has it headless (tests). `uv run
+     tools/boardspeed.py COM3 build-desktop-rio/Release/rinc.exe` remeasures (2 minutes) and rewrites
+     src/core/boardcost.h. Within 10% on the speed app's 100 timings, about 15% on Paint (draw 5.9 ms
+     guessed, 6.8 ms on the board) and falling sand. Left: a frame-time readout on screen; tests that fail
+     on a slow frame; a setting for turbo (the web has none yet); app starts (compiling) not counted.
      Native code too: the JIT's check of which loops and procs qualify runs on every Rinc (only the
      Thumb-2 output is the board's), so a loop the board runs natively is charged the native rate.
      Related, can wait but before Rio 1.0 (the user, 2026-11-20): only loops marked (`# jit` or such)

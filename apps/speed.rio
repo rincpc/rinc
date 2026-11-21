@@ -1,0 +1,311 @@
+# speed: what Rio's instructions and Rinc's calls cost, for board speed (plans/board-speed.md). Each
+# test times a loop (pc.time before and after) and writes a line to its save file, speed.txt: its name
+# and microseconds. tools/boardspeed.py runs it on the board (the JIT on, then off) and on the desktop
+# (rinc -meter: what each test counted), and fits each kind of instruction's cost and each call's.
+N :: 20000
+out: Blob[..4096]
+t := 0.0
+start :: proc()
+  t = pc.time()
+end
+done :: proc(name: String)
+  us := ((pc.time() - t) * 1000000.0).toInt()
+  _ = out.print(name, " ", us, "\n")
+end
+
+# Rio's instructions
+P :: struct
+  x: Float
+  y: Float
+  n: Int
+end
+ps: [64]P
+arr: [256]Int
+g1 := 0
+g2 := 0
+sq :: proc(x: Int) -> Int
+  return x * x + 1
+end
+twice :: callback proc(x: Int) -> Int
+  return x + x
+end
+hold: [..256]Int
+text := "a line of text, of some length"
+other := "a line of text, of some length"
+copyTo: Blob[64]
+copyFrom: Blob[64]
+instructions :: proc()
+  a := 1
+  b := 2
+  c := 3
+  f := 1.0
+  h := 0.0
+  start()
+  for i in 0..<N * 4 do a = i
+  done("loop")
+  start()
+  for i in 0..<N * 2
+    a = a + i
+    b = b ^ a
+    c = c - b
+    a = a & 1023
+    b = b | c
+    c = c >> 1
+  end
+  done("int")
+  start()
+  for i in 0..<N * 2
+    a = a * 3 + i
+    b = b * a
+    c = c * 7
+  end
+  done("mul")
+  start()
+  for i in 0..<N
+    a = (i + 7) / 3
+    b = (i + 11) % 5
+    c = a / (b + 1)
+  end
+  done("div")
+  start()
+  for i in 0..<N * 2
+    f = f * 0.5 + 1.5
+    h = h + f
+    f = f - 0.25
+    h = h * 0.5
+  end
+  done("float")
+  start()
+  for i in 0..<N
+    f = 1.0 / (f + 2.0)
+    h = h / 3.0
+  end
+  done("fdiv")
+  start()
+  for i in 0..<N
+    f = f.toInt().toFloat() + i.toFloat()
+    a = f.toInt()
+  end
+  done("convert")
+  start()
+  for i in 0..<N / 2
+    h += sin(f)
+    f += sqrt(h * h)
+  end
+  done("math")
+  start()
+  for i in 0..<N * 2
+    g1 = g1 + i
+    g2 = g1 + g2
+  end
+  done("global")
+  start()
+  for i in 0..<N * 2
+    arr[i & 255] = arr[(i + 1) & 255] + 1
+  end
+  done("index")
+  start()
+  for i in 0..<N
+    p := ps[i & 63]
+    p.x = p.x + 1.0
+    p.n = p.n + 1
+  end
+  done("field")
+  start()
+  v := {1, 2}
+  w := {1.0, 2.0}
+  for i in 0..<N
+    v = v + {1, 2}
+    v = v * {1, 1}
+    w = w + {0.5, 0.5}
+  end
+  done("vector")
+  start()
+  for i in 0..<N * 2
+    if i & 1 == 0
+      a += 1
+    case i & 2 == 0
+      b += 1
+    else
+      c += 1
+    end
+  end
+  done("branch")
+  start()
+  for i in 0..<N
+    for k in 0..<4 do a = k
+  end
+  done("inner")
+  start()
+  for i in 0..<N
+    a = sq(i & 255)
+  end
+  done("call")
+  start()
+  fn := twice
+  for i in 0..<N
+    a = fn(i)
+  end
+  done("calli")
+  start()
+  for i in 0..<N
+    a = pc.btn(.a)
+  end
+  done("ffi")
+  start()
+  for i in 0..<N
+    _ = hold.push(i)
+    if hold.len() == hold.cap() do hold.clear()
+  end
+  done("list")
+  start()
+  for i in 0..<N
+    if text == other do a += 1
+  end
+  done("compare")
+  start()
+  for i in 0..<N / 2
+    copyTo[0..<30] = copyFrom[30..<60]
+  end
+  done("copy")
+  log(a, b, c, f, h, g1, g2, v, w)
+end
+
+# drawing
+sheetPixels: Blob[64 * 64]
+holesPixels: Blob[64 * 64]
+packed: Blob[32 * 32 / 2 + 16]
+drawing :: proc()
+  for i in 0..<64 * 64 do sheetPixels[i] = (i / 8 + i) % 15 + 1
+  for i in 0..<packed.len() do packed[i] = (i * 37) & 255
+  sheet := pc.Image{pixels = sheetPixels[], size = {64, 64}}
+  four := pc.Image{pixels = packed[], size = {32, 32}, depth = 4}
+  for i in 0..<64 * 64 do holesPixels[i] = 0
+  for i in 0..<64 * 64
+    if (i * 7919) % 100 < 30 do holesPixels[i] = 9 + i % 3
+  end
+  holes := pc.Image{pixels = holesPixels[], size = {64, 64}}
+  start()
+  for _ in 0..<50 do pc.cls(1)
+  done("cls")
+  start()
+  for i in 0..<N / 2 do pc.rect({i % 300, i % 220}, {1, 1}, 3)
+  done("rect1")
+  start()
+  for i in 0..<N / 10 do pc.rect({i % 280, i % 200}, {32, 32}, 3)
+  done("rect32")
+  start()
+  for i in 0..<N / 40 do pc.rect({i % 200, i % 120}, {100, 100}, 3)
+  done("rect100")
+  start()
+  for i in 0..<N / 4 do pc.rect({i % 300, i % 220}, {8, 9}, 3)
+  done("rect8x9")
+  start()
+  for i in 0..<N / 4 do pc.rect({i % 300, i % 220}, {1, 9}, 3)
+  done("rect1x9")
+  start()
+  for i in 0..<N / 4 do pc.blit(sheet, {i % 300, i % 220}, {from = {i % 8 * 8, 0}, size = {8, 8}})
+  done("blit8")
+  start()
+  for i in 0..<N / 20 do pc.blit(sheet, {i % 280, i % 200}, {size = {32, 32}})
+  done("blit32")
+  start()
+  for i in 0..<N / 80 do pc.blit(sheet, {i % 250, i % 170})
+  done("blit64")
+  start()
+  for i in 0..<N / 20 do pc.blit(four, {i % 280, i % 200})
+  done("packed32")
+  start()
+  for i in 0..<N / 20 do pc.blit(sheet, {i % 300, i % 220}, {from = {0, 0}, size = {8, 8}, scale = {2, 2}})
+  done("scaled8x2")
+  start()
+  for i in 0..<N / 80 do pc.blit(sheet, {i % 250, i % 170}, {size = {16, 16}, scale = {4, 4}})
+  done("scaled16x4")
+  start()
+  for i in 0..<N / 400 do pc.blit(sheet, {i % 100, i % 40}, {scale = {3, 3}})
+  done("scaled64x3")
+  start()
+  for i in 0..<N / 40 do pc.blit(sheet, {i % 250, i % 170}, {scale = {-1, 1}})
+  done("mirrored64")
+  start()
+  for i in 0..<N / 400 do pc.blit(holes, {i % 100, i % 40}, {scale = {3, 3}})
+  done("holes64x3")
+  start()
+  for i in 0..<N / 80 do pc.blit(holes, {i % 250, i % 170})
+  done("holes64")
+  start()
+  for i in 0..<N / 4 do pc.blit(sheet, {i % 300, i % 220}, {size = {8, 8}, scale = {-1, 1}})
+  done("mirrored8")
+  start()
+  for i in 0..<N / 4 do pc.print("ab", {i % 300, i % 220}, 7)
+  done("print2")
+  start()
+  for i in 0..<N / 20 do pc.print("forty characters of text, to be printed!", {0, i % 220}, 7)
+  done("print40")
+  start()
+  for i in 0..<N / 20 do pc.print("sprite 0,0   5x11   saves as 80x154    ", {0, i % 220}, 7)
+  done("print40spaced")
+  start()
+  for i in 0..<N / 4 do a := pc.textSize("forty characters of text, to be printed!")
+  done("textSize40")
+  start()
+  for i in 0..<N / 2 do pc.pset({i % 320, i % 240}, 5)
+  done("pset")
+  start()
+  for i in 0..<N / 2 do a := pc.pget({i % 320, i % 240})
+  done("pget")
+end
+
+# files
+data: Blob[..8192]
+back: Blob[..8192]
+listing: Blob[..4096]
+img: Blob[..8192]
+files :: proc()
+  for i in 0..<8000 do _ = data.push((i % 26 + 97))
+  sheet := pc.Image{pixels = sheetPixels[], size = {64, 64}}
+  start()
+  for _ in 0..<10 do _ = pc.saveWrite("small.txt", data[0..<100].asString())
+  done("write100")
+  start()
+  for _ in 0..<5 do _ = pc.saveWrite("big.txt", data[].asString())
+  done("write8000")
+  start()
+  for _ in 0..<10
+    back.clear()
+    _ = pc.saveRead("small.txt", back)
+  end
+  done("read100")
+  start()
+  for _ in 0..<10
+    back.clear()
+    _ = pc.saveRead("big.txt", back)
+  end
+  done("read8000")
+  start()
+  for _ in 0..<5 do _ = pc.imageWrite("/rinc/save/speed/sheet.png", sheet)
+  done("imageWrite64")
+  start()
+  for _ in 0..<5
+    img.clear()
+    _ = pc.imageRead("/rinc/save/speed/sheet.png", img)
+  end
+  done("imageLoad64")
+  start()
+  for _ in 0..<10
+    listing.clear()
+    _ = pc.dir("/rinc/save/speed", listing)
+  end
+  done("dirSave")
+end
+
+instructions()
+drawing()
+files()
+_ = pc.saveWrite("speed.txt", out[].asString())
+said := "speed: done (in /rinc/save/speed/speed.txt)"
+draw* :: proc()
+  pc.cls(0)
+  pc.print(said, {4, 4}, 7)
+  pc.print(out[].asString(), {4, 20}, 6)
+end

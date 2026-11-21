@@ -1,0 +1,12 @@
+# board speed (plans/board-speed.md): rinc -board -frames runs as the board would: 300 lines of text a
+# frame take about 47 ms there, three frames, so a third as many draws in a second
+draws := 0
+told := false
+draw* :: proc()
+  draws += 1
+  for i in 0..<300 do pc.print("forty characters of text, to be printed!", {0, i % 24 * 10}, 7)
+  if pc.time() >= 0.9 and not told
+    told = true
+    log("board text: draws by 0.9 s:", draws)
+  end
+end

@@ -1,0 +1,14 @@
+# board speed (plans/board-speed.md): rinc -board -frames runs as the board would. Each update is a loop
+# the board's JIT compiles (about 7 ms there: a frame each), or, with -nojit, interprets (about 38 ms:
+# three frames each, so a third as many updates in a second)
+updates := 0
+told := false
+update* :: proc()
+  updates += 1
+  a := 0
+  for i in 0..<200000 do a = i
+  if pc.time() >= 0.9 and not told
+    told = true
+    log("board loop: updates by 0.9 s:", updates)
+  end
+end

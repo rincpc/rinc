@@ -80,3 +80,40 @@ cost each. One check that heavy mixing (16 voices) doesn't slow the first core (
   within about 25% of the board's; and apps (Paint, Maps, a game) through the firmware's `frame`.
 - docs/guide/fruit-jam.md's Speed tables come from the same run.
 - Remeasured every few weeks, and after a change to the VM, the JIT or drawing.
+
+## Done (2026-11-20)
+
+- Rio (built with `rio_METER`, the desktop's and the web's only): each instruction counted by op, in
+  one place in the dispatch (the web player grew 10 KB: 215 to 225 KB); `rio_jitPlan` makes the JIT's
+  choice of loops and procs on any machine (its check moved out of the Thumb-2-only part of jit.c,
+  shared), so code the board compiles is counted apart.
+- Rinc: `rinc_charge` on the drawing and file calls (rect and its rows, blit by path and pixels, scaled
+  blits by their drawn blocks, print and textSize by bytes, files by bytes, images by pixels);
+  boardcost.h the costs; a frame's end skips the frames the board would still be busy for; pc.time the
+  board's clock. `rinc -turbo` off, `-board` for headless runs, `-nojit`, `-meter`.
+- The firmware console's `jit off` / `jit on`, and `frame` counted from the app's start.
+- The platforms' clock is a double now: a float of seconds since the board started had lost the
+  microseconds within the hour.
+- `tools/boardspeed.py COM3 rinc.exe`: the board restarted, apps/speed.rio run there with the JIT and
+  without, the desktop's counts for each test, a non-negative least-squares fit, boardcost.h written,
+  each test's error shown (`--check`: only that). About 2 minutes. `tools/boardframe.py` breaks a
+  frame down (`rinc -board -meter`).
+
+How close (the speed app's 50 tests, with and without the JIT, fitted): within 10%, but small rects
+(17%) and SD writes (which vary run to run). Checked on what wasn't fitted: a frame of 60 printed lines
+and 500 rects, 10.43 ms guessed, 10.47 on the board; falling sand's step 6 to 9% under, its drawing
+within 5%; Paint on a font sheet, draw 5.9 ms guessed and 6.8 on the board, its opening frame 210 ms
+and 177, 3 slow frames each.
+
+Next: small rects' rows (the cost of a row likely depends on its width); app starts (compiling,
+loading) not counted yet; a turbo setting (the web has none); tests that fail on a frame slow on the
+board. (The readout is Sys+M's performance strip: on the desktop and the web, it shows board time.)
+
+Recommended (2026-11-21, the user to decide): exported and web play skip a frame only past about 120%
+of the board's time, so a game that plays on the board plays at least as well there; the developer's
+window stays exact, with Sys+M's numbers. Apps kept under about 12 ms of board time a frame are safe
+everywhere (the model's worst misses are 15 to 25%). pc.time() counted from the app's start (or a
+pc.appTime(), with a way to reset it), so a Float keeps its microseconds; whole Ints for time since the
+board started if wanted (pc.seconds() and pc.micros(): 68 years); frames as an Int at 60 a second last
+414 days. A board run after the clock fix (2026-11-21): print2 (two letters a call) 26% under on the
+board, from 17%: a short print's call cost moves with the code's layout in flash.

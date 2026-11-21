@@ -17,7 +17,7 @@ rio = opts.get('rio', os.path.join(root, 'lib', 'rio'))
 def build_wasm(path, full):
   # rio's core: every source but its CLI's (main.c, its C backend aot.c, its C header writer header.c)
   # and the ARM-only jit.c (with rio_NO_COMPILER, the compiler's files compile to nothing)
-  rio_core = sorted(f for f in os.listdir(os.path.join(rio, 'src')) if f.endswith('.c') and f not in ('main.c', 'aot.c', 'header.c', 'jit.c'))
+  rio_core = sorted(f for f in os.listdir(os.path.join(rio, 'src')) if f.endswith('.c') and f not in ('main.c', 'aot.c', 'header.c')) # (jit.c: its plan, for board speed)
   # the build's id (rinc_buildId, as tools/buildid.cmake makes it): another build's cached app images go
   build_id = os.path.join(tempfile.mkdtemp(), 'build_id.c')
   with open(build_id, 'w') as f: f.write('const char rinc_buildId[] = "%s";\n' % time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
@@ -34,7 +34,7 @@ def build_wasm(path, full):
   # (pc.rio, the pc module, is built in through src/core/pc_host.h: only the player with the compiler keeps it)
   sources = [os.path.join(root, 'src', 'web', 'main.c'), build_id, library] + [os.path.join(root, 'src', 'core', f) for f in ('rinc.c', 'console.c', 'font.c', 'audio.c', 'png.c', 'zip.c')] + [os.path.join(rio, 'src', f) for f in rio_core]
   # (rio_MAX_FFI: CMakeLists.txt's RINC_MAX_FFI)
-  subprocess.run(['zig', 'cc', '-target', 'wasm32-wasi', '-mexec-model=reactor', '-Oz', '-Drio_SMALL', '-Drio_MAX_FFI=120'] + ([] if full else ['-Drio_NO_COMPILER']) +
+  subprocess.run(['zig', 'cc', '-target', 'wasm32-wasi', '-mexec-model=reactor', '-Oz', '-Drio_SMALL', '-Drio_MAX_FFI=120', '-Drio_METER'] + ([] if full else ['-Drio_NO_COMPILER']) +
                  ['-I' + os.path.join(rio, 'src'), '-I' + os.path.join(root, 'src', 'core'), '-Wl,--strip-all', '-o', path] + sources, check=True)
   print('%s: %d bytes' % (path, os.path.getsize(path)))
 

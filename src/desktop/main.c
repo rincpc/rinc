@@ -373,9 +373,11 @@ static int rinc_saveWav(const char *path, uint32_t frames) {
    key with Tab, Esc, Q, R, L or O (held a frame, then let go: the typing waits for what it does); and \u, the
    typing waiting there until -ctrl's Ctrl is let go */
 static const char *rinc_typing;
+static FILE *rinc_meterFile; /* (-meter's) */
+static void rinc_meterLine(const char *line) { fputs(line, rinc_meterFile); fputc('\n', rinc_meterFile); }
 static int rinc_ctrlFrames, rinc_shiftFrames, rinc_frameNow; /* (-ctrl n, -shift n: Ctrl or Shift held for the first n frames, as pc.modsHeld says) */
 /* the time in a run of -frames: the frames' (60 a second), as its sound is (-wav), however fast they run */
-static float rinc_now(void) { return (float)rinc_frameNow / 60.0f; }
+static double rinc_now(void) { return (double)rinc_frameNow / 60.0; }
 static int rinc_typedSys, rinc_sysFrames; /* (\s: its keys, and the frames left of it: 2 held, 1 let go) */
 static int rinc_hex(int c) { return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1; }
 static void rinc_typeMore(void) {
@@ -618,7 +620,7 @@ static void rinc_audioMore(void *ud, SDL_AudioStream *s, int more, int total) {
     more -= frames * 4;
   }
 }
-static float rinc_sdlNow(void) { return (float)((double)SDL_GetTicksNS() / 1e9); }
+static double rinc_sdlNow(void) { return (double)SDL_GetTicksNS() / 1e9; }
 
 /* a controller (SDL's gamepads: Xbox and the rest), as player 1: its buttons as Rinc's, its sticks and
    triggers into rinc_axes */
@@ -793,7 +795,7 @@ static int rinc_writeHeader(const char *out, const char *in) {
 extern const char rinc_help[], rinc_license[]; /* (about.c) */
 int main(int argc, char **argv) {
   const char *apps[rinc_BUNDLE_MOST], *out = 0, *img = 0, *wavout = 0, *exp = 0, *web = 0, *runner = 0, *named = 0, *data = 0, *root = 0, *home = 0, *storage = 0, *app = 0, *drop = 0;
-  const char *installs[32], *docs[8], *carry[8]; int napps = 0, ninstall = 0, ndocs = 0, ncarry = 0, i, frames = 0, memReport = 0, opened = 0, windowed, repl = 0; uint32_t size = 0;
+  const char *installs[32], *docs[8], *carry[8]; int napps = 0, ninstall = 0, ndocs = 0, ncarry = 0, i, frames = 0, memReport = 0, opened = 0, windowed, repl = 0, turbo = 0, board = 0; uint32_t size = 0;
   char stem[40], *self = 0;
   atexit(rinc_logSave); /* (the running app's log, written as rinc stops, however it does) */
   for (i = 1; i < argc; i++) { /* (these on their own) */
@@ -823,8 +825,13 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-hold") && i + 1 < argc) rinc_holding = argv[++i];
     else if (!strcmp(argv[i], "-ctrl") && i + 1 < argc) rinc_ctrlFrames = atoi(argv[++i]);
     else if (!strcmp(argv[i], "-shift") && i + 1 < argc) rinc_shiftFrames = atoi(argv[++i]);
+    else if (!strcmp(argv[i], "-turbo")) turbo = 1; /* (as fast as this computer goes, not the board) */
+    else if (!strcmp(argv[i], "-board")) board = 1; /* (-frames: as the board would run them, frames skipped while it's busy) */
+    else if (!strcmp(argv[i], "-nojit")) rinc_meterJit = 0; /* (board speed: no code counted as native) */
+    else if (!strcmp(argv[i], "-meter") && i + 1 < argc) { if (!(rinc_meterFile = fopen(argv[++i], "w"))) { fprintf(stderr, "rinc: can't write %s\n", argv[i]); return 2; } } /* (what's counted, at each pc.time: tools/boardspeed.py) */
     else if (argv[i][0] == '-' || napps == rinc_BUNDLE_MOST) {
       fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-hold buttons] [-ctrl frames] [-shift frames] [-i app.rioi]\n"
+                      "            [-turbo] [-board] [-nojit] [-meter counts.txt]   (board speed: off, on with -frames, no JIT counted, the counts)\n"
                       "       rinc app.rio... -export program [-runner rinc] [-home name] [-name folder] [-docs name=folder]... [-files path=folder]...\n"
                       "       rinc app.rio... -web page.html [-home name]\n"
                       "       rinc -install name|app.rio...      (and -data folder with any of these: storage there)\n"
@@ -837,6 +844,8 @@ int main(int argc, char **argv) {
   }
   rinc_time = rinc_now;
   windowed = rinc_SDL && !out && !frames; /* (a window shows what goes wrong; without one, it ends rinc) */
+  rinc_boardSpeed = !turbo && (windowed || board); /* (board speed: in a window, and -frames with -board) */
+  if (rinc_meterFile) rinc_meterOut = rinc_meterLine;
   if (exp || web) { /* a bundle of the apps, as a program or a page */
     if (!napps && (exp || !storage)) { fprintf(stderr, "rinc: -export takes the apps to bundle (rinc a.rio b.rio -export game), and -web too, but for an empty page with a storage name of its own (rinc -name rinc-empty -web empty.html)\n"); return 2; }
     if (!napps) { rinc_webEmpty = 1; rinc_nested = 1; home = "home"; } /* (an empty page: the player with the compiler, for what's dropped) */
@@ -941,6 +950,7 @@ int main(int argc, char **argv) {
       { static int16_t heard[rinc_RATE / 60 * 2]; /* (a frame's worth of sound, each frame: into -wav's, else let go, so sound's time goes on as it would heard: a song's) */
         rinc_audioMix(wavout && i < 60 * 60 ? rinc_wav + i * (rinc_RATE / 60) * 2 : heard, rinc_RATE / 60); }
     }
+    if (rinc_boardSpeed) { char said[200]; rinc_frameSummary(said, sizeof said); fputs(said, stderr); } /* (-board: as the board's frame says) */
     rinc_appLeave(&rinc_vm); /* (Rinc stopping: the app keeps where it is, as when it gives way) */
     if (wavout && rinc_saveWav(wavout, (uint32_t)(frames < 3600 ? frames : 3600) * (rinc_RATE / 60))) { fprintf(stderr, "rinc: can't write %s\n", wavout); return 1; }
   } else {
