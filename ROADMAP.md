@@ -45,6 +45,9 @@ app is a Rio program.
      zip, the host's folder alike: a path like /drive/...), so every app gets it at once; the in-and-out
      app built on it; the thumb drive's RAM first (6 below: a few KB to free).
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
+      Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
+      over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.
+      web_drop has a page of 700 KB. The speed app is left off the demo site, as bench and micro are.
   2. Board speed everywhere, by default (the user, 2026-11-16): the desktop and the web run an app no
      faster than the Fruit Jam would (Rio's instructions metered to the board's measured rate, drawing
      and sound calls charged their board cost, a frame waiting when its budget's spent), so a game

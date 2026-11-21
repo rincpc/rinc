@@ -18,7 +18,8 @@ rinc system/home system/console system/edit system/files system/help system/colo
 ```
 
 is the whole Rinc, as on the Fruit Jam: every system app, and the themes (`-files` carries a folder's
-files, here the themes, which apps read as they would storage's). [Storage](../spec/apps.md#storage)
+files, here the themes, which apps read as they would storage's). A page's apps and files come to 2 MB
+at most. [Storage](../spec/apps.md#storage)
 is the browser's localStorage, under the bundle's storage name, so what's saved stays in that browser, for pages from the
 same site (or, from disk, the same folder). Ctrl and Shift tapped together, and then Esc, goes home; on
 a controller it's the guide button and Back. The page keeps a lone Alt from the browser's menus, as Alt

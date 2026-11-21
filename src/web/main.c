@@ -26,7 +26,7 @@ rinc_IMPORT(fs_copy) extern int js_fsCopy(const char *from, int n, const char *t
 rinc_IMPORT(fs_rename) extern int js_fsRename(const char *from, int n, const char *to, int m);
 
 static _Alignas(16) uint8_t rinc_appSpace[256 << 10]; /* the same app space as on the board */
-static char rinc_src[512 << 10]; /* the bundle */
+static char rinc_src[rinc_BUNDLE_BYTES]; /* the bundle (as big as rinc -web makes them: it had been 512 KB, and a bigger one ran over memory) */
 static rio_Vm rinc_vm;
 static uint32_t rinc_rgba[rinc_W * rinc_H];
 static int16_t rinc_sound[2048 * 2];

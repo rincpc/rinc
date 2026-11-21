@@ -330,6 +330,7 @@ extern char rinc_launchName[rinc_REF];
    (for a source, its first line, without the #) */
 #define rinc_BUNDLE_MAGIC "RINCBUN1"
 #define rinc_BUNDLE_MOST 256 /* (files) */
+#define rinc_BUNDLE_BYTES (2 << 20) /* (at most: what rinc -web and -export make, and a web page holds) */
 /* a bundle is files, by path as in storage without /rinc/ (apps/chord/chord.rio, apps/chord/assets/...):
    an app is apps/name/name.rio (a source), or apps/name/name.rioi (a compiled image, its description in
    apps/name/name.info) */

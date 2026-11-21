@@ -146,7 +146,7 @@ static void rinc_stem(const char *path, char *out, size_t cap) {
 /* -export: this program's own file, with a bundle after it (docs/spec/apps.md#bundles) and then a
    trailer: the bundle's size (4 bytes, little-endian) and its magic again. At startup rinc looks for one,
    and runs its home app in place of the REPL */
-static uint8_t rinc_bundleBuf[2 << 20], rinc_images[2 << 20];
+static uint8_t rinc_bundleBuf[rinc_BUNDLE_BYTES], rinc_images[2 << 20];
 static char *rinc_readAll(const char *path, size_t *len) {
   FILE *f; char *b; long n;
   if (!(f = fopen(path, "rb"))) return 0;

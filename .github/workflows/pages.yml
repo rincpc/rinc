@@ -49,7 +49,7 @@ jobs:
             for app in apps/*.rio apps/*/; do # (an app of one file, or of a folder)
               name=$(basename "$app" .rio)
               [ -d "$app" ] && app="${app%/}/$name.rio"
-              case $name in bench|micro) continue;; esac # (timings, not demos)
+              case $name in bench|micro|speed) continue;; esac # (timings, not demos)
               build/rinc "$app" -web "site/$name.html"
               demos="$demos $app"
               about=$(head -1 "$app" | sed -e 's/^# *//' -e 's/&/\&amp;/g' -e 's/</\&lt;/g')
