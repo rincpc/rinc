@@ -34,38 +34,7 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DRINC_PLATFORM=desktop -DRINC_SDL=OFF -DRINC_WEB_WASM=rinc.wasm -DRINC_WEB_WASM_FULL=rinc-full.wasm
           cmake --build build --parallel
       - name: Make the pages
-        run: |
-          mkdir -p site
-          {
-            echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            echo '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Rinc apps</title>'
-            echo '<style>body{margin:0;padding:24px 16px;background:#1d2b53;color:#fff1e8;font:16px/1.5 ui-monospace,monospace}'
-            echo 'main{max-width:720px;margin:auto}a{color:#ffec27}h1{font-size:22px}li{margin:10px 0}p{color:#c2c3c7}</style>'
-            echo '</head><body><main><h1>Rinc apps</h1>'
-            echo '<p>Rinc apps, playing in the browser: the same Rio VM as on the board and the desktop. Arrows and V C X Z, or a controller. <a href="docs/">Docs</a>: making apps, and what a Rinc provides.</p>'
-            echo '<p><a href="rinc.html">The whole Rinc</a>: home, the console, the editor, files, help (with these docs), colors, themes and every app below, as on the Fruit Jam. What you save stays in this browser. Ctrl and Shift tapped together, and then Esc, goes home.</p>'
-            echo '<p><a href="empty.html">An empty Rinc</a>: nothing installed yet. Drop a bundle of apps on it, such as <code>rinc-system-apps.zip</code> from a <a href="https://github.com/rincpc/rinc/releases">release</a>. Its Reset button takes it back to empty.</p><ul>'
-            demos=""
-            for app in apps/*.rio apps/*/; do # (an app of one file, or of a folder)
-              name=$(basename "$app" .rio)
-              [ -d "$app" ] && app="${app%/}/$name.rio"
-              case $name in bench|micro|speed) continue;; esac # (timings, not demos)
-              build/rinc "$app" -web "site/$name.html"
-              demos="$demos $app"
-              about=$(head -1 "$app" | sed -e 's/^# *//' -e 's/&/\&amp;/g' -e 's/</\&lt;/g')
-              echo "<li><a href=\"$name.html\">$name</a>: $about</li>"
-            done
-            echo '</ul><p><a href="docs/">Docs</a> &middot; <a href="https://github.com/rincpc/rinc">Source</a></p></main></body></html>'
-          } > site/index.html
-          build/rinc -name rinc-empty -web site/empty.html
-          system=""
-          for d in system/*/; do # (every system app; system/rinc holds the themes, carried as files)
-            name=$(basename "$d")
-            [ -f "$d$name.rio" ] && system="$system $d$name.rio"
-          done
-          build/rinc $system $demos -home home -name rinc \
-            -docs rinc=docs -docs rio=lib/rio/docs -files apps/rinc=system/rinc -web site/rinc.html
-          ls -l site
+        run: python3 tools/demosite.py build/rinc site # (tests/demosite.py makes the same pages, and plays each)
       - name: Make the docs
         run: |
           # the built-in apps' own help (system/<app>/help) as "Using Rinc", after Rinc's intro

@@ -25,24 +25,26 @@ which made the whole Rinc's page black). The card has no such limit, so bundles 
   on its own, no 2 MB arena, no 256-file most); the page asks the player for room (`source(len)`);
   web_drop's page and exported.py's program of 5 MB, each failing before.
 
-## 2. One place for a drive: /drive
+## 2. One place for a drive: /stick
 
-- A drive shows in storage as `/drive`, beside `/rinc`: `/drive/apps/chord/chord.rio`. Recommended: one
+(Named /stick, the user, 2026-11-21: /drive could mean the card too.)
+
+- A drive shows in storage as `/stick`, beside `/rinc`: `/stick/apps/chord/chord.rio`. Recommended: one
   at a time to start (a second plugged in, or a second zip dropped, replaces the first, with a notice),
   as the board's USB ports are few and most of the time it's one stick. The name leaves room for
-  `/drive2` later if wanted.
+  `/stick2` later if wanted.
 - Which apps reach it: recommended, the system apps (Files first) and the console, as with storage
   outside an app's own folder today; an app is an island, its files its own, so a game doesn't read a
   drive. pc's file procs take the path as they do now; nothing new in pc but a way to ask whether a
-  drive is in (`pc.drive() -> Int`: 0 none, or what kind) and to eject it.
+  drive is in (`pc.stick() -> Int`: 0 none, or what kind) and to eject it.
 - Underneath, one volume layer in rinc_fs: a path's first part picks the volume (the card or host
   folder, a zip in memory, the browser's storage, a USB drive), so every app gets drives at once, and
   the platforms only add volumes.
 
 ## 3. A zip dropped is a drive plugged in
 
-- Desktop and web: a zip (or, on the desktop, a folder) dropped on the window or page mounts as /drive,
-  read-only for a zip at first. Files shows it; copying `/drive/apps/chord` to `/rinc/apps/chord` is
+- Desktop and web: a zip (or, on the desktop, a folder) dropped on the window or page mounts as /stick,
+  read-only for a zip at first. Files shows it; copying `/stick/apps/chord` to `/rinc/apps/chord` is
   installing Chord. Nothing is copied by itself.
 - Kept: an empty Rinc (no home: `rinc` with nothing installed, the empty page) still installs a dropped
   release zip (rinc-system-apps.zip) as today, as it has no Files to copy with. Recommended; the
@@ -52,7 +54,7 @@ which made the whole Rinc's page black). The card has no such limit, so bundles 
   makes a drive no one ever plugged in, and a stale file from the first could shadow the second's). If
   the drive was written to and not downloaded since, the drop asks first (download, replace, or keep).
   Recommended.
-- Tests: a zip dropped shows in Files under /drive, nothing installed; a folder copied from it runs;
+- Tests: a zip dropped shows in Files under /stick, nothing installed; a folder copied from it runs;
   a second zip replaces the first; the empty page still installs.
 
 ## 4. The export drive (desktop and web only)
@@ -61,15 +63,17 @@ which made the whole Rinc's page black). The card has no such limit, so bundles 
   downloaded, so a reload doesn't lose it). Files copies into it like any folder.
 - A command (in Files' command list, and Sys+P's) downloads it as `export.zip` (web: a download; desktop:
   a file beside storage, or a save dialog), then empties it if asked.
-- Not on the board: there, the thumb drive itself is writable, so copying onto /drive is exporting.
-- Recommended alternative, simpler: no /export, but /drive writable everywhere (a dropped zip's copy in
+- Not on the board: there, the thumb drive itself is writable, so copying onto /stick is exporting.
+- The user (2026-11-21): a writable stick on the desktop and the web too, in time (so the one-/stick
+  way, below, is the direction; whether /export comes as well is still open). First round: read-only.
+- Recommended alternative, simpler: no /export, but /stick writable everywhere (a dropped zip's copy in
   memory), "a new empty drive" when none is in, and "download the drive as a zip". One idea instead of
   two, and the same as the board's stick. The user to pick.
 - Tests: files copied to /export, downloaded, the zip holds them (web_drop's runner sees the download).
 
 ## 5. Files
 
-Most of the work: volumes listed at its top (/rinc, /drive, /export), copying a file or a folder across
+Most of the work: volumes listed at its top (/rinc, /stick, /export), copying a file or a folder across
 (asking before replacing; a progress line for a big one), eject, and download (the export drive's).
 Moving between volumes is a copy then a delete. History of what came in and out (1b's log) later.
 
@@ -77,13 +81,13 @@ Moving between volumes is a copy then a delete. History of what came in and out 
 
 TinyUSB's mass storage host, and FatFS (the card's) mounting the stick as a second volume. RAM is the
 cost (1.5 to 3 KB: a volume, a sector buffer, the class's buffers; ROADMAP 7 lists where to free it).
-Most of it can come from app space (recommended): only system apps reach /drive, and they're small
+Most of it can come from app space (recommended): only system apps reach /stick, and they're small
 (Files leaves 184 KB of its 256 free), so the volume and its sector buffers live at the top of app space
 while such an app runs, and the drive's mounted only then (flushed and let go as a game starts, so a
 game keeps all 256 KB). What stays outside: TinyUSB's mass storage class state (a few hundred bytes:
 the device, its command and status blocks), so a stick plugged in during a game is noticed, and mounted
 when Files starts.
-About 1 MB/s. Plugged in: /drive appears and Files says so; pulled out: it goes, a write in flight lost
+About 1 MB/s. Plugged in: /stick appears and Files says so; pulled out: it goes, a write in flight lost
 (so Files writes whole files and says when it's done).
 
 ## Order

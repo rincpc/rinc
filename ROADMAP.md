@@ -42,12 +42,12 @@ app is a Rio program.
      its own): what came in and what went out, when and from where, so work can be followed both ways;
      and it ties to local history (what changed on the Rinc, and since when), so "what's new since I
      last took this out" is one look. Recommended: one volume layer under Files (the card, a drive, a
-     zip, the host's folder alike: a path like /drive/...), so every app gets it at once; the in-and-out
+     zip, the host's folder alike: a path like /stick/...), so every app gets it at once; the in-and-out
      app built on it; the thumb drive's RAM first (6 below: a few KB to free).
-     First round (the user, 2026-11-21): no in-and-out app yet; a drive is /drive, a dropped zip
+     First round (the user, 2026-11-21): no in-and-out app yet; a drive is /stick, a dropped zip
      mounts as one (replacing today's installing on drop), an export drive on the desktop and the web
      downloads as a zip, and Files does the copying. Bundles lose their fixed size (the card has none).
-     Plan: plans/drives.md. Done (2026-11-21): step 1, bundles of any size (5 MB pages and programs
+     Plan: plans/sticks.md. Done (2026-11-21): step 1, bundles of any size (5 MB pages and programs
      tested).
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
@@ -156,6 +156,11 @@ app is a Rio program.
        keyboard". Not decided (the user: worth considering).
   8. Smaller, any time: a picker for the clipboard's kept ones (Sys+V, say); the volume shown as it
      changes; one snippet for a whole project.
+     Caps Lock on the board (the user asked, 2026-11-21): the desktop and the web type capitals with it
+     (the system's text, SDL's and the browser's), the board ignores it (keyboard.c: Shift alone picks
+     the letter's case). Recommended: the board keeps it as a toggle and its light (the keyboard's LED
+     report), letters only, as the others do; about 15 lines. Shift tapped twice, Rinc's own lock,
+     stays.
      Also (the user, 2026-11-20): Paint feels sluggish drawing pixels and moving round the sprite grid.
      Measured on the board (the firmware console's new `frame`): Paint's draw is 3 to 6 ms (9 at most,
      32x32 sprites), well inside a frame, so Rinc's C drawing wasn't it. It was Paint: on a font sheet,

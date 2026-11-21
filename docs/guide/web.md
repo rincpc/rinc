@@ -54,4 +54,6 @@ They're built in when the desktop rinc is configured with `-DRINC_WEB_WASM=rinc.
 (`zig cc`, no emscripten): `python tools/web.py --wasm=rinc.wasm --wasm-full=rinc-full.wasm`.
 
 The [demo site](https://rincpc.com/) is made this way from `apps/` on each push to `main`, with a page
-for each app, one of the whole Rinc, and these docs at [rincpc.com/docs](https://rincpc.com/docs/).
+for each app, one of the whole Rinc, and these docs at [rincpc.com/docs](https://rincpc.com/docs/). `tools/demosite.py` makes
+the pages (with Rinc's logo as their icon, as every page `rinc -web` makes has), and the demo_site test makes
+the same ones and plays each.
