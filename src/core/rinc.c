@@ -2622,7 +2622,9 @@ static int rinc_appLoad(rio_Vm *vm, void *space, uint32_t size, const char *name
   return 0;
 }
 /* an app loaded: its native code made, then its top-level code run, then main; a game from there on */
+static int rinc_appStarts; /* (each app's start: the frame command's gaps aren't counted across one) */
 static int rinc_appGo(rio_Vm *vm, const char *name) {
+  rinc_appStarts++;
   int fn;
   if (rinc_native && rinc_native(vm) < 0) { rinc_appFail(name, ": can't set up native code"); return -1; }
   if (rio_run(vm) || ((fn = rio_findProc(vm, "main")) >= 0 && rio_call(vm, fn))) {
@@ -3009,6 +3011,7 @@ static void rinc_shot(void) {
    time, in microseconds, summed and at most, over the frames counted */
 static double rinc_updSum, rinc_drawSum, rinc_updPeak, rinc_drawPeak, rinc_gapPeak, rinc_lastFrame;
 static uint32_t rinc_framesTimed, rinc_framesSlow; /* (slow: update and draw over a 60th of a second) */
+static int rinc_framesOf; /* (the app start they're of: rinc_appStarts) */
 int rinc_frame(rio_Vm *vm) {
   int u = rio_findProc(vm, "update"), d = rio_findProc(vm, "draw");
   double t0, t1, t2;
@@ -3036,6 +3039,7 @@ int rinc_frame(rio_Vm *vm) {
   if (vm != &rinc_nest) {
     rinc_updSum += t1 - t0; rinc_drawSum += t2 - t1; rinc_framesTimed++;
     if (t2 - t0 > 1.0 / 60) rinc_framesSlow++;
+    if (rinc_framesOf != rinc_appStarts) { rinc_framesOf = rinc_appStarts; rinc_lastFrame = 0; } /* (another app: its first frame, after its loading, no gap) */
     if (rinc_lastFrame > 0 && t0 - rinc_lastFrame > rinc_gapPeak) rinc_gapPeak = t0 - rinc_lastFrame; /* (from one frame's start to the next's) */
     rinc_lastFrame = t0;
     if (t1 - t0 > rinc_updPeak) rinc_updPeak = t1 - t0;

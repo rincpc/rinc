@@ -50,11 +50,17 @@ app is a Rio program.
      made on a computer isn't a surprise on the board, and a too-slow frame shows on the desktop and
      in tests (Paint's font line, 2026-11-16, was fine on the desktop and unusable on the board).
      Not perfect, but close; a turbo mode only when asked (a setting, or rinc -turbo). With it: a
-     frame-time readout, and tests that fail when a frame runs over on board time.
+     frame-time readout, and tests that fail when a frame runs over on board time. What's measured:
+     plans/board-speed.md (remeasured every few weeks while drawing and the VM change).
+     Native code too: the JIT's check of which loops and procs qualify runs on every Rinc (only the
+     Thumb-2 output is the board's), so a loop the board runs natively is charged the native rate.
+     Related, can wait but before Rio 1.0 (the user, 2026-11-20): only loops marked (`# jit` or such)
+     compiled, and an error saying why when a marked one can't be (the same check's reasons).
   3. pc.frame() (decided: "Clocks alike everywhere", under 4 below): the frames since the app started,
      the same on every Rinc; the web test player stepping a frame at a time.
   4. Cloudlamp as a walkthrough (4 below), its setup made of studio's snippets as they come.
-  5. Board tools (5 below): the app's log over serial while it runs, a frame-time readout.
+  5. Board tools (5 below): the app's log over serial while it runs, a frame-time readout (the firmware
+     console's `frame`, 2026-11-20: update's and draw's time, slow frames, gaps; on screen, still to do).
   6. Studio from Cloudlamp: state per file (6 below); Maps' paste anchor, Ctrl+T for every layer
      (studio's ROADMAP).
   7. To get on the list (the user, 2026-11-15), guesses to check first:
@@ -137,11 +143,10 @@ app is a Rio program.
      frame: 209 of 1,194 frames slow with an arrow held; now 4 in 2,243, held 20 s), and its stash (the
      whole sheet, 0.1 to 0.2 s on the card) was written every 3 seconds even while the arrows were held.
      Done: the line redone only when a pixel or a key (not an arrow) may have changed it, and after a
-     stroke, not during it; the stash 3 seconds after the last input. Left: drawing a stroke on a font
-     sheet still has one 48 ms frame as it ends (the line could be kept glyph by glyph); a gap of about
-     0.3 s between frames shows while a key is held over serial (boardplay's hold), not yet looked at
-     with a USB keyboard (Sys+M's strip shows it there). The editor's full lines (a line of 12, the font whole) as a setting, compact the default:
-     its 9s made a line height it keeps (keys.rio, screen.rio); the console app the same, later.
+     stroke, not during it, and then just the glyph drawn in looked at again (not all 224); the stash 3
+     seconds after the last input. The 0.3 s gap first seen was the measure's own (counted across an
+     app's start); held 12 s now, frames at most 63 ms apart. Done (2026-11-20).
+     The editor's full lines (a line of 12, the font whole) as a setting, compact the default: its 9s made a line height it keeps (keys.rio, screen.rio); the console app the same, later.
      Also (the user, 2026-11-20): Ctrl+Tab in every studio app as in the editor (the files had lately,
      walked while Ctrl's held), from one library (the editor's files.rio recent list and walk, moved
      out), with Paint's step 4 (plans/sheets.md). A gradients view in Paint, later.
@@ -149,9 +154,14 @@ app is a Rio program.
      wider (Paint saves as wide as what's drawn) renumbers them. Maps notes each sheet's across and
      renumbers when it opens a map (tilemap's refit), but a game's tilemap.load doesn't, so the game
      shows the wrong tiles until the map is opened in Maps and saved; and Rio code naming sprites by
-     number (pc.spr) has nothing to renumber it. Recommended: Paint keeps a sheet's across in its notes
-     and saves at least that wide (as it does for fonts), so numbers never move; readSheets refitting
-     too, as a fallback.
+     number (pc.spr) has nothing to renumber it. Recommended: a sheet's across is set when it's made
+     (16 by default, as fonts are: a sprite's number then reads row * 16 + column) and kept in its
+     notes; Paint saves it that wide, empty columns too, and it grows only down, so numbers never move.
+     Changing across is a command of its own that says it renumbers; readSheets refitting too, as a
+     fallback for sheets made elsewhere. The other way (the user, 2026-11-20): sprites always named by
+     2D place, {column, row}, in code and maps, so any width works and nothing's noted. Recommended
+     for maps: a cell as two bytes, column and row (sheets up to 256x256 sprites), written as four hex
+     digits (`0301`, `----` empty) in `rinc map 4`, still text; never renumbered, on save or anywhere.
   9. Later: the messages library (dialog, visual novels: under 4 below); drawing speed (8 below);
      sizes on disk (9b below).
 
