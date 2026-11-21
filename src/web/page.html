@@ -126,7 +126,8 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
   };
   ex = (await WebAssembly.instantiate(await gunzip(b64("{{WASM}}")), { env })).instance.exports;
   ex._initialize();
-  new Uint8Array(ex.memory.buffer, ex.source(), app.length).set(app);
+  const room = ex.source(app.length); // (the player makes room for the bundle, as big as it is)
+  if (room) new Uint8Array(ex.memory.buffer, room, app.length).set(app);
   // a bundle of apps (a .zip) dropped on the page: installed into storage, then home (ex.drop)
   addEventListener("dragover", e => e.preventDefault());
   addEventListener("drop", async e => {

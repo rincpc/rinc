@@ -469,7 +469,7 @@ static void rinc_put32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint
 static void rinc_text(char *out, const uint8_t *in, int n) { memcpy(out, in, (size_t)n); out[n] = 0; }
 int rinc_bundleRead(const void *bundle, uint32_t size) {
   const uint8_t *b = (const uint8_t *)bundle; uint32_t n, i;
-  if (size < rinc_BUNDLE_HEAD || memcmp(b, rinc_BUNDLE_MAGIC, 8) || (n = rinc_le32(b + 8)) > rinc_BUNDLE_MOST || rinc_BUNDLE_HEAD + n * rinc_BUNDLE_ENTRY > size) return -1;
+  if (size < rinc_BUNDLE_HEAD || memcmp(b, rinc_BUNDLE_MAGIC, 8) || (n = rinc_le32(b + 8)) > (size - rinc_BUNDLE_HEAD) / rinc_BUNDLE_ENTRY) return -1;
   for (i = 0; i < n; i++) {
     const uint8_t *e = b + rinc_BUNDLE_HEAD + i * rinc_BUNDLE_ENTRY; uint32_t at = rinc_le32(e + 96), len = rinc_le32(e + 100);
     if (at > size || len > size - at) return -1;
@@ -481,9 +481,15 @@ int rinc_bundleRead(const void *bundle, uint32_t size) {
   return 0;
 }
 static void rinc_fill(uint8_t *out, const char *s, size_t n) { size_t k = strlen(s); memcpy(out, s, k < n ? k : n); } /* (the rest stays 0) */
+uint32_t rinc_bundleSize(const rinc_File *files, int n) {
+  uint64_t at = rinc_BUNDLE_HEAD + (uint64_t)n * rinc_BUNDLE_ENTRY; int i;
+  for (i = 0; i < n; i++) at += files[i].len;
+  return n < 0 || at > 0xFFFFFFFFu ? 0 : (uint32_t)at;
+}
 uint32_t rinc_bundleWrite(uint8_t *out, uint32_t cap, const char *name, const char *home, const rinc_File *files, int n) {
-  uint32_t at = rinc_BUNDLE_HEAD + (uint32_t)n * rinc_BUNDLE_ENTRY; int i;
-  if (n > rinc_BUNDLE_MOST || at > cap) return 0;
+  uint32_t at; int i;
+  if (n < 0 || (uint64_t)n * rinc_BUNDLE_ENTRY > cap - rinc_BUNDLE_HEAD || cap < rinc_BUNDLE_HEAD) return 0;
+  at = rinc_BUNDLE_HEAD + (uint32_t)n * rinc_BUNDLE_ENTRY;
   memset(out, 0, at);
   memcpy(out, rinc_BUNDLE_MAGIC, 8); rinc_put32(out + 8, (uint32_t)n);
   rinc_fill(out + 12, name, 32); rinc_fill(out + 44, home, 32);

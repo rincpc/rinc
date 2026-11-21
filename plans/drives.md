@@ -21,6 +21,9 @@ which made the whole Rinc's page black). The card has no such limit, so bundles 
 - A page bigger than a few MB is slow to open (base64 in the HTML); past a size (8 MB, say) `rinc -web`
   could write the bundle beside the page (page.zip) and the page fetch it. Later, if pages get that big.
 - Tests: a 5 MB page (web_drop's runner) and a 5 MB exported program start and read their last file.
+- Done (2026-11-21): rinc_bundleSize and a bundle built at its own size on the desktop (each file read
+  on its own, no 2 MB arena, no 256-file most); the page asks the player for room (`source(len)`);
+  web_drop's page and exported.py's program of 5 MB, each failing before.
 
 ## 2. One place for a drive: /drive
 
@@ -45,6 +48,10 @@ which made the whole Rinc's page black). The card has no such limit, so bundles 
   release zip (rinc-system-apps.zip) as today, as it has no Files to copy with. Recommended; the
   other way is a minimal Files built in.
 - `rinc -drive stuff.zip` (or a folder) mounts one from the start, for tests and for developers.
+- A second drop is a second stick: the drive is replaced whole, not merged (merging two zips' files
+  makes a drive no one ever plugged in, and a stale file from the first could shadow the second's). If
+  the drive was written to and not downloaded since, the drop asks first (download, replace, or keep).
+  Recommended.
 - Tests: a zip dropped shows in Files under /drive, nothing installed; a folder copied from it runs;
   a second zip replaces the first; the empty page still installs.
 
@@ -70,6 +77,12 @@ Moving between volumes is a copy then a delete. History of what came in and out 
 
 TinyUSB's mass storage host, and FatFS (the card's) mounting the stick as a second volume. RAM is the
 cost (1.5 to 3 KB: a volume, a sector buffer, the class's buffers; ROADMAP 7 lists where to free it).
+Most of it can come from app space (recommended): only system apps reach /drive, and they're small
+(Files leaves 184 KB of its 256 free), so the volume and its sector buffers live at the top of app space
+while such an app runs, and the drive's mounted only then (flushed and let go as a game starts, so a
+game keeps all 256 KB). What stays outside: TinyUSB's mass storage class state (a few hundred bytes:
+the device, its command and status blocks), so a stick plugged in during a game is noticed, and mounted
+when Files starts.
 About 1 MB/s. Plugged in: /drive appears and Files says so; pulled out: it goes, a write in flight lost
 (so Files writes whole files and says when it's done).
 

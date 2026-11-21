@@ -330,8 +330,6 @@ extern char rinc_launchName[rinc_REF];
    first, by name. Each app is a source, or (image: 1) a compiled Rio image; info is its description
    (for a source, its first line, without the #) */
 #define rinc_BUNDLE_MAGIC "RINCBUN1"
-#define rinc_BUNDLE_MOST 256 /* (files) */
-#define rinc_BUNDLE_BYTES (2 << 20) /* (at most: what rinc -web and -export make, and a web page holds) */
 /* a bundle is files, by path as in storage without /rinc/ (apps/chord/chord.rio, apps/chord/assets/...):
    an app is apps/name/name.rio (a source), or apps/name/name.rioi (a compiled image, its description in
    apps/name/name.info) */
@@ -339,6 +337,8 @@ typedef struct { const char *path, *data; uint32_t len; } rinc_File;
 typedef struct { char name[33], info[97]; const char *data; uint32_t len; int image; } rinc_App;
 /* takes a bundle, which stays where it is: 0, or -1 if it isn't one */
 int rinc_bundleRead(const void *bundle, uint32_t size);
+/* the bytes a bundle of these files takes (0 past 4 GB): what rinc_bundleWrite needs, no fixed most */
+uint32_t rinc_bundleSize(const rinc_File *files, int n);
 /* writes one: name, its storage folder's name ("" for Rinc's own); home, its home app's name. Its size,
    or 0 if it doesn't fit in cap */
 uint32_t rinc_bundleWrite(uint8_t *out, uint32_t cap, const char *name, const char *home, const rinc_File *files, int n);

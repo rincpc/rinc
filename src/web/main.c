@@ -5,6 +5,7 @@
    rio_NO_COMPILER, it runs compiled apps (images) only, and the wasm is a quarter the size; with the
    compiler, sources too, and Rio inside an app (the console). */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "rinc.h"
 
@@ -26,7 +27,7 @@ rinc_IMPORT(fs_copy) extern int js_fsCopy(const char *from, int n, const char *t
 rinc_IMPORT(fs_rename) extern int js_fsRename(const char *from, int n, const char *to, int m);
 
 static _Alignas(16) uint8_t rinc_appSpace[256 << 10]; /* the same app space as on the board */
-static char rinc_src[rinc_BUNDLE_BYTES]; /* the bundle (as big as rinc -web makes them: it had been 512 KB, and a bigger one ran over memory) */
+static char *rinc_src; /* the bundle: room for it as big as the page's (source(len)) */
 static rio_Vm rinc_vm;
 static uint32_t rinc_rgba[rinc_W * rinc_H];
 static int16_t rinc_sound[2048 * 2];
@@ -86,8 +87,7 @@ static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close,
 
 /* ------------------------------------------------------------------ apps */
 
-rinc_EXPORT(source) char *rinc_webSource(void) { return rinc_src; }
-rinc_EXPORT(sourceCap) int rinc_webSourceCap(void) { return (int)sizeof rinc_src; }
+rinc_EXPORT(source) char *rinc_webSource(int len) { free(rinc_src); return rinc_src = (char *)malloc(len > 0 ? (size_t)len : 1); } /* (0: no room) */
 /* an app, by name, started (rinc_appBegin, rinc_appRun): from storage (with the compiler), else the
    bundle: an image (or, with the compiler, a source too). Whatever goes wrong is on the screen */
 static void rinc_webOpen(const char *name) {
@@ -106,7 +106,7 @@ rinc_EXPORT(start) int rinc_webStart(int len) {
   rinc_time = js_now;
   rinc_boardSpeed = 1; /* (as fast as the board: plans/board-speed.md) */
   rinc_boardSlack = 1.2; /* (a page is for playing: a frame the board just makes isn't dropped here) */
-  if (rinc_bundleRead(rinc_src, (uint32_t)len)) return -1;
+  if (!rinc_src || rinc_bundleRead(rinc_src, (uint32_t)len)) return -1;
   if (*rinc_bundleName()) snprintf(rinc_store, sizeof rinc_store, "%s", rinc_bundleName());
   rinc_fs = &rinc_webFs;
   rinc_keysKnown = 1; /* (the page says each key down and up: rinc_webHeld) */

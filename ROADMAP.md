@@ -47,7 +47,8 @@ app is a Rio program.
      First round (the user, 2026-11-21): no in-and-out app yet; a drive is /drive, a dropped zip
      mounts as one (replacing today's installing on drop), an export drive on the desktop and the web
      downloads as a zip, and Files does the copying. Bundles lose their fixed size (the card has none).
-     Plan: plans/drives.md.
+     Plan: plans/drives.md. Done (2026-11-21): step 1, bundles of any size (5 MB pages and programs
+     tested).
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.
@@ -74,6 +75,10 @@ app is a Rio program.
   3. pc.frame() (decided: "Clocks alike everywhere", under 4 below): the frames since the app started,
      the same on every Rinc; the web test player stepping a frame at a time.
   4. Cloudlamp as a walkthrough (4 below), its setup made of studio's snippets as they come.
+     Cloudlamp's dialog font (the user, 2026-11-21): the text at the bottom in a font of its own, smaller
+     than the built-in one and proportional, made as a person would, on the board in studio's apps
+     (Paint's font sheet, then the game's code changed in Edit), not on the host; the "Cloudlamp" title
+     at the top taken out, as the dialog is the better font exercise.
   5. Board tools (5 below): the app's log over serial while it runs, a frame-time readout (the firmware
      console's `frame`, 2026-11-20: update's and draw's time, slow frames, gaps; on screen, still to do).
   6. Studio from Cloudlamp: state per file (6 below); Maps' paste anchor, Ctrl+T for every layer

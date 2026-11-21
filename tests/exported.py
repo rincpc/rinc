@@ -31,6 +31,18 @@ with wave.open(wav) as f:
 quiet = [k for k in range(0, len(samples) - rate * n // 2, rate * n // 2) if max(abs(v) for v in samples[k:k + rate * n // 2]) < 1000]
 if quiet: fail('the program played its song all through: quiet at %s s' % [k / (rate * n) for k in quiet])
 
+# a program of 5 MB (bundles have no fixed size: plans/drives.md): its app reads its file's last bytes
+big = os.path.join(work, 'bigapp') # (not big: the program's name, on Linux)
+os.makedirs(big)
+with open(os.path.join(big, 'data.txt'), 'w') as f: f.write('a' * 5000000 + 'THE END')
+with open(os.path.join(big, 'bigapp.rio'), 'w') as f:
+  f.write('piece: Blob[..16]\nmain* :: proc()\n  n := pc.fileReadAt("data.txt", 5000000, piece)\n  log("big:", n, piece.asString())\nend\n')
+bigGame = os.path.join(work, 'big' + ('.exe' if os.name == 'nt' else ''))
+r = subprocess.run([rinc, big + '/', '-export', bigGame], capture_output=True, text=True, timeout=120)
+if r.returncode: fail('the 5 MB export: ' + r.stdout + r.stderr)
+r = subprocess.run([bigGame, '-frames', '2', '-data', os.path.join(work, 'bigdata')], capture_output=True, text=True, timeout=120)
+if 'big: 5000007 THE END' not in r.stdout + r.stderr: fail('the 5 MB program read its last bytes: ' + r.stdout + r.stderr)
+
 node = shutil.which('node')
 if not node or not web:
   print('exported Cloudlamp: the program came through (%s: the page skipped)' % ('no web player' if not web else 'no node'))
