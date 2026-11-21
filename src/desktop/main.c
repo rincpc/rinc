@@ -795,7 +795,7 @@ static int rinc_writeHeader(const char *out, const char *in) {
 extern const char rinc_help[], rinc_license[]; /* (about.c) */
 int main(int argc, char **argv) {
   const char *apps[rinc_BUNDLE_MOST], *out = 0, *img = 0, *wavout = 0, *exp = 0, *web = 0, *runner = 0, *named = 0, *data = 0, *root = 0, *home = 0, *storage = 0, *app = 0, *drop = 0;
-  const char *installs[32], *docs[8], *carry[8]; int napps = 0, ninstall = 0, ndocs = 0, ncarry = 0, i, frames = 0, memReport = 0, opened = 0, windowed, repl = 0, turbo = 0, board = 0; uint32_t size = 0;
+  const char *installs[32], *docs[8], *carry[8]; int napps = 0, ninstall = 0, ndocs = 0, ncarry = 0, i, frames = 0, memReport = 0, opened = 0, windowed, repl = 0, turbo = 0, board = 0, play = 0; uint32_t size = 0;
   char stem[40], *self = 0;
   atexit(rinc_logSave); /* (the running app's log, written as rinc stops, however it does) */
   for (i = 1; i < argc; i++) { /* (these on their own) */
@@ -826,9 +826,10 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-ctrl") && i + 1 < argc) rinc_ctrlFrames = atoi(argv[++i]);
     else if (!strcmp(argv[i], "-shift") && i + 1 < argc) rinc_shiftFrames = atoi(argv[++i]);
     else if (!strcmp(argv[i], "-turbo")) turbo = 1; /* (as fast as this computer goes, not the board) */
+    else if (!strcmp(argv[i], "-play")) play = 1; /* (board speed with an exported game's slack: rinc_boardSlack) */
     else if (!strcmp(argv[i], "-board")) board = 1; /* (-frames: as the board would run them, frames skipped while it's busy) */
     else if (!strcmp(argv[i], "-nojit")) rinc_meterJit = 0; /* (board speed: no code counted as native) */
-    else if (!strcmp(argv[i], "-meter") && i + 1 < argc) { if (!(rinc_meterFile = fopen(argv[++i], "w"))) { fprintf(stderr, "rinc: can't write %s\n", argv[i]); return 2; } } /* (what's counted, at each pc.time: tools/boardspeed.py) */
+    else if (!strcmp(argv[i], "-meter") && i + 1 < argc) { if (!(rinc_meterFile = fopen(argv[++i], "w"))) { fprintf(stderr, "rinc: can't write %s\n", argv[i]); return 2; } } /* (what's counted, at each pc.appTime: tools/boardspeed.py) */
     else if (argv[i][0] == '-' || napps == rinc_BUNDLE_MOST) {
       fprintf(stderr, "usage: rinc [app.rio | -app name] [-m] [-frames n] [-o screen.ppm] [-wav sound.wav] [-type text] [-hold buttons] [-ctrl frames] [-shift frames] [-i app.rioi]\n"
                       "            [-turbo] [-board] [-nojit] [-meter counts.txt]   (board speed: off, on with -frames, no JIT counted, the counts)\n"
@@ -866,8 +867,9 @@ int main(int argc, char **argv) {
   app = napps ? apps[0] : 0;
   if (!app && !named) { /* an exported program: the bundle it carries */
     size_t n;
-    if ((self = rinc_selfFile(&n)) && (size = rinc_carried(self, n)) && !rinc_bundleRead(self + n - 12 - size, size)) named = "home";
+    if ((self = rinc_selfFile(&n)) && (size = rinc_carried(self, n)) && !rinc_bundleRead(self + n - 12 - size, size)) { named = "home"; play = 1; }
   }
+  if (play) rinc_boardSlack = 1.2; /* (an exported game plays: a frame the board just makes isn't dropped here) */
   if (data) root = rinc_storageAt(data); /* (apps, and their save spaces) */
   else root = rinc_storageStart(named && size ? (*rinc_bundleName() ? rinc_bundleName() : "game") : "rinc");
   rinc_root = root;

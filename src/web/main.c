@@ -105,6 +105,7 @@ static void rinc_webOpen(const char *name) {
 rinc_EXPORT(start) int rinc_webStart(int len) {
   rinc_time = js_now;
   rinc_boardSpeed = 1; /* (as fast as the board: plans/board-speed.md) */
+  rinc_boardSlack = 1.2; /* (a page is for playing: a frame the board just makes isn't dropped here) */
   if (rinc_bundleRead(rinc_src, (uint32_t)len)) return -1;
   if (*rinc_bundleName()) snprintf(rinc_store, sizeof rinc_store, "%s", rinc_bundleName());
   rinc_fs = &rinc_webFs;

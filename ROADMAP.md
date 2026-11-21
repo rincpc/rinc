@@ -44,6 +44,10 @@ app is a Rio program.
      last took this out" is one look. Recommended: one volume layer under Files (the card, a drive, a
      zip, the host's folder alike: a path like /drive/...), so every app gets it at once; the in-and-out
      app built on it; the thumb drive's RAM first (6 below: a few KB to free).
+     First round (the user, 2026-11-21): no in-and-out app yet; a drive is /drive, a dropped zip
+     mounts as one (replacing today's installing on drop), an export drive on the desktop and the web
+     downloads as a zip, and Files does the copying. Bundles lose their fixed size (the card has none).
+     Plan: plans/drives.md.
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.

@@ -1,0 +1,13 @@
+# board speed's slack (rinc_boardSlack): a frame a little past the board's 60th of a second (115 lines of
+# text, about 18 ms there) takes two frames as a developer sees it (rinc -board), and one playing
+# (rinc -board -play, as an exported game and a page do), so twice as many draws in a second
+draws := 0
+told := false
+draw* :: proc()
+  draws += 1
+  for i in 0..<115 do pc.print("forty characters of text, to be printed!", {0, i % 24 * 10}, 7)
+  if pc.appTime() >= 0.9 and not told
+    told = true
+    log("board slack: draws by 0.9 s:", draws)
+  end
+end

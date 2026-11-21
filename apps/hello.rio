@@ -10,4 +10,4 @@ end
 pc.rect({100, 80}, {120, 80}, 8)
 pc.rect({110, 90}, {100, 60}, 7)
 assert(pc.pget({150, 100}) == 7)
-log("drawn at", pc.time())
+log("drawn at", pc.appTime())

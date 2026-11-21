@@ -1,4 +1,4 @@
-# Rinc: dark blue, Rinc's own colors
+# Blue: dark blue, Rinc's first colors
 bg*      :: 1    # dark blue
 bar*     :: 0    # black
 text*    :: 7    # white

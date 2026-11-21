@@ -218,7 +218,7 @@ draw* :: proc()
       pc.print(shown[a..<min(a + COLS, shown.len())].asString(), {0, (y + k) * 9}, textColor)
     end
   end
-  if (pc.time() * 2.0).toInt() % 2 == 0
+  if (pc.appTime() * 2.0).toInt() % 2 == 0
     pc.rect({at % COLS * 6, (y + at / COLS) * 9 + 8}, {5, 1}, accentColor)
   end
 end

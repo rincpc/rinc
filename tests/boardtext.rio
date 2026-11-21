@@ -5,7 +5,7 @@ told := false
 draw* :: proc()
   draws += 1
   for i in 0..<300 do pc.print("forty characters of text, to be printed!", {0, i % 24 * 10}, 7)
-  if pc.time() >= 0.9 and not told
+  if pc.appTime() >= 0.9 and not told
     told = true
     log("board text: draws by 0.9 s:", draws)
   end

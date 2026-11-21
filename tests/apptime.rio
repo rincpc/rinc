@@ -1,0 +1,8 @@
+# pc.appTime: seconds since the app started, from 0 again after pc.appTimeReset (frames: 60 a second)
+frames := 0
+update* :: proc()
+  frames += 1
+  if frames == 1 do log("app time: at the first frame:", pc.appTime() < 0.05)
+  if frames == 30 do pc.appTimeReset()
+  if frames == 45 do log("app time: 15 frames after its reset:", pc.appTime() > 0.2 and pc.appTime() < 0.3)
+end

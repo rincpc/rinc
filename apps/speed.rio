@@ -1,15 +1,15 @@
 # speed: what Rio's instructions and Rinc's calls cost, for board speed (plans/board-speed.md). Each
-# test times a loop (pc.time before and after) and writes a line to its save file, speed.txt: its name
+# test times a loop (pc.appTime before and after) and writes a line to its save file, speed.txt: its name
 # and microseconds. tools/boardspeed.py runs it on the board (the JIT on, then off) and on the desktop
 # (rinc -meter: what each test counted), and fits each kind of instruction's cost and each call's.
 N :: 20000
 out: Blob[..4096]
 t := 0.0
 start :: proc()
-  t = pc.time()
+  t = pc.appTime()
 end
 done :: proc(name: String)
-  us := ((pc.time() - t) * 1000000.0).toInt()
+  us := ((pc.appTime() - t) * 1000000.0).toInt()
   _ = out.print(name, " ", us, "\n")
 end
 

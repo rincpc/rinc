@@ -76,7 +76,7 @@ replaceRaw :: proc(a, b: Int, s: String) -> Bool
   textLen += s.len() - (b - a)
   changedFrom = min(changedFrom, a)
   edits += 1
-  editedAt = pc.time()
+  editedAt = pc.appTime()
   rebuildLines()
   return true
 end
@@ -102,7 +102,7 @@ say :: proc(s: String, color: Int)
     end
   end
   messageColor = color
-  messageAt = pc.time()
+  messageAt = pc.appTime()
 end
 
 # s, then the file's name (its path's end), then t

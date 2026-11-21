@@ -184,5 +184,7 @@ end
 
 ## Time
 
-`pc.time()` is the seconds since the Rinc started, as a `Float`. On the desktop and the web, it's the
-board's clock (board speed: what the app's work would have taken on the Fruit Jam), unless `-turbo`.
+`pc.appTime()` is the seconds since the app started (each start: an app called back to starts again),
+as a `Float`, and `pc.appTimeReset()` starts it from 0 again, so the microseconds a `Float` keeps are
+there for as long as an app runs, not lost as a board stays on for days. On the desktop and the web, it's
+the board's clock (board speed: what the app's work would have taken on the Fruit Jam), unless `-turbo`.

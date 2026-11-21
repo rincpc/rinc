@@ -366,7 +366,7 @@ colored the same in all of them. `theme` (a setting) names the one in use, `owne
 `themes/id.theme.rio` of app `owner`, in its folder (or the bundle's) or its save space
 (`/rinc/save/owner/themes`), or of project `owner+`; `owner/id+` is only the save space's, a copy of a
 locked one. Rinc's own themes are `rinc`'s: `/rinc/apps/rinc/themes`, `rinc/slate` and so on. Without
-a theme, or for a role it leaves out, the color is Rinc's own. The Themes app picks, makes and edits
+a theme, or for a role it leaves out, the color is Rinc's own, Steel's (`rinc/steel`). The Themes app picks, makes and edits
 them (see its help).
 
 `pc.theme(role) -> Int` is the color a role has in the theme in use, read as each app starts:

@@ -244,7 +244,7 @@ pointer :: proc()
       moveTo(textAt(px, py), false)
       wantCol = -1
       dragging = true
-      movedAt = pc.time()
+      movedAt = pc.appTime()
     end
   case down == 1 and dragging and mode == NONE
     was := cursor
@@ -255,7 +255,7 @@ pointer :: proc()
       top += 1
     end
     if cursor != was
-      movedAt = pc.time()
+      movedAt = pc.appTime()
     end
   end
   if down == 0
@@ -323,7 +323,7 @@ update* :: proc()
     was := cursor
     key(c)
     if cursor != was
-      movedAt = pc.time()
+      movedAt = pc.appTime()
     end
     if naming # (save or run, on a new file: its project's name, asked for)
       naming = false

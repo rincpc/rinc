@@ -23,4 +23,4 @@ An app is left for another with `pc.launch`, or for home with the [system key](a
 Leaving stops every voice.
 
 Frames come 60 a second. An app that takes too long gets its frames late (how a Rinc catches up, if it
-does, is its own), so for real time, use `pc.time()`.
+does, is its own), so for real time, use `pc.appTime()`.

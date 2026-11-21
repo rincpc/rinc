@@ -94,7 +94,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_keyHeld_SIG "i>i"
 #define pc_stick_SIG "i>f"
 #define pc_trigger_SIG "i>f"
-#define pc_time_SIG ">f"
+#define pc_appTime_SIG ">f"
+#define pc_appTimeReset_SIG ""
 #define pc_showCommands_SIG ""
 #define pc_pointer_SIG "Enum{game,ui,none}"
 #define pc_pointerAt_SIG ">ii"
@@ -207,7 +208,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(keyHeld, pc_keyHeld_SIG) \
   X(stick, pc_stick_SIG) \
   X(trigger, pc_trigger_SIG) \
-  X(time, pc_time_SIG) \
+  X(appTime, pc_appTime_SIG) \
+  X(appTimeReset, pc_appTimeReset_SIG) \
   X(showCommands, pc_showCommands_SIG) \
   X(pointer, pc_pointer_SIG) \
   X(pointerAt, pc_pointerAt_SIG) \
@@ -302,7 +304,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x16ba7bc3u /* (rio_hashText of the source) */
+#define pc_HASH 0x6da4a41du /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -451,7 +453,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "# a controller's sticks: 0 left x, 1 left y, 2 right x, 3 right y; -1 to 1, + right and down\n" \
   "stick* :: host proc(i: Int) -> Float\n" \
   "trigger* :: host proc(i: Int) -> Float              # 0 left, 1 right; 0 to 1\n" \
-  "time* :: host proc() -> Float                       # seconds since start\n" \
+  "appTime* :: host proc() -> Float                    # seconds since the app started (or since appTimeReset)\n" \
+  "appTimeReset* :: host proc()                        # appTime from 0 again\n" \
   "# a command, in the list the system key with P shows (or showCommands): an app's own come from its\n" \
   "# commandList* :: proc() -> []pc.Command, asked each time the list opens (up to 240 of them), and\n" \
   "# Rinc's are after them. Picking one types its key, as key() gives it next; while the list is up, the\n" \

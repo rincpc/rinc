@@ -1,0 +1,23 @@
+# Steel: cool steel grays, with yellow and lime: Rinc's own colors
+bg*      :: 235  # cool tint 4/8
+bar*     :: 234  # cool tint 3/8
+text*    :: 255  # gray 16/16
+soft*    :: 238  # cool tint 7/8
+dim*     :: 237  # cool tint 6/8
+faint*   :: 236  # cool tint 5/8
+accent*  :: 10   # yellow
+heading* :: 26   # lime
+pick*    :: 147  # azure 4/8
+select*  :: 129  # cyan 2/8
+link*    :: 165  # blue 6/8
+error*   :: 37   # red 6/8
+ok*      :: 134  # cyan 7/8
+codeBg*  :: 234  # cool tint 3/8
+code*    :: 7    # white
+punct*   :: 239  # cool tint 8/8
+keyword* :: 166  # blue 7/8
+type*    :: 119  # teal 8/8
+call*    :: 71   # yellow 8/8
+number*  :: 54   # orange 7/8
+string*  :: 26   # lime
+comment* :: 237  # cool tint 6/8

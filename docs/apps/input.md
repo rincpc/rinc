@@ -63,7 +63,8 @@ end
 
 ## Time
 
-`pc.time()` is seconds since Rinc started, as a `Float`. Frames come 60 times a second, so counting
+`pc.appTime()` is seconds since the app started, as a `Float`; `pc.appTimeReset()` starts it from 0
+again (at a level's start, say). Frames come 60 times a second, so counting
 frames also measures time.
 
 Next: [sound](sound.md).

@@ -33,13 +33,13 @@ playing :: proc() -> Int
   return n
 end
 spin :: proc() -> Float
-  t := pc.time()
+  t := pc.appTime()
   n := 0
   for i in 0..<2000000
     n += i % 7
   end
   if n == 1 do log(n) # (so the loop counts)
-  return pc.time() - t
+  return pc.appTime() - t
 end
 number :: proc(t: String, at: Int) -> [2]Int # (a number in t from at, and where it ends)
   v := 0

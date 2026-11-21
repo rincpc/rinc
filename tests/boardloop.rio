@@ -7,7 +7,7 @@ update* :: proc()
   updates += 1
   a := 0
   for i in 0..<200000 do a = i
-  if pc.time() >= 0.9 and not told
+  if pc.appTime() >= 0.9 and not told
     told = true
     log("board loop: updates by 0.9 s:", updates)
   end

@@ -74,10 +74,11 @@ extern double (*rinc_time)(void);         /* seconds since start, from the platf
   X(fileRead) X(fileWrite) X(dir) X(imageLoad) X(imageWrite)
 #define rinc_COST_ENUM(k) rinc_Cost_##k,
 #define rinc_COST_NAME(k) #k,
+extern double rinc_boardSlack; /* a frame skipped only past this many of the board's 60ths: 1 (exact, as a developer sees it), 1.2 playing (an exported game, a page) */
 extern int rinc_boardSpeed;  /* 1: the desktop and the web as fast as the board (the platform sets it; -turbo not) */
 #ifdef rio_METER
 extern int rinc_meterJit;    /* 0: no code counted as the board's JIT would compile it (-nojit) */
-extern void (*rinc_meterOut)(const char *line); /* the counts, a line at each pc.time and each frame's end (-meter) */
+extern void (*rinc_meterOut)(const char *line); /* the counts, a line at each pc.appTime and each frame's end (-meter) */
 #endif
 /* calls fn(arg) on a stack big enough for compiling (pc.checkRio's), from the platform: the board's
    main stack is small; 0 (elsewhere): called as it is */

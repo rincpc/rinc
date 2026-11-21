@@ -282,7 +282,7 @@ draw* :: proc()
   # the cursor: lit while it moves, else blinking
   ccol := cursor - lineAt[cl] - left
   if mode == NONE and cl >= top and cl < top + ROWS and ccol >= 0 and ccol <= cols
-    if pc.time() - movedAt < 0.5 or (pc.time() * 2.0).toInt() % 2 == 0
+    if pc.appTime() - movedAt < 0.5 or (pc.appTime() * 2.0).toInt() % 2 == 0
       pc.rect({textX + ccol * 6 - 1, TOP_Y + (cl - top) * 9 - 1}, {1, 9}, accentColor)
     end
   end
@@ -302,7 +302,7 @@ draw* :: proc()
     else
       inputField.draw(at, 52 - label.len(), textColor, selectColor, accentColor)
     end
-  case message.len() > 0 and pc.time() - messageAt < 4.0
+  case message.len() > 0 and pc.appTime() - messageAt < 4.0
     pc.print(message[0..<message.len()].asString(), {2, 231}, messageColor)
   case errLine == cl and errTextLen > 0 # (on the error's line: what it says)
     pc.print(errText[0..<min(errTextLen, 53)].asString(), {2, 231}, errorColor)

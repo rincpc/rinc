@@ -262,7 +262,7 @@ findAll :: proc()
   for n > 0 and (setting[n - 1] == 10 or setting[n - 1] == 13 or setting[n - 1] == 32)
     n -= 1
   end
-  want := "rinc/rinc" # (no setting: Rinc's own colors)
+  want := "rinc/steel" # (no setting: Rinc's own colors)
   if n > 0 and n <= 80
     want = setting[0..<n].asString()
   end

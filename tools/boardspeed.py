@@ -2,7 +2,7 @@
 # dependencies = ["pyserial", "numpy", "scipy"]
 # ///
 r"""Board speed's costs (plans/board-speed.md), measured: uv run tools/boardspeed.py COM3 RINC_EXE
-apps/speed.rio runs on the board (restarted first, so pc.time is precise: picotool reboot), with the JIT
+apps/speed.rio runs on the board (restarted first, so pc.appTime is precise: picotool reboot), with the JIT
 and then without; and on the desktop, rinc -meter, which says what each of its tests ran (each kind of
 instruction, apart in code the board's JIT compiles, and each call with its pixels or bytes). Each cost
 is fitted to the board's times (non-negative least squares, relative), and written to
@@ -132,7 +132,7 @@ def desktop(exe, keep, jit):
       k, v = f.split('=')
       d[k] = tuple(int(x) for x in v.split(',')) if ',' in v else int(v)
     snaps.append(d)
-  if len(snaps) % 2: sys.exit('rinc -meter: an odd count of pc.time calls')
+  if len(snaps) % 2: sys.exit('rinc -meter: an odd count of pc.appTime calls')
   return [diff(snaps[i], snaps[i + 1]) for i in range(0, len(snaps), 2)]
 
 def diff(a, b):

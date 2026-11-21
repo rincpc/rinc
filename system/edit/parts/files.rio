@@ -331,7 +331,7 @@ switchTo :: proc(k: Int)
 end
 switchRecent :: proc(back: Bool)
   held := pc.modsHeld() >= 0
-  if not walking and (walkStep == 0 or (not held and pc.time() - walkAt > 1.5)) # (a walk begins)
+  if not walking and (walkStep == 0 or (not held and pc.appTime() - walkAt > 1.5)) # (a walk begins)
     if path.len() > 0
       remember() # (this one's place, first)
     end
@@ -356,7 +356,7 @@ switchRecent :: proc(back: Bool)
     return
   end
   walkStep = k
-  walkAt = pc.time()
+  walkAt = pc.appTime()
   if held # (the pick, on the list: letting go of Ctrl opens it)
     walking = true
     return

@@ -41,7 +41,7 @@ A theme is a file, `<name>.theme.rio`, in a `themes` folder. Rinc's own are in
 `/rinc/save/rinc/themes/`, named `rinc/<name>`. Your copy of a locked one is the same file name in the
 save space, named with a `+`: `rinc/slate+`. An app or a project can bring themes of its own, in its
 `themes` folder: `chord/sunset`, or `chord+/sunset` for a project. The `theme` setting holds the name of
-the one in use (none: Rinc's own colors, `rinc/rinc`).
+the one in use (none: Rinc's own colors, `rinc/steel`; Rinc's first, dark blue, is `rinc/blue`).
 
 The file is Rio constants, and Rinc reads only those, never running it. Its first line is its title:
 

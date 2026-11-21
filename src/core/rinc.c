@@ -33,8 +33,9 @@ double (*rinc_time)(void);
    file calls count theirs (rinc_charge: a call, and its pixels or bytes). boardcost.h, which
    tools/boardspeed.py makes from the board's measurements, says what each costs there. A frame's cost
    is how many 60ths of a second it takes on the board; the ones past its first are frames skipped
-   (rinc_gameFrame), as the board would still be busy, and pc.time reads the board's clock. */
+   (rinc_gameFrame), as the board would still be busy, and pc.appTime reads the board's clock. */
 int rinc_boardSpeed; /* (on: the platform's choice, -turbo off) */
+double rinc_boardSlack = 1;
 enum { rinc_COST_KINDS(rinc_COST_ENUM) rinc_Cost_count };
 #ifdef rio_METER
 #include "boardcost.h"
@@ -43,7 +44,7 @@ uint64_t rinc_meterOps[512];
 static uint64_t rinc_meterKinds[rinc_Cost_count][2]; /* (calls, and their pixels or bytes) */
 static uint8_t *rinc_meterNative; static uint32_t rinc_meterNativeCap;
 int rinc_meterJit = 1; /* (-nojit: nothing counted as native) */
-void (*rinc_meterOut)(const char *line); /* (-meter's: the counts, each time pc.time's asked, for tools/boardspeed.py) */
+void (*rinc_meterOut)(const char *line); /* (-meter's: the counts, each time pc.appTime's asked, for tools/boardspeed.py) */
 void rinc_charge(int kind, uint32_t units) { rinc_meterKinds[kind][0]++; rinc_meterKinds[kind][1] += units; }
 /* everything counted so far, in the board's nanoseconds */
 static double rinc_meterNs(void) {
@@ -78,7 +79,7 @@ static void rinc_boardFrameEnd(void) {
   double now, ticks;
   int whole;
   if (rinc_meterOut) rinc_meterWrite("frame"); /* (-meter: each frame's counts too, a line "frame") */
-  now = rinc_meterNs(); ticks = (now - rinc_meterAtTick) / (1e9 / 60);
+  now = rinc_meterNs(); ticks = (now - rinc_meterAtTick) / (1e9 / 60) / rinc_boardSlack;
   whole = ticks <= 1 ? 1 : (int)ticks + (ticks > (int)ticks);
   if (whole > 600) whole = 600; /* (10 s: a hang's not waited out) */
   rinc_boardOwe = whole - 1;
@@ -1615,7 +1616,7 @@ static void rinc_hostSettingWrite(rio_Vm *v, rio_Val *a) {
 static const char *const rinc_roleNames[] = {"bg", "bar", "text", "soft", "dim", "faint", "accent", "heading", "pick", "select", "link",
                                              "error", "ok", "codeBg", "code", "punct", "keyword", "type", "call", "number", "string", "comment"};
 #define rinc_ROLES ((int)(sizeof rinc_roleNames / sizeof rinc_roleNames[0]))
-static const uint8_t rinc_roleDefaults[rinc_ROLES] = {1, 0, 7, 6, 13, 5, 10, 9, 12, 2, 12, 8, 11, 17, 7, 6, 14, 15, 12, 9, 11, 13};
+static const uint8_t rinc_roleDefaults[rinc_ROLES] = {235, 234, 255, 238, 237, 236, 10, 26, 147, 129, 165, 37, 134, 234, 7, 239, 166, 119, 71, 54, 26, 237}; /* (Steel: system/rinc/themes/steel.theme.rio) */
 static uint8_t rinc_theme[rinc_ROLES]; static int rinc_themeOn; /* (loaded once: before, the defaults) */
 /* a theme's file, read into the roles: 0, or -1 (no such file) */
 static int rinc_themeRead(const char *owner, int n, const char *id, int m, int copy) {
@@ -1791,9 +1792,11 @@ static float rinc_stickAt(int i) {
 }
 static void rinc_hostStick(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = a[0].u < 4 ? rinc_stickAt(a[0].i) : 0; }
 static void rinc_hostTrigger(rio_Vm *v, rio_Val *a) { (void)v; a[0].f = a[0].u < 2 ? (float)rinc_axes[4 + a[0].i] / 32767.0f : 0; }
-static void rinc_hostTime(rio_Vm *v, rio_Val *a) {
+static double rinc_appEpoch; /* (pc.appTime's 0: the app's start, or its appTimeReset) */
+static void rinc_hostAppTimeReset(rio_Vm *v, rio_Val *a) { (void)v; (void)a; rinc_appEpoch = rinc_clock(); }
+static void rinc_hostAppTime(rio_Vm *v, rio_Val *a) {
   (void)v;
-  a[0].f = (float)rinc_clock();
+  a[0].f = (float)(rinc_clock() - rinc_appEpoch);
 #ifdef rio_METER
   if (rinc_meterOut) rinc_meterWrite("time");
 #endif
@@ -2619,7 +2622,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 }
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.appsFor", pc_appsFor_SIG, rinc_hostAppsFor) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
-         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.textSize", pc_textSize_SIG, rinc_hostTextSize) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.time", pc_time_SIG, rinc_hostTime) ||
+         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.textSize", pc_textSize_SIG, rinc_hostTextSize) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.appTime", pc_appTime_SIG, rinc_hostAppTime) || rio_addFfi(vm, "pc.appTimeReset", pc_appTimeReset_SIG, rinc_hostAppTimeReset) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.keyHeld", pc_keyHeld_SIG, rinc_hostKeyHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
@@ -2728,6 +2731,7 @@ static int rinc_appGo(rio_Vm *vm, const char *name) {
   rinc_appStarts++;
   int fn;
   if (rinc_native && rinc_native(vm) < 0) { rinc_appFail(name, ": can't set up native code"); return -1; }
+  rinc_appEpoch = rinc_clock(); /* (pc.appTime from 0) */
   if (rio_run(vm) || ((fn = rio_findProc(vm, "main")) >= 0 && rio_call(vm, fn))) {
     rinc_sayError(vm, name, 0); rinc_back();
     return -1;
