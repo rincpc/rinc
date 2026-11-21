@@ -65,6 +65,14 @@ typedef struct {
   char apps[400];
 } rinc_Zip;
 int rinc_zipInstall(rinc_Zip *zip);
+/* the stick (plans/drives.md): a zip, whole in memory (malloc'd: the stick keeps it, freed when another's
+   in or it's taken out, zip 0), read only at /stick, its name (the zip's file name) for what's said; "/"
+   lists rinc, and stick while one's in. 0, or -1 if it isn't a zip (nothing changed). rinc_stickIn: its
+   name, or 0 when none's in */
+int rinc_stickMount(uint8_t *zip, uint32_t size, const char *name);
+const char *rinc_stickIn(void);
+/* a notice at the bottom left for a few seconds: what, then name (32 at most) */
+void rinc_noticeShow(const char *what, const char *name);
 /* after a drop on the screen (bad: nothing installed): home, if there is one now (rinc_launch), else
    it says what to do */
 void rinc_dropped(int bad);
@@ -191,6 +199,9 @@ static inline uint8_t rinc_shownAt(int x, int y) {
 /* one frame of a game: the app's update* and then draw* (each optional). 0: ran, 1: the app has
    neither (it isn't a game), -1: a runtime error (rio_error says) */
 int rinc_frame(rio_Vm *vm);
+/* a USB keyboard's key (a HID usage) typed shifted: with Shift, or with Caps Lock on a letter (A to Z:
+   4 to 29), not both, as the desktop's and the browser's typing has it (the board's keyboard.c) */
+int rinc_hidShifted(int key, int shift, int capsLock);
 float rinc_msSince(double t0); /* milliseconds since t0 (rinc_clock's), kept apart in double: a Float of seconds since start loses them */
 void rinc_frameSummary(char *said, size_t cap); /* the frames' times since last asked, a line (the firmware console's frame) */
 /* Print Screen, as a platform sees it: the screen saved after this frame (/rinc/shots/<app>-<n>.png) */

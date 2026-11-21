@@ -47,8 +47,11 @@ app is a Rio program.
      First round (the user, 2026-11-21): no in-and-out app yet; a drive is /stick, a dropped zip
      mounts as one (replacing today's installing on drop), an export drive on the desktop and the web
      downloads as a zip, and Files does the copying. Bundles lose their fixed size (the card has none).
-     Plan: plans/sticks.md. Done (2026-11-21): step 1, bundles of any size (5 MB pages and programs
+     Plan: plans/drives.md. Done (2026-11-21): step 1, bundles of any size (5 MB pages and programs
      tested).
+     Then (2026-11-21): /stick on the desktop and the web, read only (a zip dropped on a Rinc with home,
+     rinc -stick), Files up from /rinc to /, copying off it; the board's thumb drive and a writable stick
+     next (plans/drives.md).
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.
@@ -160,7 +163,8 @@ app is a Rio program.
      (the system's text, SDL's and the browser's), the board ignores it (keyboard.c: Shift alone picks
      the letter's case). Recommended: the board keeps it as a toggle and its light (the keyboard's LED
      report), letters only, as the others do; about 15 lines. Shift tapped twice, Rinc's own lock,
-     stays.
+     stays. Done (2026-11-21): rinc_hidShifted (tests/capslock.c), the light set on a press and on a
+     keyboard plugged in; to try with a real keyboard (no tool here types as a USB keyboard).
      Also (the user, 2026-11-20): Paint feels sluggish drawing pixels and moving round the sprite grid.
      Measured on the board (the firmware console's new `frame`): Paint's draw is 3 to 6 ms (9 at most,
      32x32 sprites), well inside a frame, so Rinc's C drawing wasn't it. It was Paint: on a font sheet,

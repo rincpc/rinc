@@ -21,6 +21,7 @@ static char rinc_queue[64];
 static volatile unsigned rinc_qhead, rinc_qtail;
 static hid_keyboard_report_t rinc_last;
 static uint8_t rinc_repeatKey, rinc_repeatMods; static uint64_t rinc_repeatAt;
+static uint8_t rinc_capsLock, rinc_leds; /* (Caps Lock: on or off, a press each; leds: its light, sent to each keyboard) */
 uint8_t rinc_keysDown[32]; /* bit k: HID usage k is held */
 
 static void rinc_push(int c) {
@@ -67,7 +68,7 @@ static int rinc_character(uint8_t key, uint8_t mods) {
   if (key == HID_KEY_ENTER || key == HID_KEY_KEYPAD_ENTER) return '\r';
   if (key == HID_KEY_BACKSPACE) return 8;
   if (key >= 128) return -1;
-  c = rinc_ascii[key][shift ? 1 : 0];
+  c = rinc_ascii[key][rinc_hidShifted(key, shift != 0, rinc_capsLock)];
   if (!c) return -1;
   if (mods & (KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTCTRL)) {
     if (c >= 'a' && c <= 'z') return c - 'a' + 1;
@@ -76,7 +77,12 @@ static int rinc_character(uint8_t key, uint8_t mods) {
   return c == '\n' ? '\r' : c;
 }
 
-static void rinc_report(const hid_keyboard_report_t *r) {
+/* a keyboard's Caps Lock light, as rinc_capsLock is (sent when it changes, and to a keyboard plugged in) */
+static void rinc_capsLight(uint8_t dev, uint8_t instance) {
+  rinc_leds = rinc_capsLock ? KEYBOARD_LED_CAPSLOCK : 0;
+  tuh_hid_set_report(dev, instance, 0, HID_REPORT_TYPE_OUTPUT, &rinc_leds, 1);
+}
+static void rinc_report(uint8_t dev, uint8_t instance, const hid_keyboard_report_t *r) {
   int i, j;
   memset(rinc_keysDown, 0, sizeof rinc_keysDown);
   rinc_keysDown[0xE0 >> 3] = r->modifier; /* (the modifiers, Ctrl Shift Alt and GUI left then right, are keys 0xE0-0xE7: a byte of their own) */
@@ -85,6 +91,7 @@ static void rinc_report(const hid_keyboard_report_t *r) {
     if (!k) continue;
     rinc_keysDown[k >> 3] |= (uint8_t)(1u << (k & 7));
     for (j = 0; j < 6; j++) if (rinc_last.keycode[j] == k) was = 1;
+    if (!was && k == HID_KEY_CAPS_LOCK) { rinc_capsLock = !rinc_capsLock; rinc_capsLight(dev, instance); continue; }
     if (!was) { /* newly pressed: type it, and repeat it if held */
       int c = rinc_editing(k, r->modifier) ? -1 : rinc_character(k, r->modifier);
       if (c >= 0) rinc_push(c);
@@ -129,6 +136,7 @@ void tuh_hid_mount_cb(uint8_t dev, uint8_t instance, uint8_t const *desc, uint16
   /* (a mouse interface that carries the volume keys too has been set to the boot protocol, which has
      only the mouse: once the whole device is set up, it goes back to full reports; see
      tuh_mount_cb) */
+  if (p == HID_ITF_PROTOCOL_KEYBOARD && rinc_capsLock) rinc_capsLight(dev, instance); /* (Caps Lock's on: its light too) */
   if (p == HID_ITF_PROTOCOL_KEYBOARD || (dev < rinc_NDEV && instance < CFG_TUH_HID && rinc_consumer[dev][instance] && p != HID_ITF_PROTOCOL_MOUSE))
     tuh_hid_receive_report(dev, instance);
 }
@@ -150,7 +158,7 @@ void tuh_hid_umount_cb(uint8_t dev, uint8_t instance) {
 }
 void tuh_hid_report_received_cb(uint8_t dev, uint8_t instance, uint8_t const *r, uint16_t len) {
   if (tuh_hid_interface_protocol(dev, instance) == HID_ITF_PROTOCOL_KEYBOARD && len >= sizeof(hid_keyboard_report_t))
-    rinc_report((const hid_keyboard_report_t *)(const void *)r);
+    rinc_report(dev, instance, (const hid_keyboard_report_t *)(const void *)r);
   else if (dev < rinc_NDEV && instance < CFG_TUH_HID && rinc_consumer[dev][instance]) rinc_consumerReport(dev, instance, r, len);
   tuh_hid_receive_report(dev, instance);
 }

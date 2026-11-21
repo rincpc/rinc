@@ -34,6 +34,7 @@ rinc app.rio -play                with board speed as a player gets it (below): 
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,
                                   \xHH a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right)
   -drop apps.zip                  and first, as if it were dropped on the window
+  -stick things.zip               and that zip plugged in as the stick (/stick, read only)
   -hold 'a 10-40, right 20-30'    and hold buttons, as a controller would, in those frames (counted from
                                   0): left right up down a b x y lb rb ls rs start back, and the
                                   sticks pushed: lsleft lsright lsup lsdown rsleft rsright rsup rsdown
@@ -73,8 +74,12 @@ PlayStation, Switch and more), and Esc is the app's. The system key is Ctrl and 
 home. F11, or the system key with Enter, fills the display, and keeps the mouse on it until it's a
 window again (or another window gets the focus: Alt+Tab, Cmd+Tab).
 
-Dropping a bundle of apps (a `.zip`) or an app's folder on the window installs it, as `rinc -install`
-does, and then goes home. On Windows, a double-clicked `rinc.exe` closes the console Windows opens for it,
+Dropping a `.zip` on the window plugs it in as the stick: its files at `/stick`, read only, where Files
+shows them (up from `/rinc`), and copying an app's folder from there to `/rinc/apps` installs it. A
+second zip dropped replaces the first. On a Rinc with nothing installed yet (no home), a dropped zip is
+installed instead, as `rinc -install` does, and then it goes home: a release's `rinc-system-apps.zip`
+is how a Rinc starts. An app's folder dropped is installed, as before. `rinc -stick things.zip` plugs
+one in from the start (plans/drives.md: a thumb drive on the board, and a stick you can write to, later). On Windows, a double-clicked `rinc.exe` closes the console Windows opens for it,
 so there's only the window; started in a terminal, it prints there as usual.
 
 ## Storage

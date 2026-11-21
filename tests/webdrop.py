@@ -1,8 +1,8 @@
-"""python webdrop.py path/to/rinc work-folder: a bundle of apps (a zip) dropped on a web page (rinc -web),
-run in node (webdrop.mjs): with the compiler, its files go into storage (localStorage) and home runs, now
-the dropped one; a zip naming ../ installs nothing; the VM-only player says it doesn't install. An empty
-page (rinc -name x -web) says nothing's installed, takes the drop and runs its home, and its Reset takes
-it back to empty. Without node, skipped (77)."""
+"""python webdrop.py path/to/rinc work-folder: a zip dropped on a web page (rinc -web), run in node
+(webdrop.mjs): on a page with home (with the compiler), it's the stick (/stick, plans/drives.md): said so,
+and nothing goes into storage (localStorage); the VM-only player says it doesn't take one. An empty page
+(rinc -name x -web) says nothing's installed, takes the drop as a bundle of apps and runs its home (a zip
+naming ../ installs nothing), and its Reset takes it back to empty. Without node, skipped (77)."""
 import os, shutil, subprocess, sys, zipfile
 
 here = os.path.dirname(os.path.abspath(__file__))
@@ -43,10 +43,9 @@ with zipfile.ZipFile(bad, 'w') as z:
   z.writestr('rinc/apps/../../evil.txt', 'no\n')
 
 out = drop(full, good)
-for want in ('installed 4 files from apps.zip: console home', 'the dropped console runs', 'drop/apps/console/console.rio', 'drop/apps/console/data.txt', 'drop/help/dropped.txt'):
-  if want not in out: fail('a dropped bundle: no %r in:\n%s' % (want, out))
-if 'save/elsewhere' in out or 'error' in out.lower() or 'Reset' in out: fail('a dropped bundle:\n' + out)
-out = drop(full, bad)
+if 'apps.zip is in, as /stick' not in out or 'installed ' in out or [k for k in out.split('keys:')[1].split() if k.startswith(('drop/apps/', 'drop/help/'))]: fail('a zip dropped on a page with home, the stick:\n' + out)
+if 'error' in out.lower() or 'Reset' in out: fail('a zip dropped on a page with home:\n' + out)
+out = drop(empty, bad)
 if 'not installed' not in out or 'nothing installed' not in out or '/apps/x/' in out or 'evil' in out.split('keys:')[1]: fail('a zip naming ../:\n' + out)
 out = drop(small, good)
 if 'runs its own apps' not in out or 'apps/console' in out.split('keys:')[1]: fail('the VM-only player:\n' + out)
@@ -63,5 +62,5 @@ with open(os.path.join(bigDir, 'data.txt'), 'w') as f: f.write(os.urandom(2600 <
 r = subprocess.run([rinc, os.path.join(root, 'system', 'console', 'console.rio'), '-name', 'big', '-files', 'apps/big=' + bigDir, '-web', big], capture_output=True, text=True)
 if r.returncode: fail('rinc -web, 5 MB: ' + r.stdout + r.stderr)
 out = drop(big, good)
-if 'something on the screen' not in out or 'the dropped console runs' not in out: fail('a page of 5 MB:\n' + out)
+if 'something on the screen' not in out or 'apps.zip is in, as /stick' not in out: fail('a page of 5 MB:\n' + out)
 print('web drops came through')

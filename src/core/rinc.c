@@ -96,6 +96,7 @@ static double rinc_clock(void) {
 #endif
   return rinc_time ? rinc_time() : 0;
 }
+int rinc_hidShifted(int key, int shift, int capsLock) { return !shift != !(capsLock && key >= 4 && key <= 29); }
 float rinc_msSince(double t0) { return (float)((rinc_clock() - t0) * 1000.0); }
 uint16_t rinc_buttons;
 int16_t rinc_axes[6];
@@ -1198,7 +1199,8 @@ static int rinc_argPath(rio_Vm *v, rio_Val *a, char *out, int change) {
     if (c < 32 || c > 126 || c == '\\' || c == ':') return 0;
     if (c == '/' && i + 1 < n && (s[i + 1] == '/' || (s[i + 1] == '.' && (i + 2 == n || s[i + 2] == '/' || (s[i + 2] == '.' && (i + 3 == n || s[i + 3] == '/')))))) return 0;
   }
-  if (change ? n <= 6 || strncmp(s, "/rinc/", 6) : strncmp(s, "/rinc", 5) || (n > 5 && s[5] != '/')) return 0; /* (/rinc is the root: looking goes only there for now) */
+  if (change ? n <= 6 || strncmp(s, "/rinc/", 6) /* (writing: storage only) */
+             : (n != 1 && (strncmp(s, "/rinc", 5) || (n > 5 && s[5] != '/')) && (strncmp(s, "/stick", 6) || (n > 6 && s[6] != '/')))) return 0; /* (looking: /rinc, the stick, and / with them) */
   memcpy(out, s, (size_t)n); out[n] = 0;
   return 1;
 }
@@ -2357,6 +2359,7 @@ static void rinc_noticeSay(const char *what, const char *name) {
   snprintf(rinc_notice, sizeof rinc_notice, "%s%.32s", what, name);
   rinc_noticeUntil = (rinc_time ? rinc_time() : 0) + 3;
 }
+void rinc_noticeShow(const char *what, const char *name) { rinc_noticeSay(what, name); }
 static int rinc_noticeOn(void) { return rinc_notice[0] && (!rinc_time || rinc_time() < rinc_noticeUntil); }
 static void rinc_badges(void) {
   static const char *const names[4] = {"SYS", "ALT", "CTRL", "SHIFT"};

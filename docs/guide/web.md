@@ -25,16 +25,17 @@ same site (or, from disk, the same folder). Ctrl and Shift tapped together, and 
 a controller it's the guide button and Back. The page keeps a lone Alt from the browser's menus, as Alt
 tapped twice is Rinc's Alt lock.
 
-A bundle of apps (a .zip, such as a release's `rinc-system-apps.zip`) dropped on such a page installs
-into its storage, as on [the desktop](desktop.md), and then home starts. Installed apps come before the
-page's own of the same name. A page with only the VM-only player (below) can't run apps from storage,
+A .zip dropped on such a page is plugged in as the stick, as on [the desktop](desktop.md): its files at
+`/stick`, read only, for Files to show and copy from (an app's folder copied to `/rinc/apps` is
+installed, into the page's storage). A second one dropped replaces the first. Installed apps come before
+the page's own of the same name. A page with only the VM-only player (below) can't run apps from storage,
 so it says so and installs nothing.
 
 ```sh
 rinc -name rinc-empty -web empty.html
 ```
 
-is a Rinc with nothing installed: it says so, and takes a dropped bundle, as the desktop rinc does
+is a Rinc with nothing installed: it says so, and installs a dropped bundle (no stick: there's no Files yet), as the desktop rinc does
 with none. Its Reset button, in the corner, takes it back to empty (it asks first). The storage name,
 which an empty page must have, keeps it apart from other pages from the same site: each keeps its
 storage under its own.

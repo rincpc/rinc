@@ -44,8 +44,13 @@ if r.returncode != 1 or 'No apps here yet' not in r.stdout or 'Drop a bundle' no
 r = run('-frames', '30', '-drop', zipPath)
 if r.returncode or 'installed %d files' % len(staged) not in r.stdout or 'error' in (r.stdout + r.stderr).lower(): fail('a dropped bundle: ' + r.stdout + r.stderr)
 if not os.path.exists(os.path.join(data, 'apps', 'home', 'home.rio')): fail('a dropped bundle left out home')
+# with home there, a zip dropped is the stick (/stick: plans/drives.md), nothing installed by it
 r = run('-frames', '2', '-drop', os.path.join(work, 'nothing.zip'))
-if r.returncode != 0 or 'nothing installed' not in r.stdout: fail('a drop that installs nothing, with home there: ' + r.stdout + r.stderr)
+if r.returncode != 0 or "isn't a zip Rinc can read" not in r.stdout + r.stderr: fail('a drop of no zip, with home there: ' + r.stdout + r.stderr)
+before = sorted(os.listdir(os.path.join(data, 'apps')))
+r = run('-frames', '2', '-drop', zipPath)
+if r.returncode != 0 or 'apps.zip is in, as /stick' not in r.stdout + r.stderr or sorted(os.listdir(os.path.join(data, 'apps'))) != before:
+  fail('a zip dropped with home there, the stick: ' + r.stdout + r.stderr)
 shutil.rmtree(data, ignore_errors=True)
 
 put('projects/files/files.rio', 'log("mine")\n')

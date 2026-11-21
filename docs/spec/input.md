@@ -80,7 +80,7 @@ and the arrows move. Where Rinc can't tell (in a terminal) it's -1, and while a 
 `keyq` for Q, and the arrows' names.
 
 A controller's RB types Tab as it's pressed, and LB Shift+Tab, so anything moved through with Tab works
-from a controller too. Other keys (the system key, Caps Lock and the like) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
+from a controller too. Caps Lock types letters as capitals (with Shift, small), on every Rinc; other keys (the system key and the like) add nothing. A Rinc drops what's typed beyond 63 keys waiting,
 and one fed text faster than that (a serial port, a paste) waits for room. Keys also hold buttons down
 while they're held (the arrows, V, C, X and Z), so an app reads them either way: in a game. In a pointer
 app (`pc.Pointer.ui`, below) the keyboard types, and only its arrows are buttons too; there a

@@ -109,6 +109,12 @@ reveal :: proc()
   end
 end
 
+# a stick's in (/stick: a zip dropped, a thumb drive): then / is above /rinc, it beside
+stickIn :: proc() -> Bool
+  probe: Blob[..64]
+  return pc.dir("/stick", probe) >= 0
+end
+
 # the folder at p, listed: false if it can't be
 open :: proc(p: String) -> Bool
   got: Blob[..] = listing
@@ -121,7 +127,7 @@ open :: proc(p: String) -> Bool
   path.clear()
   ok := path.pushAll(p)
   count = 0
-  if p.len() > 5 # (.. goes up: not from /rinc, the root)
+  if p.len() > 5 or (p == "/rinc" and stickIn()) # (.. goes up: not from /rinc, the root, but to / while a stick's in)
     kind[0] = UP
     nameAt[0] = 0
     nameLen[0] = 0
@@ -158,7 +164,7 @@ end
 # up a folder, the one it came from picked
 came: Blob[..64]
 goUp :: proc()
-  if path.len() <= 5 # (/rinc: the root)
+  if path.len() <= 1 or (path.len() <= 5 and not stickIn()) # (/rinc: the root, but for / while a stick's in)
     return
   end
   slash := path.len() - 1

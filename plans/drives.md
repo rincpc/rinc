@@ -71,6 +71,14 @@ which made the whole Rinc's page black). The card has no such limit, so bundles 
   two, and the same as the board's stick. The user to pick.
 - Tests: files copied to /export, downloaded, the zip holds them (web_drop's runner sees the download).
 
+Done (2026-11-21), first round: zip.c's stick, a zip whole in memory, read only, in front of the
+platform's storage (rinc_stickMount: /stick's paths to it, the rest through; copying off it reads one
+and writes the other); apps read /stick and / (rinc and stick); `rinc -stick`; a zip dropped on a Rinc
+with home (desktop or page) is the stick, on one with none it installs; Files goes up from /rinc to /
+while one's in. tests/stick.py (Files copying an app off it by keys, as a person would), web_drop,
+install_bundle. Left: the board's thumb drive (6); a writable stick and downloading it (4); a folder
+dropped on the desktop as a stick (still installed); taking one out (a command).
+
 ## 5. Files
 
 Most of the work: volumes listed at its top (/rinc, /stick, /export), copying a file or a folder across

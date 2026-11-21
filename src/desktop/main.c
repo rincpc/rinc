@@ -606,8 +606,20 @@ static int rinc_install(const char *what0, const char *root) {
 /* a file dropped on the window (or named by -drop): a bundle (a .zip) or an app (its folder, or its .rio file) installed, as
 rinc -install does; then home, if there is one now */
 static const char *rinc_root;
+static int rinc_stickFrom(const char *path) { /* (a zip as the stick: 0, or -1 said why) */
+  size_t n; char *zip = rinc_readAll(path, &n); const char *name = path + strlen(path);
+  while (name > path && name[-1] != '/' && name[-1] != '\\') name--;
+  if (!zip || n > 0xFFFFFFFFu || rinc_stickMount((uint8_t *)zip, (uint32_t)n, name)) { free(zip); fprintf(stderr, "rinc: %s isn't a zip Rinc can read\n", path); return -1; }
+  rinc_noticeShow("In, as /stick: ", name);
+  rinc_tell(0, "%s is in, as /stick (Files)\n", name);
+  return 0;
+}
 static void rinc_drop(const char *path) {
-  int bad;
+  int bad; size_t n = strlen(path);
+  if (n > 4 && (!strcmp(path + n - 4, ".zip") || !strcmp(path + n - 4, ".ZIP")) && rinc_hasHome()) { /* (a Rinc with apps: a zip's a stick plugged in, plans/drives.md) */
+    rinc_stickFrom(path);
+    return;
+  }
   rinc_showLog = 1;
   rinc_telling = 1;
   rinc_consolePut("\r\n", 2);
@@ -804,7 +816,7 @@ static int rinc_writeHeader(const char *out, const char *in) {
 
 extern const char rinc_help[], rinc_license[]; /* (about.c) */
 int main(int argc, char **argv) {
-  const char *apps[rinc_ARGS_APPS], *out = 0, *img = 0, *wavout = 0, *exp = 0, *web = 0, *runner = 0, *named = 0, *data = 0, *root = 0, *home = 0, *storage = 0, *app = 0, *drop = 0;
+  const char *apps[rinc_ARGS_APPS], *out = 0, *img = 0, *wavout = 0, *exp = 0, *web = 0, *runner = 0, *named = 0, *data = 0, *root = 0, *home = 0, *storage = 0, *app = 0, *drop = 0, *stick = 0;
   const char *installs[32], *docs[8], *carry[8]; int napps = 0, ninstall = 0, ndocs = 0, ncarry = 0, i, frames = 0, memReport = 0, opened = 0, windowed, repl = 0, turbo = 0, board = 0, play = 0; uint32_t size = 0;
   char stem[40], *self = 0;
   atexit(rinc_logSave); /* (the running app's log, written as rinc stops, however it does) */
@@ -831,6 +843,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-m")) memReport = 1;
     else if (!strcmp(argv[i], "-repl")) repl = 1;
     else if (!strcmp(argv[i], "-drop") && i + 1 < argc) drop = argv[++i]; /* (as if dropped on the window: for tests) */
+    else if (!strcmp(argv[i], "-stick") && i + 1 < argc) stick = argv[++i]; /* (a zip as the stick, /stick, from the start) */
     else if (!strcmp(argv[i], "-type") && i + 1 < argc) rinc_typing = argv[++i];
     else if (!strcmp(argv[i], "-hold") && i + 1 < argc) rinc_holding = argv[++i];
     else if (!strcmp(argv[i], "-ctrl") && i + 1 < argc) rinc_ctrlFrames = atoi(argv[++i]);
@@ -883,6 +896,7 @@ int main(int argc, char **argv) {
   if (data) root = rinc_storageAt(data); /* (apps, and their save spaces) */
   else root = rinc_storageStart(named && size ? (*rinc_bundleName() ? rinc_bundleName() : "game") : "rinc");
   rinc_root = root;
+  if (stick && rinc_stickFrom(stick)) return 2;
   if (ninstall) {
     int bad = 0;
     for (i = 0; i < ninstall; i++) bad |= rinc_install(installs[i], root);

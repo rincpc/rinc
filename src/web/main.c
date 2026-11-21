@@ -137,7 +137,8 @@ rinc_EXPORT(frame) int rinc_webFrame(int buttons, int keys) {
   if (rinc_launch) { rinc_launch = 0; rinc_webOpen(rinc_launchName); }
   return !rinc_game;
 }
-/* a bundle of apps (a .zip, named dropName()) dropped on the page, size bytes, which zip_read gives:
+/* a zip (named dropName()) dropped on the page, size bytes, which zip_read gives: on a Rinc with home,
+   the stick (/stick, read only, till another's dropped); with nothing installed, a bundle of apps,
    installed into storage (rinc_zipInstall, in the app space: the app stops), then home. With the compiler
    only, as apps from storage run from source */
 rinc_IMPORT(zip_read) extern int js_zipRead(uint32_t at, uint8_t *buf, uint32_t n);
@@ -159,6 +160,18 @@ rinc_EXPORT(drop) void rinc_webDrop(uint32_t size) {
   rinc_say("(this page runs its own apps: the whole Rinc's page installs bundles)\r\n");
 #else
   if (n < 4 || (strcmp(rinc_dropName + n - 4, ".zip") && strcmp(rinc_dropName + n - 4, ".ZIP"))) { rinc_dropped(1); return; }
+  if (rinc_hasHome()) { /* (a Rinc with apps: the zip's a stick plugged in, read at /stick: plans/drives.md) */
+    uint8_t *zip = (uint8_t *)malloc(size ? size : 1);
+    if (!zip || js_zipRead(0, zip, size) != (int)size || rinc_stickMount(zip, size, rinc_dropName)) {
+      free(zip);
+      snprintf(done, sizeof done, "%s isn't a zip Rinc can read\n", rinc_dropName); rinc_told(1, done);
+      return;
+    }
+    rinc_noticeShow("In, as /stick: ", rinc_dropName);
+    snprintf(done, sizeof done, "%s is in, as /stick (Files)\n", rinc_dropName); rinc_told(0, done);
+    rinc_dropped(0); /* (home again) */
+    return;
+  }
   z.size = size; z.read = js_zipRead; z.name = rinc_dropName; z.tell = rinc_told; z.work = rinc_appSpace; z.cap = sizeof rinc_appSpace;
   bad = rinc_zipInstall(&z);
   if (!bad) { snprintf(done, sizeof done, "installed %d files from %s:%s\n", z.files, rinc_dropName, *z.apps ? z.apps : " no apps"); rinc_told(0, done); }
