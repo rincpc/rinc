@@ -74,7 +74,7 @@ put('projects/place/place.rio', ''.join('line%d\n' % i for i in range(100)))
 put('settings/active', 'place+')
 typing('\\x1b[1;5F' + '\\x1b[A' * 2 + '\\x1b[1;2C' * 3) # (Ctrl+End, up 2: line98's start; Shift+Right 3: "lin")
 last = get('save/edit/last') or ''
-check(last.startswith('/rinc/projects/place/place.rio ') and int(last.split()[2]) > 50, 'its place kept unsaved, scrolled down: %r' % last)
+check(last.startswith('/projects/place/place.rio ') and int(last.split()[2]) > 50, 'its place kept unsaved, scrolled down: %r' % last)
 typing('Z' + SAVE)
 check(get('projects/place/place.rio').endswith('line97\nZe98\nline99\n'), 'back: the selection as it was, typed over: %r' % get('projects/place/place.rio')[-30:])
 # scrolled sideways (the right stick, as a wheel tilted): a long line's far part comes into view, and
@@ -102,7 +102,7 @@ check('\nQline26\n' in get('projects/place/place.rio'), 'Ctrl+G, edited: to line
 CTRL_SPACE = '\\x1b[27;5;32~'
 for name in ('notes.md', 'code.rio'):
   put('projects/place/' + name, 'pc.')
-  put('save/edit/last', '/rinc/projects/place/%s 3 0 3 0' % name) # (the editor starts where it was: in it, at its end)
+  put('save/edit/last', '/projects/place/%s 3 0 3 0' % name) # (the editor starts where it was: in it, at its end)
   typing(CTRL_SPACE + '\\n' + SAVE)
 check(get('projects/place/notes.md') == 'pc.\n', 'a .md file: no Rio completion: %r' % get('projects/place/notes.md'))
 check(get('projects/place/code.rio') != 'pc.\n', 'a .rio file: completed: %r' % get('projects/place/code.rio'))
@@ -112,7 +112,7 @@ check(get('projects/place/code.rio') != 'pc.\n', 'a .rio file: completed: %r' % 
 UNDO, REDO = '\\x1a', '\\x19'
 put('projects/undo/undo.rio', 'a\n')
 put('settings/active', 'undo+')
-put('save/edit/last', '/rinc/projects/undo/undo.rio 0 0 0 0')
+put('save/edit/last', '/projects/undo/undo.rio 0 0 0 0')
 typing('bc' + SAVE)
 typing(UNDO + SAVE)
 check(get('projects/undo/undo.rio') == 'a\n', 'typed and saved, then undone in the next run: %r' % get('projects/undo/undo.rio'))
@@ -122,7 +122,7 @@ typing('X') # (unsaved: a draft, as the editor's left)
 typing(UNDO + SAVE)
 check(get('projects/undo/undo.rio') == 'bca\n', 'unsaved, left, then undone on coming back: %r' % get('projects/undo/undo.rio'))
 put('projects/undo/undo.rio', 'a\n')
-put('save/edit/last', '/rinc/projects/undo/undo.rio 0 0 0 0')
+put('save/edit/last', '/projects/undo/undo.rio 0 0 0 0')
 put('stash/rinc/clip/1.kind', 'text') # (the clipboard, rinc's clip, as it keeps it: 3000 bytes, two steps' worth)
 put('stash/rinc/clip/1.data', 'x' * 3000)
 put('stash/rinc/clip/last', '1')
@@ -141,7 +141,7 @@ sheet = b'rinc sheet 1\nsize 2 1\npixels\n\x00\x0d'
 putBytes('projects/bin/pic.sheet', sheet)
 putBytes('projects/bin/u.txt', 'caf\u00e9\r\nok\n'.encode('utf-8'))
 for name in ('pic.sheet', 'u.txt'):
-  put('apps/opener/opener.rio', 'out: Blob[..8]\nif pc.result(out) < 0\n  pc.call("edit", "open /rinc/projects/bin/%s")\nend\n' % name)
+  put('apps/opener/opener.rio', 'out: Blob[..8]\nif pc.result(out) < 0\n  pc.call("edit", "open /projects/bin/%s")\nend\n' % name)
   subprocess.run([rinc, '-data', data, '-app', 'opener', '-frames', '120', '-type', 'x' + SAVE], capture_output=True, text=True, timeout=60)
 got = open(os.path.join(data, 'projects', 'bin', 'pic.sheet'), 'rb').read()
 check(got == sheet, 'a file not text, opened, typed at and saved: changed: %r' % got)

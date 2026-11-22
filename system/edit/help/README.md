@@ -8,11 +8,11 @@ to the editor. If the app stopped with an error, a compile error or a runtime on
 back at it: in the file it was in (one of the app's parts, say), the cursor on it, and what was wrong
 at the bottom. Ctrl+Shift+P (or the system key with P) lists every command, with its keys.
 
-Projects are where apps are worked on: `chord+` is app `chord` in work, in `/rinc/projects`, with saves
+Projects are where apps are worked on: `chord+` is app `chord` in work, in `/projects`, with saves
 of its own (a copy of the app's), so trying things can't spoil the app's. An installed app's files are
 read only, for reading; saving one saves it in the app's project, made from the app first, and Ctrl+R
 on it, unchanged, runs the app. Files (or the console's `install chord`) installs project `chord+` as
-the app. Anything outside `/rinc` is read only too.
+the app.
 
 The app or project of the file it has open is the active one, the whole Rinc's setting, and it starts
 with what's active (another app can pick one for it), else the file it had last, where it was.

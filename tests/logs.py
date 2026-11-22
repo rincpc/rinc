@@ -1,4 +1,4 @@
-"""python logs.py path/to/rinc path/to/system folder: each app's log, in its cache space (/rinc/cache/<app>/log):
+"""python logs.py path/to/rinc path/to/system folder: each app's log, in its cache space (/cache/<app>/log):
 what it logged and Rinc's runtime error, kept across runs; an app's own cache files (pc.cacheRead, cacheWrite,
 cacheDelete); and Sys+O, the log app at the app's log. docs/spec/apps.md#logs"""
 import os, shutil, subprocess, sys

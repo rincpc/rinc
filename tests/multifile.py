@@ -1,5 +1,5 @@
 """python multifile.py path/to/rinc folder: an app of more files than one (docs/spec/apps.md#more-files):
-include "parts/a.rio" and import .shapes, from its own folder, and import tween, from /rinc/lib; its
+include "parts/a.rio" and import .shapes, from its own folder, and import tween, from /lib; its
 cached image used while none of them changes, and made again when any does."""
 import os, shutil, subprocess, sys
 

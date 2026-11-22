@@ -177,7 +177,7 @@ drawOffers :: proc()
 end
 
 # Ctrl+Tab's list, while Ctrl's held: the files it had lately, the latest first, the pick lit; each its
-# name, then its folder (/rinc/ left off; its start, if it's long), dimmer
+# name, then its folder (/ left off; its start, if it's long), dimmer
 drawWalk :: proc()
   list := walk.asString()
   n := linesIn(list)
@@ -194,9 +194,6 @@ drawWalk :: proc()
     name := p[s + 1..<p.len()]
     name = name[0..<min(name.len(), 36)]
     folder := p[0..<max(s, 0)]
-    if folder.len() >= 5 and folder[0..<5] == "/rinc"
-      folder = folder[5..<folder.len()]
-    end
     if folder.len() > 0 and folder[0] == 47
       folder = folder[1..<folder.len()]
     end
@@ -224,10 +221,10 @@ draw* :: proc()
   # the title bar: the app, whether it's changed, and where the cursor is
   pc.rect({0, 0}, {320, 10}, barColor)
   shown := 0
-  if path.len() > 0 # (its path, /rinc/ left off; its end, if it's long)
+  if path.len() > 0 # (its path, / left off; its end, if it's long)
     t := path[0..<path.len()].asString()
-    if startsWith(t, "/rinc/")
-      t = t[6..<t.len()]
+    if startsWith(t, "/")
+      t = t[1..<t.len()]
     end
     if t.len() > 36
       t = t[t.len() - 36..<t.len()]

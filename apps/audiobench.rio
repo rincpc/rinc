@@ -2,7 +2,7 @@
 # synth voices (as many as Rinc has: a voice past them plays nothing), each a looping saw with vibrato,
 # at the synth's starting rate (16,000 samples a second) and its highest, smoothed (48,000: the most
 # work); the loop's slowing is the mixer's share of the app's core (none, where it mixes on the other),
-# shown, and written to /rinc/save/audiobench.txt (and logged). Called with "N RATE"
+# shown, and written to /save/audiobench.txt (and logged). Called with "N RATE"
 # (pc.call("audiobench", "16 48000")): those voices play, at that rate, until it's left, with mixing's
 # share of its own core shown each second (pc.audioLoad; over serial, the firmware console's audio too)
 notes: Blob[16]
@@ -76,7 +76,7 @@ else
   end
   silence()
   log(out.asString())
-  fine = pc.fileWrite("/rinc/save/audiobench.txt", out.asString()) >= 0
+  fine = pc.fileWrite("/save/audiobench.txt", out.asString()) >= 0
 end
 load := [2]Int{-1, -1} # (mixing's share, each second: pc.audioLoad)
 frames := 0

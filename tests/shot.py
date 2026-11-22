@@ -1,5 +1,5 @@
 """python shot.py path/to/rinc work-folder: Print Screen (typed as a terminal sends it, ESC [ 57361 u) saves
-the screen as the app drew it, as /rinc/shots/<app>-<n>.png, the next number free: 320 by 240, its pixels
+the screen as the app drew it, as /shots/<app>-<n>.png, the next number free: 320 by 240, its pixels
 the screen's colors, color 0 solid (no tRNS chunk: a sprite sheet's is see-through, a screen's isn't)."""
 import os, shutil, struct, subprocess, sys, zlib
 

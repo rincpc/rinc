@@ -9,7 +9,7 @@ apps.
 
 What's typed is Rio: a statement runs when it's complete, and a block (a proc, an `if`, a loop) when
 its `end` comes. A value on its own is shown. Up and down bring back lines typed before: they're kept in
-`/rinc/save/console/history.txt` (8 KB of them, a few hundred lines), so they're there after another app's
+`/save/console/history.txt` (8 KB of them, a few hundred lines), so they're there after another app's
 run, or a restart.
 
 ```text

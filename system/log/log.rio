@@ -1,6 +1,6 @@
 # Log: what an app logged lately, and what Rinc said about it (its errors, say)
 # Sys+O opens it at the app it's over, and Esc goes back there. Each app's log is in its cache space
-# (/rinc/cache/<app>/log), the newest 4 KB of it, kept as it comes. Tab goes to the next app with a log
+# (/cache/<app>/log), the newest 4 KB of it, kept as it comes. Tab goes to the next app with a log
 # (Shift+Tab the one before); Up, Down, Page Up, Page Down, Home and End move through it
 
 ROWS :: 24
@@ -25,14 +25,14 @@ findApps :: proc()
   listing.clear()
   apps.clear()
   appCount = 0
-  _ = pc.dir("/rinc/cache", listing)
+  _ = pc.dir("/cache", listing)
   at := 0
   for i in 0..<listing.len()
     if listing[i] == 10
       if listing[at] == 100 and appCount < 64 # (d name: a folder, an app's, if it has a log)
         name := listing[at + 2..<i].asString()
         path: Blob[..96]
-        _ = path.print("/rinc/cache/", name, "/log")
+        _ = path.print("/cache/", name, "/log")
         probe: Blob[..] = listing[0..<0]
         if pc.fileRead(path.asString(), probe) > 0
           appAt[appCount] = apps.len()
@@ -65,7 +65,7 @@ show :: proc(k: Int)
     return
   end
   path: Blob[..96]
-  _ = path.print("/rinc/cache/", appName(k), "/log")
+  _ = path.print("/cache/", appName(k), "/log")
   _ = pc.fileRead(path.asString(), text)
   at := 0
   for i in 0..<text.len() + 1

@@ -13,7 +13,7 @@
 #
 #   room: Blob[..1100]                            (the most a step can be, and 8 more: 120 bytes at least, for the head)
 #   u := undolog.Log{room = room[], version = 1}
-#   u.resume("undo", "/rinc/save/paint/a.png")    (the log as it was, if it's this one's; else a new one)
+#   u.resume("undo", "/save/paint/a.png")    (the log as it was, if it's this one's; else a new one)
 #   u.group()                                     (before a change: what one undo takes back starts here)
 #   _ = u.step(before.asString())                 (its bytes: what the app needs to undo and redo it)
 #   apply :: callback proc(step: String, back: Bool) -> Bool  (undone, or redone: false if it doesn't fit)

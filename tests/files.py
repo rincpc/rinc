@@ -49,30 +49,30 @@ put('apps/caller/caller.rio', '''out: Blob[96]
 outIn: Blob[..] = out
 n := pc.result(outIn)
 if n < 0
-  pc.call("files", "pick /rinc/save/chord")
+  pc.call("files", "pick /save/chord")
 else
   log("picked", out[0..<n].asString())
 end
 ''')
 out = typing(DOWN + '\\n', app='caller', frames=60)
-check('picked /rinc/save/chord/best' in out, 'picking: got %r' % out)
+check('picked /save/chord/best' in out, 'picking: got %r' % out)
 # saving, for its caller: a name typed, in the folder shown; or a path typed (as Windows' Save takes one):
 # from /rinc, or the folder shown; a folder that isn't there, or outside /rinc's folders, refused
 put('apps/caller/caller.rio', '''out: Blob[96]
 outIn: Blob[..] = out
 n := pc.result(outIn)
 if n < 0
-  pc.call("files", "save /rinc/save/chord")
+  pc.call("files", "save /save/chord")
 else
   log("saving as", out[0..<n].asString())
 end
 ''')
 os.makedirs(os.path.join(data, 'save', 'tunes'), exist_ok=True)
-for typed, want in (('tune.snd', 'saving as /rinc/save/chord/tune.snd'), ('/rinc/save/tunes/tune.snd', 'saving as /rinc/save/tunes/tune.snd'),
-                    ('deep/tune.snd', None), ('/rinc/save/none/tune.snd', None), ('/rinc/tune.snd', None), ('/tmp/tune.snd', None)):
+for typed, want in (('tune.snd', 'saving as /save/chord/tune.snd'), ('/save/tunes/tune.snd', 'saving as /save/tunes/tune.snd'),
+                    ('deep/tune.snd', None), ('/save/none/tune.snd', None), ('/tune.snd', None), ('/tmp/tune.snd', None)):
   if typed == 'deep/tune.snd':
     os.makedirs(os.path.join(data, 'save', 'chord', 'deep'), exist_ok=True)
-    want = 'saving as /rinc/save/chord/deep/tune.snd'
+    want = 'saving as /save/chord/deep/tune.snd'
   out = typing(typed + '\\n', app='caller', frames=60)
   check((want in out) if want else 'saving as' not in out, 'saving, %r typed: got %r' % (typed, out))
 # a new folder (Ctrl+Shift+N): in a folder of /rinc's, not in /rinc itself
@@ -157,11 +157,11 @@ for name, opens in (('pa', 'png pictures\n'), ('pb', 'png sprite sheets\n'), ('t
   put('apps/%s/opens.txt' % name, opens)
 put('save/opentest/x.txt', 'x'); put('save/opentest/y.png', 'y'); put('save/opentest/z.zzz', 'z')
 out = typing('save\\nopentest\\nx.txt\\n')
-check('tx got open /rinc/save/opentest/x.txt' in out, 'one app for its kind: opened in it: %r' % out)
+check('tx got open /save/opentest/x.txt' in out, 'one app for its kind: opened in it: %r' % out)
 out = typing('save\\nopentest\\ny.png\\n')
 check('got' not in out, 'two apps for its kind, none picked: Open with, nothing opened yet: %r' % out)
 out = typing('save\\nopentest\\ny.png\\n\\n')
-check('pa got open /rinc/save/opentest/y.png' in out and get('settings/files/appreg/png') == 'pa', 'Open with, the first: opened, and the kind\'s from now on: %r' % out)
+check('pa got open /save/opentest/y.png' in out and get('settings/files/appreg/png') == 'pa', 'Open with, the first: opened, and the kind\'s from now on: %r' % out)
 out = typing('save\\nopentest\\ny.png\\n')
 check('pa got open' in out, 'the kind\'s app, picked: opened in it at once: %r' % out)
 out = typing('save\\nopentest\\ny.png w' + DOWN + '\\x1b[27;5;13~')
@@ -179,7 +179,7 @@ put('apps/pb/opens.txt', 'png sprite sheets\n* any file\n')
 out = typing('save\\nopentest\\nz.zzz\\n')
 check('got' not in out, 'an app for any file, none for its kind: Enter shows its text, here: %r' % out)
 out = typing('save\\nopentest\\nz.zzz w\\n')
-check('any got open /rinc/save/opentest/z.zzz' in out, 'Open with: the app for any file, there for one of no kind: %r' % out)
+check('any got open /save/opentest/z.zzz' in out, 'Open with: the app for any file, there for one of no kind: %r' % out)
 out = typing('save\\nopentest\\nx.txt\\n')
 check('tx got open' in out, 'one app for its kind and one for any: Enter opens it in its kind\'s: %r' % out)
 out = typing('save\\nopentest\\ny.png w' + DOWN + DOWN + '\\n')

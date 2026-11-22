@@ -1,5 +1,5 @@
 # clip: the clipboard every app shares (docs/spec/apps.md#the-clipboard). On the card, in Rinc's own
-# stash (/rinc/stash/rinc/clip), so it's there in another app and after a restart. The last KEEP things
+# stash (/stash/rinc/clip), so it's there in another app and after a restart. The last KEEP things
 # copied are kept, the newest pasted (back: 1 the one before it, and so on, for a list of them to pick
 # from). Each has a kind: "text" (any app pastes it) or an app's own ("maps", "music", "paint": what only
 # it reads), with text beside it, maybe, for the apps that take text (Rio, say). Each has a number, too,
@@ -14,8 +14,8 @@
 #   if clip.kind(kind) and kind.asString() == "maps" ...  (the newest's kind)
 
 KEEP* :: 8
-FOLDER :: "/rinc/stash/rinc/clip/"
-LAST :: "/rinc/stash/rinc/clip/last" # (the newest's number)
+FOLDER :: "/stash/rinc/clip/"
+LAST :: "/stash/rinc/clip/last" # (the newest's number)
 
 name: Blob[..48]
 path :: proc(n: Int, part: String) -> String # (item n's part: kind, data or text)

@@ -1,4 +1,4 @@
-"""python stalelib.py path/to/rinc work-folder: a card's /rinc/lib copy that isn't Rinc's own (the library built
+"""python stalelib.py path/to/rinc work-folder: a card's /lib copy that isn't Rinc's own (the library built
 in) is said, in the app's log, when an app reads it (the card's wins, so it's what to look at when an app
 goes wrong): Rinc's own copy says nothing; a changed one is said; one that stops the compile partway (an
 older copy an app no longer fits, say) is said too."""
@@ -7,7 +7,7 @@ import os, shutil, subprocess, sys
 rinc, work = os.path.abspath(sys.argv[1]), sys.argv[2]
 here = os.path.dirname(os.path.abspath(__file__))
 own = open(os.path.join(here, '..', 'library', 'song.rio'), encoding='utf-8', newline='').read()
-SAID = "(the card's /rinc/lib/song.rio isn't Rinc's own: an older or changed copy, used instead)"
+SAID = "(the card's /lib/song.rio isn't Rinc's own: an older or changed copy, used instead)"
 
 def run(copy):
   shutil.rmtree(work, ignore_errors=True)

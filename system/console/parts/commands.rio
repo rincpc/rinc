@@ -5,7 +5,7 @@
 ls :: proc()
   n := pc.apps()
   if n == 0
-    say("no apps (or no card): /rinc/apps", softColor)
+    say("no apps (or no card): /apps", softColor)
     return
   end
   names: Blob[..2048]
@@ -76,9 +76,9 @@ saveTo :: proc() -> Int
   end
   path: Blob[..128]
   if saveName[slash - 1] == '+'
-    _ = path.print("/rinc/projects/", saveName[0..<slash - 1], saveName[slash..])
+    _ = path.print("/projects/", saveName[0..<slash - 1], saveName[slash..])
   else
-    _ = path.print("/rinc/apps/", saveName[])
+    _ = path.print("/apps/", saveName[])
   end
   return pc.fileWrite(path[].asString(), file[..<fileLen].asString())
 end

@@ -56,7 +56,8 @@ app is a Rio program.
      one out (plans/drives.md).
   1d. `/` as Rinc's root (the user, 2026-11-21): apps say `/projects/...`, not `/rinc/projects/...`;
       storage keeps /rinc/ on the card. Devices stay short names at the top (recommended: /stick, no
-      /devices/ level). Plan: plans/root.md; after writing to the stick.
+      /devices/ level). Plan: plans/root.md; after writing to the stick. Done (2026-11-22): apps use /;
+      the board's card updated. Left: boot and the clipboard into folders (the top only folders).
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.

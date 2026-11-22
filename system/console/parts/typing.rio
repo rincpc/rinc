@@ -36,7 +36,7 @@ mode: Mode
 acc: Blob[..4096]  # an unfinished input's lines so far
 line: Blob[..200]  # the line being typed
 cur := 0           # where in it
-HISTORY :: "/rinc/save/console/history.txt" # the lines typed: up and down bring them back, after a restart too
+HISTORY :: "/save/console/history.txt" # the lines typed: up and down bring them back, after a restart too
 HISTORY_MOST :: 8192
 hist: Blob[..HISTORY_MOST] # (its lines, oldest first, a newline after each)
 histCount := 0

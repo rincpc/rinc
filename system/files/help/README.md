@@ -1,12 +1,12 @@
 # Files
 
 Files (`system/files/files.rio`, a system app) looks through storage, folder by
-folder: the apps (`/rinc/apps`), their projects (`/rinc/projects`, the apps in work, `chord+`), the
-apps' saves (`/rinc/save`), their stashes and caches: everything in `/rinc`, the root. It starts there,
+folder: the apps (`/apps`), their projects (`/projects`, the apps in work, `chord+`), the
+apps' saves (`/save`), their stashes and caches: everything in `/`, the root. It starts there,
 or where it was last. A yellow mark at the left is the active app or project, which the editor opens.
-While a stick's in (a zip dropped on the desktop's window or a page), up from `/rinc` is `/`, with
-`stick` beside `rinc`: its files, to copy into `/rinc` (an app's folder copied to `/rinc/apps` is
-installed), and things copied onto it, to take elsewhere. On the desktop and a page, the command list
+While a stick's in (a thumb drive on the board; a zip, or a folder, dropped on the desktop's window; a
+zip on a page), `stick` is at `/` too, beside Rinc's folders: its files, to copy into them (an app's
+folder copied to `/apps` is installed), and things copied onto it, to take elsewhere. On the desktop and a page, the command list
 (Sys+P) downloads it as a zip.
 
 | keys | |
@@ -17,7 +17,7 @@ installed), and things copied onto it, to take elsewhere. On the desktop and a p
 | typing | narrow the list to the names with what's typed |
 | Space (or Y, or the secondary button) | what else can be done with it, each by its letter |
 | Ctrl+N | a new project: its name, then the editor |
-| Ctrl+Shift+N | a new folder, here (inside `/rinc`'s folders) |
+| Ctrl+Shift+N | a new folder, here (inside `/`'s folders) |
 | Ctrl+Shift+P (or the system key with P) | every command: these, and what can be done with the one picked, each by name |
 | Esc | close what's open, else clear what's typed, else up a folder |
 
@@ -56,7 +56,7 @@ text shows its first 16 KB, bytes that aren't text as dots; Esc goes back.
 | E, R | edit, run: an app or project (its folder, or its main file) |
 | C | copy it, as a name typed (its name to start with, selected: typing takes its place). An app or a project copies as a new project, its main file renamed to match, its dev folder left out (its own saves, its tests) |
 | N | rename it: a project, or anything inside an app's or project's folder, or the saves |
-| D | delete it, after typing its whole name: all of it, for good (a project's own saves too; an app's saves, in `/rinc/save`, stay) |
+| D | delete it, after typing its whole name: all of it, for good (a project's own saves too; an app's saves, in `/save`, stay) |
 | I | install a project as its app |
 | F | a new folder, here, as Ctrl+Shift+N (which a browser may keep for itself) |
 | W | open with: the apps that open a file of its kind, then its text, here. Enter opens it in the one picked; Ctrl+Enter makes that one its kind's from now on |
@@ -65,15 +65,15 @@ Which app opens a kind of file is each app's own to say (its `opens.txt`). With 
 file: the editor, or Help), the first Enter on one asks, in Open with, and the one picked opens such
 files from then on; Open with changes it.
 
-Changes happen only inside `/rinc`'s folders, not to them (`apps`, `save` and the like). Copying and
+Changes happen only inside `/`'s folders, not to them (`apps`, `save` and the like). Copying and
 renaming refuse a name that's taken.
 
 ## As a picker
 
 An app can call Files to pick a file: `pc.call("files", "pick")`, or `pc.call("files", "pick
-/rinc/save/chord")` to start in a folder. Then Enter on a file gives its path back to that app
+/save/chord")` to start in a folder. Then Enter on a file gives its path back to that app
 (`pc.result`), and Esc gives nothing back. Called with `save` (`pc.call("files", "save
-/rinc/projects/chord")`), it picks where to save: what's typed is a name, Enter on a file takes its
+/projects/chord")`), it picks where to save: what's typed is a name, Enter on a file takes its
 name, and Enter gives back that name's path in the folder shown. Or, as Windows' Save takes one, a
-path: from `/rinc` (`/rinc/save/sound/tune.snd`), or from the folder shown (`level2/tune.snd`), its
+path: from `/` (`/save/sound/tune.snd`), or from the folder shown (`level2/tune.snd`), its
 folder there already.

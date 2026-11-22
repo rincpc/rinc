@@ -178,7 +178,7 @@ take :: proc(cut: Bool)
     return
   end
   if cut and not inWritable(here())
-    say("Can't cut here: only inside /rinc's folders, or on the stick", errorColor)
+    say("Can't cut here: only inside Rinc's folders, or on the stick", errorColor)
     return
   end
   clipHeld.clear()
@@ -240,7 +240,7 @@ paste :: proc()
     return
   end
   if not inWritable(here())
-    say("Can't paste here: only in /rinc's folders, or on the stick", errorColor)
+    say("Can't paste here: only in Rinc's folders, or on the stick", errorColor)
     return
   end
   cut := clipHeld[0] == 120

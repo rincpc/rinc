@@ -1,5 +1,5 @@
 """python libwins.py path/to/rinc data-folder: the library built in (library/*.rio), imported with nothing
-on the card; then a card's own /rinc/lib/tilemap.rio, which wins."""
+on the card; then a card's own /lib/tilemap.rio, which wins."""
 import os, shutil, subprocess, sys
 
 rinc, data = os.path.abspath(sys.argv[1]), sys.argv[2]

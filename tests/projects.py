@@ -57,7 +57,7 @@ _ = pc.settingRead("active", v)
 log(v.asString())
 ''')
 run('setact', '-1 0\nchord+', 'the active setting, shared by the apps')
-if get('settings/active') != 'chord+': sys.exit("FAIL: the active setting isn't in /rinc/settings")
+if get('settings/active') != 'chord+': sys.exit("FAIL: the active setting isn't in /settings")
 run('inst', '0', 'install')
 if get('apps/chord/chord.rio') != get('projects/chord/chord.rio') or get('apps/chord/help/README.md') != '# Chord, in work\n':
   sys.exit("FAIL: install didn't copy the project")

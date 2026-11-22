@@ -3,7 +3,7 @@
 # layers added, moved, named and taken out, their cells and things kept apart; a tiles layer reshaped
 # (its offset moved back), the things after it kept; sheets shared and renumbered for a wider one; what a
 # map needs, and maps too big for an app refused (the map as it was). Then drawn: tests/tilemap.py checks
-# the screen (and what load logged). Its sheet's at /rinc/save/t.png, and two.map, old.map, big.map and
+# the screen (and what load logged). Its sheet's at /save/t.png, and two.map, old.map, big.map and
 # bad.map beside it (the test puts them)
 import tilemap
 E :: tilemap.EMPTY
@@ -22,22 +22,22 @@ same :: proc(path: String, want: String) -> Bool
 end
 
 # a map of before: each layer a sheet of its own (the same path and size: one), named as it's numbered
-assert(m.load("/rinc/save/two.map"), "a map of before (rinc map 2), read")
+assert(m.load("/save/two.map"), "a map of before (rinc map 2), read")
 assert(m.count == 2 and m.sheetCount == 1 and m.layers[1].size == {2, 1} and m.layers[1].at == {4, 16} and m.tile(0) == {8, 8} and m.sheets[0].across == 2, "its layers and their sheet")
 assert(m.at(0, {1, 0}) == 1 and m.at(0, {2, 0}) == E and m.at(1, {0, 0}) == 1 and m.at(0, {5, 5}) == E, "its cells (past an edge: empty)")
-assert(m.save("/rinc/save/two3.map") and same("/rinc/save/two3.map", "rinc map 3\nsheet 1 t.png 8 across 2\nlayer 1 tiles1 tiles 1\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2 tiles2 tiles 1\nsize 2 1\noffset 4 16\n001---\n"), "written as a map of now: its sheet's path from the map's folder")
+assert(m.save("/save/two3.map") and same("/save/two3.map", "rinc map 3\nsheet 1 t.png 8 across 2\nlayer 1 tiles1 tiles 1\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2 tiles2 tiles 1\nsize 2 1\noffset 4 16\n001---\n"), "written as a map of now: its sheet's path from the map's folder")
 # each map an island: its sheets' paths written from its folder, read back whole; from another folder, .. first
-assert(m.load("/rinc/save/two3.map") and m.sheetPath(0) == "/rinc/save/t.png", "read back: its sheet's path whole again")
-assert(m.save("/rinc/save/maps/far/two4.map") and same("/rinc/save/maps/far/two4.map", "rinc map 3\nsheet 1 ../../t.png 8 across 2\nlayer 1 tiles1 tiles 1\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2 tiles2 tiles 1\nsize 2 1\noffset 4 16\n001---\n"), "saved in another folder: up to the sheet")
-assert(m.load("/rinc/save/maps/far/two4.map") and m.sheetPath(0) == "/rinc/save/t.png", "and read back whole")
+assert(m.load("/save/two3.map") and m.sheetPath(0) == "/save/t.png", "read back: its sheet's path whole again")
+assert(m.save("/save/maps/far/two4.map") and same("/save/maps/far/two4.map", "rinc map 3\nsheet 1 ../../t.png 8 across 2\nlayer 1 tiles1 tiles 1\nsize 3 2\noffset 0 0\n000001---\n---001000\nlayer 2 tiles2 tiles 1\nsize 2 1\noffset 4 16\n001---\n"), "saved in another folder: up to the sheet")
+assert(m.load("/save/maps/far/two4.map") and m.sheetPath(0) == "/save/t.png", "and read back whole")
 
 # a map of now, its things layer first (its things after the cells all the same, in the room)
-three := "rinc map 3\nsheet 1 /rinc/save/t.png 8 across 2\nsheet 2 /rinc/save/my sheets/b.png 8x16 across 1\nlayer 1 actors things 1\noffset 0 0\nthing 001 at 20 30 name player\nthing --- at -5 7 span 2 3\nthing 000 at 0 0 span 2 1 name door.1\nlayer 2 ground tiles 2\nsize 2 2\noffset -8 0\n000---\n---000\n"
+three := "rinc map 3\nsheet 1 /save/t.png 8 across 2\nsheet 2 /save/my sheets/b.png 8x16 across 1\nlayer 1 actors things 1\noffset 0 0\nthing 001 at 20 30 name player\nthing --- at -5 7 span 2 3\nthing 000 at 0 0 span 2 1 name door.1\nlayer 2 ground tiles 2\nsize 2 2\noffset -8 0\n000---\n---000\n"
 # (as written now: its sheets' paths from the map's folder, read as whole ones before)
 threeNow := "rinc map 3\nsheet 1 t.png 8 across 2\nsheet 2 my sheets/b.png 8x16 across 1\nlayer 1 actors things 1\noffset 0 0\nthing 001 at 20 30 name player\nthing --- at -5 7 span 2 3\nthing 000 at 0 0 span 2 1 name door.1\nlayer 2 ground tiles 2\nsize 2 2\noffset -8 0\n000---\n---000\n"
-assert(pc.fileWrite("/rinc/save/three.map", three) == 0, "")
-assert(m.load("/rinc/save/three.map"), "a map of now, with things, read")
-assert(m.count == 2 and m.sheetCount == 2 and m.sheetPath(1) == "/rinc/save/my sheets/b.png" and m.tile(1) == {8, 16} and m.layers[1].kind == tilemap.TILES, "its sheets (a path with a space) and layers")
+assert(pc.fileWrite("/save/three.map", three) == 0, "")
+assert(m.load("/save/three.map"), "a map of now, with things, read")
+assert(m.count == 2 and m.sheetCount == 2 and m.sheetPath(1) == "/save/my sheets/b.png" and m.tile(1) == {8, 16} and m.layers[1].kind == tilemap.TILES, "its sheets (a path with a space) and layers")
 assert(m.things(0) == 3 and m.things(1) == 0 and m.layerNamed("ground") == 1 and m.layerNamed("x") == -1, "its things, and its layers by name")
 t := m.thing(0, 0)
 assert(t.at == {20, 30} and t.sprite == 1 and t.span == {1, 1} and t.name.asString() == "player", "a thing")
@@ -46,9 +46,9 @@ assert(t1.at == {-5, 7} and t1.sprite == E and t1.span == {2, 3} and t1.name.len
 assert(m.find("door.1") == {0, 2} and m.find("nope") == {-1, -1}, "found by name")
 assert(m.at(1, {0, 0}) == 0 and m.at(1, {1, 0}) == E and m.at(1, {1, 1}) == 0, "its tiles layer's cells")
 assert(m.used() == 4 * 2 + 3 * 10 + 7 + 7 and m.needs() == tilemap.Room{bytes = 52, sheets = 2, layers = 2}, "the room it uses: its cells, things and names")
-assert(tilemap.roomIn("/rinc/save/three.map") == tilemap.Room{bytes = 52, sheets = 2, layers = 2}, "roomIn: what its file needs")
-assert(tilemap.roomIn("/rinc/save/old.map").bytes == -1, "roomIn: not a map")
-assert(m.save("/rinc/save/three2.map") and same("/rinc/save/three2.map", threeNow), "written back as it was, its sheets' paths from its folder")
+assert(tilemap.roomIn("/save/three.map") == tilemap.Room{bytes = 52, sheets = 2, layers = 2}, "roomIn: what its file needs")
+assert(tilemap.roomIn("/save/old.map").bytes == -1, "roomIn: not a map")
+assert(m.save("/save/three2.map") and same("/save/three2.map", threeNow), "written back as it was, its sheets' paths from its folder")
 
 # things: changed (renamed: the others' names kept), taken out, placed, picked out where they're drawn
 t.name.clear()
@@ -83,7 +83,7 @@ assert(m.removeLayer(1) and m.used() == 4 * 2 * 2 + 10 + 5, "taken out again")
 assert(m.removeLayer(2) and m.removeLayer(1) and not m.removeLayer(0), "the last one left, never")
 
 # a tiles layer reshaped: grown left and up (its offset back), then fitted again; wider; too big
-assert(m.load("/rinc/save/three.map"), "")
+assert(m.load("/save/three.map"), "")
 assert(m.reshape(1, {3, 3}, {1, 1}) and m.layers[1].size == {3, 3} and m.layers[1].at == {-16, -16}, "grown left and up: its offset back a tile (8 by 16)")
 assert(m.at(1, {1, 1}) == 0 and m.at(1, {2, 2}) == 0 and m.at(1, {0, 0}) == E and m.at(1, {2, 1}) == E, "its cells moved")
 assert(m.thing(0, 0).name.asString() == "player" and m.thing(0, 2).name.asString() == "door.1" and m.thing(0, 2).span == {2, 1}, "the things, after its cells, as they were")
@@ -94,8 +94,8 @@ assert(not m.reshape(1, {100, 100}, {0, 0}) and m.layers[1].size == {1, 2}, "too
 assert(m.thing(0, 1).span == {2, 3} and m.find("door.1") == {0, 2}, "the things, still")
 
 # sheets: one shared (the other, no layer's now, gone), renumbered for a wider one
-assert(m.load("/rinc/save/three.map"), "")
-assert(m.setSheet(1, "/rinc/save/t.png", {8, 8}) and m.sheetCount == 1 and m.layers[1].sheet == 0, "a layer's sheet made the other's: one sheet")
+assert(m.load("/save/three.map"), "")
+assert(m.setSheet(1, "/save/t.png", {8, 8}) and m.sheetCount == 1 and m.layers[1].sheet == 0, "a layer's sheet made the other's: one sheet")
 assert(m.place(0, tilemap.Thing{at = {0, 0}, sprite = 2, span = {1, 1}}), "")
 m.set(1, {1, 0}, 3)
 assert(m.refit(0, 24) == 0 and m.thing(0, 0).sprite == 1 and m.thing(0, 3).sprite == 3 and m.at(1, {1, 0}) == 4 and m.sheets[0].across == 3, "renumbered for a sheet 3 across: each where it was")
@@ -103,30 +103,30 @@ assert(m.refit(0, 8) == 2 and m.thing(0, 0).sprite == E and m.at(1, {1, 0}) == E
 
 # load: a file too big for the app's room, or with more sheets or layers; not a map; no file; a line
 # it doesn't know: each refused, the map as it was (tests/tilemap.py checks what the log says)
-assert(m.load("/rinc/save/three.map"), "")
-assert(not m.load("/rinc/save/none.map"), "load: no such file")
-assert(not m.load("/rinc/save/big.map") and m.count == 2 and m.things(0) == 3, "load: more than its room (the map as it was)")
-assert(not m.load("/rinc/save/old.map") and not m.load("/rinc/save/bad.map") and not m.load("/rinc/save/long.map") and m.count == 2, "load: not a map, a line it doesn't know, a line longer than work")
+assert(m.load("/save/three.map"), "")
+assert(not m.load("/save/none.map"), "load: no such file")
+assert(not m.load("/save/big.map") and m.count == 2 and m.things(0) == 3, "load: more than its room (the map as it was)")
+assert(not m.load("/save/old.map") and not m.load("/save/bad.map") and not m.load("/save/long.map") and m.count == 2, "load: not a map, a line it doesn't know, a line longer than work")
 oneRoom: [1]tilemap.Layer
 one := tilemap.Map{sheets = sheetRoom[], layers = oneRoom[], room = room[]}
-assert(not one.load("/rinc/save/three.map"), "load: more layers than the app's room for them")
+assert(not one.load("/save/three.map"), "load: more layers than the app's room for them")
 
 # a new map, its sheet not picked yet (a path of none): saved and read back
-assert(m.start({2, 1}, "", {8, 8}, -1) and m.save("/rinc/save/new.map") and same("/rinc/save/new.map", "rinc map 3\nsheet 1  8 across -1\nlayer 1 tiles1 tiles 1\nsize 2 1\noffset 0 0\n------\n"), "a new map, no sheet yet, saved")
-assert(m.load("/rinc/save/new.map") and m.sheetPath(0) == "" and m.layers[0].size == {2, 1}, "and read back")
+assert(m.start({2, 1}, "", {8, 8}, -1) and m.save("/save/new.map") and same("/save/new.map", "rinc map 3\nsheet 1  8 across -1\nlayer 1 tiles1 tiles 1\nsize 2 1\noffset 0 0\n------\n"), "a new map, no sheet yet, saved")
+assert(m.load("/save/new.map") and m.sheetPath(0) == "" and m.layers[0].size == {2, 1}, "and read back")
 
 # a map bigger than the pieces it's read and written in (4 KB): rows of 1024 cells (3 KB of text each),
 # across pieces' edges, read back as they were written
 bigRoom: Blob[3 * 1024 * 2 + 100]
 bigLayers: [1]tilemap.Layer
 big := tilemap.Map{sheets = sheetRoom[], layers = bigLayers[], room = bigRoom[]}
-assert(big.start({1024, 3}, "/rinc/save/t.png", {8, 8}, 2), "")
+assert(big.start({1024, 3}, "/save/t.png", {8, 8}, 2), "")
 for x in 0..<1024
   big.set(0, {x, x % 3}, x % 4000)
 end
-assert(big.save("/rinc/save/wide.map"), "a map of 9 KB, saved")
+assert(big.save("/save/wide.map"), "a map of 9 KB, saved")
 big.set(0, {5, 0}, 7)
-assert(big.load("/rinc/save/wide.map") and big.layers[0].size == {1024, 3}, "and read")
+assert(big.load("/save/wide.map") and big.layers[0].size == {1024, 3}, "and read")
 wideOk := big.at(0, {5, 0}) == E
 for x in 0..<1024
   wideOk = wideOk and big.at(0, {x, x % 3}) == x % 4000 and big.at(0, {x, (x + 1) % 3}) == E
@@ -144,13 +144,13 @@ oldRoom: Blob[100]
 # (tests/tilemap.py looks at the screen)
 flagPixels: Blob[16 * 8]
 flagRecords := [6]Int{8, 0, 1, 0, 0, 4} # (sprite 1: solid; sprite 0: flag 2)
-assert(pc.imageWrite("/rinc/save/tf.png", {pixels = flagPixels[], size = {16, 8}}, {notes = "sprite 8x8\nflag 0 solid\n", flags = flagRecords[]}) == 0, "")
+assert(pc.imageWrite("/save/tf.png", {pixels = flagPixels[], size = {16, 8}}, {notes = "sprite 8x8\nflag 0 solid\n", flags = flagRecords[]}) == 0, "")
 fSheets: [1]tilemap.Sheet
 fLayers: [1]tilemap.Layer
 fRoom: Blob[40]
 fPixels: Blob[..(16 + 1) * 8 + 2] # (the picture's rows as they come; then its 2 sprites' flags)
 f := tilemap.Map{sheets = fSheets[], layers = fLayers[], room = fRoom[], pixels = fPixels}
-assert(f.start({3, 1}, "/rinc/save/tf.png", {8, 8}, 2) and f.readSheets() and f.sheets[0].size == {16, 8} and f.sheets[0].flagCount == 2, "its sheet read: its picture and its sprites' flags")
+assert(f.start({3, 1}, "/save/tf.png", {8, 8}, 2) and f.readSheets() and f.sheets[0].size == {16, 8} and f.sheets[0].flagCount == 2, "its sheet read: its picture and its sprites' flags")
 assert(f.flag(0, "solid") == 1 and f.flag(0, "lava") == 0, "a flag's bit, by name")
 f.set(0, {0, 0}, 1)
 f.set(0, {1, 0}, 0)
@@ -158,19 +158,19 @@ assert(f.flagsAt(0, {0, 0}) == 1 and f.flagsAt(0, {1, 0}) == 4, "a cell's tile's
 assert(f.flagsAt(0, {2, 0}) == 0 and f.flagsAt(0, {5, 0}) == 0, "none: an empty cell, and past the edge")
 f.set(0, {2, 0}, 7)
 assert(f.flagsAt(0, {2, 0}) == 0, "none: a tile past the flags' end")
-assert(f.save("/rinc/save/tf.map") and f.load("/rinc/save/tf.map") and f.flagsAt(0, {0, 0}) == 1, "load reads them too")
+assert(f.save("/save/tf.map") and f.load("/save/tf.map") and f.flagsAt(0, {0, 0}) == 1, "load reads them too")
 small: Blob[..20]
 g := tilemap.Map{sheets = fSheets[], layers = fLayers[], room = fRoom[], pixels = small}
-assert(not g.load("/rinc/save/tf.map") and g.flagsAt(0, {0, 0}) == 0, "no room for its sheet: false (the log says)")
-assert(f.start({1, 1}, "/rinc/save/none.png", {8, 8}, 2) and not f.readSheets() and f.flagsAt(0, {0, 0}) == 0, "no sheet: false, no flags")
+assert(not g.load("/save/tf.map") and g.flagsAt(0, {0, 0}) == 0, "no room for its sheet: false (the log says)")
+assert(f.start({1, 1}, "/save/none.png", {8, 8}, 2) and not f.readSheets() and f.flagsAt(0, {0, 0}) == 0, "no sheet: false, no flags")
 old := tilemap.Map{sheets = oldSheets[], layers = oldLayers[], room = oldRoom[]}
-assert(old.load("/rinc/save/two.map") and m.load("/rinc/save/three.map"), "")
+assert(old.load("/save/two.map") and m.load("/save/three.map"), "")
 ownRoom: Blob[400] # (no sheets or layers given: the library's own, 4 and 8)
 own := tilemap.Map{room = ownRoom[]}
-assert(own.load("/rinc/save/two.map") and own.sheets.len() == 4 and own.layers.len() == 8 and own.count == old.count and own.at(0, {0, 0}) == old.at(0, {0, 0}), "a map given no arrays: the library's own")
+assert(own.load("/save/two.map") and own.sheets.len() == 4 and own.layers.len() == 8 and own.count == old.count and own.at(0, {0, 0}) == old.at(0, {0, 0}), "a map given no arrays: the library's own")
 old.set(0, {0, 1}, 9)
 pixels: Blob[..1024] # (room for the file's rows as they come, too)
-sheet := pc.imageRead("/rinc/save/t.png", pixels)
+sheet := pc.imageRead("/save/t.png", pixels)
 assert(sheet.size == {16, 8}, "the sheet")
 draw* :: proc()
   pc.cls(1)

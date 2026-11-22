@@ -29,7 +29,7 @@ tapped twice is Rinc's Alt lock.
 
 A .zip dropped on such a page is plugged in as the stick, as on [the desktop](desktop.md): its files at
 `/stick`, for Files to show, copy from and onto (the command list's "The stick: download it, as a zip"
-saves it as a file; it's in the page's storage meanwhile, kept through a reload) (an app's folder copied to `/rinc/apps` is
+saves it as a file; it's in the page's storage meanwhile, kept through a reload) (an app's folder copied to `/apps` is
 installed, into the page's storage). A second one dropped replaces the first. Installed apps come before
 the page's own of the same name. A page with only the VM-only player (below) can't run apps from storage,
 so it says so and installs nothing.

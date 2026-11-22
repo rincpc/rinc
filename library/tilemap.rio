@@ -10,7 +10,7 @@
 #   room: Blob[12000]                        (as Maps' top bar says, at least)
 #   level := tilemap.Map{room = room[]}      (its sheets and layers: the library's own, 4 and 8; or the
 #                                             app's, sheets = sheetRoom[], layers = layerRoom[], for more)
-#   if level.load("/rinc/save/maps/level1.map") (else the log says why: room it needs, say)
+#   if level.load("/save/maps/level1.map") (else the log says why: room it needs, say)
 #     pixels: Blob[..(128 + 1) * 128]        (a 128 by 128 sheet of the palette's: pc.imageRead says)
 #     sheet := pc.imageRead(level.sheetPath(0), pixels)
 #     level.draw(0, sheet, camera)           (each frame: layer 0, the map's pixel camera at the top left)

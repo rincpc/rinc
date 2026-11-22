@@ -53,9 +53,9 @@ for name, (depth, kind, rows, pl, rowNeed) in kinds.items():
   open(os.path.join(folder, name + '.png'), 'wb').write(png(w, h, depth, kind, rows, pl))
   need = rowNeed * h
   lines.append(f'''a: Blob[..{need}]
-i := pc.imageRead("/rinc/save/k/{name}.png", a, {{bytes = true}})
+i := pc.imageRead("/save/k/{name}.png", a, {{bytes = true}})
 b: Blob[..{need - 1}]
-j := pc.imageRead("/rinc/save/k/{name}.png", b, {{bytes = true}})
+j := pc.imageRead("/save/k/{name}.png", b, {{bytes = true}})
 sum := 0
 for k in 0..<i.pixels.len() do sum = (sum * 31 + i.pixels[k]) % 1000003
 log("{name}", i.size, i.pixels.len(), j.size, j.pixels.len(), sum)'''.replace('\n', '\nend\n', 0))
@@ -68,6 +68,6 @@ got = {l.split()[0]: l for l in out.split('\n') if l and not l.startswith('image
 sums = {k: v.split()[-1] for k, v in got.items()}
 for k in kinds:
   if k not in got or not got[k].startswith(k + ' [10, 7] 70 [10, 7] 0 '): sys.exit('FAIL: %s: %r' % (k, got.get(k)))
-  if 'imageRead: /rinc/save/k/%s.png needs' % k not in out: sys.exit('FAIL: %s: no line saying it needs more room' % k)
+  if 'imageRead: /save/k/%s.png needs' % k not in out: sys.exit('FAIL: %s: no line saying it needs more room' % k)
 if sums['i8'] != sums['i4']: sys.exit('FAIL: the same picture at 8 and 4 bits came out different')
 print('image room came through')

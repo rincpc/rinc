@@ -10,5 +10,5 @@ more room. The system key with O opens it at the log of the app you were in, and
 | Home, End | its start, its end (where it opens: the newest) |
 | Esc | back to the app |
 
-Each app's log is the newest 4 KB of it, kept in the app's cache space (`/rinc/cache/<app>/log`), with a
+Each app's log is the newest 4 KB of it, kept in the app's cache space (`/cache/<app>/log`), with a
 `-- started` line each time the app starts. Lines that say "error" are in the error color.

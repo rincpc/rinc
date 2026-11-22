@@ -203,7 +203,7 @@ makeContents :: proc()
     end
   end
   if nameCount == 0
-    addSrc("No help texts here yet. They go in storage as /rinc/help/name.md.\n")
+    addSrc("No help texts here yet. They go in storage as /help/name.md.\n")
   end
 end
 

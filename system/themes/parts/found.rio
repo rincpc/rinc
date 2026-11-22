@@ -61,11 +61,11 @@ pathOf :: proc(t: Int) -> String
   slash := slashOf(n)
   pathBuf.clear()
   if place[t] == OWN # (a copy, slate+, is slate's file in the save space)
-    fine = pathBuf.print("/rinc/save/", n[0..<slash], "/themes/", n[slash + 1..<n.len() - isCopy(t).toInt()], ".theme.rio")
+    fine = pathBuf.print("/save/", n[0..<slash], "/themes/", n[slash + 1..<n.len() - isCopy(t).toInt()], ".theme.rio")
   case place[t] == PROJECTS
-    fine = pathBuf.print("/rinc/projects/", n[0..<slash - 1], "/themes/", n[slash + 1..<n.len()], ".theme.rio")
+    fine = pathBuf.print("/projects/", n[0..<slash - 1], "/themes/", n[slash + 1..<n.len()], ".theme.rio")
   else
-    fine = pathBuf.print("/rinc/apps/", n[0..<slash], "/themes/", n[slash + 1..<n.len()], ".theme.rio")
+    fine = pathBuf.print("/apps/", n[0..<slash], "/themes/", n[slash + 1..<n.len()], ".theme.rio")
   end
   return pathBuf[0..<pathBuf.len()].asString()
 end
@@ -192,7 +192,7 @@ find :: proc(name: String) -> Int
   return -1
 end
 
-# every theme in a folder's themes/: folder is /rinc/apps/<owner> and so on
+# every theme in a folder's themes/: folder is /apps/<owner> and so on
 sub: Blob[2048]
 idBuf: Blob[..40]
 scanThemes :: proc(folder: String, owner: String, where: Int)
@@ -220,7 +220,7 @@ scanThemes :: proc(folder: String, owner: String, where: Int)
   end
 end
 
-# every folder of a top folder (/rinc/apps, /rinc/projects, /rinc/save), each one's themes
+# every folder of a top folder (/apps, /projects, /save), each one's themes
 topListing: Blob[4096]
 ownerBuf: Blob[..40]
 folderBuf: Blob[..80]
@@ -252,9 +252,9 @@ findAll :: proc()
   count = 0
   namesUsed = 0
   titlesUsed = 0
-  scanAll("/rinc/apps", APPS)
-  scanAll("/rinc/projects", PROJECTS)
-  scanAll("/rinc/save", OWN)
+  scanAll("/apps", APPS)
+  scanAll("/projects", PROJECTS)
+  scanAll("/save", OWN)
   current = -1
   got: Blob[..] = setting
   _ = pc.settingRead("theme", got)

@@ -23,7 +23,7 @@ runs its top-level code, which suits trying things out.
 
 - **In a browser:** the [demo page](https://rincpc.com/) runs the apps in this repository.
 - **On the desktop:** `rinc hello.rio` opens a window. See [the desktop](../guide/desktop.md).
-- **On the Fruit Jam:** put it on the SD card as `/rinc/apps/hello/hello.rio`, and pick it in the
+- **On the Fruit Jam:** put it on the SD card as `/apps/hello/hello.rio`, and pick it in the
   list at home; or type or paste it into the console and type `run`. See [the Fruit Jam](../guide/fruit-jam.md).
 
 ## log

@@ -1,5 +1,5 @@
 # rinc's library, undolog: undo and redo kept on the card (tests/undolog.py runs it, the library as
-# /rinc/lib/undolog.rio). A document of 8 numbers; each step, a number changed: where, what it was, what
+# /lib/undolog.rio). A document of 8 numbers; each step, a number changed: where, what it was, what
 # it became (a byte each)
 import undolog
 

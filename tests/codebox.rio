@@ -3,7 +3,7 @@
 # Run in storage of its own (-data), -frames 1: it logs "codebox came through"
 import codebox
 import clip
-_ = pc.fileDelete("/rinc/stash/rinc/clip") # (from nothing: the storage is kept from run to run)
+_ = pc.fileDelete("/stash/clip") # (from nothing: the storage is kept from run to run)
 code: Blob[..64]
 other: Blob[..64]
 fine := code.pushAll("GROUND :: 0\nFOLK :: 1\n") and other.pushAll("Layer :: enum\n  ground, folk\nend\n")

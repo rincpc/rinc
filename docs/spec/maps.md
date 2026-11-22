@@ -12,8 +12,8 @@ layers, drawn one over another, the first at the bottom:
 
 ```
 rinc map 3
-sheet 1 /rinc/save/paint/cave.png 8 across 16
-sheet 2 /rinc/save/paint/chars.png 8x16 across 5
+sheet 1 /save/paint/cave.png 8 across 16
+sheet 2 /save/paint/chars.png 8x16 across 5
 layer 1 ground tiles 1
 size 4 2
 offset 0 0
@@ -52,7 +52,7 @@ path and size, and `across`: a sheet each), and written as `rinc map 3`. A `rinc
 
 ## tilemap: the library's maps
 
-`import tilemap` (`/rinc/lib/tilemap.rio`). It's Rio, and keeps nothing of a map's own: the app gives a
+`import tilemap` (`/lib/tilemap.rio`). It's Rio, and keeps nothing of a map's own: the app gives a
 map its room, one `Blob` for its cells, its things and their names, and arrays for its sheets and
 layers, as big as it likes, and reads each new level into the same ones. Each sheet's picture is the
 app's too: it reads it (`pc.imageRead`) and passes it to `draw`. The library's own room is `tilemap.work`,
@@ -72,7 +72,7 @@ import tilemap
 room: Blob[12000]                            # its cells, things and names
 pixels: Blob[..(128 + 1) * 128 + 256]       # its sheet's pixels and flags (as Paint says)
 level := tilemap.Map{room = room[], pixels = pixels} # (its sheets and layers: the library's own)
-if level.load("/rinc/save/maps/cave.map")    # (and its sheet; else the log says why: the room it needs, say)
+if level.load("/save/maps/cave.map")    # (and its sheet; else the log says why: the room it needs, say)
   actors := level.layerNamed("actors")       # -1: none
   for i in 0..<level.things(actors)
     t := level.thing(actors, i)

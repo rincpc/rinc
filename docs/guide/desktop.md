@@ -76,7 +76,7 @@ home. F11, or the system key with Enter, fills the display, and keeps the mouse 
 window again (or another window gets the focus: Alt+Tab, Cmd+Tab).
 
 Dropping a `.zip` on the window plugs it in as the stick: its files at `/stick`, where Files shows them
-(up from `/rinc`), and copying an app's folder from there to `/rinc/apps` installs it. The stick can be
+(at `/`, beside Rinc's own folders), and copying an app's folder from there to `/apps` installs it. The stick can be
 written to as well (in memory: copy things onto it), and the command list (Sys+P) has "The stick:
 download it, as a zip", which writes it to the Downloads folder (`-downloads folder`: there), and "The
 stick: a new, empty one". A second zip dropped replaces the first (what was written to it goes, unless

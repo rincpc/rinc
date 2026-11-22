@@ -67,7 +67,7 @@ viewKey :: proc(c: Int)
   end
 end
 
-# saving, a path typed (a / in it, as Windows' Save takes one): from /rinc (a / first) or this folder, its
+# saving, a path typed (a / in it, as Windows' Save takes one): from / (a / first) or this folder, its
 # folder there already, each of its parts a name: the path, or "" (and it says why)
 typed: Blob[..112]
 probe: Blob[..2]
@@ -95,7 +95,7 @@ typedPath :: proc(s: String) -> String
     k -= 1
   end
   if k < 2 or not inWritable(t[0..<k - 1])
-    say("Can't save there: only in /rinc's folders, or on the stick", errorColor)
+    say("Can't save there: only in Rinc's folders, or on the stick", errorColor)
     return ""
   case pc.dir(t[0..<k - 1], probe) < 0
     say("No such folder", errorColor)
@@ -120,7 +120,7 @@ saveKey :: proc(c: Int) -> Bool
     case not validName(named, true)
       say("A name is letters, digits, _, - and .", errorColor)
     case not inWritable(here())
-      say("Can't save here: only in /rinc's folders, or on the stick", errorColor)
+      say("Can't save here: only in Rinc's folders, or on the stick", errorColor)
     else
       finish(pathTo(saveName[0..<saveName.len()].asString()))
     end

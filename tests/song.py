@@ -21,7 +21,7 @@ def sound(speed, notes, loop=(0, 0)): # (notes: pitch, wave, volume, effect each
   return line + '00000' * (32 - len(notes))
 sounds = [sound(6, [(24, 0, 5, 0)] * 4), sound(3, [(30, 3, 7, 1), (31, 2, 6, 0)]), sound(9, [(12, 6, 4, 0)] * 3, (1, 3))]
 put('game/notes.snd', 'rinc sound 1\r\n' + ''.join(s + '\r\n' for s in sounds + [sound(1, [])] * (32 - len(sounds))))
-put('game/loops.mus', 'rinc music 1\nsounds /rinc/save/sound/elsewhere/notes.snd\n00 01 -- 02 -\n00 -- -- -- b\n01 -- -- -- e\n')
+put('game/loops.mus', 'rinc music 1\nsounds /save/sound/elsewhere/notes.snd\n00 01 -- 02 -\n00 -- -- -- b\n01 -- -- -- e\n')
 put('game/stops.mus', 'rinc music 1\r\nsounds notes.snd\r\n00 -- -- -- -\r\n01 -- -- -- s\r\n00 -- -- -- -\r\n')
 put('game/tune2.mus', 'rinc music 2\nsounds notes.snd\nlevers 2 6 150\npattern 8 6\n0 6 1 5 4 6 0\n0 1 1 0 8 12 0\n6 1 0 0 8 0 0\n2 6 0 -3 8 0 1\npattern 4 3\n0 0 2 0 8 0 0\nsong\n0 0 4 8 0 100 b\n1 0 0 8 8 200 2 e\n')
 put('game/twice.mus', 'rinc music 2\nsounds notes.snd\nlevers 0 8 100\npattern 4 6\n0 0 0 0 8 0 0\nsong\n0 0 8 8 8 100 2 s\n')

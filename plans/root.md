@@ -30,3 +30,13 @@ same tidying: boot (the app started on boot) into settings, and the clipboard a 
 - Tests: an app's file at `/save/x/y` is the card's `/rinc/save/x/y`; `/rinc/...` from an app is an error.
 
 Order: after writing to the stick (plans/drives.md, 4), as the stick's paths settle first.
+
+Done (2026-11-22): rinc_argPath maps an app's /x to storage's /rinc/x (/stick as it is, / listing Rinc's
+folders and the stick); paths handed back to apps (pc.appError, pc.checkError, the log's messages) as
+the app has them (rinc_shown), and taken in (pc.checkRio) as storage has them. Every "/rinc/..." in
+rinc's and studio's apps, the library, tests and docs moved (a folder named rinc inside a path kept:
+/stash/rinc/clip); Files' root is /, Edit's read-only is an installed app's files. tests/stick.py:
+/rinc/... from an app is gone. On the user's card: the system and studio apps put again; their text
+files with old paths rewritten (studio's last files, Edit's recents, Files' place, console history,
+clipboard entries, two saves); two binary undo stashes dropped; a stray /rinc/rinc (an old console's
+write) removed; Files and Maps tried there. The top-level files (boot, clipboard) not moved yet.

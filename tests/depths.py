@@ -115,7 +115,7 @@ bitsFor := [4]Int{1, 2, 4, 0}
 for k in 0..<4
   for i in 0..<13 * 7 do pic[i] = (i * 7 + i / 13) % counts[k] # (0 to counts - 1: Rinc's colors, 0 see-through)
   sheetName: Blob[..24]
-  _ = sheetName.print("/rinc/save/s", k, ".png") # (in its storage: an app run from a folder doesn't write there)
+  _ = sheetName.print("/save/s", k, ".png") # (in its storage: an app run from a folder doesn't write there)
   assert(pc.imageWrite(sheetName.asString(), {pixels = pic[], size = {13, 7}}, {sheet = true}) == 0, "a sheet written")
   room.clear()
   back := pc.imageRead(sheetName.asString(), room)
@@ -127,7 +127,7 @@ end
 # parts of a sheet saved uncompressed, at each depth, from each column in a byte, as the whole has them
 for k in 0..<4
   partName: Blob[..24]
-  _ = partName.print("/rinc/save/s", k, ".png")
+  _ = partName.print("/save/s", k, ".png")
   room.clear()
   whole := pc.imageRead(partName.asString(), room, {bytes = true})
   for x0 in 0..<8
@@ -155,11 +155,11 @@ fontNotes: Blob[..128]
 _ = pc.imageNotes("font.png", fontNotes)
 fontPic: Blob[..600]
 wholeFont := pc.imageRead("font.png", fontPic, {bytes = true})
-assert(pc.imageWrite("/rinc/save/font.png", wholeFont, {notes = fontNotes.asString(), sheet = true}) == 0, "the font, as a sheet")
+assert(pc.imageWrite("/save/font.png", wholeFont, {notes = fontNotes.asString(), sheet = true}) == 0, "the font, as a sheet")
 allRoom: Blob[..600]
-all := pc.fontRead("/rinc/save/font.png", allRoom)
+all := pc.fontRead("/save/font.png", allRoom)
 rowRoom: Blob[..600]
-row := pc.fontRead("/rinc/save/font.png", rowRoom, {from = {0, 6}, size = {32, 6}})
+row := pc.fontRead("/save/font.png", rowRoom, {from = {0, 6}, size = {32, 6}})
 assert(row.first == 56 and row.last == 63 and row.image.size == {32, 6}, "a font's second row: its characters")
 assert(rowRoom.len() < allRoom.len(), "a part: less room")
 pc.cls(1)

@@ -25,9 +25,9 @@ appIn: Blob[..34]
 appOf :: proc(p: String) -> String
   appIn.clear()
   for k in 0..<2
-    start := "/rinc/apps/"
+    start := "/apps/"
     if k == 1
-      start = "/rinc/projects/"
+      start = "/projects/"
     end
     if p.len() > start.len() and startsWith(p, start)
       e := start.len()
@@ -43,10 +43,10 @@ appOf :: proc(p: String) -> String
   return appIn[0..<appIn.len()].asString()
 end
 
-# read only: an installed app's files (saving makes its project), and anything outside /rinc
+# read only: an installed app's files (saving makes its project)
 readOnly :: proc() -> Bool
   p := here()
-  return p.len() > 0 and (not startsWith(p, "/rinc/") or startsWith(p, "/rinc/apps/"))
+  return p.len() > 0 and startsWith(p, "/apps/")
 end
 
 # a line of recent's (or last): its path, what's before the numbers at its end (up to 4: older lines have
@@ -173,16 +173,16 @@ setPath :: proc(p: String)
   ok := path.pushAll(p[0..<min(p.len(), 96)])
 end
 
-# an app's or project's main file: /rinc/apps/chord/chord.rio, /rinc/projects/chord/chord.rio
+# an app's or project's main file: /apps/chord/chord.rio, /projects/chord/chord.rio
 mainBuf: Blob[..96]
 mainPath :: proc(ref: String) -> String
   mainBuf.clear()
   n := ref
-  ok := mainBuf.pushAll("/rinc/apps/")
+  ok := mainBuf.pushAll("/apps/")
   if ref.len() > 1 and ref[end] == 43
     n = ref[0..<end]
     mainBuf.clear()
-    ok = mainBuf.pushAll("/rinc/projects/")
+    ok = mainBuf.pushAll("/projects/")
   end
   ok = mainBuf.pushAll(n)
   ok = mainBuf.push(47)
@@ -387,12 +387,12 @@ goToError :: proc() -> Bool
   return true
 end
 
-# /rinc/apps/chord/a.rio, in its project: /rinc/projects/chord/a.rio
+# /apps/chord/a.rio, in its project: /projects/chord/a.rio
 inProject: Blob[..96]
 projectPath :: proc(p: String) -> String
   inProject.clear()
-  ok := inProject.pushAll("/rinc/projects/")
-  ok = inProject.pushAll(p[11..<p.len()])
+  ok := inProject.pushAll("/projects/")
+  ok = inProject.pushAll(p[6..<p.len()]) # (after /apps/)
   return inProject[0..<inProject.len()].asString()
 end
 
@@ -417,7 +417,7 @@ callFiles :: proc(how: String)
   if p.len() == 0
     a: Blob[..34]
     _ = pc.settingRead("active", a)
-    p = "/rinc/projects"
+    p = "/projects"
     if a.len() > 0
       p = mainPath(a.asString())
     end
@@ -426,7 +426,7 @@ callFiles :: proc(how: String)
   for slash > 0 and p[slash] != 47
     slash -= 1
   end
-  if startsWith(p, "/rinc/projects") and slash < 14
+  if startsWith(p, "/projects") and slash < 9 # (/projects itself)
     slash = p.len()
   end
   pushed = argsBuf.pushAll(p[0..<max(slash, 1)])

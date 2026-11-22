@@ -30,9 +30,9 @@ key with R drops, to start over, finding any help texts changed since.
 A help text is Markdown: headings, paragraphs, lists, tables, code (in blocks and `inline`),
 **strong** and *emphasized* text, and links. Rinc finds them in two kinds of place:
 
-- **An app's own**, in its `help` folder: `/rinc/apps/chord/help/keys.md` is the text `chord/keys`.
+- **An app's own**, in its `help` folder: `/apps/chord/help/keys.md` is the text `chord/keys`.
   They come and go with the app, and are edited with it.
-- **Those that are no app's**, in `/rinc/help`: `/rinc/help/rinc/spec/apps.md` is `rinc/spec/apps`.
+- **Those that are no app's**, in `/help`: `/help/rinc/spec/apps.md` is `rinc/spec/apps`.
   Rinc's docs are the set `rinc`, and Rio's `rio`.
 
 A Rinc's bundle can carry help texts the same way (the Fruit Jam's carries Rinc's and Rio's docs), and

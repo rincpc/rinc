@@ -1,7 +1,7 @@
 # Files: storage's folders and files, to look through, view, copy, rename and delete; and the apps and
 # projects among them, to edit, run and install
 #
-# It starts in /rinc (or where it was last). Up and down (or the d-pad) pick, Enter opens a folder (..
+# It starts in / (or where it was last). Up and down (or the d-pad) pick, Enter opens a folder (..
 # goes up), edits an app's main file (it becomes the active app, and the editor opens it) or shows a
 # file's text; Backspace goes up too. Typing narrows the list. Space (or the secondary button, or Y)
 # shows what else can be done, each with a letter. Ctrl+N starts a new project, Ctrl+Shift+N makes a
@@ -9,7 +9,7 @@
 # Ctrl+Space (or Ctrl+click) one more or less, Ctrl+A all; then Ctrl+X or Ctrl+C, and Ctrl+V in another
 # folder moves or copies them there; Delete deletes them (after typing its name, for one; delete, for
 # several), F2 renames the one picked. Ctrl+Shift+P (or the system key with P) lists every command. Esc
-# closes what's open, else clears what's typed. /rinc is the root; changing is only inside it. Called with
+# closes what's open, else clears what's typed. / is the root (Rinc's folders, and the stick while one's in); changing is only inside them. Called with
 # pc.call("files", "pick"), it's a picker: Enter on a file gives its path back (pc.done), Esc nothing.
 # Called with "save", it picks where to save: a name typed, in the folder shown (Enter on a file takes
 # its name), and Enter gives that path back.
@@ -48,7 +48,7 @@ errorColor := pc.theme(pc.Role.error)
 messageColor := softColor
 picking := false      # (called to pick a file)
 saving := false       # (called to pick where to save: a folder, and a name typed)
-saveName: Blob[..96]   # (a name, or a path: from /rinc, or this folder)
+saveName: Blob[..96]   # (a name, or a path: from /, or this folder)
 saveField := pc.Field{text = saveName} # (saving: the name, edited as a text box is)
 full: Blob[..160]     # a path, made up
 
@@ -106,9 +106,9 @@ fromStash := start.len() == 0
 if fromStash
   _ = pc.stashRead("place", start)
 end
-made := pc.dirMake("/rinc/projects") # (where projects go: there to be found, even before the first)
+made := pc.dirMake("/projects") # (where projects go: there to be found, even before the first)
 if start.len() == 0 or not open(start[0..<start.len()].asString())
-  ok := open("/rinc")
+  ok := open("/")
 case fromStash and not picking # (where it was in it: the pick, scrolled, what's selected)
   restoreView()
 end

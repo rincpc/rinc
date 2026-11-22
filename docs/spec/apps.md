@@ -7,26 +7,29 @@ the place of a bundled one of the same name.
 
 ## Storage
 
-A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside it:
+A Rinc's storage is a folder of its own, and apps can't reach outside it. Inside Rinc, it's `/`: an app
+says `/save/chord/best`. Where it really is, Rinc knows: `/rinc` on the Fruit Jam's SD card (so a card
+can hold other things too), a folder of the desktop's (see the desktop), a page's storage in a browser.
+Its top is Rinc's own folders, each a name Rinc gives, never an app or a device:
 
 ```
-/rinc/apps/chord/chord.rio    an app: a folder of its name, holding its Rio file of the same name
-/rinc/apps/chord/help/...     its help texts, Markdown (see help texts)
-/rinc/apps/rinc/themes/...     Rinc's own themes (see themes): rinc is no app, so it isn't listed
-/rinc/projects/chord/...      its project, chord+: the app in work (see projects)
-/rinc/projects/chord/dev/...  its dev folder: its maker's, not the app's (its own saves, its tests)
-/rinc/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
-/rinc/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
-/rinc/cache/chord/...         what it can make again: anything may clear it
-/rinc/cache/rinc/apps/chord.rioi   Rinc's own cache: the app, compiled (see compiled apps)
-/rinc/cache/rinc/projects/chord.rioi   and its project
-/rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
-/rinc/settings/...            the whole Rinc's settings, shared by the apps: active, the app in work
-/stick/...                    the stick, while one's in: a thumb drive on the board, a zip dropped on the desktop or a page
+/apps/chord/chord.rio    an app: a folder of its name, holding its Rio file of the same name
+/apps/chord/help/...     its help texts, Markdown (see help texts)
+/apps/rinc/themes/...    Rinc's own themes (see themes): rinc is no app, so it isn't listed
+/projects/chord/...      its project, chord+: the app in work (see projects)
+/projects/chord/dev/...  its dev folder: its maker's, not the app's (its own saves, its tests)
+/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
+/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
+/cache/chord/...         what it can make again: anything may clear it
+/cache/rinc/apps/chord.rioi   Rinc's own cache: the app, compiled (see compiled apps)
+/cache/rinc/projects/chord.rioi   and its project
+/help/...                help texts that are no app's own (Rinc's and Rio's docs)
+/settings/...            the whole Rinc's settings, shared by the apps: active, the app in work
+/stick/...               the stick, while one's in: a thumb drive on the board, a zip or a folder
+                         dropped on the desktop, a zip dropped on a page
 ```
 
-Apps read from `/rinc` and, while one's in, `/stick`, and `/` lists those two; they write under `/rinc/`
-and `/stick/`.
+Apps read anywhere in it, and write inside its folders (the stick's too), never at `/` itself.
 
 An app is all of its folder but one part: its **dev folder**, `dev/`, which is its maker's, not the app's.
 Everything that isn't the app goes there: a project's own saves (`dev/save/`), its tests (`dev/test.rio`),
@@ -94,7 +97,7 @@ isn't an app), so an app can tell when its buffer was too small.
 
 ## An app's own files
 
-Every app has a save space of its own, `/rinc/save/<app>`, for high scores, settings and the like. A
+Every app has a save space of its own, `/save/<app>`, for high scores, settings and the like. A
 file's name is 1 to 32 letters, digits, `_`, `-` and `.`, not starting with a dot:
 
 | proc | |
@@ -127,26 +130,26 @@ projects), so work on it can't spoil the app's.
 
 ## Projects
 
-An app in work is a project: `/rinc/projects/chord`, which is `chord+` wherever an app's name goes (a
+An app in work is a project: `/projects/chord`, which is `chord+` wherever an app's name goes (a
 star after it), and installing it makes it the app, `chord`. It's the same app at another stage, so
 it shares the app's name, and what goes with the name: its stash, and its own cache. A star marks it
 where it's listed: home, the switcher, the editor's list.
 
 ```
-/rinc/projects/chord/chord.rio      its source
-/rinc/projects/chord/help/...       its help texts
-/rinc/projects/chord/dev/save/...   its own save space: the app's saves, copied in on its first run
+/projects/chord/chord.rio      its source
+/projects/chord/help/...       its help texts
+/projects/chord/dev/save/...   its own save space: the app's saves, copied in on its first run
 ```
 
 Only its saves are its own. A project being worked on can do anything to them, and the app's own,
-`/rinc/save/chord`, the live ones, are left alone: on its first run (when it has no save space yet), the
+`/save/chord`, the live ones, are left alone: on its first run (when it has no save space yet), the
 app's saves are copied in, so it starts from real data. Deleting its `dev/save` folder starts it over
 from the app's again. Nothing goes back the other way. (A project's saves from before the dev folder, in
 `save/`, are moved into it, as they are, the first time it runs.)
 
 `pc.launch("chord+")` runs the project (and `pc.launch("chord+/dev/test")` its tests: see an app's tests), and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
 project's name too (`pc.appDelete` removes all of its folder: a project's own saves too, but never the
-app's, in `/rinc/save`). The rest, each 0 or -1:
+app's, in `/save`). The rest, each 0 or -1:
 
 | proc | |
 |---|---|
@@ -157,9 +160,9 @@ app's, in `/rinc/save`). The rest, each 0 or -1:
 ## Files
 
 Any app can look through storage by path, as Files (`system/files/files.rio`) does: absolute paths,
-`/rinc/save/chord/best`, with no `.` or `..` parts. `/rinc` is the root, for now: looking goes
-anywhere in it, changing only inside it, never `/rinc` itself. (An exported program's storage is its
-own folder, still `/rinc` to its apps.) Reading sees a bundle's files too (see bundles), after
+`/save/chord/best`, with no `.` or `..` parts. `/` is the root: looking goes anywhere in it,
+changing only inside its folders, never `/` itself. (An exported program's storage is its own folder,
+still `/` to its apps.) Reading sees a bundle's files too (see bundles), after
 storage's: an exported game's own files, say, or the themes a web page carries; changes go to storage.
 Each gives 0, or -1, unless it says otherwise:
 
@@ -176,11 +179,11 @@ Each gives 0, or -1, unless it says otherwise:
 | `pc.dirMake(path) -> Int` | a folder, at a path not taken (the folders along the way too) |
 
 ```rio
-log(pc.fileWrite("/rinc/save/demo/notes/a.txt", "hi"), pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"))
+log(pc.fileWrite("/save/demo/notes/a.txt", "hi"), pc.fileCopy("/save/demo/notes", "/save/demo/copy"))
 out: Blob[..64]
-n := pc.dir("/rinc/save/demo", out)
+n := pc.dir("/save/demo", out)
 log(n, out.asString())
-log(pc.fileCopy("/rinc/save/demo/notes", "/rinc/save/demo/copy"), pc.fileDelete("/rinc/save/demo"))
+log(pc.fileCopy("/save/demo/notes", "/save/demo/copy"), pc.fileDelete("/save/demo"))
 ```
 
 ```output
@@ -196,10 +199,10 @@ all be in memory at once. Each opens the file and closes it again, so what's wri
 when it says so, even if the power goes then.
 
 ```rio
-log(pc.fileWriteAt("/rinc/save/demo/log", -1, "abc"), pc.fileWriteAt("/rinc/save/demo/log", -1, "def"), pc.fileWriteAt("/rinc/save/demo/log", 1, "XY"))
+log(pc.fileWriteAt("/save/demo/log", -1, "abc"), pc.fileWriteAt("/save/demo/log", -1, "def"), pc.fileWriteAt("/save/demo/log", 1, "XY"))
 out: Blob[..4]
-log(pc.fileReadAt("/rinc/save/demo/log", 2, out), out.asString())
-log(pc.fileWriteAt("/rinc/save/demo/log", 9, "?"), pc.fileDelete("/rinc/save/demo"))
+log(pc.fileReadAt("/save/demo/log", 2, out), out.asString())
+log(pc.fileWriteAt("/save/demo/log", 9, "?"), pc.fileDelete("/save/demo"))
 ```
 
 ```output
@@ -226,13 +229,13 @@ color number each, row by row, 0 see-through, and its `size`, a `[2]Int`:
 pic: Blob[4]
 pic[0] = 8
 pic[3] = 12
-log(pc.imageWrite("/rinc/save/demo2/tiny.png", {pixels = pic[], size = {2, 2}}, {notes = "sprite 2"}))
+log(pc.imageWrite("/save/demo2/tiny.png", {pixels = pic[], size = {2, 2}}, {notes = "sprite 2"}))
 back: Blob[..16]
-image := pc.imageRead("/rinc/save/demo2/tiny.png", back)
+image := pc.imageRead("/save/demo2/tiny.png", back)
 log(image.size, image.pixels.len(), image.pixels[0], image.pixels[1], image.pixels[3])
 notes: Blob[..16]
-log(pc.imageNotes("/rinc/save/demo2/tiny.png", notes), notes.asString())
-log(pc.fileDelete("/rinc/save/demo2"))
+log(pc.imageNotes("/save/demo2/tiny.png", notes), notes.asString())
+log(pc.fileDelete("/save/demo2"))
 ```
 
 ```output
@@ -256,14 +259,14 @@ picture's pixels, so they need no room but where they go.
 ```rio
 pic: Blob[16 * 8]
 records := [6]Int{0, 0, 1, 8, 0, 5}  # (sprite 0: solid; sprite 1: solid and ladder)
-log(pc.imageWrite("/rinc/save/demo3/tiles.png", {pixels = pic[], size = {16, 8}},
+log(pc.imageWrite("/save/demo3/tiles.png", {pixels = pic[], size = {16, 8}},
                   {notes = "sprite 8x8\nflag 0 solid\nflag 2 ladder\n", flags = records[]}))
-solid := pc.imageFlag("/rinc/save/demo3/tiles.png", "solid")
-ladder := pc.imageFlag("/rinc/save/demo3/tiles.png", "ladder")
+solid := pc.imageFlag("/save/demo3/tiles.png", "solid")
+ladder := pc.imageFlag("/save/demo3/tiles.png", "ladder")
 tileFlags: Blob[..2]
-log(pc.imageSpriteFlags("/rinc/save/demo3/tiles.png", 8, 8, tileFlags))
+log(pc.imageSpriteFlags("/save/demo3/tiles.png", 8, 8, tileFlags))
 log(tileFlags[0] & solid != 0, tileFlags[0] & ladder != 0, tileFlags[1] & ladder != 0)
-log(pc.fileDelete("/rinc/save/demo3"))
+log(pc.fileDelete("/save/demo3"))
 ```
 
 ```output
@@ -309,7 +312,7 @@ of the recent apps, as the system key's Q leaves an app out), and that app, star
 result with `pc.result(out) -> Int` (how long, or -1 if there's none: it's taken). What's typed ahead,
 after a call, is the called app's.
 
-Files is a picker this way: `pc.call("files", "pick /rinc/save/chord")` starts it in that folder, and
+Files is a picker this way: `pc.call("files", "pick /save/chord")` starts it in that folder, and
 Enter on a file gives its path back (Esc at the top, nothing: an empty result):
 
 ```rio fragment
@@ -344,7 +347,7 @@ end
 
 ## Settings
 
-The whole Rinc's settings, not any one app's, are in `/rinc/settings`, a file a key, and any app can
+The whole Rinc's settings, not any one app's, are in `/settings`, a file a key, and any app can
 read and change them: `pc.settingRead(key, out) -> Int` (added to `out`, as much as fits: its whole length, or -1 if
 there's none) and `pc.settingWrite(key, data) -> Int` (0, or -1). Keys are named as save files are, or
 are such names with `/` between them, for settings in folders (`files/appreg/png`).
@@ -368,8 +371,8 @@ for a home app of another name. Without it, home is the app named `home`.
 A theme gives a palette color to each role the system apps draw with, so they look alike and code is
 colored the same in all of them. `theme` (a setting) names the one in use, `owner/id`: the file
 `themes/id.theme.rio` of app `owner`, in its folder (or the bundle's) or its save space
-(`/rinc/save/owner/themes`), or of project `owner+`; `owner/id+` is only the save space's, a copy of a
-locked one. Rinc's own themes are `rinc`'s: `/rinc/apps/rinc/themes`, `rinc/slate` and so on. Without
+(`/save/owner/themes`), or of project `owner+`; `owner/id+` is only the save space's, a copy of a
+locked one. Rinc's own themes are `rinc`'s: `/apps/rinc/themes`, `rinc/slate` and so on. Without
 a theme, or for a role it leaves out, the color is Rinc's own, Steel's (`rinc/steel`). The Themes app picks, makes and edits
 them (see its help).
 
@@ -443,7 +446,7 @@ end
 ## The clipboard
 
 Every app copies to and pastes from one clipboard, rinc's `clip` library's, on the card in Rinc's own
-stash (`/rinc/stash/rinc/clip`): so what's copied is there in another app, after Files has been called,
+stash (`/stash/rinc/clip`): so what's copied is there in another app, after Files has been called,
 and after a restart. The last 8 things copied are kept, and the newest is pasted. Each has a **kind**:
 
 | kind | |
@@ -503,7 +506,7 @@ The box is rinc's `codebox` library, for any app that shows code to copy.
 ## Its cache, and its log
 
 What an app can always make again (thumbnails, an index, a download) goes in its cache space,
-`/rinc/cache/<app>` (a project's, `chord+`, its own), under names as save files have them. Anything may
+`/cache/<app>` (a project's, `chord+`, its own), under names as save files have them. Anything may
 clear that, at any time, and the app carries on, only slower.
 
 | proc | |
@@ -525,8 +528,8 @@ An app starts from its source, compiled whole. Rinc keeps what that makes, its R
 start can load it instead of compiling again:
 
 ```
-/rinc/apps/help/help.rio              the source (or the firmware's, for an app built in)
-/rinc/cache/rinc/apps/help.rioi        its image: Rinc's header, then Rio's image
+/apps/help/help.rio              the source (or the firmware's, for an app built in)
+/cache/rinc/apps/help.rioi        its image: Rinc's header, then Rio's image
 ```
 
 Help, on the Fruit Jam, starts in about 30 ms this way, instead of about 140; breakout in about 12,
@@ -551,7 +554,7 @@ over the old one. If the image can't be written (a full card, say), the app stil
 app checked once loads its image straight away from then on, without reading its source, until:
 
 - the Rinc starts again (a start always checks: the card may have changed while it was off);
-- anything in `/rinc/apps` or `/rinc/lib` is written or removed (the editor's saves among them);
+- anything in `/apps` or `/lib` is written or removed (the editor's saves among them);
 - the card has to be mounted again, after a failure (it may be another card, or this one changed).
 
 The desktop and the web check every time: there, other programs (another editor, another tab of the
@@ -596,7 +599,7 @@ on, what's typed isn't the app's. It's:
 | system + Enter | the whole display, or a window again, where the Rinc can (the desktop's F11 too). The whole display keeps the mouse on Rinc's screen; on the web, where the browser lets a page have Esc and its own Ctrl+N, Ctrl+T, Ctrl+W (Chrome, Edge: holding Esc leaves), after a click there. Alt+Tab and Cmd+Tab are always the system's |
 
 Print Screen (no system key: the app never sees it) saves the screen as the app drew it, as
-`/rinc/shots/<app>-<n>.png` (the next number free), and says so at the bottom. Over serial it's
+`/shots/<app>-<n>.png` (the next number free), and says so at the bottom. Over serial it's
 `ESC [ 57361 u`, as a terminal speaking kitty's keyboard protocol sends it; the console's `get` brings
 the file back (see [the Fruit Jam](../guide/fruit-jam.md)).
 
@@ -657,12 +660,12 @@ The console (`system/console/console.rio`) is an ordinary app: Rio, typed and ru
 ## Help texts
 
 Help texts are Markdown, for the help app (`system/help/help.rio`) and any app that shows help. Each app's
-own are in its folder, as `/rinc/apps/<app>/help/<path>.md` (named `<app>/<path>`), and those that are
-no app's in `/rinc/help/<path>.md` (named `<path>`); a bundle carries them the same way
+own are in its folder, as `/apps/<app>/help/<path>.md` (named `<app>/<path>`), and those that are
+no app's in `/help/<path>.md` (named `<path>`); a bundle carries them the same way
 (`apps/<app>/help/...`, `help/...`), and storage takes the place of the bundle, as for apps. A name
 leaves `.md` off: `rinc/spec/apps`. A set of texts (the first part of their names) with a `SUMMARY`
 text is listed by that, as the docs' tables of contents are. A project's texts are its own, in
-`/rinc/projects/<app>/help`, named with its +: `chord+/README`, which the system key with H shows
+`/projects/<app>/help`, named with its +: `chord+/README`, which the system key with H shows
 while the project runs.
 
 | proc | |
@@ -678,7 +681,7 @@ The help app shows them, and follows their links; its own help text, `help/READM
 
 An app can be more files than one, in its folder: `include "parts/a.rio"` makes another file part of
 this one, and `import .shapes` makes a module of `shapes.rio` (or `shapes/shapes.rio`), both from the
-app's own folder; `import tween` is from the library, `/rinc/lib` (`tween.rio`, or `tween/tween.rio`),
+app's own folder; `import tween` is from the library, `/lib` (`tween.rio`, or `tween/tween.rio`),
 shared by every app. Storage's files come first, then the bundle's (`apps/<app>/...`, `lib/...`), then,
 for the library, Rinc's own, built into every Rinc (its `library` folder: `tilemap`, `song` and `undolog`), so
 those are there with no card, or none installed; a card's own file of the same name wins. An app
@@ -689,15 +692,15 @@ the folder) runs the app of a folder, `game/game.rio`, its own files from beside
 carries all of its folder. The system apps are made this way, each a main file and its `parts`.
 
 ```
-/rinc/projects/game/game.rio          include "parts/levels.rio", import .shapes, import tween
-/rinc/projects/game/parts/levels.rio
-/rinc/projects/game/shapes/shapes.rio
-/rinc/lib/tween.rio
+/projects/game/game.rio          include "parts/levels.rio", import .shapes, import tween
+/projects/game/parts/levels.rio
+/projects/game/shapes/shapes.rio
+/lib/tween.rio
 ```
 
 ### Rinc's library
 
-Built into every Rinc (and installed in `/rinc/lib` with the system apps, where a newer one can go):
+Built into every Rinc (and installed in `/lib` with the system apps, where a newer one can go):
 
 - `tilemap`: tile maps, read, written and drawn, as studio's Maps makes them ([maps](maps.md)).
 - `song`: songs as studio's Music makes them, and their sounds (Sound's file): read a line at a time,
@@ -791,7 +794,7 @@ installing, bundles and exports. The editor's are an example: `system/edit/dev/t
 The editor (`system/edit/edit.rio`) is an ordinary app too: a file at a time, by path, up to 32 KB,
 with the keys of most editors. Ctrl+O opens a file, through Files (called to pick one), and
 Ctrl+Shift+S saves as another (Files, called to pick where: what's unsaved waits in the editor's
-stash meanwhile). An installed app's files, and anything outside `/rinc`, are read only: saving one of
+stash meanwhile). An installed app's files are read only: saving one of
 an app's saves it in its project, made from the app first (see projects). Ctrl+R saves and runs the
 app or project the file is in, and Ctrl+Shift+P lists every command. Its help text, `edit/README`,
 lists the keys.

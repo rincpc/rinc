@@ -1177,8 +1177,17 @@ static void rinc_hostAppRename(rio_Vm *v, rio_Val *a) {
    all of it); fileCopy(from, to) -> Int (a folder: all of it) and fileRename(from, to) -> Int, to a
    name not taken: each 0, or -1 */
 static void rinc_writeFile(rio_Vm *v, rio_Val *a, const char *path); /* (below) */
+/* an app's path (plans/root.md): / is Rinc's own, storage's /rinc (/save/x, /rinc/save/x there), but for
+   the stick, /stick; / itself lists both. Into out, as storage has it: 1, or 0 for no path an app can use */
+/* an app's path as storage has it (/save/x is /rinc/save/x; the stick's as it is), into out */
+static void rinc_stored(const char *path, char *out, size_t cap) {
+  if (path[0] != '/' || (!strncmp(path, "/stick", 6) && (!path[6] || path[6] == '/'))) snprintf(out, cap, "%s", path);
+  else snprintf(out, cap, "/rinc%s", path[1] ? path : "");
+}
+/* storage's path as an app has it (/rinc/save/x is /save/x), to say */
+static const char *rinc_shown(const char *path) { return !strncmp(path, "/rinc/", 6) ? path + 5 : !strcmp(path, "/rinc") ? "/" : path; }
 static int rinc_argPath(rio_Vm *v, rio_Val *a, char *out, int change) {
-  const char *s = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u, i;
+  const char *s = (const char *)rio_sliceBytes(v, a); int n = (int)a[1].u, i, own0 = 0;
   char own[96];
   if (s && n >= 1 && s[0] != '/') { /* (one of the app's own files, by its path in its folder: its project's, chord+, or as installed;
                                       a session's, its app's: pc.rioStart) */
@@ -1192,16 +1201,22 @@ static int rinc_argPath(rio_Vm *v, rio_Val *a, char *out, int change) {
     if (change || k < 0 || k >= (int)sizeof own) return 0; /* (read only: an installed app's folder isn't for writing) */
     s = own;
     n = k;
+    own0 = 1;
   }
-  if (!s || n < 1 || n > 95 || s[0] != '/' || (n > 1 && s[n - 1] == '/')) return 0;
+  if (!s || n < 1 || n > (own0 ? 95 : 90) || s[0] != '/' || (n > 1 && s[n - 1] == '/')) return 0;
   for (i = 0; i < n; i++) {
     char c = s[i];
     if (c < 32 || c > 126 || c == '\\' || c == ':') return 0;
     if (c == '/' && i + 1 < n && (s[i + 1] == '/' || (s[i + 1] == '.' && (i + 2 == n || s[i + 2] == '/' || (s[i + 2] == '.' && (i + 3 == n || s[i + 3] == '/')))))) return 0;
   }
-  if (change ? (n <= 6 || strncmp(s, "/rinc/", 6)) && (n <= 7 || strncmp(s, "/stick/", 7)) /* (writing: storage, and the stick) */
-             : (n != 1 && (strncmp(s, "/rinc", 5) || (n > 5 && s[5] != '/')) && (strncmp(s, "/stick", 6) || (n > 6 && s[6] != '/')))) return 0; /* (looking: /rinc, the stick, and / with them) */
-  memcpy(out, s, (size_t)n); out[n] = 0;
+  if (own0) { memcpy(out, s, (size_t)n); out[n] = 0; return 1; } /* (the app's own: storage's path already) */
+  if (!strncmp(s, "/stick", 6) && (n == 6 || s[6] == '/')) { /* (the stick's: as it is) */
+    if (change && n <= 7) return 0;
+    memcpy(out, s, (size_t)n); out[n] = 0;
+    return 1;
+  }
+  if (n == 1) { if (change) return 0; out[0] = '/'; out[1] = 0; return 1; } /* (/: looked in, not changed) */
+  memcpy(out, "/rinc", 5); memcpy(out + 5, s, (size_t)n); out[n + 5] = 0; /* (Rinc's own: under /rinc in storage) */
   return 1;
 }
 static int rinc_exists(const char *path) {
@@ -1256,13 +1271,16 @@ static int rinc_dirBundled(const char *path) {
   }
   return any;
 }
+static void rinc_rootStick(const char *name, int dir, void *ud) { (void)ud; if (dir && !strcmp(name, "stick")) rinc_dirFound(name, 1, 0); } /* (/: the stick, if one's in) */
 static void rinc_hostDir(rio_Vm *v, rio_Val *a) { /* (storage's entries, then the bundle's) */
-  char path[96]; int named = rinc_argPath(v, a, path, 0), listed, bundled;
+  char path[96]; int named = rinc_argPath(v, a, path, 0), listed, bundled, root = named && !strcmp(path, "/");
+  if (root) memcpy(path, "/rinc", 6); /* (/: Rinc's own, and then the stick) */
   rinc_Out o;
   if (!rinc_into(v, a + 2, &o)) { a[0].i = -1; return; }
   rinc_dirOut = (char *)o.end; rinc_dirCap = (int)o.room; rinc_dirUsed = rinc_dirCount = 0;
   listed = named && rinc_fs && !rinc_fs->list(path, rinc_dirFound, 0);
   bundled = named && rinc_dirBundled(path);
+  if (root && rinc_fs && !rinc_fs->list("/", rinc_rootStick, 0)) listed = 1;
   a[0].i = listed || bundled ? rinc_dirCount : -1;
   rinc_charge(rinc_Cost_dir, (uint32_t)rinc_dirCount);
   rinc_outAdd(v, &o, (uint32_t)rinc_dirUsed);
@@ -1310,11 +1328,11 @@ static void rinc_hostImageLoad(rio_Vm *v, rio_Val *a) {
   if (r < 0 && r != -2) size[0] = size[1] = 0;
   a[0].i = (int32_t)size[0]; a[1].i = (int32_t)size[1]; a[2].i = r > 0 ? depth : 8;
   if (r == -3) {
-    snprintf(say, sizeof say, "imageRead: a part of %.96s needs it saved as a sheet, uncompressed (Paint saves so)\r\n", path);
+    snprintf(say, sizeof say, "imageRead: a part of %.96s needs it saved as a sheet, uncompressed (Paint saves so)\r\n", rinc_shown(path));
     rinc_say(say);
   }
   if (r == -2) {
-    snprintf(say, sizeof say, "imageRead: %.96s needs %u bytes of room, and has %u\r\n", path, (unsigned)need, (unsigned)o.room);
+    snprintf(say, sizeof say, "imageRead: %.96s needs %u bytes of room, and has %u\r\n", rinc_shown(path), (unsigned)need, (unsigned)o.room);
     rinc_say(say);
   }
   if (r > 0) rinc_outAdd(v, &o, (uint32_t)r);
@@ -1346,7 +1364,7 @@ static void rinc_hostImageSpriteFlags(rio_Vm *v, rio_Val *a) {
   if (a[0].i >= 0) rinc_outAdd(v, &o, k);
   else if (named && a[2].i > 0 && a[3].i > 0 && rinc_pngFlags(path, 0, 0x7fffffff, a[2].i, a[3].i, 0, &k) >= 0 && k > o.room) {
     char say[160]; /* (the picture's there: no room for its sprites' bytes) */
-    snprintf(say, sizeof say, "imageSpriteFlags: %.96s needs %u bytes of room, and has %u\r\n", path, (unsigned)k, (unsigned)o.room);
+    snprintf(say, sizeof say, "imageSpriteFlags: %.96s needs %u bytes of room, and has %u\r\n", rinc_shown(path), (unsigned)k, (unsigned)o.room);
     rinc_say(say);
   }
 }
@@ -2071,7 +2089,7 @@ static void rinc_staleLib(void) {
     }
     if (card != own) {
       static char said[160];
-      int n = snprintf(said, sizeof said, "(the card's %s isn't Rinc's own: an older or changed copy, used instead)", r->path);
+      int n = snprintf(said, sizeof said, "(the card's %s isn't Rinc's own: an older or changed copy, used instead)", rinc_shown(r->path));
       rinc_logLine(0, said, n < (int)sizeof said ? n : (int)sizeof said - 1);
       rinc_noticeSay("Card lib copy: ", r->path + 10); /* (15: a name of 32 fits) */
     }
@@ -2177,8 +2195,9 @@ static void rinc_hostCheckrio(rio_Vm *v, rio_Val *a) {
 #ifdef rio_NO_COMPILER
   (void)code;
 #else
-  memcpy(mainPath, main, a[1].u); mainPath[a[1].u] = 0;
-  memcpy(editPath, path, a[3].u); editPath[a[3].u] = 0;
+  { char in[100]; /* (as storage has them) */
+    memcpy(in, main, a[1].u); in[a[1].u] = 0; rinc_stored(in, mainPath, sizeof mainPath);
+    memcpy(in, path, a[3].u); in[a[3].u] = 0; rinc_stored(in, editPath, sizeof editPath); }
   rinc_nestOn = 0; rinc_nestTried = 1; /* (the session's vm: a session there is over) */
   if (rio_init(&rinc_nest, room, constRoom, 0, 0)) return;
   rio_setLoader(&rinc_nest, rinc_checkLoader, 0);
@@ -2224,7 +2243,7 @@ static void rinc_hostCheckerror(rio_Vm *v, rio_Val *a) {
   memset(&r, 0, sizeof r);
   if (rinc_checkError.line > 0) {
     r.line = rinc_checkError.line; r.col = rinc_checkError.col; r.len = rinc_checkError.len;
-    rinc_addOut(v, a + 2, rinc_checkError.path, (int)strlen(rinc_checkError.path));
+    rinc_addOut(v, a + 2, rinc_shown(rinc_checkError.path), (int)strlen(rinc_shown(rinc_checkError.path)));
     rinc_addOut(v, a + 5, rinc_checkError.message, (int)strlen(rinc_checkError.message));
   }
   rio_putStruct(v, a, &r, sizeof r);
@@ -2280,7 +2299,7 @@ static void rinc_hostAppError(rio_Vm *v, rio_Val *a) { /* (-> pc.AppError: where
   memset(&r, 0, sizeof r);
   if (rinc_lastError.line > 0) {
     r.line = rinc_lastError.line; r.col = rinc_lastError.col; r.len = rinc_lastError.len; r.runtime = rinc_lastError.runtime;
-    rinc_addOut(v, a + 2, rinc_lastError.path, (int)strlen(rinc_lastError.path));
+    rinc_addOut(v, a + 2, rinc_shown(rinc_lastError.path), (int)strlen(rinc_shown(rinc_lastError.path))); /* (as the app has it) */
     rinc_addOut(v, a + 5, rinc_lastError.message, (int)strlen(rinc_lastError.message));
   }
   rinc_lastError.line = 0;

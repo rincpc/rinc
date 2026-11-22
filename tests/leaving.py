@@ -38,7 +38,7 @@ check(get('stash/stay/typed') is None, 'the system key with Q: not called, the s
 
 # the editor: a file opened, typed in, left (not saved), come back to and saved: what was typed is in it
 put('save/notes/t.txt', 'plain\n')
-put('apps/caller/caller.rio', 'out: Blob[..8]\nif pc.result(out) < 0\n  pc.call("edit", "open /rinc/save/notes/t.txt")\nend\n')
+put('apps/caller/caller.rio', 'out: Blob[..8]\nif pc.result(out) < 0\n  pc.call("edit", "open /save/notes/t.txt")\nend\n')
 said = run('caller', '', 60) # (opened: the file the editor has last)
 said += run('edit', 'X', 60) # (typed, not saved; then Rinc stops: it leaves)
 saved = get('save/notes/t.txt')

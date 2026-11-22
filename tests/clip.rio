@@ -3,7 +3,7 @@
 # ones before the newest (back); only the last KEEP kept. Run in storage of its own (-data), -frames 1:
 # it logs "clip came through"
 import clip
-_ = pc.fileDelete("/rinc/stash/rinc/clip") # (from nothing: the storage is kept from run to run)
+_ = pc.fileDelete("/stash/rinc/clip") # (from nothing: the storage is kept from run to run)
 got: Blob[..64]
 kind: Blob[..16]
 assert(clip.count() == 0 and clip.number() == 0 and clip.paste("text", got) == -1 and not clip.kind(kind), "nothing copied yet")
@@ -28,8 +28,8 @@ kind.clear()
 assert(clip.kind(kind, 2) and kind.asString() == "text", "back 2: the first one's kind")
 for i in 0..<clip.KEEP + 2 do assert(clip.copy("text", "n"), "copied again")
 assert(clip.count() == clip.KEEP and clip.paste("text", got, clip.KEEP - 1) == 1 and clip.paste("text", got, clip.KEEP) == -1, "only the last KEEP kept")
-assert(pc.fileRead("/rinc/stash/rinc/clip/1.data", got) == -1, "the oldest let go, from the card")
+assert(pc.fileRead("/stash/rinc/clip/1.data", got) == -1, "the oldest let go, from the card")
 got.clear()
-assert(clip.copy("files", "x\n/rinc/a\n", "/rinc/a\n") and clip.drop() and clip.paste("text", got) == 1 and got.asString() == "n", "dropped: the one before is the newest again")
+assert(clip.copy("files", "x\n/a\n", "/a\n") and clip.drop() and clip.paste("text", got) == 1 and got.asString() == "n", "dropped: the one before is the newest again")
 assert(clip.copy("files", "y") and clip.drop() and clip.number() == clip.KEEP + 5, "dropped: its number, the one before's")
 log("clip came through")

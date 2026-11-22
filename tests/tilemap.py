@@ -16,8 +16,8 @@ def png(w, h, color_of):
   return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
 os.makedirs(os.path.join(data, 'save'))
 open(os.path.join(data, 'save', 't.png'), 'wb').write(png(16, 8, lambda x, y: red if x < 8 else green))
-two = ('rinc map 2\nlayer 1\ntiles /rinc/save/t.png 8\nacross 2\nsize 3 2\noffset 0 0\n000001---\n---001000\n'
-       'layer 2\ntiles /rinc/save/t.png 8\nacross 2\nsize 2 1\noffset 4 16\n001---\n')
+two = ('rinc map 2\nlayer 1\ntiles /save/t.png 8\nacross 2\nsize 3 2\noffset 0 0\n000001---\n---001000\n'
+       'layer 2\ntiles /save/t.png 8\nacross 2\nsize 2 1\noffset 4 16\n001---\n')
 open(os.path.join(data, 'save', 'two.map'), 'w', newline='').write(two)
 open(os.path.join(data, 'save', 'big.map'), 'w', newline='').write('rinc map 2\nlayer 1\ntiles a.png 8\nacross 1\nsize 30 10\noffset 0 0\n' + ('---' * 30 + '\n') * 10)
 open(os.path.join(data, 'save', 'bad.map'), 'w', newline='').write('rinc map 3\nsheet 1 a.png 8 across 1\nlayer 1 a tiles 1\nsize 1 1\nxyz\n')
@@ -28,9 +28,9 @@ r = subprocess.run([rinc, '-data', data, '-app', 'tilemaptest', '-frames', '3', 
 said = (r.stdout + r.stderr).strip()
 if 'tilemap came through' not in said or 'assert' in said or 'error' in said:
   sys.exit('FAIL: %s' % said)
-for want in ('/rinc/save/none.map: no such file', '/rinc/save/big.map: needs Blob[600], 1 sheets, 1 layers (has 400, 3, 6)',
-             "/rinc/save/old.map: not a map (its first line isn't rinc map 3) (line 1)", "/rinc/save/bad.map: a row with a cell that isn't one (line 5)", "/rinc/save/long.map: couldn't read it all (line 5)",
-             '/rinc/save/three.map: needs Blob[52], 2 sheets, 2 layers (has 400, 3, 1)'):
+for want in ('/save/none.map: no such file', '/save/big.map: needs Blob[600], 1 sheets, 1 layers (has 400, 3, 6)',
+             "/save/old.map: not a map (its first line isn't rinc map 3) (line 1)", "/save/bad.map: a row with a cell that isn't one (line 5)", "/save/long.map: couldn't read it all (line 5)",
+             '/save/three.map: needs Blob[52], 2 sheets, 2 layers (has 400, 3, 1)'):
   if want not in said: sys.exit('FAIL: load\'s log: wanted %r in %r' % (want, said))
 pixels = open(shot, 'rb').read()[-320 * 240 * 3:]
 def pixel(x, y): return tuple(pixels[(y * 320 + x) * 3:(y * 320 + x) * 3 + 3])

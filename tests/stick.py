@@ -41,27 +41,28 @@ main* :: proc()
   got.clear()
   log("short", pc.fileRead("/stick/notes/short.txt", got), got.asString())
   log("write", pc.fileWrite("/stick/new.txt", "no"))
-  log("copy", pc.fileCopy("/stick/notes", "/rinc/save/use/notes"))
-  log("app", pc.fileCopy("/stick/rinc/apps/hi", "/rinc/apps/hi"))
+  log("copy", pc.fileCopy("/stick/notes", "/save/use/notes"))
+  log("app", pc.fileCopy("/stick/rinc/apps/hi", "/apps/hi"))
   got.clear()
-  log("copied", pc.fileRead("/rinc/save/use/notes/deeper/x.txt", got), got.asString())
+  log("copied", pc.fileRead("/save/use/notes/deeper/x.txt", got), got.asString())
+  log("old way", pc.fileRead("/rinc/save/use/notes/deeper/x.txt", got)) # (/ is Rinc's own: plans/root.md)
 end
 ''')
 data = os.path.join(work, 'data')
 code, out = run(app, '-stick', z, '-data', data, '-frames', '2')
-for want in ('dir / 2 d rinc\nd stick\n', 'dir /stick 2 d notes\nd rinc\n', 'dir /stick/notes 3 d deeper\nf long.txt\nf short.txt\n',
-             'dir /stick/nothing -1', 'long 7200 7200', 'short 5 short', 'write 0', 'copy 0', 'app 0', 'copied 1 x'):
+for want in ('dir / 1 d stick\n', 'dir /stick 2 d notes\nd rinc\n', 'dir /stick/notes 3 d deeper\nf long.txt\nf short.txt\n',
+             'dir /stick/nothing -1', 'long 7200 7200', 'short 5 short', 'write 0', 'copy 0', 'app 0', 'copied 1 x', 'old way -1'):
   if want not in out: fail('no %r in:\n%s' % (want, out))
 code, out = run('-data', data, '-app', 'hi', '-frames', '2')
 if 'hi from the stick' not in out: fail('the app copied off the stick: ' + out)
 if run(app, '-stick', os.path.join(work, 'use', 'use.rio'), '-data', data, '-frames', '1')[0] != 2: fail('a file that is no zip, as the stick, ran')
 
-# Files, as a person: up from /rinc to /, into the stick, an app copied (Ctrl+C), and pasted into /rinc/apps (Ctrl+V)
+# Files, as a person: up from /rinc to /, into the stick, an app copied (Ctrl+C), and pasted into /apps (Ctrl+V)
 files = os.path.join(here, '..', 'system', 'files', 'files.rio')
 fdata = os.path.join(work, 'fdata')
 os.makedirs(os.path.join(fdata, 'apps', 'other'))
 open(os.path.join(fdata, 'apps', 'other', 'other.rio'), 'w').write('log(1)\n')
-code, out = run(files, '-data', fdata, '-stick', z, '-frames', '400', '-type', '\\x08st\\nri\\nap\\nhi\\x03\\e\\x08\\x08\\x08ri\\nap\\n\\x16')
+code, out = run(files, '-data', fdata, '-stick', z, '-frames', '400', '-type', 'st\\nri\\nap\\nhi\\x03\\e\\x08\\x08\\x08ap\\n\\x16')
 if not os.path.exists(os.path.join(fdata, 'apps', 'hi', 'hi.rio')): fail('Files copying an app off the stick:\n' + out)
 
 # writing to it (in memory): a file made in a folder made, one written over, renamed, removed, one copied
@@ -79,8 +80,8 @@ main* :: proc()
   log("mv", pc.fileRename("/stick/notes/deeper", "/stick/notes/moved"))
   log("rm", pc.fileDelete("/stick/rinc"))
   log("save", pc.saveWrite("from", "from storage"))
-  log("cp", pc.fileCopy("/rinc/save/writer/from", "/stick/copied.txt"))
-  log("wr", pc.fileWrite("/rinc/save/writer/x", "storage still"))
+  log("cp", pc.fileCopy("/save/writer/from", "/stick/copied.txt"))
+  log("wr", pc.fileWrite("/save/writer/x", "storage still"))
   got.clear()
   log("back", pc.fileRead("/stick/notes/short.txt", got), got.asString())
   log("dir", pc.dir("/stick", out), out.asString())
@@ -128,7 +129,7 @@ end
 fdown = os.path.join(work, 'fdownloads')
 os.makedirs(fdown)
 code, out = run(fapp, '-stick', folder, '-data', os.path.join(work, 'fsdata'), '-downloads', fdown, '-frames', '30', '-type', 'download\\n')
-for want in ('fr 15 from the folder', 'fw 0', 'fmv 0', 'froot 2 d rinc\nd stick\n', 'the stick, downloaded:'):
+for want in ('fr 15 from the folder', 'fw 0', 'fmv 0', 'froot 1 d stick\n', 'the stick, downloaded:'):
   if want not in out: fail('a folder as the stick: no %r in:\n%s' % (want, out))
 if open(os.path.join(folder, 'made', 'b.txt')).read() != 'made on the folder' or not os.path.exists(os.path.join(folder, 'inner', 'c.txt')):
   fail('a folder as the stick: not changed on disk')

@@ -109,16 +109,10 @@ reveal :: proc()
   end
 end
 
-# whether things in folder p can change (be made, pasted, cut, saved): inside /rinc's folders (not /rinc
-# itself: those are Rinc's), or anywhere on the stick
+# whether things in folder p can change (be made, pasted, cut, saved): inside Rinc's folders, or anywhere
+# on the stick; not / itself (Rinc's folders, and the stick, are Rinc's)
 inWritable :: proc(p: String) -> Bool
-  return (p.len() > 6 and p[0..<6] == "/rinc/") or p == "/stick" or (p.len() > 7 and p[0..<7] == "/stick/")
-end
-
-# a stick's in (/stick: a zip dropped, a thumb drive): then / is above /rinc, it beside
-stickIn :: proc() -> Bool
-  probe: Blob[..64]
-  return pc.dir("/stick", probe) >= 0
+  return p.len() > 1
 end
 
 # the folder at p, listed: false if it can't be
@@ -133,7 +127,7 @@ open :: proc(p: String) -> Bool
   path.clear()
   ok := path.pushAll(p)
   count = 0
-  if p.len() > 5 or (p == "/rinc" and stickIn()) # (.. goes up: not from /rinc, the root, but to / while a stick's in)
+  if p.len() > 1 # (.. goes up: not from /, the root)
     kind[0] = UP
     nameAt[0] = 0
     nameLen[0] = 0
@@ -170,7 +164,7 @@ end
 # up a folder, the one it came from picked
 came: Blob[..64]
 goUp :: proc()
-  if path.len() <= 1 or (path.len() <= 5 and not stickIn()) # (/rinc: the root, but for / while a stick's in)
+  if path.len() <= 1 # (/: the root)
     return
   end
   slash := path.len() - 1
@@ -195,10 +189,10 @@ end
 # ---------------------------------------------------------------- apps and projects among them
 
 inApps :: proc() -> Bool
-  return here() == "/rinc/apps"
+  return here() == "/apps"
 end
 inProjects :: proc() -> Bool
-  return here() == "/rinc/projects"
+  return here() == "/projects"
 end
 
 # an app's name for an entry: an app's folder (chord) or a project's (chord+), or its main file; "" if it's
@@ -214,9 +208,9 @@ appRef :: proc(k: Int) -> String
   case kind[k] == FILE
     p := here()
     for prefix in 0..<2
-      start := "/rinc/apps/"
+      start := "/apps/"
       if prefix == 1
-        start = "/rinc/projects/"
+        start = "/projects/"
       end
       if p.len() > start.len() and p[0..<start.len()] == start
         app := p[start.len()..<p.len()]
@@ -241,7 +235,7 @@ isActive :: proc(k: Int) -> Bool
   return r.len() > 0 and r == active.asString()
 end
 
-# whether an entry can be changed: inside /rinc, but not /rinc's own folders; or on the stick
+# whether an entry can be changed: inside Rinc's folders, not those folders themselves (at /); or on the stick
 canChange :: proc(k: Int) -> Bool
   return kind[k] != UP and inWritable(here())
 end

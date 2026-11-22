@@ -4,9 +4,9 @@ folder> <work folder>
 - a big app (about 2,500 instructions): the session's room for code is the size of its memory, not of its
   compiler's tables (which once gave it 1,440)
 - an app of parts: an included part (parts/more.rio), a module of its own (import .helper), a library
-  module (import tiny, from the card's /rinc/lib: Rinc's own, as tilemap, need more room than a session
+  module (import tiny, from the card's /lib: Rinc's own, as tilemap, need more room than a session
   has) and a file it reads by its path in its folder (words.txt), each there; and the same as
-  a project (its folder in /rinc/projects, loaded as name+)
+  a project (its folder in /projects, loaded as name+)
 - chord (Rinc's), whose parts and strings need the session's room past 40 KB (the console's 48 KB)"""
 import os, shutil, subprocess, sys
 rinc, console, work = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -58,7 +58,7 @@ got = typed('\\x1b[A\\n')
 check('\n861\n' in got, 'a line typed before, brought back by up in a fresh start', got)
 typed(''.join('500 + %d\\n' % k for k in range(20))) # (more than 16 lines: all kept, in its save)
 got = typed('\\x1b[A' * 20 + '\\n')
-check('\n500\n' in got and os.path.exists(os.path.join(work, 'save', 'console', 'history.txt')), '20 lines kept (in /rinc/save/console/history.txt): the 20th back brought back', got)
+check('\n500\n' in got and os.path.exists(os.path.join(work, 'save', 'console', 'history.txt')), '20 lines kept (in /save/console/history.txt): the 20th back brought back', got)
 got = typed('history\\n')
 check('500 + 19' in got and '500 + 2\n' in got and '500 + 1\n' not in got, 'history: the last 20 lines typed (500 + 0 again, and history itself, the last two)', got)
 typed('history clear\\n')

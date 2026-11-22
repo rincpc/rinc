@@ -1,7 +1,7 @@
 # Apps and home
 
 On a Rinc with storage, such as the Fruit Jam's SD card, each app is a Rio file in a folder of its own name:
-`/rinc/apps/bounce/bounce.rio`. Home lists them, and its first line describes it:
+`/apps/bounce/bounce.rio`. Home lists them, and its first line describes it:
 
 ```rio fragment
 # Bounce: the arrow keys tilt gravity

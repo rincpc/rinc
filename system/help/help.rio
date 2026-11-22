@@ -1,7 +1,7 @@
 # Help: Rinc's and Rio's docs, and other help texts
 #
 # Reads the help texts a Rinc has (pc.helps: its own, rinc/..., and Rio's, rio/..., in the firmware;
-# more in storage, /rinc/help/name.md), rendered from Markdown: headings, lists, tables, code, and links
+# more in storage, /help/name.md), rendered from Markdown: headings, lists, tables, code, and links
 # to follow. Up and down, Page Up and Down, Home and End scroll; Tab and Shift+Tab pick a link, Enter
 # follows it, Backspace or Esc (or Alt+Left) goes back and Alt+Right forward, Alt+Up goes up to the
 # contents (a set's, then all), and Ctrl+O shows all the contents. With a mouse: click a link, the

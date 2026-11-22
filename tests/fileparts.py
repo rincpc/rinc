@@ -21,7 +21,7 @@ def raw(path):
 put('apps/parts/own.txt', 'its own')
 put('stash/parts', 'from before keys') # (a file where the stash's folder goes)
 put('apps/parts/parts.rio', '''
-p := "/rinc/save/parts/deep/log"
+p := "/save/parts/deep/log"
 log("made", pc.fileWriteAt(p, -1, "abc"))
 log("added", pc.fileWriteAt(p, -1, "defg"))
 log("over", pc.fileWriteAt(p, 1, "XY"))
@@ -33,12 +33,12 @@ log("read", pc.fileReadAt(p, 2, out), out.asString())
 out.clear()
 log("past its end", pc.fileReadAt(p, 8, out), out.len())
 log("before its start", pc.fileReadAt(p, -1, out), out.len())
-log("none", pc.fileReadAt("/rinc/save/parts/none", 0, out), pc.fileWriteAt("/rinc", -1, "?"))
+log("none", pc.fileReadAt("/save/parts/none", 0, out), pc.fileWriteAt("/", -1, "?"))
 bytes: Blob[..4]
 fine := bytes.push(0) and bytes.push(255) and bytes.push(10) and bytes.push(0)
-log("bytes", pc.fileWriteAt("/rinc/save/parts/bytes", -1, bytes.asString()))
+log("bytes", pc.fileWriteAt("/save/parts/bytes", -1, bytes.asString()))
 back: Blob[..8]
-log("bytes back", pc.fileReadAt("/rinc/save/parts/bytes", 1, back), back[0], back[1], back[2])
+log("bytes back", pc.fileReadAt("/save/parts/bytes", 1, back), back[0], back[1], back[2])
 log("own", pc.fileReadAt("own.txt", 4, out), out.asString(), pc.fileWriteAt("own.txt", -1, "?"))
 log("stash", pc.stashWriteAt("undo", -1, "one"), pc.stashWriteAt("undo", -1, "two"), pc.stashWriteAt("undo", 0, "ON"))
 kept: Blob[..16]

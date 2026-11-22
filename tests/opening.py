@@ -27,13 +27,13 @@ def check(ok, why):
   failed += not ok
 
 put('save/notes/t.txt', 'plain text\n')
-calling('edit', '/rinc/save/notes/t.txt', 'X\\x13') # (X, then Ctrl+S)
+calling('edit', '/save/notes/t.txt', 'X\\x13') # (X, then Ctrl+S)
 check(get('save/notes/t.txt') == 'Xplain text\n', 'the editor, called to open a text file: it, typed in and saved: %r' % get('save/notes/t.txt'))
 
 put('save/notes/n.md', '# Notes\n\n' + ''.join('A line of notes, %d.\n\n' % i for i in range(60)))
-calling('help', '/rinc/save/notes/n.md', '\\x1b[6~', 200) # (Page Down: it's kept where it is, a second after)
+calling('help', '/save/notes/n.md', '\\x1b[6~', 200) # (Page Down: it's kept where it is, a second after)
 place = get('stash/help/place') or ''
-check('/rinc/save/notes/n.md' in place, 'Help, called to open a .md file: it, read there: %r' % place[:80])
+check('/save/notes/n.md' in place, 'Help, called to open a .md file: it, read there: %r' % place[:80])
 
 shutil.rmtree(data, ignore_errors=True)
 print('%d failed' % failed if failed else 'opening came through')

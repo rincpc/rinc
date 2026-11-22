@@ -4,9 +4,9 @@
 # pick, code's keywords and strings...), so they all look alike, and changing it changes them all, from
 # the next app started. The list shows every theme, from every app and project (owner/themes/*.theme.rio),
 # with what the picked one looks like at the right. Enter uses it, E edits it, N makes a new one from
-# it, R renames one of yours and Delete deletes one. Rinc's own themes (/rinc/apps/rinc/themes, named
+# it, R renames one of yours and Delete deletes one. Rinc's own themes (/apps/rinc/themes, named
 # rinc/slate and so on) and any installed app's are locked: editing one changes your copy of it, slate+,
-# in the save space (/rinc/save/rinc/themes/slate.theme.rio), made the first time; renaming that gives it
+# in the save space (/save/rinc/themes/slate.theme.rio), made the first time; renaming that gives it
 # a name of its own, and deleting it leaves the original. Editing, Enter opens Colors to pick a role's
 # color, and left and right step through the colors.
 

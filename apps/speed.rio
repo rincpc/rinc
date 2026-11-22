@@ -283,18 +283,18 @@ files :: proc()
   end
   done("read8000")
   start()
-  for _ in 0..<5 do _ = pc.imageWrite("/rinc/save/speed/sheet.png", sheet)
+  for _ in 0..<5 do _ = pc.imageWrite("/save/speed/sheet.png", sheet)
   done("imageWrite64")
   start()
   for _ in 0..<5
     img.clear()
-    _ = pc.imageRead("/rinc/save/speed/sheet.png", img)
+    _ = pc.imageRead("/save/speed/sheet.png", img)
   end
   done("imageLoad64")
   start()
   for _ in 0..<10
     listing.clear()
-    _ = pc.dir("/rinc/save/speed", listing)
+    _ = pc.dir("/save/speed", listing)
   end
   done("dirSave")
 end
@@ -303,7 +303,7 @@ instructions()
 drawing()
 files()
 _ = pc.saveWrite("speed.txt", out[].asString())
-said := "speed: done (in /rinc/save/speed/speed.txt)"
+said := "speed: done (in /save/speed/speed.txt)"
 draw* :: proc()
   pc.cls(0)
   pc.print(said, {4, 4}, 7)
