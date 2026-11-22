@@ -115,6 +115,20 @@ static DRESULT rinc_mscIo(int write, BYTE *buf, LBA_t sector, UINT count) {
   return RES_OK;
 }
 
+/* the stick's own cache written out (SCSI's SYNCHRONIZE CACHE (10)), as FatFs syncs (each file closed, so
+   what's written is on the stick, not just sent to it): 0 if the stick's gone. One that doesn't know the
+   command says so, and that's fine: it has no cache to lose */
+static int rinc_mscSync(void) {
+  msc_cbw_t cbw;
+  memset(&cbw, 0, sizeof cbw);
+  cbw.signature = MSC_CBW_SIGNATURE; cbw.tag = 0x54555342; cbw.cmd_len = 10; cbw.command[0] = 0x35;
+  if (!rinc_mscWait(1)) return 0;
+  rinc_mscDone = 0;
+  if (!tuh_msc_scsi_command(rinc_mscDev, &cbw, 0, rinc_mscCb, 0)) return 0;
+  rinc_mscWait(0); /* (its status: either way) */
+  return rinc_mscDev != 0;
+}
+
 /* FatFs's disks: 0 the card, 1 the stick */
 DSTATUS disk_status(BYTE drive) { return drive == 1 ? (rinc_mscDev ? 0 : STA_NOINIT) : drive || !rinc_ready ? STA_NOINIT : 0; }
 DSTATUS disk_initialize(BYTE drive) {
@@ -135,7 +149,11 @@ DRESULT disk_write(BYTE drive, const BYTE *buf, LBA_t sector, UINT count) {
   return RES_OK;
 }
 DRESULT disk_ioctl(BYTE drive, BYTE cmd, void *buf) {
-  if (drive == 1) { if (cmd == GET_BLOCK_SIZE) *(DWORD *)buf = 1; return rinc_mscDev && (cmd == CTRL_SYNC || cmd == GET_BLOCK_SIZE) ? RES_OK : RES_PARERR; }
+  if (drive == 1) {
+    if (cmd == CTRL_SYNC) return rinc_mscSync() ? RES_OK : RES_NOTRDY;
+    if (cmd == GET_BLOCK_SIZE) { *(DWORD *)buf = 1; return rinc_mscDev ? RES_OK : RES_NOTRDY; }
+    return RES_PARERR;
+  }
   if (drive || !rinc_ready) return RES_NOTRDY;
   if (cmd == CTRL_SYNC) { int ok; rinc_cs(1); ok = rinc_waitReady(500); rinc_cs(0); return ok ? RES_OK : RES_ERROR; }
   if (cmd == GET_BLOCK_SIZE) { *(DWORD *)buf = 1; return RES_OK; }

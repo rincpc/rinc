@@ -17,7 +17,7 @@ checking a change on the board, not just on the desktop:
   as NAME          the app on the screen is NAME now (one another app started: its shots are named for it)
   shot FILE        Print Screen (the board saves /rinc/shots/<app>-<n>.png), then it fetched (the firmware
                    console's get: the app is left) and written to FILE, 4 times as big, to look at
-Before the first con:, /rinc/shots is emptied (through the console), so shots number from 1. For example:
+Shots already in /rinc/shots stay: each one taken is the next number not taken, as the board saves it. For example:
   uv run tools/boardplay.py COM3 "con:run cloudlamp" wait 2 hold right 4 shot lamp.png"""
 import re, struct, sys, time, zlib
 import serial
@@ -76,13 +76,12 @@ def keysOf(text):
   keys = [m.group() for m in re.finditer(rb'\x1b\[[0-9;:?]*[\x40-\x7e]|\x1bO.|.', b, re.S)] # (ESC [ ... and ESC O x, F1 to F4: whole)
   return [{b'\x03': b'\x1b[99;5u', b'\x02': b'\x1b[98;5u'}.get(k, k) for k in keys] # (Ctrl+C and Ctrl+B as kitty's keys: over serial, 3 opens the console and 2 the firmware's)
 read(0.3)
-shots, app, cleared = 0, None, False
+app, nexts = None, {}
 i = 0
 while i < len(steps):
   st = steps[i]
   if st.startswith('con:'):
     line = st[4:]
-    if not cleared: console('pc.fileDelete("/rinc/shots")'); cleared = True
     m = re.match(r'run (\S+)', line) or re.search(r'pc\.call\("([^"]+)"', line) # (the app its shots are named for)
     if m: app = m.group(1)
     print(re.sub(r'\x1b\[[0-9;?]*[A-Za-z]', '', console(line).decode('utf-8', 'replace')).strip()[-300:])
@@ -100,9 +99,17 @@ while i < len(steps):
   elif st == 'type':
     for k in keysOf(steps[i + 1]): send(k, 0.15 if k == b'\x1b' else 0.08) # (a lone Esc waited after: not the start of a sequence)
     i += 1
-  elif st == 'shot':
-    send(b'\x1b[57361u'); read(1.5); shots += 1
-    data = get('shots/%s-%d.png' % (app, shots))
+  elif st == 'shot': # (the board saves the next number not taken; fetching leaves the app, so that's found after)
+    send(b'\x1b[57361u'); read(1.5)
+    if app in nexts: data = get('shots/%s-%d.png' % (app, nexts[app]))
+    else: # (the first of this app's: the last number there, shots already there kept)
+      k, data = 1, None
+      while k < 500:
+        got = get('shots/%s-%d.png' % (app, k))
+        if not got: break
+        data, k = got, k + 1
+      nexts[app] = k - 1
+    nexts[app] += 1
     if data: open(steps[i + 1], 'wb').write(enlarge(data, 4)); print('shot', steps[i + 1], len(data), 'bytes')
     else: print('shot: none came back')
     i += 1
