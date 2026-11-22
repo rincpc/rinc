@@ -66,7 +66,7 @@ if not os.path.exists(os.path.join(fdata, 'apps', 'hi', 'hi.rio')): fail('Files 
 
 # writing to it (in memory): a file made in a folder made, one written over, renamed, removed, one copied
 # from storage; then the command list's "download" (pc.showCommands, then typed) writes it out as a zip
-# (-downloads), which has all that, the zip's own deflated file still as it was
+# (-downloads), which has all that (each file stored: one zip writer, rinc_treeZip, for every stick)
 wapp = os.path.join(work, 'writer', 'writer.rio')
 os.makedirs(os.path.dirname(wapp))
 open(wapp, 'w').write('''got: Blob[..8000]
@@ -102,8 +102,38 @@ with zipfile.ZipFile(got) as f:
   for name, text in (('made/new.txt', 'made here'), ('notes/short.txt', 'longer now'), ('notes/long.txt', long), ('notes/moved/x.txt', 'x'), ('copied.txt', 'from storage')):
     if name not in names or f.read(name).decode() != text: fail('the downloaded zip: %s (has %s)' % (name, sorted(names)))
   if 'empty/' not in names or any(n.startswith('rinc/') or n.startswith('notes/deeper') for n in names): fail('the downloaded zip: %s' % sorted(names))
-  if f.getinfo('notes/long.txt').compress_type != zipfile.ZIP_DEFLATED or f.testzip() is not None: fail('the downloaded zip: its own deflated file, as it came')
+  if f.testzip() is not None: fail('the downloaded zip: damaged')
 if not os.path.exists(os.path.join(work, 'wdata', 'save', 'writer', 'x')): fail('storage written beside the stick')
+
+# a folder as the stick (rinc -stick folder): read, written to as it's changed, downloaded as a zip
+folder = os.path.join(work, 'myfolder')
+os.makedirs(os.path.join(folder, 'inner'))
+open(os.path.join(folder, 'inner', 'a.txt'), 'w').write('from the folder')
+fapp = os.path.join(work, 'onfolder', 'onfolder.rio')
+os.makedirs(os.path.dirname(fapp))
+open(fapp, 'w').write('''got: Blob[..200]
+out: Blob[..400]
+frames := 0
+main* :: proc()
+  log("fr", pc.fileRead("/stick/inner/a.txt", got), got.asString())
+  log("fw", pc.fileWrite("/stick/made/b.txt", "made on the folder"))
+  log("fmv", pc.fileRename("/stick/inner/a.txt", "/stick/inner/c.txt"))
+  log("froot", pc.dir("/", out), out.asString())
+end
+update* :: proc()
+  frames += 1
+  if frames == 2 do pc.showCommands()
+end
+''')
+fdown = os.path.join(work, 'fdownloads')
+os.makedirs(fdown)
+code, out = run(fapp, '-stick', folder, '-data', os.path.join(work, 'fsdata'), '-downloads', fdown, '-frames', '30', '-type', 'download\\n')
+for want in ('fr 15 from the folder', 'fw 0', 'fmv 0', 'froot 2 d rinc\nd stick\n', 'the stick, downloaded:'):
+  if want not in out: fail('a folder as the stick: no %r in:\n%s' % (want, out))
+if open(os.path.join(folder, 'made', 'b.txt')).read() != 'made on the folder' or not os.path.exists(os.path.join(folder, 'inner', 'c.txt')):
+  fail('a folder as the stick: not changed on disk')
+with zipfile.ZipFile(os.path.join(fdown, 'myfolder.zip')) as f:
+  if sorted(f.namelist()) != ['inner/c.txt', 'made/b.txt'] or f.read('made/b.txt') != b'made on the folder': fail('the folder, downloaded: %s' % f.namelist())
 
 # a drop: on a Rinc with home, the stick; with nothing installed, installed (a release's bundle)
 home = os.path.join(work, 'withhome')
@@ -111,6 +141,10 @@ code, out = run('-data', home, '-install', os.path.join(here, '..', 'system', 'h
 if code: fail('installing home: ' + out)
 code, out = run('-data', home, '-app', 'home', '-drop', z, '-frames', '3')
 if 'things.zip is in, as /stick' not in out or os.path.exists(os.path.join(home, 'apps', 'hi')): fail('a drop on a Rinc with home:\n' + out)
+code, out = run('-data', home, '-app', 'home', '-drop', folder, '-frames', '3') # (a folder that's no app's: the stick)
+if 'myfolder is in, as /stick' not in out or os.path.exists(os.path.join(home, 'apps', 'myfolder')): fail('a folder dropped on a Rinc with home:\n' + out)
+code, out = run('-data', home, '-app', 'home', '-drop', os.path.dirname(wapp), '-frames', '3') # (an app's folder: installed, as before)
+if not os.path.exists(os.path.join(home, 'apps', 'writer', 'writer.rio')): fail("an app's folder dropped, installed:\n" + out)
 empty = os.path.join(work, 'empty')
 code, out = run('-data', empty, '-drop', z, '-frames', '3')
 if not os.path.exists(os.path.join(empty, 'apps', 'hi', 'hi.rio')): fail('a drop on an empty Rinc installs:\n' + out)

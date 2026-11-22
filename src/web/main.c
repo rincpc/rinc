@@ -39,8 +39,10 @@ rinc_EXPORT(letters) int rinc_webLetters(void) { return rinc_lettersAsButtons();
 /* ------------------------------------------------------------------ storage */
 
 static char rinc_store[33] = "rinc"; /* the storage name: the bundle's, else rinc */
-static int rinc_key(const char *path, char *key, int cap) { /* /rinc/apps/x -> rinc/apps/x (and /rinc, rinc) */
+static int rinc_key(const char *path, char *key, int cap) { /* /rinc/apps/x -> rinc/apps/x (and /rinc, rinc); /stick/x -> rinc:stick/x */
   if (!strcmp(path, "/rinc")) return snprintf(key, (size_t)cap, "%s", rinc_store);
+  if (!strcmp(path, "/stick")) return snprintf(key, (size_t)cap, "%s:stick", rinc_store); /* (the stick's own key: its name, while it's in) */
+  if (!strncmp(path, "/stick/", 7) && !strstr(path, "..")) return snprintf(key, (size_t)cap, "%s:stick/%s", rinc_store, path + 7);
   if (strncmp(path, "/rinc/", 6) || strstr(path, "..")) return -1;
   return snprintf(key, (size_t)cap, "%s/%s", rinc_store, path + 6);
 }
@@ -54,9 +56,13 @@ static int rinc_write(const char *buf, int n) { return js_fsWrite(buf, n); }
 static int rinc_close(void) { return js_fsClose(); }
 static int rinc_seek(uint32_t at) { return js_fsSeek(at); }
 static int32_t rinc_size(void) { return js_fsSize(); }
+const char *rinc_stickIn(void);
 static int rinc_list(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
-  static char out[4096]; char k[160], *p, *e; int n = rinc_key(dir, k, sizeof k), got;
-  if (n < 0 || (got = js_fsList(k, n, out, (int)sizeof out - 1)) < 0) return -1;
+  static char out[4096]; char k[160], *p, *e; int n, got;
+  if (!strcmp(dir, "/")) { each("rinc", 1, ud); if (rinc_stickIn()) each("stick", 1, ud); return 0; } /* (/: Rinc's, and the stick) */
+  if (!strcmp(dir, "/stick") && !rinc_stickIn()) return -1;
+  n = rinc_key(dir, k, sizeof k);
+  if (n < 0 || (got = js_fsList(k, n, out, (int)sizeof out - 1)) < 0) return strcmp(dir, "/stick") ? -1 : 0; /* (the stick, in, with nothing on it) */
   out[got] = 0;
   for (p = out; *p; p = e + 1) {
     if (!(e = strchr(p, '\n'))) break;
@@ -83,6 +89,26 @@ static int rinc_makeDir(const char *path) { /* (storage here is files: a folder,
   if (js_fsOpen(k, n, 1)) return -1;
   return js_fsClose();
 }
+/* the stick (plans/drives.md): its files in storage too, under rinc:stick/ (IndexedDB: kept through a
+   reload, as big as the browser allows); rinc:stick, its name, says it's in. A zip dropped is unpacked onto
+   it; downloaded, it's zipped again (rinc_treeZip) */
+static char rinc_stickName[64];
+const char *rinc_stickIn(void) {
+  int n; char k[48];
+  n = snprintf(k, sizeof k, "%s:stick", rinc_store);
+  if (js_fsOpen(k, n, rinc_READ)) return 0;
+  n = js_fsRead(rinc_stickName, (int)sizeof rinc_stickName - 1); js_fsClose();
+  rinc_stickName[n > 0 ? n : 0] = 0;
+  return rinc_stickName;
+}
+void rinc_stickNew(const char *name) {
+  int n; char k[48];
+  rinc_treeDelete("/stick");
+  n = snprintf(k, sizeof k, "%s:stick", rinc_store);
+  if (!js_fsOpen(k, n, 1)) { js_fsWrite(name, (int)strlen(name)); js_fsClose(); }
+}
+uint8_t *rinc_stickZipped(uint32_t *size) { return rinc_stickIn() ? rinc_treeZip("/stick", size) : 0; }
+int rinc_stickMount(uint8_t *zip, uint32_t size, const char *name) { (void)zip; (void)size; (void)name; return -1; } /* (the desktop's: a zip in memory) */
 static const rinc_Fs rinc_webFs = {rinc_open, rinc_read, rinc_write, rinc_close, rinc_list, rinc_remove, rinc_copy, rinc_rename, rinc_makeDir, rinc_seek, rinc_size};
 
 /* ------------------------------------------------------------------ apps */
@@ -101,14 +127,14 @@ static void rinc_webOpen(const char *name) {
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_put)) return;
   rinc_appStart(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name);
 }
-#if rinc_ZIP_STICK
+#ifndef rio_NO_COMPILER
 static void rinc_webStickSave(const uint8_t *zip, uint32_t size, const char *name); /* (below) */
 #endif
 /* start the bundle in source() at its home app: 0, or -1 if it's no bundle (error() says why) */
 rinc_EXPORT(start) int rinc_webStart(int len) {
   rinc_time = js_now;
   rinc_boardSpeed = 1; /* (as fast as the board: plans/board-speed.md) */
-#if rinc_ZIP_STICK
+#ifndef rio_NO_COMPILER
   rinc_stickSave = rinc_webStickSave; /* (the stick's commands: new, and downloaded as a zip) */
 #endif
   rinc_boardSlack = 1.2; /* (a page is for playing: a frame the board just makes isn't dropped here) */
@@ -148,10 +174,10 @@ rinc_EXPORT(frame) int rinc_webFrame(int buttons, int keys) {
    installed into storage (rinc_zipInstall, in the app space: the app stops), then home. With the compiler
    only, as apps from storage run from source */
 rinc_IMPORT(zip_read) extern int js_zipRead(uint32_t at, uint8_t *buf, uint32_t n);
-#if rinc_ZIP_STICK
+#ifndef rio_NO_COMPILER
 rinc_IMPORT(stick_save) extern void js_stickSave(const uint8_t *zip, uint32_t size, const char *name); /* (the browser saves it) */
 #endif
-#if rinc_ZIP_STICK
+#ifndef rio_NO_COMPILER
 static void rinc_webStickSave(const uint8_t *zip, uint32_t size, const char *name) { js_stickSave(zip, size, name); }
 #endif
 static char rinc_dropName[64];
@@ -172,19 +198,16 @@ rinc_EXPORT(drop) void rinc_webDrop(uint32_t size) {
   rinc_say("(this page runs its own apps: the whole Rinc's page installs bundles)\r\n");
 #else
   if (n < 4 || (strcmp(rinc_dropName + n - 4, ".zip") && strcmp(rinc_dropName + n - 4, ".ZIP"))) { rinc_dropped(1); return; }
-  if (rinc_hasHome()) { /* (a Rinc with apps: the zip's a stick plugged in, read at /stick: plans/drives.md) */
-    uint8_t *zip = (uint8_t *)malloc(size ? size : 1);
-    if (!zip || js_zipRead(0, zip, size) != (int)size || rinc_stickMount(zip, size, rinc_dropName)) {
-      free(zip);
-      snprintf(done, sizeof done, "%s isn't a zip Rinc can read\n", rinc_dropName); rinc_told(1, done);
-      return;
-    }
+  if (rinc_hasHome()) { /* (a Rinc with apps: the zip's a stick plugged in, its files unpacked onto /stick: plans/drives.md) */
+    rinc_stickNew(rinc_dropName);
+    z.size = size; z.read = js_zipRead; z.name = rinc_dropName; z.tell = rinc_told; z.work = 0; z.cap = 0; z.into = "/stick";
+    if (rinc_zipInstall(&z)) { rinc_say("(the stick: what came of it, the rest left out)\r\n"); }
     rinc_noticeShow("In, as /stick: ", rinc_dropName);
     snprintf(done, sizeof done, "%s is in, as /stick (Files)\n", rinc_dropName); rinc_told(0, done);
     rinc_dropped(0); /* (home again) */
     return;
   }
-  z.size = size; z.read = js_zipRead; z.name = rinc_dropName; z.tell = rinc_told; z.work = rinc_appSpace; z.cap = sizeof rinc_appSpace;
+  z.size = size; z.read = js_zipRead; z.name = rinc_dropName; z.tell = rinc_told; z.work = rinc_appSpace; z.cap = sizeof rinc_appSpace; z.into = 0;
   bad = rinc_zipInstall(&z);
   if (!bad) { snprintf(done, sizeof done, "installed %d files from %s:%s\n", z.files, rinc_dropName, *z.apps ? z.apps : " no apps"); rinc_told(0, done); }
   rinc_dropped(bad);

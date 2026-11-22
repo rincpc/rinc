@@ -470,6 +470,9 @@ else()
         add_test(NAME web_drop COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/webdrop.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/webdrop)
         set_tests_properties(web_drop PROPERTIES SKIP_RETURN_CODE 77 PASS_REGULAR_EXPRESSION "web drops came through")
         # the demo site's pages, made as the site is (tools/demosite.py), each played; the whole Rinc as a program too
+        # a page's storage in IndexedDB, other tabs told of each change, what localStorage had moved in
+        add_test(NAME web_storage COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/webstore.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/web-storage)
+        set_tests_properties(web_storage PROPERTIES SKIP_RETURN_CODE 77 PASS_REGULAR_EXPRESSION "web storage came through")
         # a zip as the stick (/stick, read only): listed, read, copied off; a drop on a Rinc with home is one
         add_test(NAME stick COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/stick.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/stick-work)
         set_tests_properties(stick PROPERTIES PASS_REGULAR_EXPRESSION "the stick came through")

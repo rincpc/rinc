@@ -606,8 +606,18 @@ static int rinc_install(const char *what0, const char *root) {
 /* a file dropped on the window (or named by -drop): a bundle (a .zip) or an app (its folder, or its .rio file) installed, as
 rinc -install does; then home, if there is one now */
 static const char *rinc_root;
-static int rinc_stickFrom(const char *path) { /* (a zip as the stick: 0, or -1 said why) */
-  size_t n; char *zip = rinc_readAll(path, &n); const char *name = path + strlen(path);
+static int rinc_stickFrom(const char *path) { /* (a zip, or a folder, as the stick: 0, or -1 said why) */
+  size_t n; char *zip; const char *name = path + strlen(path); char dir[600]; struct stat st;
+  snprintf(dir, sizeof dir, "%s", path);
+  for (n = strlen(dir); n > 1 && (dir[n - 1] == '/' || dir[n - 1] == '\\'); n--) dir[n - 1] = 0;
+  for (name = dir + strlen(dir); name > dir && name[-1] != '/' && name[-1] != '\\'; name--) {}
+  if (!stat(dir, &st) && (st.st_mode & S_IFDIR)) { /* (a folder: written to as it's changed) */
+    rinc_stickFolderSet(dir, name);
+    rinc_noticeShow("In, as /stick: ", name);
+    rinc_tell(0, "%s is in, as /stick (Files): a folder, changed as it's written to\n", name);
+    return 0;
+  }
+  zip = rinc_readAll(path, &n); name = path + strlen(path);
   while (name > path && name[-1] != '/' && name[-1] != '\\') name--;
   if (!zip || n > 0xFFFFFFFFu || rinc_stickMount((uint8_t *)zip, (uint32_t)n, name)) { free(zip); fprintf(stderr, "rinc: %s isn't a zip Rinc can read\n", path); return -1; }
   rinc_noticeShow("In, as /stick: ", name);
@@ -635,9 +645,10 @@ static void rinc_stickSaveFile(const uint8_t *zip, uint32_t size, const char *na
 }
 static void rinc_drop(const char *path) {
   int bad; size_t n = strlen(path);
-  if (n > 4 && (!strcmp(path + n - 4, ".zip") || !strcmp(path + n - 4, ".ZIP")) && rinc_hasHome()) { /* (a Rinc with apps: a zip's a stick plugged in, plans/drives.md) */
-    rinc_stickFrom(path);
-    return;
+  if (rinc_hasHome()) { /* (a Rinc with apps: a zip, or a folder that's no app's, is a stick plugged in: plans/drives.md) */
+    struct stat st; const char *app = rinc_appArg(path);
+    int folder = !stat(path, &st) && (st.st_mode & S_IFDIR), isApp = folder && app != path && !stat(app, &st); /* (an app's folder: its name.rio in it, installed as before) */
+    if ((n > 4 && (!strcmp(path + n - 4, ".zip") || !strcmp(path + n - 4, ".ZIP"))) || (folder && !isApp)) { rinc_stickFrom(path); return; }
   }
   rinc_showLog = 1;
   rinc_telling = 1;

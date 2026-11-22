@@ -59,8 +59,9 @@ typedef struct {
   int (*read)(uint32_t at, uint8_t *buf, uint32_t n);
   const char *name; /* (for what's told) */
   void (*tell)(int err, const char *text);
-  uint8_t *work;
+  uint8_t *work; /* (0: each file malloc'd, as big as it is) */
   uint32_t cap;
+  const char *into; /* (0: apps, help and the library, into /rinc; a folder, /stick say: every file, into it) */
   int files;
   char apps[400];
 } rinc_Zip;
@@ -69,11 +70,19 @@ int rinc_zipInstall(rinc_Zip *zip);
    in or it's taken out, zip 0), at /stick (written to in memory), its name (the zip's file name) for what's said; "/"
    lists rinc, and stick while one's in. 0, or -1 if it isn't a zip (nothing changed). rinc_stickIn: its
    name, or 0 when none's in */
-#if defined(rio_METER) && !defined(rio_NO_COMPILER) /* (the desktop, and the web's player with the compiler: rio_METER is theirs) */
+#if defined(rio_METER) && !defined(__wasm__) /* (the desktop: the web's stick is in its storage, the board's a thumb drive) */
 #define rinc_ZIP_STICK 1
 #endif
+/* a folder, all of it, through rinc_fs: deleted (0); and as a zip (malloc'd: the caller frees it; its files
+   stored, folders with nothing in them kept), its size in *size, 0 if it can't be */
+int rinc_treeDelete(const char *path);
+uint8_t *rinc_treeZip(const char *path, uint32_t *size);
 int rinc_stickMount(uint8_t *zip, uint32_t size, const char *name);
 const char *rinc_stickIn(void);
+/* the desktop's other stick: a folder on this computer (rinc -stick folder, or one dropped), /stick's paths
+   in it (files.c), written to as they're made; in place of a zip in. rinc_stickFolder: it, or 0 */
+void rinc_stickFolderSet(const char *dir, const char *name);
+const char *rinc_stickFolder(void);
 /* a new, empty stick (name: what it's called, a zip's name when it's downloaded), in place of any in */
 void rinc_stickNew(const char *name);
 /* the stick, all of it, as a zip (malloc'd: the caller frees it), its size in *size; 0 if it can't be */

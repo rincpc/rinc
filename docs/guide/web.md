@@ -20,14 +20,16 @@ rinc system/home system/console system/edit system/files system/help system/colo
 is the whole Rinc, as on the Fruit Jam: every system app, and the themes (`-files` carries a folder's
 files, here the themes, which apps read as they would storage's). A page's apps and files have no
 fixed limit (a big one is slower to open: it's all in the page). [Storage](../spec/apps.md#storage)
-is the browser's localStorage, under the bundle's storage name, so what's saved stays in that browser, for pages from the
-same site (or, from disk, the same folder). Ctrl and Shift tapped together, and then Esc, goes home; on
+is the browser's IndexedDB, under the bundle's storage name, so what's saved stays in that browser, for pages from the
+same site (or, from disk, the same folder), as much as the browser allows (localStorage's few MB, before; what a page
+kept there moves in the first time). Each change is kept as it's made, and other tabs of the site hold
+it too at once (the newest change wins). Ctrl and Shift tapped together, and then Esc, goes home; on
 a controller it's the guide button and Back. The page keeps a lone Alt from the browser's menus, as Alt
 tapped twice is Rinc's Alt lock.
 
 A .zip dropped on such a page is plugged in as the stick, as on [the desktop](desktop.md): its files at
 `/stick`, for Files to show, copy from and onto (the command list's "The stick: download it, as a zip"
-saves it as a file, and it's kept only till the page closes) (an app's folder copied to `/rinc/apps` is
+saves it as a file; it's in the page's storage meanwhile, kept through a reload) (an app's folder copied to `/rinc/apps` is
 installed, into the page's storage). A second one dropped replaces the first. Installed apps come before
 the page's own of the same name. A page with only the VM-only player (below) can't run apps from storage,
 so it says so and installs nothing.

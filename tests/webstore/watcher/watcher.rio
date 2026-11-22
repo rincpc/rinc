@@ -1,0 +1,14 @@
+got: Blob[..64]
+last := -1
+frames := 0
+update* :: proc()
+  frames += 1
+  if frames % 10 != 0 do return
+  got.clear()
+  _ = pc.fileRead("/rinc/save/shared/count", got)
+  n := got.asString().toInt() or 0
+  if n != last
+    last = n
+    log("watcher sees:", n)
+  end
+end

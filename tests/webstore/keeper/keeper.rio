@@ -1,0 +1,11 @@
+got: Blob[..64]
+main* :: proc()
+  n := 0
+  if pc.fileRead("/rinc/save/shared/count", got) > 0 do n = got.asString().toInt() or 0
+  got.clear()
+  log("keeper starts:", n + 1)
+  _ = got.print(n + 1)
+  log("kept", pc.fileWrite("/rinc/save/shared/count", got.asString()))
+end
+update* :: proc()
+end

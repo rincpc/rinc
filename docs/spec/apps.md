@@ -2,7 +2,7 @@
 
 Every app is one Rio file, run as [running apps](running.md) says, with the whole app space to
 itself. A Rinc finds apps in two places: its **storage** (the Fruit Jam's SD card, a folder on the
-desktop, the browser's localStorage), and its **bundle**, the apps it carries with it. Storage comes first, so an app there takes
+desktop, the browser's IndexedDB), and its **bundle**, the apps it carries with it. Storage comes first, so an app there takes
 the place of a bundled one of the same name.
 
 ## Storage

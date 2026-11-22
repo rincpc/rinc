@@ -43,7 +43,10 @@ with zipfile.ZipFile(bad, 'w') as z:
   z.writestr('rinc/apps/../../evil.txt', 'no\n')
 
 out = drop(full, good)
-if 'apps.zip is in, as /stick' not in out or 'installed ' in out or [k for k in out.split('keys:')[1].split() if k.startswith(('drop/apps/', 'drop/help/'))]: fail('a zip dropped on a page with home, the stick:\n' + out)
+keys = out.split('keys:')[1].split()
+if 'apps.zip is in, as /stick' not in out or 'installed ' in out or [k for k in keys if k.startswith(('drop/apps/', 'drop/help/'))]: fail('a zip dropped on a page with home, the stick:\n' + out)
+for want in ('drop:stick', 'drop:stick/rinc/apps/console/console.rio', 'drop:stick/rinc/apps/console/data.txt', 'drop:stick/rinc/save/elsewhere.txt'): # (its files, all of them, in the page's storage)
+  if want not in keys: fail('the stick in storage: no %r in:\n%s' % (want, out))
 if 'error' in out.lower() or 'Reset' in out: fail('a zip dropped on a page with home:\n' + out)
 out = drop(empty, bad)
 if 'not installed' not in out or 'nothing installed' not in out or '/apps/x/' in out or 'evil' in out.split('keys:')[1]: fail('a zip naming ../:\n' + out)

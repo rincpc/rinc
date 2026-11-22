@@ -25,6 +25,11 @@ static FILE *rinc_file;
 
 /* where Rinc's path lives on this computer, into out: 0, or -1 for a path outside Rinc's */
 static int rinc_local(const char *path, char *out, size_t cap) {
+  const char *stick = rinc_stickFolder();
+  if (stick && !strncmp(path, "/stick", 6) && (!path[6] || path[6] == '/')) { /* (a folder as the stick) */
+    if (strstr(path, "..") || strchr(path, '\\') || strchr(path, ':')) return -1;
+    return snprintf(out, cap, "%s%s", stick, path + 6) < (int)cap ? 0 : -1;
+  }
   if (!strcmp(path, "/rinc")) return snprintf(out, cap, "%s", rinc_root) < (int)cap ? 0 : -1; /* (the folder itself) */
   if (strncmp(path, "/rinc/", 6) || strstr(path, "..") || strchr(path, '\\') || strchr(path, ':')) return -1;
   return snprintf(out, cap, "%s/%s", rinc_root, path + 6) < (int)cap ? 0 : -1;
@@ -82,6 +87,7 @@ static int rinc_listLocal(const char *folder, void (*each)(const char *name, int
   return 0;
 }
 static int rinc_list(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
+  if (!strcmp(dir, "/")) { each("rinc", 1, ud); if (rinc_stickIn()) each("stick", 1, ud); return 0; } /* (/: Rinc's, and the stick) */
   char local[1024];
   return rinc_local(dir, local, sizeof local) ? -1 : rinc_listLocal(local, each, ud);
 }

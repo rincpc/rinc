@@ -164,6 +164,8 @@ app is a Rio program.
        keyboard". Not decided (the user: worth considering).
   8. Smaller, any time: a picker for the clipboard's kept ones (Sys+V, say); the volume shown as it
      changes; one snippet for a whole project.
+     Home (the user, 2026-11-22): two apps with the same title are hard to tell apart; each such one shows
+     its key (its folder's name, chord or chord+) at the start of its description, say.
      Caps Lock on the board (the user asked, 2026-11-21): the desktop and the web type capitals with it
      (the system's text, SDL's and the browser's), the board ignores it (keyboard.c: Shift alone picks
      the letter's case). Recommended: the board keeps it as a toggle and its light (the keyboard's LED

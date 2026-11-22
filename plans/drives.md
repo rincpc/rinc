@@ -115,6 +115,14 @@ platform has rinc_stickSave (the desktop, the web's full player; not the board, 
 tests/stick.py: each change, downloaded and checked. Left: a page's stick kept through a reload; taking
 one out (a command); the web's download tried only through the desktop's path (the same C).
 
+Done (2026-11-22): the web's storage in IndexedDB (the page holds it all, each change kept as it's made
+and told to the site's other tabs, a BroadcastChannel: the newest wins; localStorage's moved in once;
+tests/webstore.py, and tried in Chrome: kept through reloads, seen by another tab, over HTTP and from
+disk). The web's stick in that storage too (<storage>:stick/...: kept through a reload, as big as the
+browser allows; a zip dropped unpacked onto it), downloaded in Chrome and checked. A folder as the
+desktop's stick (rinc -stick folder, or a folder dropped that's no app's): written to as it's changed.
+One zip writer for every stick (rinc_treeZip: files stored). Left: taking one out (a command).
+
 ## Order
 
 1, then 2 and 3 together (the volume layer, the zip volume, drops mount), then 5 (Files' copying), then

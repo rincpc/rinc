@@ -46,6 +46,7 @@ frames(30);
 if (reset) {
   if (resetEl.hidden || !resetEl.on.click) { console.log("FAIL: no Reset button"); process.exit(1); }
   resetEl.on.click();
+  for (let i = 0; i < 50 && !reloaded; i++) await new Promise(r => setTimeout(r, 10)); // (once storage is saved)
   logged += reloaded ? "reset, reloaded\n" : "reset, not reloaded\n";
 } else if (!resetEl.hidden) logged += "a Reset button\n";
 console.log(logged + (errEl.hidden ? "" : "error: " + errEl.textContent + "\n") + "keys:");

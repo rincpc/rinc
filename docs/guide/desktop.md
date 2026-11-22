@@ -34,7 +34,7 @@ rinc app.rio -play                with board speed as a player gets it (below): 
   -type 'x := 1\nlog(x)\n'        and type this, as fast as the app takes it (\n Enter, \e Esc, \t Tab,
                                   \xHH a byte as a terminal sends it: \x13 Ctrl+S, \x1b[1;5C Ctrl+right)
   -drop apps.zip                  and first, as if it were dropped on the window
-  -stick things.zip               and that zip plugged in as the stick (/stick)
+  -stick things.zip               and that zip (or folder) plugged in as the stick (/stick)
   -downloads folder               where the stick goes, downloaded (else the Downloads folder)
   -hold 'a 10-40, right 20-30'    and hold buttons, as a controller would, in those frames (counted from
                                   0): left right up down a b x y lb rb ls rs start back, and the
@@ -82,8 +82,9 @@ download it, as a zip", which writes it to the Downloads folder (`-downloads fol
 stick: a new, empty one". A second zip dropped replaces the first (what was written to it goes, unless
 downloaded). On a Rinc with nothing installed yet (no home), a dropped zip is
 installed instead, as `rinc -install` does, and then it goes home: a release's `rinc-system-apps.zip`
-is how a Rinc starts. An app's folder dropped is installed, as before. `rinc -stick things.zip` plugs
-one in from the start (plans/drives.md: a thumb drive on the board, and a stick you can write to, later). On Windows, a double-clicked `rinc.exe` closes the console Windows opens for it,
+is how a Rinc starts. A folder dropped is the stick too, the folder itself (what's written to the stick
+is written there, as it's made: nothing to download), unless it's an app's (its `name.rio` in it): that's
+installed, as before. `rinc -stick things.zip` (or a folder) plugs one in from the start (plans/drives.md: a thumb drive on the board, and a stick you can write to, later). On Windows, a double-clicked `rinc.exe` closes the console Windows opens for it,
 so there's only the window; started in a terminal, it prints there as usual.
 
 ## Storage
