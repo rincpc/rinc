@@ -99,6 +99,12 @@ indents each next line of an unfinished input. A serial terminal gets the same, 
 the screen's console understands too. `apps/combo.rio` tries everything at once: sound, a controller and
 the keyboard, both as buttons and as typing.
 
+A thumb drive in a USB-A port (or the board's hub) is the stick: its files at `/stick`, read only for
+now, beside `/rinc` (Files goes up from `/rinc` to `/` while one's in), to copy onto the card (an app's
+folder copied to `/rinc/apps` is installed). The first one plugged in, FAT32 or FAT16 (not exFAT, as the card), 512-byte blocks,
+read through TinyUSB's mass storage host as FatFs's second drive; it's mounted the first time it's
+looked in, and goes when it's pulled out.
+
 ## Memory
 
 Of the RP2350's 520 KB of SRAM:
@@ -112,7 +118,8 @@ Of the RP2350's 520 KB of SRAM:
 | USB host buffers, the big stack | 6 KB each |
 | the log, the serial port's ring | 4 KB each |
 | the command list's overlay, the VM, the console's line, the rest | about 15 KB |
-| free | about 2.5 KB (measured 2026-11-15), and a few hundred bytes of a scratch bank |
+| the card's and the stick's FatFs | about 2 KB: a volume each (its 512-byte sector buffer), two files open (a copy's), the stick's USB state; FatFs's tiny buffers (files share their volume's: FF_FS_TINY), which paid for the stick |
+| free | about 1.8 KB past the rest (measured 2026-11-21: malloc's, as it grows), and a few hundred bytes of a scratch bank |
 
 No PSRAM is needed. Every app, home and the console included, gets the whole app space (see
 [memory](../spec/memory.md)); the console's own Rio session lives in the console's memory.

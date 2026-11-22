@@ -33,5 +33,7 @@
 #define CFG_TUH_DEVICE_MAX 6
 #define CFG_TUH_HID_EPIN_BUFSIZE 64
 #define CFG_TUH_HID_EPOUT_BUFSIZE 64
+#define CFG_TUH_MSC 1 /* a thumb drive: the stick (plans/drives.md, sd.c) */
+#define CFG_TUH_MSC_MAXLUN 1
 
 #endif

@@ -107,7 +107,7 @@ if(RINC_PLATFORM STREQUAL rp2350)
     DEPENDS ${bundleApps} ${helpDocs} tools/bundle.cmake VERBATIM)
   add_executable(rinc ${bundle} src/rp2350/main.c src/rp2350/video.c src/rp2350/keyboard.c src/rp2350/audio.c src/rp2350/hdmi_packet.c src/rp2350/gamepad.c src/rp2350/sd.c
     lib/fatfs/ff.c lib/fatfs/ffunicode.c
-    ${TUSB}/host/usbh.c ${TUSB}/host/hub.c ${TUSB}/class/hid/hid_host.c ${TUSB}/portable/raspberrypi/pio_usb/hcd_pio_usb.c)
+    ${TUSB}/host/usbh.c ${TUSB}/host/hub.c ${TUSB}/class/hid/hid_host.c ${TUSB}/class/msc/msc_host.c ${TUSB}/portable/raspberrypi/pio_usb/hcd_pio_usb.c)
   target_include_directories(rinc BEFORE PRIVATE src/rp2350 lib/fatfs) # (sd.c: the SD card, through FatFs)
   target_compile_definitions(rinc PRIVATE PICO_STACK_SIZE=0x1000 PICO_CORE1_STACK_SIZE=0x800 PICO_HEAP_SIZE=0x100) # (no malloc: see main.c)
   pico_generate_pio_header(rinc ${CMAKE_CURRENT_LIST_DIR}/src/rp2350/i2s.pio) # audio.c: sound out of the 3.5 mm jack

@@ -2,7 +2,9 @@
    GPIO; card detect 33), as FatFs's disk (the diskio functions it calls), and through FatFs as Rinc's
    files (rinc_fs). The card is set up the usual way (CMD0, CMD8, ACMD41 until ready, CMD58 for its
    addressing) at 400 kHz, then run at 25 MHz; blocks are 512 bytes, read and written one at a time.
-   The filesystem is mounted when first used, so a card can go in after starting. */
+   The filesystem is mounted when first used, so a card can go in after starting.
+   And the stick (plans/drives.md): a thumb drive on the USB-A ports, through TinyUSB's mass storage
+   host, as FatFs's drive 1, at /stick (read only for now: apps write only under /rinc/). */
 #include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
@@ -10,6 +12,7 @@
 #include "ff.h"
 #include "diskio.h"
 #include "rinc.h"
+#include "tusb.h"
 
 #define rinc_SD_SPI spi0
 #define rinc_PIN_SCK 34
@@ -83,20 +86,56 @@ static int rinc_writeBlock(const uint8_t *buf, uint32_t n) {
   return r;
 }
 
-/* FatFs's disk */
-DSTATUS disk_status(BYTE drive) { return drive || !rinc_ready ? STA_NOINIT : 0; }
-DSTATUS disk_initialize(BYTE drive) { if (drive) return STA_NOINIT; rinc_ready = rinc_cardInit(); return rinc_ready ? 0 : STA_NOINIT; }
+/* the stick: the first thumb drive plugged in (512-byte blocks), its blocks read and written through
+   TinyUSB, each request waited for (TinyUSB run meanwhile, as the keyboard's poll runs it) */
+static uint8_t rinc_mscDev; static volatile int rinc_mscDone, rinc_mscOk;
+static FATFS rinc_stickVolume; static int rinc_stickMounted;
+void tuh_msc_mount_cb(uint8_t dev) { if (!rinc_mscDev && tuh_msc_get_block_size(dev, 0) == 512) rinc_mscDev = dev; }
+void tuh_msc_umount_cb(uint8_t dev) {
+  if (dev != rinc_mscDev) return;
+  rinc_mscDev = 0;
+  if (rinc_stickMounted) f_mount(0, "1:", 0);
+  rinc_stickMounted = 0;
+}
+static bool rinc_mscCb(uint8_t dev, tuh_msc_complete_data_t const *d) { (void)dev; rinc_mscOk = d->csw->status == 0; rinc_mscDone = 1; return true; }
+static int rinc_mscWait(int ready) { /* (ready: till it takes a request; else till the one sent's done) */
+  absolute_time_t until = make_timeout_time_ms(3000);
+  while (rinc_mscDev && (ready ? !tuh_msc_ready(rinc_mscDev) : !rinc_mscDone)) { tuh_task(); if (time_reached(until)) return 0; }
+  return rinc_mscDev && (ready || rinc_mscOk);
+}
+static DRESULT rinc_mscIo(int write, BYTE *buf, LBA_t sector, UINT count) {
+  for (; count; ) {
+    uint16_t n = count > 64 ? 64 : (uint16_t)count; int sent;
+    if (!rinc_mscWait(1)) return RES_NOTRDY;
+    rinc_mscDone = 0;
+    sent = write ? tuh_msc_write10(rinc_mscDev, 0, buf, (uint32_t)sector, n, rinc_mscCb, 0) : tuh_msc_read10(rinc_mscDev, 0, buf, (uint32_t)sector, n, rinc_mscCb, 0);
+    if (!sent || !rinc_mscWait(0)) return RES_ERROR;
+    count -= n; sector += n; buf += (size_t)n * 512;
+  }
+  return RES_OK;
+}
+
+/* FatFs's disks: 0 the card, 1 the stick */
+DSTATUS disk_status(BYTE drive) { return drive == 1 ? (rinc_mscDev ? 0 : STA_NOINIT) : drive || !rinc_ready ? STA_NOINIT : 0; }
+DSTATUS disk_initialize(BYTE drive) {
+  if (drive == 1) return rinc_mscDev && rinc_mscWait(1) ? 0 : STA_NOINIT;
+  if (drive) return STA_NOINIT;
+  rinc_ready = rinc_cardInit(); return rinc_ready ? 0 : STA_NOINIT;
+}
 DRESULT disk_read(BYTE drive, BYTE *buf, LBA_t sector, UINT count) {
+  if (drive == 1) return rinc_mscIo(0, buf, sector, count);
   if (drive || !rinc_ready) return RES_NOTRDY;
   for (; count; count--, sector++, buf += 512) if (!rinc_readBlock(buf, (uint32_t)sector)) return RES_ERROR;
   return RES_OK;
 }
 DRESULT disk_write(BYTE drive, const BYTE *buf, LBA_t sector, UINT count) {
+  if (drive == 1) return rinc_mscIo(1, (BYTE *)buf, sector, count);
   if (drive || !rinc_ready) return RES_NOTRDY;
   for (; count; count--, sector++, buf += 512) if (!rinc_writeBlock(buf, (uint32_t)sector)) return RES_ERROR;
   return RES_OK;
 }
 DRESULT disk_ioctl(BYTE drive, BYTE cmd, void *buf) {
+  if (drive == 1) { if (cmd == GET_BLOCK_SIZE) *(DWORD *)buf = 1; return rinc_mscDev && (cmd == CTRL_SYNC || cmd == GET_BLOCK_SIZE) ? RES_OK : RES_PARERR; }
   if (drive || !rinc_ready) return RES_NOTRDY;
   if (cmd == CTRL_SYNC) { int ok; rinc_cs(1); ok = rinc_waitReady(500); rinc_cs(0); return ok ? RES_OK : RES_ERROR; }
   if (cmd == GET_BLOCK_SIZE) { *(DWORD *)buf = 1; return RES_OK; }
@@ -112,6 +151,16 @@ static int rinc_mount(void) {
   return rinc_mounted;
 }
 static int rinc_failed(FRESULT r) { if (r != FR_NO_FILE && r != FR_NO_PATH) rinc_mounted = 0; return -1; }
+/* a path as FatFs takes it: the stick's (/stick/...) on drive 1 ("1:/..."), mounted as it's first wanted;
+   the card's as it is. 0: the stick's, and none's in */
+static const char *rinc_fat(const char *path, char *buf, size_t cap) {
+  if (strncmp(path, "/stick", 6) || (path[6] && path[6] != '/')) return path;
+  if (!rinc_mscDev) return 0;
+  if (!rinc_stickMounted && f_mount(&rinc_stickVolume, "1:", 1) != FR_OK) return 0;
+  rinc_stickMounted = 1;
+  snprintf(buf, cap, "1:%s", path[6] ? path + 6 : "/");
+  return buf;
+}
 static int rinc_mkdirs(const char *path) { /* every directory along path (its last part is the file) */
   char d[128]; const char *p;
   for (p = strchr(path + 1, '/'); p; p = strchr(p + 1, '/')) {
@@ -123,9 +172,11 @@ static int rinc_mkdirs(const char *path) { /* every directory along path (its la
   return 1;
 }
 static int rinc_fsOpen(const char *path, int how) {
+  char fat[128];
   BYTE mode = how == rinc_READ ? FA_READ : how == rinc_UPDATE ? FA_READ | FA_WRITE | FA_OPEN_ALWAYS : FA_WRITE | FA_CREATE_ALWAYS;
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
   if (!rinc_mount()) { rinc_mounted = 0; return -1; }
+  if (!(path = rinc_fat(path, fat, sizeof fat))) return -1;
   if (how != rinc_READ && !rinc_mkdirs(path)) return -1;
   if (how != rinc_READ) rinc_storageChanged(path);
   { FRESULT r = f_open(&rinc_file, path, mode); if (r != FR_OK) return rinc_failed(r); }
@@ -138,24 +189,27 @@ static int32_t rinc_fsSize(void) { return rinc_isOpen ? (int32_t)f_size(&rinc_fi
 static int rinc_fsWrite(const char *buf, int n) { UINT put = 0; if (!rinc_isOpen || f_write(&rinc_file, buf, (UINT)n, &put) != FR_OK || (int)put != n) return -1; return n; }
 static int rinc_fsClose(void) { int ok = rinc_isOpen && f_close(&rinc_file) == FR_OK; rinc_isOpen = 0; return ok ? 0 : -1; }
 static int rinc_fsList(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
-  DIR d; FILINFO info;
+  DIR d; FILINFO info; char fat[128];
   FRESULT r;
   if (!rinc_mount()) return -1;
+  if (!strcmp(dir, "/")) { each("rinc", 1, ud); if (rinc_mscDev) each("stick", 1, ud); return 0; } /* (/: the card's Rinc, and the stick) */
+  if (!(dir = rinc_fat(dir, fat, sizeof fat))) return -1;
   if ((r = f_opendir(&d, dir)) != FR_OK) return rinc_failed(r);
   while (f_readdir(&d, &info) == FR_OK && info.fname[0]) each(info.fname, (info.fattrib & AM_DIR) != 0, ud);
   f_closedir(&d);
   return 0;
 }
 static int rinc_fsRemove(const char *path) {
+  if (!strncmp(path, "/stick", 6)) return -1; /* (the stick: read only, for now) */
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
   rinc_storageChanged(path);
   return rinc_mount() && f_unlink(path) == FR_OK ? 0 : -1;
 }
 static FIL rinc_copyTo; /* (the one file open beside rinc_file: a copy's) */
 static int rinc_fsCopy(const char *from, const char *to) {
-  uint8_t buf[512]; UINT got = 0, put = 0; FRESULT r; int bad = 0;
+  uint8_t buf[512]; UINT got = 0, put = 0; FRESULT r; int bad = 0; char fat[128];
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
-  if (!rinc_mount()) return -1;
+  if (!rinc_mount() || !(from = rinc_fat(from, fat, sizeof fat)) || !strncmp(to, "/stick", 6)) return -1; /* (off the stick, onto the card) */
   if ((r = f_open(&rinc_file, from, FA_READ)) != FR_OK) return rinc_failed(r);
   if (!rinc_mkdirs(to)) { f_close(&rinc_file); return -1; }
   rinc_storageChanged(to);
@@ -165,6 +219,7 @@ static int rinc_fsCopy(const char *from, const char *to) {
   return f_close(&rinc_copyTo) != FR_OK || bad ? -1 : 0;
 }
 static int rinc_fsRename(const char *from, const char *to) {
+  if (!strncmp(from, "/stick", 6) || !strncmp(to, "/stick", 6)) return -1; /* (the stick: read only, for now) */
   FRESULT r;
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
   if (!rinc_mount()) return -1;
@@ -172,6 +227,7 @@ static int rinc_fsRename(const char *from, const char *to) {
   return (r = f_rename(from, to)) == FR_OK ? 0 : rinc_failed(r);
 }
 static int rinc_fsMkdir(const char *path) {
+  if (!strncmp(path, "/stick", 6)) return -1; /* (the stick: read only, for now) */
   char inside[128];
   if (!rinc_mount() || snprintf(inside, sizeof inside, "%s/x", path) >= (int)sizeof inside) return -1;
   rinc_storageChanged(path);

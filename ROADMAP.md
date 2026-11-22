@@ -50,8 +50,9 @@ app is a Rio program.
      Plan: plans/drives.md. Done (2026-11-21): step 1, bundles of any size (5 MB pages and programs
      tested).
      Then (2026-11-21): /stick on the desktop and the web, read only (a zip dropped on a Rinc with home,
-     rinc -stick), Files up from /rinc to /, copying off it; the board's thumb drive and a writable stick
-     next (plans/drives.md).
+     rinc -stick), Files up from /rinc to /, copying off it; and on the board, a thumb drive at /stick
+     (read only, its RAM paid by FatFs's tiny buffers). Next: writing to the stick everywhere, and
+     downloading the desktop's and the web's as a zip (plans/drives.md).
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.

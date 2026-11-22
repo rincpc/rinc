@@ -98,6 +98,14 @@ when Files starts.
 About 1 MB/s. Plugged in: /stick appears and Files says so; pulled out: it goes, a write in flight lost
 (so Files writes whole files and says when it's done).
 
+Done (2026-11-21), the board, read only: a thumb drive (through the hub too) as FatFs's drive 1 at
+/stick (sd.c: TinyUSB's mass storage host, each request waited for with tuh_task run meanwhile);
+listed, read, copied onto the card, Files into it; writing refused. Its RAM (456 bytes of TinyUSB's,
+FatFs's second volume) paid by FatFs's tiny buffers (FF_FS_TINY: 1 KB back), so free RAM is where it
+was; file speed on the card unchanged (boardspeed --check, before and after). Not from app space after
+all: simpler, and nothing lost. Tried with the user's drive (Windows' System Volume Information on it).
+Left: writing to it (with the desktop's and the web's, 4); taking it out cleanly while a file's open.
+
 ## Order
 
 1, then 2 and 3 together (the volume layer, the zip volume, drops mount), then 5 (Files' copying), then
