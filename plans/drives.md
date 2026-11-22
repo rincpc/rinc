@@ -106,6 +106,15 @@ was; file speed on the card unchanged (boardspeed --check, before and after). No
 all: simpler, and nothing lost. Tried with the user's drive (Windows' System Volume Information on it).
 Left: writing to it (with the desktop's and the web's, 4); taking it out cleanly while a file's open.
 
+Done (2026-11-21), writing: the desktop's and the web's stick in memory (zip.c: files from the zip read
+where they are till changed; written ones kept whole; folders kept when emptied, as on a drive), and
+the board's thumb drive (sd.c); apps write under /stick/, Files makes, pastes, cuts and saves there.
+The command list's "The stick: download it, as a zip" (rinc_stickZipped: the zip's own deflated files
+as they came; the desktop's Downloads folder, a page's download) and "a new, empty one", where the
+platform has rinc_stickSave (the desktop, the web's full player; not the board, whose stick is real).
+tests/stick.py: each change, downloaded and checked. Left: a page's stick kept through a reload; taking
+one out (a command); the web's download tried only through the desktop's path (the same C).
+
 ## Order
 
 1, then 2 and 3 together (the volume layer, the zip volume, drops mount), then 5 (Files' copying), then

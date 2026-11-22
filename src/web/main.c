@@ -101,10 +101,16 @@ static void rinc_webOpen(const char *name) {
   if (rinc_appBegin(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name, rinc_put)) return;
   rinc_appStart(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, name);
 }
+#if rinc_ZIP_STICK
+static void rinc_webStickSave(const uint8_t *zip, uint32_t size, const char *name); /* (below) */
+#endif
 /* start the bundle in source() at its home app: 0, or -1 if it's no bundle (error() says why) */
 rinc_EXPORT(start) int rinc_webStart(int len) {
   rinc_time = js_now;
   rinc_boardSpeed = 1; /* (as fast as the board: plans/board-speed.md) */
+#if rinc_ZIP_STICK
+  rinc_stickSave = rinc_webStickSave; /* (the stick's commands: new, and downloaded as a zip) */
+#endif
   rinc_boardSlack = 1.2; /* (a page is for playing: a frame the board just makes isn't dropped here) */
   if (!rinc_src || rinc_bundleRead(rinc_src, (uint32_t)len)) return -1;
   if (*rinc_bundleName()) snprintf(rinc_store, sizeof rinc_store, "%s", rinc_bundleName());
@@ -142,6 +148,12 @@ rinc_EXPORT(frame) int rinc_webFrame(int buttons, int keys) {
    installed into storage (rinc_zipInstall, in the app space: the app stops), then home. With the compiler
    only, as apps from storage run from source */
 rinc_IMPORT(zip_read) extern int js_zipRead(uint32_t at, uint8_t *buf, uint32_t n);
+#if rinc_ZIP_STICK
+rinc_IMPORT(stick_save) extern void js_stickSave(const uint8_t *zip, uint32_t size, const char *name); /* (the browser saves it) */
+#endif
+#if rinc_ZIP_STICK
+static void rinc_webStickSave(const uint8_t *zip, uint32_t size, const char *name) { js_stickSave(zip, size, name); }
+#endif
 static char rinc_dropName[64];
 rinc_EXPORT(dropName) char *rinc_webDropName(void) { return rinc_dropName; }
 static void rinc_told(int err, const char *text) { /* (the screen's line breaks are \r\n) */

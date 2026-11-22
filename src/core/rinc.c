@@ -1199,7 +1199,7 @@ static int rinc_argPath(rio_Vm *v, rio_Val *a, char *out, int change) {
     if (c < 32 || c > 126 || c == '\\' || c == ':') return 0;
     if (c == '/' && i + 1 < n && (s[i + 1] == '/' || (s[i + 1] == '.' && (i + 2 == n || s[i + 2] == '/' || (s[i + 2] == '.' && (i + 3 == n || s[i + 3] == '/')))))) return 0;
   }
-  if (change ? n <= 6 || strncmp(s, "/rinc/", 6) /* (writing: storage only) */
+  if (change ? (n <= 6 || strncmp(s, "/rinc/", 6)) && (n <= 7 || strncmp(s, "/stick/", 7)) /* (writing: storage, and the stick) */
              : (n != 1 && (strncmp(s, "/rinc", 5) || (n > 5 && s[5] != '/')) && (strncmp(s, "/stick", 6) || (n > 6 && s[6] != '/')))) return 0; /* (looking: /rinc, the stick, and / with them) */
   memcpy(out, s, (size_t)n); out[n] = 0;
   return 1;
@@ -2957,8 +2957,20 @@ static const struct { const char *label, *keys; int bit; } rinc_sysCommands[] = 
   {"Home", "Sys+Esc", rinc_SysKey_esc}, {"Switch apps", "Sys+Tab", rinc_SysKey_tab}, {"This app's help", "Sys+H", rinc_SysKey_h},
   {"This app's log", "Sys+O", rinc_SysKey_o}, {"Back to the app before", "Sys+Q", rinc_SysKey_q},
   {"This app again, from the start", "Sys+R", rinc_SysKey_r}, {"Performance strip, shown or not", "Sys+M", rinc_SysKey_m},
-  {"Sleep: the display rests", "Sys+L", rinc_SysKey_l}, {"The whole display, or not", "Sys+Enter", rinc_SysKey_enter}};
-#define rinc_SYS_COMMANDS ((int)(sizeof rinc_sysCommands / sizeof rinc_sysCommands[0]))
+  {"Sleep: the display rests", "Sys+L", rinc_SysKey_l}, {"The whole display, or not", "Sys+Enter", rinc_SysKey_enter},
+  {"The stick: a new, empty one", "", -1}, {"The stick: download it, as a zip", "", -2}}; /* (the stick's: last, where the platform has rinc_stickSave) */
+#define rinc_SYS_COMMANDS ((int)(sizeof rinc_sysCommands / sizeof rinc_sysCommands[0])) /* (all: the stick's two shown only with rinc_stickSave) */
+void (*rinc_stickSave)(const uint8_t *zip, uint32_t size, const char *name);
+/* the stick's commands (plans/drives.md): 1 a new, empty one; 2 it, downloaded as a zip */
+static void rinc_stickCommand(int which) {
+  uint32_t size; uint8_t *zip; const char *name = rinc_stickIn();
+  if (which == 1) { rinc_stickNew("stick.zip"); rinc_noticeSay("A new, empty stick: ", "/stick"); return; }
+  if (!name) { rinc_noticeSay("No stick in", ""); return; }
+  if (!(zip = rinc_stickZipped(&size))) { rinc_noticeSay("Can't make the stick's zip", ""); return; }
+  rinc_stickSave(zip, size, *name ? name : "stick.zip");
+  free(zip);
+  rinc_noticeSay("Downloaded: ", *name ? name : "stick.zip");
+}
 #define rinc_APP_COMMANDS 240 /* (an index of each shown is a byte: these and Rinc's own) */
 #define rinc_CMD_ROWS 16
 /* the app's, read where it gave them, in its memory, text and all (the app waits while the list is up, so
@@ -3034,7 +3046,7 @@ static int rinc_cmdOpen(rio_Vm *vm) { /* (the app's, asked now: -1 if that stopp
       rinc_cmdAppCount = (int)n;
     }
   }
-  rinc_cmdCount = rinc_cmdAppCount + rinc_SYS_COMMANDS;
+  rinc_cmdCount = rinc_cmdAppCount + rinc_SYS_COMMANDS - (rinc_stickSave ? 0 : 2);
   rinc_cmdFilterLen = rinc_cmdPick = 0;
   rinc_cmdNarrow();
   rinc_cmdButtons = rinc_buttons; rinc_cmdClicked = rinc_pointerHeld; /* (held already: not presses) */
@@ -3044,6 +3056,7 @@ static int rinc_cmdOpen(rio_Vm *vm) { /* (the app's, asked now: -1 if that stopp
 }
 static void rinc_cmdRun(int i) { /* (a pick: its key typed for the app, or the system key's) */
   int key = rinc_cmdKeyOf(i);
+  if (i >= rinc_cmdAppCount && rinc_sysCommands[i - rinc_cmdAppCount].bit < 0) { rinc_cmdClose(); rinc_stickCommand(-rinc_sysCommands[i - rinc_cmdAppCount].bit); return; }
   rinc_cmdClose();
   if (key > 0) { /* (first, before anything typed after it; as it is: no lock adds to it) */
     int before = (rinc_typed.tail + rinc_TEXT_CAP - 1) % rinc_TEXT_CAP;

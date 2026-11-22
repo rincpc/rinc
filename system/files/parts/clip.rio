@@ -177,8 +177,8 @@ take :: proc(cut: Bool)
   if picking or chosenCount() == 0
     return
   end
-  if cut and not (here().len() > 6 and here()[0..<6] == "/rinc/")
-    say("Can't cut here: only inside /rinc's folders", errorColor)
+  if cut and not inWritable(here())
+    say("Can't cut here: only inside /rinc's folders, or on the stick", errorColor)
     return
   end
   clipHeld.clear()
@@ -239,8 +239,8 @@ paste :: proc()
     say("Nothing cut or copied", softColor)
     return
   end
-  if here().len() <= 6 or here()[0..<6] != "/rinc/"
-    say("Can't paste here: only in /rinc's folders", errorColor)
+  if not inWritable(here())
+    say("Can't paste here: only in /rinc's folders, or on the stick", errorColor)
     return
   end
   cut := clipHeld[0] == 120

@@ -66,11 +66,21 @@ typedef struct {
 } rinc_Zip;
 int rinc_zipInstall(rinc_Zip *zip);
 /* the stick (plans/drives.md): a zip, whole in memory (malloc'd: the stick keeps it, freed when another's
-   in or it's taken out, zip 0), read only at /stick, its name (the zip's file name) for what's said; "/"
+   in or it's taken out, zip 0), at /stick (written to in memory), its name (the zip's file name) for what's said; "/"
    lists rinc, and stick while one's in. 0, or -1 if it isn't a zip (nothing changed). rinc_stickIn: its
    name, or 0 when none's in */
+#if defined(rio_METER) && !defined(rio_NO_COMPILER) /* (the desktop, and the web's player with the compiler: rio_METER is theirs) */
+#define rinc_ZIP_STICK 1
+#endif
 int rinc_stickMount(uint8_t *zip, uint32_t size, const char *name);
 const char *rinc_stickIn(void);
+/* a new, empty stick (name: what it's called, a zip's name when it's downloaded), in place of any in */
+void rinc_stickNew(const char *name);
+/* the stick, all of it, as a zip (malloc'd: the caller frees it), its size in *size; 0 if it can't be */
+uint8_t *rinc_stickZipped(uint32_t *size);
+/* the platform's way to hand the stick's zip out (the web: a download; the desktop: a file): set where
+   there's one, and then the command list has the stick's commands (new, and download) */
+extern void (*rinc_stickSave)(const uint8_t *zip, uint32_t size, const char *name);
 /* a notice at the bottom left for a few seconds: what, then name (32 at most) */
 void rinc_noticeShow(const char *what, const char *name);
 /* after a drop on the screen (bad: nothing installed): home, if there is one now (rinc_launch), else

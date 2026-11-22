@@ -614,6 +614,25 @@ static int rinc_stickFrom(const char *path) { /* (a zip as the stick: 0, or -1 s
   rinc_tell(0, "%s is in, as /stick (Files)\n", name);
   return 0;
 }
+/* the stick, downloaded (its command): a zip in the Downloads folder (or -downloads'), under its name,
+   with (2), (3)... before .zip when that's taken */
+static const char *rinc_downloads;
+static void rinc_stickSaveFile(const uint8_t *zip, uint32_t size, const char *name) {
+  char dir[1024], path[1200], stem[80]; const char *home = getenv("USERPROFILE"); size_t k = strlen(name); int n; FILE *f;
+  if (!home) home = getenv("HOME");
+  if (rinc_downloads) snprintf(dir, sizeof dir, "%s", rinc_downloads);
+  else snprintf(dir, sizeof dir, "%s/Downloads", home ? home : ".");
+  snprintf(stem, sizeof stem, "%.*s", (int)(k > 4 && !strcmp(name + k - 4, ".zip") ? k - 4 : k), name);
+  for (n = 1; n < 100; n++) {
+    if (n == 1) snprintf(path, sizeof path, "%s/%s.zip", dir, stem);
+    else snprintf(path, sizeof path, "%s/%s (%d).zip", dir, stem, n);
+    if (!(f = fopen(path, "rb"))) break;
+    fclose(f);
+  }
+  if (!(f = fopen(path, "wb")) || fwrite(zip, 1, size, f) != size) { if (f) fclose(f); rinc_tell(1, "rinc: can't write %s\n", path); return; }
+  fclose(f);
+  rinc_tell(0, "the stick, downloaded: %s\n", path);
+}
 static void rinc_drop(const char *path) {
   int bad; size_t n = strlen(path);
   if (n > 4 && (!strcmp(path + n - 4, ".zip") || !strcmp(path + n - 4, ".ZIP")) && rinc_hasHome()) { /* (a Rinc with apps: a zip's a stick plugged in, plans/drives.md) */
@@ -844,6 +863,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-repl")) repl = 1;
     else if (!strcmp(argv[i], "-drop") && i + 1 < argc) drop = argv[++i]; /* (as if dropped on the window: for tests) */
     else if (!strcmp(argv[i], "-stick") && i + 1 < argc) stick = argv[++i]; /* (a zip as the stick, /stick, from the start) */
+    else if (!strcmp(argv[i], "-downloads") && i + 1 < argc) rinc_downloads = argv[++i]; /* (where the stick's zip goes, downloaded: for tests) */
     else if (!strcmp(argv[i], "-type") && i + 1 < argc) rinc_typing = argv[++i];
     else if (!strcmp(argv[i], "-hold") && i + 1 < argc) rinc_holding = argv[++i];
     else if (!strcmp(argv[i], "-ctrl") && i + 1 < argc) rinc_ctrlFrames = atoi(argv[++i]);
@@ -869,6 +889,7 @@ int main(int argc, char **argv) {
   rinc_time = rinc_now;
   windowed = rinc_SDL && !out && !frames; /* (a window shows what goes wrong; without one, it ends rinc) */
   rinc_boardSpeed = !turbo && (windowed || board); /* (board speed: in a window, and -frames with -board) */
+  rinc_stickSave = rinc_stickSaveFile; /* (the stick's commands: new, and downloaded as a zip) */
   if (rinc_meterFile) rinc_meterOut = rinc_meterLine;
   if (exp || web) { /* a bundle of the apps, as a program or a page */
     if (!napps && (exp || !storage)) { fprintf(stderr, "rinc: -export takes the apps to bundle (rinc a.rio b.rio -export game), and -web too, but for an empty page with a storage name of its own (rinc -name rinc-empty -web empty.html)\n"); return 2; }

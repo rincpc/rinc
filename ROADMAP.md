@@ -51,8 +51,12 @@ app is a Rio program.
      tested).
      Then (2026-11-21): /stick on the desktop and the web, read only (a zip dropped on a Rinc with home,
      rinc -stick), Files up from /rinc to /, copying off it; and on the board, a thumb drive at /stick
-     (read only, its RAM paid by FatFs's tiny buffers). Next: writing to the stick everywhere, and
-     downloading the desktop's and the web's as a zip (plans/drives.md).
+     (its RAM paid by FatFs's tiny buffers). Then writing to the stick everywhere, and the desktop's
+     and the web's downloaded as a zip (the command list). Left: a page's stick through a reload, taking
+     one out (plans/drives.md).
+  1d. `/` as Rinc's root (the user, 2026-11-21): apps say `/projects/...`, not `/rinc/projects/...`;
+      storage keeps /rinc/ on the card. Devices stay short names at the top (recommended: /stick, no
+      /devices/ level). Plan: plans/root.md; after writing to the stick.
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.

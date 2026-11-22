@@ -26,7 +26,8 @@ a controller it's the guide button and Back. The page keeps a lone Alt from the 
 tapped twice is Rinc's Alt lock.
 
 A .zip dropped on such a page is plugged in as the stick, as on [the desktop](desktop.md): its files at
-`/stick`, read only, for Files to show and copy from (an app's folder copied to `/rinc/apps` is
+`/stick`, for Files to show, copy from and onto (the command list's "The stick: download it, as a zip"
+saves it as a file, and it's kept only till the page closes) (an app's folder copied to `/rinc/apps` is
 installed, into the page's storage). A second one dropped replaces the first. Installed apps come before
 the page's own of the same name. A page with only the VM-only player (below) can't run apps from storage,
 so it says so and installs nothing.

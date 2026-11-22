@@ -4,7 +4,7 @@
    addressing) at 400 kHz, then run at 25 MHz; blocks are 512 bytes, read and written one at a time.
    The filesystem is mounted when first used, so a card can go in after starting.
    And the stick (plans/drives.md): a thumb drive on the USB-A ports, through TinyUSB's mass storage
-   host, as FatFs's drive 1, at /stick (read only for now: apps write only under /rinc/). */
+   host, as FatFs's drive 1, at /stick. */
 #include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
@@ -163,7 +163,7 @@ static const char *rinc_fat(const char *path, char *buf, size_t cap) {
 }
 static int rinc_mkdirs(const char *path) { /* every directory along path (its last part is the file) */
   char d[128]; const char *p;
-  for (p = strchr(path + 1, '/'); p; p = strchr(p + 1, '/')) {
+  for (p = strchr(path + (path[0] && path[1] == ':' ? 3 : 1), '/'); p; p = strchr(p + 1, '/')) { /* (after the stick's 1:/) */
     size_t n = (size_t)(p - path);
     if (n >= sizeof d) return 0;
     memcpy(d, path, n); d[n] = 0;
@@ -200,16 +200,16 @@ static int rinc_fsList(const char *dir, void (*each)(const char *name, int dir, 
   return 0;
 }
 static int rinc_fsRemove(const char *path) {
-  if (!strncmp(path, "/stick", 6)) return -1; /* (the stick: read only, for now) */
+  char fat[128];
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
   rinc_storageChanged(path);
-  return rinc_mount() && f_unlink(path) == FR_OK ? 0 : -1;
+  return rinc_mount() && (path = rinc_fat(path, fat, sizeof fat)) && f_unlink(path) == FR_OK ? 0 : -1;
 }
 static FIL rinc_copyTo; /* (the one file open beside rinc_file: a copy's) */
 static int rinc_fsCopy(const char *from, const char *to) {
-  uint8_t buf[512]; UINT got = 0, put = 0; FRESULT r; int bad = 0; char fat[128];
+  uint8_t buf[512]; UINT got = 0, put = 0; FRESULT r; int bad = 0; char fat[128], fatTo[128];
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
-  if (!rinc_mount() || !(from = rinc_fat(from, fat, sizeof fat)) || !strncmp(to, "/stick", 6)) return -1; /* (off the stick, onto the card) */
+  if (!rinc_mount() || !(from = rinc_fat(from, fat, sizeof fat)) || !(to = rinc_fat(to, fatTo, sizeof fatTo))) return -1; /* (either way: the card, the stick) */
   if ((r = f_open(&rinc_file, from, FA_READ)) != FR_OK) return rinc_failed(r);
   if (!rinc_mkdirs(to)) { f_close(&rinc_file); return -1; }
   rinc_storageChanged(to);
@@ -219,17 +219,16 @@ static int rinc_fsCopy(const char *from, const char *to) {
   return f_close(&rinc_copyTo) != FR_OK || bad ? -1 : 0;
 }
 static int rinc_fsRename(const char *from, const char *to) {
-  if (!strncmp(from, "/stick", 6) || !strncmp(to, "/stick", 6)) return -1; /* (the stick: read only, for now) */
-  FRESULT r;
+  FRESULT r; char fat[128], fatTo[128];
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
   if (!rinc_mount()) return -1;
   rinc_storageChanged(from); rinc_storageChanged(to);
-  return (r = f_rename(from, to)) == FR_OK ? 0 : rinc_failed(r);
+  if (!(from = rinc_fat(from, fat, sizeof fat)) || !(to = rinc_fat(to, fatTo, sizeof fatTo)) || (from[1] == ':') != (to[1] == ':')) return -1; /* (on one drive) */
+  return (r = f_rename(from, to[1] == ':' ? to + 2 : to)) == FR_OK ? 0 : rinc_failed(r); /* (FatFs takes the new name without its drive) */
 }
 static int rinc_fsMkdir(const char *path) {
-  if (!strncmp(path, "/stick", 6)) return -1; /* (the stick: read only, for now) */
-  char inside[128];
-  if (!rinc_mount() || snprintf(inside, sizeof inside, "%s/x", path) >= (int)sizeof inside) return -1;
+  char inside[128], fat[128];
+  if (!rinc_mount() || !(path = rinc_fat(path, fat, sizeof fat)) || snprintf(inside, sizeof inside, "%s/x", path) >= (int)sizeof inside) return -1;
   rinc_storageChanged(path);
   return rinc_mkdirs(inside) ? 0 : -1; /* (it, and those along the way) */
 }

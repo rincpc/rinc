@@ -94,8 +94,8 @@ typedPath :: proc(s: String) -> String
   for k > 0 and t[k - 1] != '/'
     k -= 1
   end
-  if k <= 6 or t[0..<6] != "/rinc/"
-    say("Can't save there: only in /rinc's folders", errorColor)
+  if k < 2 or not inWritable(t[0..<k - 1])
+    say("Can't save there: only in /rinc's folders, or on the stick", errorColor)
     return ""
   case pc.dir(t[0..<k - 1], probe) < 0
     say("No such folder", errorColor)
@@ -119,8 +119,8 @@ saveKey :: proc(c: Int) -> Bool
       end
     case not validName(named, true)
       say("A name is letters, digits, _, - and .", errorColor)
-    case here().len() <= 6 or here()[0..<6] != "/rinc/"
-      say("Can't save here: only in /rinc's folders", errorColor)
+    case not inWritable(here())
+      say("Can't save here: only in /rinc's folders, or on the stick", errorColor)
     else
       finish(pathTo(saveName[0..<saveName.len()].asString()))
     end

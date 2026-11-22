@@ -109,6 +109,12 @@ reveal :: proc()
   end
 end
 
+# whether things in folder p can change (be made, pasted, cut, saved): inside /rinc's folders (not /rinc
+# itself: those are Rinc's), or anywhere on the stick
+inWritable :: proc(p: String) -> Bool
+  return (p.len() > 6 and p[0..<6] == "/rinc/") or p == "/stick" or (p.len() > 7 and p[0..<7] == "/stick/")
+end
+
 # a stick's in (/stick: a zip dropped, a thumb drive): then / is above /rinc, it beside
 stickIn :: proc() -> Bool
   probe: Blob[..64]
@@ -235,10 +241,9 @@ isActive :: proc(k: Int) -> Bool
   return r.len() > 0 and r == active.asString()
 end
 
-# whether an entry can be changed: inside /rinc, but not /rinc's own folders
+# whether an entry can be changed: inside /rinc, but not /rinc's own folders; or on the stick
 canChange :: proc(k: Int) -> Bool
-  p := here()
-  return kind[k] != UP and p.len() > 6 and p[0..<6] == "/rinc/"
+  return kind[k] != UP and inWritable(here())
 end
 
 edit :: proc(ref: String)

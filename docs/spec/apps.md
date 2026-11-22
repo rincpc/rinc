@@ -22,11 +22,11 @@ A Rinc's storage is a folder of its own, `/rinc`, and apps can't reach outside i
 /rinc/cache/rinc/projects/chord.rioi   and its project
 /rinc/help/...                help texts that are no app's own (Rinc's and Rio's docs)
 /rinc/settings/...            the whole Rinc's settings, shared by the apps: active, the app in work
-/stick/...                    the stick, while one's in: a zip dropped on the desktop or a page; read only
+/stick/...                    the stick, while one's in: a thumb drive on the board, a zip dropped on the desktop or a page
 ```
 
-Apps read from `/rinc` and, while one's in, `/stick`, and `/` lists those two; they write only under
-`/rinc/`.
+Apps read from `/rinc` and, while one's in, `/stick`, and `/` lists those two; they write under `/rinc/`
+and `/stick/`.
 
 An app is all of its folder but one part: its **dev folder**, `dev/`, which is its maker's, not the app's.
 Everything that isn't the app goes there: a project's own saves (`dev/save/`), its tests (`dev/test.rio`),

@@ -121,6 +121,15 @@ canvas { position: absolute; inset: 0; margin: auto; image-rendering: pixelated;
     return 0;
   };
   let dropped = null; // (a .zip dropped on the page, while it's installed)
+  // the stick, downloaded (its command, in the command list): its zip, as a file the browser saves
+  env.stick_save = (p, n, name) => {
+    const bytes = new Uint8Array(ex.memory.buffer, p, n).slice(), at = new Uint8Array(ex.memory.buffer, name);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "application/zip" }));
+    a.download = text(name, at.indexOf(0));
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  };
   env.zip_read = (at, p, n) => {
     if (!dropped) return -1;
     const m = Math.max(0, Math.min(n, dropped.length - at));

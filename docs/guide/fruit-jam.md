@@ -99,9 +99,8 @@ indents each next line of an unfinished input. A serial terminal gets the same, 
 the screen's console understands too. `apps/combo.rio` tries everything at once: sound, a controller and
 the keyboard, both as buttons and as typing.
 
-A thumb drive in a USB-A port (or the board's hub) is the stick: its files at `/stick`, read only for
-now, beside `/rinc` (Files goes up from `/rinc` to `/` while one's in), to copy onto the card (an app's
-folder copied to `/rinc/apps` is installed). The first one plugged in, FAT32 or FAT16 (not exFAT, as the card), 512-byte blocks,
+A thumb drive in a USB-A port (or the board's hub) is the stick: its files at `/stick`, beside `/rinc` (Files goes up from `/rinc` to `/` while one's in), to copy onto the card (an app's
+folder copied to `/rinc/apps` is installed), and to copy things onto, to take elsewhere. The first one plugged in, FAT32 or FAT16 (not exFAT, as the card), 512-byte blocks,
 read through TinyUSB's mass storage host as FatFs's second drive; it's mounted the first time it's
 looked in, and goes when it's pulled out.
 

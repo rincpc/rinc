@@ -170,7 +170,7 @@ promptDone :: proc()
       return
     end
     mode = NONE
-    if here().len() <= 6 or here()[0..<6] != "/rinc/" or pc.dirMake(pathTo(s)) != 0
+    if not inWritable(here()) or pc.dirMake(pathTo(s)) != 0
       say("Couldn't make it here: is something called that already?", errorColor)
       return
     end

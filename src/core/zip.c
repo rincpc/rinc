@@ -83,24 +83,51 @@ void rinc_dropped(int bad) {
   } else rinc_say("(no home app yet: the home app's in rinc-system-apps.zip, from a release)\r\n");
 }
 
-/* the stick (plans/drives.md): a zip held in memory (dropped on the desktop or the web, or rinc -stick),
-   read only, at /stick: its files and folders, as storage's are. It's put in front of the platform's
-   storage (rinc_fs): /stick's paths go to it, the rest through to the platform's, and copying off it
-   (Files' copy: pc.fileCopy) reads from one and writes the other. "/" lists rinc, and stick while one's in */
-typedef struct { const char *name; uint32_t nameLen, at, csize, usize, crc; int deflated; } rinc_StickFile;
-static uint8_t *rinc_stickZip; static rinc_StickFile *rinc_stickFiles; static int rinc_stickCount;
+#if rinc_ZIP_STICK
+/* the stick (plans/drives.md), on the desktop and the web: a zip dropped (or rinc -stick), or a new empty
+   one, held in memory and written to there, at /stick: its files and folders, as storage's are. It's put
+   in front of the platform's storage (rinc_fs): /stick's paths go to it, the rest through to the
+   platform's, and copying between the two reads one and writes the other. "/" lists rinc, and stick while
+   one's in. A file from the zip stays as it came (deflated, read where it is) till it's changed; one
+   written is kept whole. rinc_stickZipped writes it all out as a zip again (to download) */
+typedef struct {
+  char *name; uint32_t nameLen;
+  const uint8_t *packed; uint32_t csize, usize, crc; int deflated; /* (from the zip: where it is in it) */
+  uint8_t *own; int folder; /* (written here: its bytes; or an empty folder made here) */
+} rinc_StickFile;
+static uint8_t *rinc_stickZip; static rinc_StickFile *rinc_stickFiles; static int rinc_stickCount, rinc_stickCap, rinc_stickIsIn;
 static char rinc_stickName[64];
 static const rinc_Fs *rinc_card; /* (the platform's storage, behind) */
-static uint8_t *rinc_stickData; static uint32_t rinc_stickLen, rinc_stickPos; static int rinc_stickOpen, rinc_stickOwned; /* (the file open on it, whole) */
+/* the file open on it: read whole into data (or written into it, till it's closed: then kept as name) */
+static uint8_t *rinc_stickData; static uint32_t rinc_stickLen, rinc_stickPos, rinc_stickRoom;
+static int rinc_stickOpen, rinc_stickOwned, rinc_stickWriting; static char rinc_stickWrite[300];
 /* a path on the stick: the rest of it ("" for /stick itself), or 0 */
 static const char *rinc_onStick(const char *path) {
   if (strncmp(path, "/stick", 6) || (path[6] && path[6] != '/')) return 0;
   return path[6] ? path + 7 : path + 6;
 }
-static int rinc_stickFind(const char *rel) {
+static int rinc_stickFind(const char *rel, int folder) { /* (a file, or an empty folder made here) */
   int i; size_t n = strlen(rel);
-  for (i = 0; i < rinc_stickCount; i++) if (rinc_stickFiles[i].nameLen == n && !memcmp(rinc_stickFiles[i].name, rel, n)) return i;
+  for (i = 0; i < rinc_stickCount; i++) if (rinc_stickFiles[i].folder == folder && rinc_stickFiles[i].nameLen == n && !memcmp(rinc_stickFiles[i].name, rel, n)) return i;
   return -1;
+}
+static int rinc_stickAdd(const char *rel, size_t n) { /* (a new entry, its name copied: its index, or -1) */
+  rinc_StickFile *f;
+  if (rinc_stickCount == rinc_stickCap) {
+    int cap = rinc_stickCap ? rinc_stickCap * 2 : 32;
+    rinc_StickFile *g = (rinc_StickFile *)realloc(rinc_stickFiles, (size_t)cap * sizeof *g);
+    if (!g) return -1;
+    rinc_stickFiles = g; rinc_stickCap = cap;
+  }
+  f = &rinc_stickFiles[rinc_stickCount];
+  memset(f, 0, sizeof *f);
+  if (!(f->name = (char *)malloc(n + 1))) return -1;
+  memcpy(f->name, rel, n); f->name[n] = 0; f->nameLen = (uint32_t)n;
+  return rinc_stickCount++;
+}
+static void rinc_stickDrop(int i) { /* (entry i gone) */
+  free(rinc_stickFiles[i].name); free(rinc_stickFiles[i].own);
+  rinc_stickFiles[i] = rinc_stickFiles[--rinc_stickCount];
 }
 static const uint8_t *rinc_inflateFrom; static uint32_t rinc_inflateLeft;
 static int rinc_inflateRead(char *buf, int n) {
@@ -110,22 +137,42 @@ static int rinc_inflateRead(char *buf, int n) {
 }
 static void rinc_stickShut(void) {
   if (rinc_stickOwned) free(rinc_stickData);
-  rinc_stickData = 0; rinc_stickOpen = rinc_stickOwned = 0;
+  rinc_stickData = 0; rinc_stickOpen = rinc_stickOwned = rinc_stickWriting = 0;
 }
-static int rinc_vOpen(const char *path, int how) {
-  const char *rel = rinc_onStick(path); int i; rinc_StickFile *f;
+/* file i's bytes into rinc_stickData (whole): 0, or -1 */
+static int rinc_stickLoad(int i) {
+  rinc_StickFile *f = &rinc_stickFiles[i];
   rinc_stickShut();
-  if (!rel) return rinc_card->open(path, how);
-  if (how != rinc_READ || (i = rinc_stickFind(rel)) < 0) return -1;
-  f = &rinc_stickFiles[i];
-  if (!f->deflated) rinc_stickData = rinc_stickZip + f->at;
+  if (f->own || !f->deflated) rinc_stickData = f->own ? f->own : (uint8_t *)f->packed;
   else {
     if (!(rinc_stickData = (uint8_t *)malloc(f->usize ? f->usize : 1))) return -1;
     rinc_stickOwned = 1;
-    rinc_inflateFrom = rinc_stickZip + f->at; rinc_inflateLeft = f->csize;
+    rinc_inflateFrom = f->packed; rinc_inflateLeft = f->csize;
     if ((uint32_t)rinc_inflateRaw(rinc_inflateRead, f->csize, rinc_stickData, f->usize) != f->usize || rinc_crc32(rinc_stickData, f->usize) != f->crc) { rinc_stickShut(); return -1; } /* (damaged: not read) */
   }
   rinc_stickLen = f->usize; rinc_stickPos = 0; rinc_stickOpen = 1;
+  return 0;
+}
+static int rinc_vOpen(const char *path, int how) {
+  const char *rel = rinc_onStick(path); int i;
+  rinc_stickShut();
+  if (!rel) return rinc_card->open(path, how);
+  if (!rinc_stickIsIn || !*rel) return -1;
+  i = rinc_stickFind(rel, 0);
+  if (how == rinc_READ) return i < 0 ? -1 : rinc_stickLoad(i);
+  if (rinc_stickFind(rel, 1) >= 0 || strlen(rel) >= sizeof rinc_stickWrite) return -1; /* (a folder's name) */
+  if (how == rinc_UPDATE && i >= 0) { /* (its bytes so far, to write over) */
+    uint8_t *copy;
+    if (rinc_stickLoad(i) || !(copy = (uint8_t *)malloc(rinc_stickLen ? rinc_stickLen : 1))) { rinc_stickShut(); return -1; }
+    memcpy(copy, rinc_stickData, rinc_stickLen);
+    if (rinc_stickOwned) free(rinc_stickData);
+    rinc_stickData = copy; rinc_stickRoom = rinc_stickLen ? rinc_stickLen : 1;
+  } else {
+    if (!(rinc_stickData = (uint8_t *)malloc(256))) return -1;
+    rinc_stickLen = 0; rinc_stickRoom = 256;
+  }
+  rinc_stickOwned = rinc_stickOpen = rinc_stickWriting = 1; rinc_stickPos = 0;
+  snprintf(rinc_stickWrite, sizeof rinc_stickWrite, "%s", rel);
   return 0;
 }
 static int rinc_vRead(char *buf, int n) {
@@ -135,9 +182,32 @@ static int rinc_vRead(char *buf, int n) {
   memcpy(buf, rinc_stickData + rinc_stickPos, k); rinc_stickPos += k;
   return (int)k;
 }
-static int rinc_vWrite(const char *buf, int n) { return rinc_stickOpen ? -1 : rinc_card->write(buf, n); }
+static int rinc_vWrite(const char *buf, int n) {
+  uint32_t end;
+  if (!rinc_stickOpen) return rinc_card->write(buf, n);
+  if (!rinc_stickWriting || n < 0) return -1;
+  end = rinc_stickPos + (uint32_t)n;
+  if (end > rinc_stickRoom) {
+    uint32_t room = rinc_stickRoom; uint8_t *more;
+    while (room < end) room *= 2;
+    if (!(more = (uint8_t *)realloc(rinc_stickData, room))) return -1;
+    rinc_stickData = more; rinc_stickRoom = room;
+  }
+  memcpy(rinc_stickData + rinc_stickPos, buf, (size_t)n);
+  rinc_stickPos = end;
+  if (end > rinc_stickLen) rinc_stickLen = end;
+  return n;
+}
 static int rinc_vClose(void) {
+  int i;
   if (!rinc_stickOpen) return rinc_card->close();
+  if (rinc_stickWriting) { /* (kept: as name, over what was there) */
+    if ((i = rinc_stickFind(rinc_stickWrite, 0)) < 0 && (i = rinc_stickAdd(rinc_stickWrite, strlen(rinc_stickWrite))) < 0) { rinc_stickShut(); return -1; }
+    free(rinc_stickFiles[i].own);
+    rinc_stickFiles[i].own = rinc_stickData; rinc_stickFiles[i].usize = rinc_stickLen;
+    rinc_stickFiles[i].packed = 0; rinc_stickFiles[i].deflated = 0;
+    rinc_stickOwned = 0; /* (the entry has it now) */
+  }
   rinc_stickShut();
   return 0;
 }
@@ -148,88 +218,207 @@ static int rinc_vSeek(uint32_t at) {
   return 0;
 }
 static int32_t rinc_vSize(void) { return rinc_stickOpen ? (int32_t)rinc_stickLen : rinc_card->size(); }
-/* file f's name in folder rel (n long, "" for /stick): the part after it (*part, *k long), and whether
+/* entry f's name in folder rel (n long, "" for /stick): the part after it (*part, *k long), and whether
    that's a folder of it; 0 if f isn't in rel */
 static int rinc_stickPart(const rinc_StickFile *f, const char *rel, size_t n, const char **part, uint32_t *k, int *dir) {
   const char *slash; uint32_t left;
   if (n && (f->nameLen <= n || memcmp(f->name, rel, n) || f->name[n] != '/')) return 0;
   *part = f->name + (n ? n + 1 : 0); left = f->nameLen - (uint32_t)(*part - f->name);
   slash = memchr(*part, '/', left);
-  *k = slash ? (uint32_t)(slash - *part) : left; *dir = slash != 0;
+  *k = slash ? (uint32_t)(slash - *part) : left; *dir = slash != 0 || f->folder;
   return *k > 0;
 }
+static int rinc_stickHas(const char *rel) { /* (a folder: a file in it, or made here) */
+  int i; size_t n = strlen(rel);
+  if (!n) return 1;
+  for (i = 0; i < rinc_stickCount; i++) {
+    const rinc_StickFile *f = &rinc_stickFiles[i];
+    if ((f->folder && f->nameLen == n && !memcmp(f->name, rel, n)) || (f->nameLen > n && !memcmp(f->name, rel, n) && f->name[n] == '/')) return 1;
+  }
+  return 0;
+}
 static int rinc_vList(const char *dir, void (*each)(const char *name, int dir, void *ud), void *ud) {
-  const char *rel = rinc_onStick(dir), *part, *other; size_t n; int i, j, any = 0, isDir, otherDir; uint32_t k, ok;
-  if (!strcmp(dir, "/")) { each("rinc", 1, ud); if (rinc_stickZip) each("stick", 1, ud); return 0; }
+  const char *rel = rinc_onStick(dir), *part, *other; size_t n; int i, j, isDir, otherDir; uint32_t k, ok;
+  if (!strcmp(dir, "/")) { each("rinc", 1, ud); if (rinc_stickIsIn) each("stick", 1, ud); return 0; }
   if (!rel) return rinc_card->list(dir, each, ud);
-  if (!rinc_stickZip) return -1;
+  if (!rinc_stickIsIn || !rinc_stickHas(rel)) return -1;
   n = strlen(rel);
-  for (i = 0; i < rinc_stickCount; i++) { /* (each name in it once: a file, or a folder of the files under it) */
+  for (i = 0; i < rinc_stickCount; i++) { /* (each name in it once: a file, or a folder) */
     char name[64];
     if (!rinc_stickPart(&rinc_stickFiles[i], rel, n, &part, &k, &isDir)) continue;
-    any = 1;
-    for (j = 0; j < i; j++) /* (named already, by a file before it?) */
+    for (j = 0; j < i; j++) /* (named already, by one before it?) */
       if (rinc_stickPart(&rinc_stickFiles[j], rel, n, &other, &ok, &otherDir) && ok == k && otherDir == isDir && !memcmp(other, part, k)) break;
     if (j < i || k >= sizeof name) continue;
     memcpy(name, part, k); name[k] = 0;
     each(name, isDir, ud);
   }
-  return any || !n ? 0 : -1;
+  return 0;
 }
-static int rinc_vRemove(const char *path) { return rinc_onStick(path) ? -1 : rinc_card->remove(path); }
-static int rinc_vRename(const char *from, const char *to) { return rinc_onStick(from) || rinc_onStick(to) ? -1 : rinc_card->rename(from, to); }
-static int rinc_vMkdir(const char *path) { return rinc_onStick(path) ? -1 : rinc_card->mkdir(path); }
-static int rinc_vCopy(const char *from, const char *to) {
-  char dir[300]; const char *slash; int bad;
-  if (rinc_onStick(to)) return -1;
-  if (!rinc_onStick(from)) return rinc_card->copy(from, to);
-  if (rinc_vOpen(from, rinc_READ)) return -1; /* (off the stick: read whole, written to the card, its folders made) */
-  slash = strrchr(to, '/');
-  if (slash && slash > to) { snprintf(dir, sizeof dir, "%.*s", (int)(slash - to), to); rinc_card->mkdir(dir); }
-  bad = rinc_card->open(to, rinc_REPLACE) || (rinc_stickLen && rinc_card->write((const char *)rinc_stickData, (int)rinc_stickLen) != (int)rinc_stickLen);
-  bad |= rinc_card->close() != 0;
+/* a folder left empty (its last file removed, or moved away) stays, as on a drive: kept as one made here */
+static void rinc_stickKeepFolder(const char *rel) {
+  const char *slash = strrchr(rel, '/'); char dir[300]; int i;
+  if (!slash || (size_t)(slash - rel) >= sizeof dir) return;
+  memcpy(dir, rel, (size_t)(slash - rel)); dir[slash - rel] = 0;
+  if (!rinc_stickHas(dir) && (i = rinc_stickAdd(dir, strlen(dir))) >= 0) rinc_stickFiles[i].folder = 1;
+}
+static int rinc_vRemove(const char *path) { /* (a file, or an empty folder) */
+  const char *rel = rinc_onStick(path); int i;
+  if (!rel) return rinc_card->remove(path);
   rinc_stickShut();
+  if ((i = rinc_stickFind(rel, 0)) >= 0) { rinc_stickDrop(i); rinc_stickKeepFolder(rel); return 0; }
+  if ((i = rinc_stickFind(rel, 1)) < 0) return -1;
+  { int k; size_t n = strlen(rel); for (k = 0; k < rinc_stickCount; k++) if (rinc_stickFiles[k].nameLen > n && !memcmp(rinc_stickFiles[k].name, rel, n) && rinc_stickFiles[k].name[n] == '/') return -1; } /* (not empty) */
+  rinc_stickDrop(i);
+  rinc_stickKeepFolder(rel);
+  return 0;
+}
+static int rinc_vMkdir(const char *path) {
+  const char *rel = rinc_onStick(path);
+  if (!rel) return rinc_card->mkdir(path);
+  if (!rinc_stickIsIn) return -1;
+  if (!*rel || rinc_stickHas(rel)) return 0;
+  if (rinc_stickFind(rel, 0) >= 0) return -1; /* (a file's name) */
+  { int i = rinc_stickAdd(rel, strlen(rel)); if (i < 0) return -1; rinc_stickFiles[i].folder = 1; }
+  return 0;
+}
+static int rinc_vRename(const char *from, const char *to) {
+  const char *a = rinc_onStick(from), *b = rinc_onStick(to); size_t n, m; int i;
+  if (!a && !b) return rinc_card->rename(from, to);
+  if (!a || !b || !*a || !*b || !rinc_stickIsIn || rinc_stickFind(b, 0) >= 0 || rinc_stickHas(b)) return -1; /* (on the stick, to a name not taken) */
+  rinc_stickShut();
+  n = strlen(a); m = strlen(b);
+  if (m + 1 >= 300) return -1;
+  for (i = 0; i < rinc_stickCount; i++) { /* (it, or all in it) */
+    rinc_StickFile *f = &rinc_stickFiles[i]; char *name;
+    if (!(f->nameLen == n && !memcmp(f->name, a, n)) && !(f->nameLen > n && !memcmp(f->name, a, n) && f->name[n] == '/')) continue;
+    if (!(name = (char *)malloc(m + f->nameLen - n + 1))) return -1;
+    memcpy(name, b, m); memcpy(name + m, f->name + n, f->nameLen - n + 1);
+    free(f->name); f->name = name; f->nameLen = (uint32_t)(m + f->nameLen - n);
+  }
+  rinc_stickKeepFolder(a); /* (where it was: still there, if that's all it held) */
+  return 0;
+}
+static int rinc_vCopy(const char *from, const char *to) { /* (a file, whole: to's folders made, it replaced) */
+  char dir[300]; const char *slash; uint8_t *bytes = 0; uint32_t n = 0; int bad = 0, i;
+  if (!rinc_onStick(from) && !rinc_onStick(to)) return rinc_card->copy(from, to);
+  if (rinc_onStick(from)) { /* (its bytes, from the stick) */
+    if ((i = rinc_stickFind(rinc_onStick(from), 0)) < 0 || rinc_stickLoad(i)) return -1;
+    n = rinc_stickLen;
+    if (!(bytes = (uint8_t *)malloc(n ? n : 1))) { rinc_stickShut(); return -1; }
+    memcpy(bytes, rinc_stickData, n); rinc_stickShut();
+  } else { /* (or from the card) */
+    int32_t size;
+    if (rinc_card->open(from, rinc_READ) || (size = rinc_card->size()) < 0 || !(bytes = (uint8_t *)malloc(size ? (size_t)size : 1))) { rinc_card->close(); return -1; }
+    n = (uint32_t)size;
+    bad = n && rinc_card->read((char *)bytes, (int)n) != (int)n;
+    rinc_card->close();
+    if (bad) { free(bytes); return -1; }
+  }
+  slash = strrchr(to, '/');
+  if (slash && slash > to) { snprintf(dir, sizeof dir, "%.*s", (int)(slash - to), to); rinc_vMkdir(dir); }
+  bad = rinc_vOpen(to, rinc_REPLACE) || (n && rinc_vWrite((const char *)bytes, (int)n) != (int)n);
+  bad |= rinc_vClose() != 0;
+  free(bytes);
   return bad ? -1 : 0;
 }
 static const rinc_Fs rinc_volumes = {rinc_vOpen, rinc_vRead, rinc_vWrite, rinc_vClose, rinc_vList, rinc_vRemove, rinc_vCopy, rinc_vRename, rinc_vMkdir, rinc_vSeek, rinc_vSize};
 
+static void rinc_stickUse(void) { if (rinc_fs != &rinc_volumes) { rinc_card = rinc_fs; rinc_fs = &rinc_volumes; } }
+static void rinc_stickClear(void) {
+  rinc_stickShut();
+  while (rinc_stickCount) rinc_stickDrop(rinc_stickCount - 1);
+  free(rinc_stickZip); rinc_stickZip = 0; rinc_stickIsIn = 0; rinc_stickName[0] = 0;
+}
 int rinc_stickMount(uint8_t *zip, uint32_t size, const char *name) {
-  uint32_t entries = 0, dirSize = 0, dirAt = 0, end, i, at, back; int k, found = 0, n = 0; rinc_StickFile *files;
-  if (!zip) { /* (taken out) */
-    rinc_stickShut(); free(rinc_stickZip); free(rinc_stickFiles);
-    rinc_stickZip = 0; rinc_stickFiles = 0; rinc_stickCount = 0; rinc_stickName[0] = 0;
-    return 0;
-  }
+  uint32_t entries = 0, dirSize = 0, dirAt = 0, end, i, at, back; int k, found = 0;
+  if (!zip) { rinc_stickClear(); return 0; } /* (taken out) */
   back = size < 65557 ? size : 65557;
   for (k = (int)back - 22; k >= 0 && !found; k--) {
     const uint8_t *e = zip + size - back + k;
     if (rinc_le32(e) == 0x06054B50u) { found = 1; entries = rinc_le16(e + 10); dirSize = rinc_le32(e + 12); dirAt = rinc_le32(e + 16); }
   }
-  if (!found || dirAt > size || dirSize > size - dirAt || !(files = (rinc_StickFile *)malloc((entries ? entries : 1) * sizeof *files))) return -1;
+  if (!found || dirAt > size || dirSize > size - dirAt) return -1;
   end = dirAt + dirSize;
-  for (i = 0, at = dirAt; i < entries; i++) {
-    const uint8_t *h = zip + at; rinc_StickFile *f = &files[n]; uint32_t nameLen, local, data, j; const char *name0;
-    if (at + 46 > end || rinc_le32(h) != 0x02014B50u) { free(files); return -1; }
+  for (i = 0, at = dirAt; i < entries; i++) { /* (checked whole first: nothing changes for one that isn't a zip) */
+    const uint8_t *h = zip + at; uint32_t nameLen, local;
+    if (at + 46 > end || rinc_le32(h) != 0x02014B50u) return -1;
     nameLen = rinc_le16(h + 28); local = rinc_le32(h + 42);
-    if (at + 46 + nameLen > end || local + 30 > size || rinc_le32(zip + local) != 0x04034B50u) { free(files); return -1; }
-    name0 = (const char *)h + 46;
+    if (at + 46 + nameLen > end || local + 30 > size || rinc_le32(zip + local) != 0x04034B50u) return -1;
+    at += 46 + nameLen + rinc_le16(h + 30) + rinc_le16(h + 32);
+  }
+  rinc_stickClear();
+  for (i = 0, at = dirAt; i < entries; i++) {
+    const uint8_t *h = zip + at; uint32_t nameLen = rinc_le16(h + 28), local = rinc_le32(h + 42), data, j, method = rinc_le16(h + 10), csize, usize, len;
+    const char *name0 = (const char *)h + 46; int e;
     data = local + 30 + rinc_le16(zip + local + 26) + rinc_le16(zip + local + 28);
     at += 46 + nameLen + rinc_le16(h + 30) + rinc_le16(h + 32);
-    f->name = name0; f->nameLen = nameLen; f->at = data; f->deflated = rinc_le16(h + 10) == 8;
-    f->crc = rinc_le32(h + 16); f->csize = rinc_le32(h + 20); f->usize = rinc_le32(h + 24);
-    while (f->nameLen && f->name[f->nameLen - 1] == '/') f->nameLen--; /* (a folder's own entry: its files name it anyway) */
-    if (!f->nameLen || nameLen > 200 || (rinc_le16(h + 10) != 0 && !f->deflated) || data > size || f->csize > size - data || (!f->deflated && f->csize != f->usize)) continue;
-    for (j = 0; j < f->nameLen && name0[j] != '\\' && name0[j] != ':' && (unsigned char)name0[j] >= 32; j++) {}
-    if (j < f->nameLen || (f->nameLen >= 2 && !memcmp(name0, "..", 2)) || memchr(name0, 0, f->nameLen)) continue; /* (names Rinc wouldn't give a file) */
-    for (j = 0; j + 2 < f->nameLen && !(name0[j] == '/' && name0[j + 1] == '.' && name0[j + 2] == '.'); j++) {}
-    if (j + 2 < f->nameLen) continue;
-    if (nameLen != f->nameLen) continue; /* (folders: from their files) */
-    n++;
+    csize = rinc_le32(h + 20); usize = rinc_le32(h + 24);
+    for (len = nameLen; len && name0[len - 1] == '/'; len--) {}
+    if (!len || nameLen > 200 || (method != 0 && method != 8) || data > size || csize > size - data || (!method && csize != usize)) continue;
+    for (j = 0; j < len && name0[j] != '\\' && name0[j] != ':' && (unsigned char)name0[j] >= 32; j++) {}
+    if (j < len || (len >= 2 && !memcmp(name0, "..", 2))) continue; /* (names Rinc wouldn't give a file) */
+    for (j = 0; j + 2 < len && !(name0[j] == '/' && name0[j + 1] == '.' && name0[j + 2] == '.'); j++) {}
+    if (j + 2 < len) continue;
+    if ((e = rinc_stickAdd(name0, len)) < 0) break;
+    if (len != nameLen) { rinc_stickFiles[e].folder = 1; continue; } /* (a folder's own entry: kept, in case it's empty) */
+    rinc_stickFiles[e].packed = zip + data; rinc_stickFiles[e].csize = csize; rinc_stickFiles[e].usize = usize;
+    rinc_stickFiles[e].crc = rinc_le32(h + 16); rinc_stickFiles[e].deflated = method == 8;
   }
-  rinc_stickMount(0, 0, 0);
-  rinc_stickZip = zip; rinc_stickFiles = files; rinc_stickCount = n;
+  rinc_stickZip = zip; rinc_stickIsIn = 1;
   snprintf(rinc_stickName, sizeof rinc_stickName, "%s", name ? name : "");
-  if (rinc_fs != &rinc_volumes) { rinc_card = rinc_fs; rinc_fs = &rinc_volumes; }
+  rinc_stickUse();
   return 0;
 }
-const char *rinc_stickIn(void) { return rinc_stickZip ? rinc_stickName : 0; }
+void rinc_stickNew(const char *name) {
+  rinc_stickClear();
+  rinc_stickIsIn = 1;
+  snprintf(rinc_stickName, sizeof rinc_stickName, "%s", name ? name : "stick.zip");
+  rinc_stickUse();
+}
+const char *rinc_stickIn(void) { return rinc_stickIsIn ? rinc_stickName : 0; }
+static void rinc_put16(uint8_t *p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void rinc_put32le(uint8_t *p, uint32_t v) { rinc_put16(p, v & 0xFFFF); rinc_put16(p + 2, v >> 16); }
+uint8_t *rinc_stickZipped(uint32_t *size) {
+  uint64_t total = 22; uint32_t at = 0, dir, n = 0; int i; uint8_t *z, *p;
+  for (i = 0; i < rinc_stickCount; i++) { /* (the size: each file's headers and bytes; a folder's entry, empty, ends with /) */
+    const rinc_StickFile *f = &rinc_stickFiles[i];
+    uint32_t bytes = f->folder ? 0 : f->own || !f->deflated ? f->usize : f->csize;
+    total += 30 + 46 + 2ull * (f->nameLen + (uint32_t)f->folder) + bytes;
+  }
+  if (total > 0xFFFFFFFFu || !(z = (uint8_t *)malloc((size_t)total))) return 0;
+  for (i = 0; i < rinc_stickCount; i++) { /* (each file: its local header, then its bytes) */
+    const rinc_StickFile *f = &rinc_stickFiles[i];
+    int packed = !f->folder && !f->own && f->deflated; uint32_t len = f->nameLen + (uint32_t)f->folder;
+    uint32_t bytes = f->folder ? 0 : packed ? f->csize : f->usize, crc = f->folder ? 0 : packed ? f->crc : rinc_crc32(f->own ? f->own : f->packed, f->usize);
+    const uint8_t *src = f->own ? f->own : f->packed;
+    p = z + at; memset(p, 0, 30);
+    rinc_put32le(p, 0x04034B50u); rinc_put16(p + 4, 20); rinc_put16(p + 8, packed ? 8 : 0);
+    rinc_put32le(p + 14, crc); rinc_put32le(p + 18, bytes); rinc_put32le(p + 22, f->folder ? 0 : f->usize); rinc_put16(p + 26, len);
+    memcpy(p + 30, f->name, f->nameLen); if (f->folder) p[30 + f->nameLen] = '/';
+    if (bytes) memcpy(p + 30 + len, src, bytes);
+    at += 30 + len + bytes;
+  }
+  dir = at;
+  for (i = 0, at = 0; i < rinc_stickCount; i++) { /* (the directory: each file's entry again, where it is) */
+    const rinc_StickFile *f = &rinc_stickFiles[i]; uint8_t *local = z; uint32_t len = f->nameLen + (uint32_t)f->folder, k;
+    for (k = 0; k < (uint32_t)i; k++) local += 30 + rinc_le16(local + 26) + rinc_le32(local + 18);
+    p = z + dir + n; memset(p, 0, 46);
+    rinc_put32le(p, 0x02014B50u); rinc_put16(p + 4, 20); rinc_put16(p + 6, 20);
+    memcpy(p + 10, local + 8, 2); memcpy(p + 16, local + 14, 12); rinc_put16(p + 28, len);
+    if (f->folder) rinc_put32le(p + 38, 0x10); /* (a folder) */
+    rinc_put32le(p + 42, (uint32_t)(local - z));
+    memcpy(p + 46, local + 30, len);
+    n += 46 + len; (void)at;
+  }
+  p = z + dir + n; memset(p, 0, 22);
+  rinc_put32le(p, 0x06054B50u); rinc_put16(p + 8, (uint32_t)rinc_stickCount); rinc_put16(p + 10, (uint32_t)rinc_stickCount);
+  rinc_put32le(p + 12, n); rinc_put32le(p + 16, dir);
+  *size = dir + n + 22;
+  return z;
+}
+#else /* (no zip stick: the board's is a thumb drive, sd.c's; the VM-only web player takes none) */
+int rinc_stickMount(uint8_t *zip, uint32_t size, const char *name) { (void)zip; (void)size; (void)name; return -1; }
+void rinc_stickNew(const char *name) { (void)name; }
+const char *rinc_stickIn(void) { return 0; }
+uint8_t *rinc_stickZipped(uint32_t *size) { *size = 0; return 0; }
+#endif
