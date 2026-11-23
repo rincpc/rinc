@@ -7,12 +7,8 @@ key :: proc(k: Int)
   shift := k & SHIFT != 0
   ctrl := k & CTRL != 0
   alt := k & ALT != 0
-  if walking and not (base == 9 and ctrl) # (another key: Ctrl+Tab's list closes, nothing opened; Esc just that)
-    walking = false
-    walkStep = 0
-    if base == 27
-      return
-    end
+  if files.stop(k) # (another key: Ctrl+Tab's list closes, nothing opened; Esc just that)
+    return
   end
   if mode != NONE
     promptKey(k)
@@ -27,7 +23,6 @@ key :: proc(k: Int)
   end
   if base != 14 and base != 15 and not (base == 9 and ctrl)
     confirm = 0 # (a warning stands only until the next key)
-    walkStep = 0 # (and Ctrl+Tab's walk back, only while it's Ctrl+Tab again)
   end
   if base >= 32 and base < 127 and k < 256
     typeChar(base)
@@ -44,6 +39,14 @@ key :: proc(k: Int)
     backspace(ctrl or alt)
   case base == DELETE
     deleteForward(ctrl or alt)
+  case base == 23 and not alt # Ctrl+W: this file closed (out of the recent list), the one before it opened
+    if modified() and confirm != 23
+      say("Unsaved changes: Ctrl+W again drops them", warnColor)
+      confirm = 23
+    else
+      confirm = 0
+      closeFile()
+    end
   case base == 9 and ctrl # Ctrl+Tab: the file before this one (Shift: the one longest ago, round them all)
     if modified() and confirm != 9
       say("Unsaved changes: Ctrl+Tab again drops them", warnColor)
@@ -311,12 +314,8 @@ end
 
 update* :: proc()
   held := pc.modsHeld()
-  if held >= 0 and held & CTRL == 0 # (Ctrl let go: Ctrl+Tab's walk is over, its pick opened)
-    if walking
-      walking = false
-      switchTo(walkStep)
-    end
-    walkStep = 0
+  if files.released(here()) # (Ctrl let go: Ctrl+Tab's walk is over, its pick opened)
+    openPick()
   end
   c := pc.key()
   for c >= 0

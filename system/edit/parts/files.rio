@@ -3,10 +3,9 @@
 # ---------------------------------------------------------------- files
 
 last: Blob[..128] # the file it had last, and where: "path cursor top anchor left" (its save file "last")
-# the files it had lately, the latest first, a line each as last is (its stash "recent"), for Ctrl+Tab
-recent: Blob[..1024]
-recentWas: Blob[..1024]
-RECENT :: 8
+# the files it had lately, the latest first, each with where it was (cursor, top, anchor, left: its
+# place), for Ctrl+Tab and Ctrl+W (rinc's recent library, its stash "recent")
+files := recent.Recent{}
 
 here :: proc() -> String
   return path[0..<path.len()].asString()
@@ -130,25 +129,7 @@ remember :: proc()
   _ = last.print(" ", cursor, " ", top, " ", anchor, " ", left)
   saved := pc.saveWrite("last", last[0..<last.len()].asString())
   if path.len() > 0
-    recentWas.clear()
-    _ = pc.stashRead("recent", recentWas)
-    recent.clear()
-    ok = recent.pushAll(last[0..<last.len()])
-    ok = recent.push(10)
-    n := 1
-    at := 0
-    for i in 0..<recentWas.len()
-      if recentWas[i] == 10
-        line := recentWas[at..<i].asString()
-        if n < RECENT and line.len() > 0 and pathOf(line) != here()
-          ok = recent.pushAll(line)
-          ok = recent.push(10)
-          n += 1
-        end
-        at = i + 1
-      end
-    end
-    saved = pc.stashWrite("recent", recent[0..<recent.len()].asString())
+    files.note(here(), last[path.len()..<last.len()].asString()) # (its place: " cursor top anchor left")
   end
   a := appOf(here())
   if a.len() > 0
@@ -305,63 +286,48 @@ load :: proc(p: String) -> Bool
 end
 
 # Ctrl+Tab: the file it had before this one, where it was; again while Ctrl's still held, the one before
-# that, and so on, through the list as it was when the walk began (back, Ctrl+Shift+Tab: the other way,
-# from the one it had longest ago). While Ctrl's held, the list is on the screen (walking) and Tab just
-# moves its pick: letting go opens it (update, in keys.rio), and another key, Esc too, closes it. Where
-# Rinc can't tell what's held (pc.modsHeld, -1), each press opens its file, and the walk goes on while
-# the presses come within 1.5 seconds; another key ends it there too (keys.rio sets walkStep to 0)
-walk: Blob[..1024]
-walkStep := 0
-walkAt := 0.0
-walking := false
+# that, and so on (back, Ctrl+Shift+Tab: the other way, from the one it had longest ago): rinc's recent
+# library walks them, the list on the screen while Ctrl's held (letting go opens the pick: update)
 switchTarget: Blob[..128]
-# line k of the walk's list, opened where it was (nothing, if it's this one)
-switchTo :: proc(k: Int)
-  line := lineIn(walk.asString(), k)
-  if line.len() == 0 or pathOf(line) == here()
-    return
-  end
-  at := placeOf(line)
+# the walk's pick, opened where it was
+openPick :: proc()
   switchTarget.clear()
-  ok := switchTarget.pushAll(pathOf(line))
+  ok := switchTarget.pushAll(files.pickPath())
+  at := placeOf(files.pickPlace())
   if load(switchTarget[0..<switchTarget.len()].asString())
     restore(at)
     remember()
   end
 end
 switchRecent :: proc(back: Bool)
-  held := pc.modsHeld() >= 0
-  if not walking and (walkStep == 0 or (not held and pc.appTime() - walkAt > 1.5)) # (a walk begins)
-    if path.len() > 0
-      remember() # (this one's place, first)
-    end
-    walk.clear()
-    _ = pc.stashRead("recent", walk)
-    walkStep = 0
+  if path.len() > 0 and not files.walking
+    remember() # (this one's place, first)
   end
-  n := linesIn(walk.asString())
-  k := walkStep + 1
-  if back
-    k = walkStep - 1 + n
-  end
-  if n > 0
-    k = k % n
-  end
-  if path.len() == 0 and k == 0 and n > 1 # (nothing open: the latest isn't this one)
-    k = walkStep
-  end
-  line := lineIn(walk.asString(), k)
-  if line.len() == 0 or (n < 2 and pathOf(line) == here())
+  k := files.step(back, here())
+  if k < 0
     say("No other file lately", softColor)
+  case k > 0
+    openPick()
+  end
+end
+# Ctrl+W: this file closed: out of the recent list, the latest still in it opened where it was (none: a
+# new file)
+closeFile :: proc()
+  next := files.drop(here())
+  if next.len() == 0
+    fresh()
+    say("Closed: no other file lately", softColor)
     return
   end
-  walkStep = k
-  walkAt = pc.appTime()
-  if held # (the pick, on the list: letting go of Ctrl opens it)
-    walking = true
-    return
+  switchTarget.clear()
+  ok := switchTarget.pushAll(next)
+  at := placeOf(files.placeAt(0))
+  if load(switchTarget[0..<switchTarget.len()].asString())
+    restore(at)
+    remember()
+  else
+    fresh()
   end
-  switchTo(k)
 end
 
 # where the last app to stop with an error stopped (taken, so once): its file, opened, with what's

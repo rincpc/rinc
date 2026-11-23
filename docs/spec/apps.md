@@ -733,6 +733,9 @@ tune.tick()                               # only to show where it's playing: tun
 ```
 
 - `clip`: the clipboard every app shares (see the clipboard).
+- `recent`: the files an app had lately, the latest first, each with where it was (a note of the app's
+  own), in its stash: Ctrl+Tab walks them (the list on the screen while Ctrl's held, letting go opens the
+  pick), Ctrl+W closes one (out of the list). The editor and studio's apps use it.
 - `notice`: a few words shown for a while, then gone (a game's "Keeper: our lamp went out", an app's
   "Saved"): said once, drawn each frame while it lasts (counted as it's drawn: 4 seconds, or as long as
   it's told), in a box at the screen's bottom, or where the app says, wrapped to it. What's said is kept

@@ -4,6 +4,7 @@
 
 import undolog
 import clip
+import recent
 include "parts/setup.rio"
 include "parts/text.rio"
 include "parts/editing.rio"

@@ -1,0 +1,231 @@
+# recent: the files an app had lately, the latest first, each with where it was in it (a note of the app's
+# own: its cursor, say), kept in the app's stash; Ctrl+Tab walks them, and Close drops one. While Ctrl's
+# held, Ctrl+Tab shows the list, the pick lit, Tab moving it; letting go opens it, another key (Esc too)
+# closes the list. Where Rinc can't tell what's held (pc.modsHeld, -1: a terminal), each Ctrl+Tab opens
+# its file at once, and a walk goes on while the presses come within 1.5 seconds.
+#
+#   import recent
+#   files := recent.Recent{}
+#   files.note(path, "12 3")                 (each time a file opens or saves: first, with where it was)
+#   case Ctrl+Tab: if files.step(shift, path) == 1 do open(files.pickPath(), files.pickPlace())
+#   case Ctrl+W:   next := files.drop(path)  (the file closed: "" for none left, else the one to open)
+#   in update, before the keys: if files.released(path) do open(files.pickPath(), files.pickPlace())
+#   each other key: files.stop() (true for Esc that closed the list: nothing else to do)
+#   in draw, last: files.draw() (the list while Ctrl's held; an app with no room for its code: say
+#   files.pickPath() as step gives 0 instead, the compiler leaving draw out)
+
+MOST* :: 8                # files kept, at most
+LINES :: 640              # (their lines' room: a path, a tab, a place, a newline each: about 80 a file)
+
+Recent* :: struct
+  key: static String      # its stash key (left out: "recent")
+  walking: Bool           # (the list on the screen: Ctrl held)
+  at: Int                 # (the walk's step: the pick, in list)
+  when: Float             # (the last step's time: a terminal's walk goes on within 1.5 s)
+end
+
+one: Blob[..160] # (a line, as it's written)
+lines: Blob[..LINES]      # (the list's lines as the stash had them, a walk's: one list an app)
+picked: Blob[..160]       # (the file to open, as the walk ended on it: its line)
+
+Recent.stashKey :: proc() -> String
+  if self.key.len() == 0
+    return "recent"
+  end
+  return self.key
+end
+# line k of a list (from 0; "" past its end), and how many it has
+lineOf :: proc(t: String, k: Int) -> String
+  at := 0
+  n := 0
+  for i in 0..<t.len()
+    if t[i] == 10
+      if n == k
+        return t[at..<i]
+      end
+      n += 1
+      at = i + 1
+    end
+  end
+  return ""
+end
+linesOf :: proc(t: String) -> Int
+  n := 0
+  for i in 0..<t.len()
+    n += (t[i] == 10).toInt()
+  end
+  return n
+end
+# a line's path (before its tab) and place (after it)
+tabIn :: proc(l: String) -> Int
+  for i in 0..<l.len()
+    if l[i] == 9
+      return i
+    end
+  end
+  return l.len()
+end
+pathIn* :: proc(l: String) -> String do return l[0..<tabIn(l)]
+placeIn* :: proc(l: String) -> String do return l[min(tabIn(l) + 1, l.len())..<l.len()]
+
+# the stash's list, read into list
+Recent.read :: proc()
+  lines.clear()
+  _ = pc.stashRead(self.stashKey(), lines)
+end
+# the list written: first (none: ""), then the lines read that are kept (not skip's path; a line from
+# before, without a tab, left out), MOST at most: a line at a time, so no second copy's needed
+Recent.write :: proc(first: String, skip: String)
+  t := lines.asString()
+  at := 0
+  n := 0
+  if first.len() > 0
+    _ = pc.stashWrite(self.stashKey(), first)
+    at = first.len()
+    n = 1
+  else
+    _ = pc.stashWrite(self.stashKey(), "")
+  end
+  for k in 0..<linesOf(t)
+    l := lineOf(t, k)
+    if n < MOST and pathIn(l) != skip and tabIn(l) < l.len() and tabIn(l) > 0
+      one.clear()
+      fine := one.pushAll(l) and one.push(10)
+      _ = pc.stashWriteAt(self.stashKey(), at, one.asString())
+      at += one.len()
+      n += 1
+    end
+  end
+end
+# path, first in the list, where it is now (place: the app's own note), the others after it
+Recent.note* :: proc(path: String, place: String)
+  if path.len() == 0
+    return
+  end
+  self.read()
+  one.clear()
+  fine := one.pushAll(path) and one.push(9) and one.pushAll(place) and one.push(10)
+  self.write(one.asString(), path)
+end
+# path taken out of the list (Close): the latest still in it, to open next ("" for none)
+Recent.drop* :: proc(path: String) -> String
+  self.read()
+  self.write("", path)
+  self.walking = false
+  self.at = 0
+  self.read()
+  return pathIn(lineOf(lines.asString(), 0))
+end
+# file k's path and place (from 0: the latest), as the list was last read
+Recent.pathAt* :: proc(k: Int) -> String do return pathIn(lineOf(lines.asString(), k))
+Recent.placeAt* :: proc(k: Int) -> String do return placeIn(lineOf(lines.asString(), k))
+# the walk's pick (as step's 1 or released's true left it)
+Recent.pickPath* :: proc() -> String do return pathIn(picked.asString())
+Recent.pickPlace* :: proc() -> String do return placeIn(picked.asString())
+Recent.pick :: proc()
+  picked.clear()
+  fine := picked.pushAll(lineOf(lines.asString(), self.at))
+end
+
+# Ctrl+Tab (back: Ctrl+Shift+Tab, from the one longest ago), here the file open now ("" for none): 1, open
+# the pick now (Rinc can't tell Ctrl's held); 0, the list's showing, the pick moved (Ctrl let go opens it:
+# released); -1, no other file to go to
+Recent.step* :: proc(back: Bool, here: String) -> Int
+  held := pc.modsHeld() >= 0
+  if not self.walking and (self.at == 0 or (not held and pc.appTime() - self.when > 1.5)) # (a walk begins)
+    self.read()
+    self.at = 0
+  end
+  t := lines.asString()
+  n := linesOf(t)
+  k := self.at + 1
+  if back
+    k = self.at - 1 + n
+  end
+  if n > 0
+    k = k % n
+  end
+  if here.len() == 0 and k == 0 and n > 1 # (nothing open: the latest isn't this one)
+    k = self.at
+  end
+  if n == 0 or (n < 2 and pathIn(lineOf(t, k)) == here)
+    return -1
+  end
+  self.at = k
+  self.when = pc.appTime()
+  if held
+    self.walking = true
+    return 0
+  end
+  self.pick()
+  return 1
+end
+# in update, before the keys: Ctrl let go while the list showed: true, the pick to open (unless it's here)
+Recent.released* :: proc(here: String) -> Bool
+  held := pc.modsHeld()
+  if held < 0 or held & 512 != 0
+    return false
+  end
+  self.pick()
+  open := self.walking and self.pickPath() != here
+  self.walking = false
+  self.at = 0
+  return open
+end
+# another key than Ctrl+Tab: the list closed, nothing opened (true: it was showing, and this was Esc: done)
+Recent.stop* :: proc(k: Int) -> Bool
+  if k & 255 == 9 and k & 512 != 0
+    return false
+  end
+  showing := self.walking
+  self.walking = false
+  self.at = 0
+  return showing and k & 255 == 27
+end
+
+# the list while Ctrl's held: each file's name, then its folder (/ left off; its end, if it's long),
+# dimmer; the pick lit
+Recent.draw* :: proc()
+  if not self.walking
+    return
+  end
+  t := lines.asString()
+  n := linesOf(t)
+  screen := pc.screenSize()
+  w := min(240, screen.x - 8)
+  h := 18 + n * 10
+  x0 := (screen.x - w) / 2
+  y0 := (screen.y - h) / 2
+  cols := (w - 12) / 6
+  pc.rect({x0, y0}, {w, h}, pc.theme(pc.Role.bar))
+  pc.print("Let go of Ctrl to open:", {x0 + 6, y0 + 4}, pc.theme(pc.Role.accent))
+  for i in 0..<n
+    p := pathIn(lineOf(t, i))
+    s := p.len() - 1
+    for s >= 0 and p[s] != 47
+      s -= 1
+    end
+    name := p[s + 1..<p.len()]
+    name = name[0..<min(name.len(), cols)]
+    folder := p[0..<max(s, 0)]
+    if folder.len() > 0 and folder[0] == 47
+      folder = folder[1..<folder.len()]
+    end
+    y := y0 + 16 + i * 10
+    color := pc.theme(pc.Role.soft)
+    if i == self.at
+      pc.rect({x0 + 4, y - 2}, {w - 8, 10}, pc.theme(pc.Role.pick))
+      color = pc.theme(pc.Role.text)
+    end
+    pc.print(name, {x0 + 8, y}, color)
+    room := cols - name.len() - 2 # (characters left for the folder)
+    if room >= 4 and folder.len() > 0
+      right := x0 + w - 8
+      if folder.len() > room # (its end, which says the most)
+        folder = folder[folder.len() - room + 2..<folder.len()]
+        pc.print("..", {right - (folder.len() + 2) * 6, y}, pc.theme(pc.Role.dim))
+      end
+      pc.print(folder, {right - folder.len() * 6, y}, pc.theme(pc.Role.dim))
+    end
+  end
+end

@@ -22,6 +22,7 @@
 
 import undolog      # (rinc's library: undo and redo kept on the card)
 import clip         # (and the clipboard every app shares)
+import recent       # (and the files it had lately: Ctrl+Tab, Ctrl+W)
 include "parts/setup.rio"
 include "parts/text.rio"
 include "parts/editing.rio"

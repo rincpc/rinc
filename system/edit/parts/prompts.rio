@@ -21,12 +21,13 @@ lower :: proc(c: Int) -> Int
 end
 
 # every command, for the system's list (Sys+P, or Ctrl+Shift+P here): each the key it is, as typed
-COMMANDS :: 25
+COMMANDS :: 26
 NUMBERS_COMMAND :: 4096 # (one of its own, with no key: line numbers, shown or not)
 commands := [COMMANDS]pc.Command{
   {label = "Open a file", keys = "^O", key = 15},
   {label = "The file before this one", keys = "^Tab", key = 9 | CTRL},
   {label = "The file longest ago (round them all)", keys = "^Shift+Tab", key = 9 | CTRL | SHIFT},
+  {label = "Close this file (out of the recent list)", keys = "^W", key = 23},
   {label = "Save", keys = "^S", key = 19},
   {label = "Save as", keys = "^Shift+S", key = 19 | SHIFT},
   {label = "Run its app", keys = "^R", key = 18},

@@ -51,6 +51,15 @@ typing(CTRL_TAB + CTRL_TAB + '\\u' + 'p' + SAVE, 150, 40) # (two down the list: 
 check(get('projects/demo/parts/a.rio') == 'yausp :: 1\n', 'Ctrl+Tab, Tab, then Ctrl let go: the pick opened: %r' % get('projects/demo/parts/a.rio'))
 typing(CTRL_TAB + '\\e' + '\\u' + 'o' + SAVE, 150, 40)
 check(get('projects/demo/parts/a.rio') == 'yauspo :: 1\n', 'Ctrl+Tab, then Esc: the list closed, nothing opened: %r' % get('projects/demo/parts/a.rio'))
+# Ctrl+W: this file closed: out of the recent list, the latest still in it opened (typed into, saved: it's
+# that one, not a.rio); and Ctrl+Tab's list goes on without a.rio
+before = {f: get(f) for f in ('projects/demo/parts/a.rio', 'projects/demo/parts/b.rio', 'projects/demo/demo.rio')}
+typing('\\x17' + 'q' + SAVE)
+after = {f: get(f) for f in before}
+changed = [f for f in before if before[f] != after[f]]
+check(changed and changed[0] != 'projects/demo/parts/a.rio' and len(changed) == 1 and 'q' in after[changed[0]], 'Ctrl+W: closed, the one before opened: %r' % after)
+recent = open(os.path.join(data, 'stash', 'edit', 'recent')).read()
+check('/projects/demo/parts/a.rio' not in recent, 'Ctrl+W: out of the recent list: %r' % recent)
 put('settings/active', 'live')
 typing('w' + SAVE)
 check(get('apps/live/live.rio') == 'log(2)\n' and get('projects/live/live.rio') == 'wlog(2)\n', "an installed app's file, saved in its project")

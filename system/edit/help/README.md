@@ -24,6 +24,7 @@ with what's active (another app can pick one for it), else the file it had last,
 | arrows, Home, End, Page Up, Page Down | move: with Ctrl, by words and to either end; with Shift, select |
 | Ctrl+O, Ctrl+S, Ctrl+Shift+S | open a file (Files picks it), save it, save it as another (Files picks where) |
 | Ctrl+Tab, Ctrl+Shift+Tab | the files had lately (the last 8), listed while Ctrl's held: Tab moves down it (Shift+Tab up), letting go of Ctrl opens the one picked where it was, and Esc closes it. A quick Ctrl+Tab goes back and forth between two |
+| Ctrl+W | close this file: out of the files had lately, the one before it opened where it was (none left: a new file). Not saved: Ctrl+W again drops the changes |
 | Ctrl+R, Ctrl+N | save and run its app or project, start a new file |
 | Ctrl+Shift+P | every command, to type to narrow and pick one (the system's list: the system key with P too) |
 | Ctrl+Z, Ctrl+Y (or Ctrl+Shift+Z) | undo, redo |

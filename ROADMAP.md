@@ -34,6 +34,15 @@ app is a Rio program.
      high; tests/notice.rio); Cloudlamp's dialog in it, its title taken out (title.png left in its folder,
      unused, for the user to keep or drop). Left for the user: touching up letters (its "s" reads small).
   2. Close (drop a file from the recent list; Ctrl+W or such, 1b's note) and Ctrl+Tab in every studio app.
+     Done (2026-11-23): rinc's recent library (the editor's list and walk, moved out): Ctrl+Tab and
+     Ctrl+W (close: out of the list, the one before opened; not saved: again drops the changes) in the
+     editor, Paint, Maps, Music and Sound. Paint and Music had almost no room (372 and ~500 bytes free):
+     they say the pick's name instead of drawing the list (the compiler leaves draw out); Paint's fill
+     stack made 2-byte (2 KB), its flag records sized to a whole sheet of 8s (1,280: 1.4 KB) and its flag
+     buffer to 384 bytes. Tests: rinc's editor.py (Ctrl+W), studio's recent.py (each app). Ctrl+W chosen
+     (the user's note: one finger slipping; it only drops a file from the list, and asks first if unsaved).
+     The user (2026-11-23): later, maybe simple 3D and an ultra easy 3D modeling app, after a transformed
+     blit with shading; and text formatting, text animation and visual novel features in a library.
   3. Studio state per file; Maps' cleanups (paste anchor, Ctrl+T for every layer); map parts as brushes.
   4. The app's log over serial while it runs, if it helps working on the board (Sys+M already shows frame
      times on screen).
