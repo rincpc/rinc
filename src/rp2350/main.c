@@ -15,6 +15,7 @@
 #include "pico/stdlib.h"
 #include "hardware/clocks.h"
 #include "rinc.h"
+void rinc_stickIdle(void); /* the thumb drive: its cache flushed once it's quiet (sd.c) */
 #include "video.h"
 #include "keyboard.h"
 #include "gamepad.h"
@@ -136,6 +137,7 @@ static int rinc_type(void) {
 /* a frame, at each vertical blank, right after the screen was copied for showing */
 static void rinc_frameNow(void) {
   static uint32_t last; static int wasConnected; int stop = 0, connected;
+  rinc_stickIdle(); /* (the thumb drive's cache flushed, once it's been quiet a moment: sd.c) */
   while (rinc_frames == last) { rinc_keyboardPoll(); stop |= rinc_type(); } /* (the USB host runs all the while) */
   last = rinc_frames;
   rinc_volumeKeep(); /* (the volume keys' level, kept a second after it last changed) */

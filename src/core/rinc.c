@@ -2989,6 +2989,7 @@ static const struct { const char *label, *keys; int bit; } rinc_sysCommands[] = 
   {"The stick: a new, empty one", "", -1}, {"The stick: download it, as a zip", "", -2}}; /* (the stick's: last, where the platform has rinc_stickSave) */
 #define rinc_SYS_COMMANDS ((int)(sizeof rinc_sysCommands / sizeof rinc_sysCommands[0])) /* (all: the stick's two shown only with rinc_stickSave) */
 void (*rinc_stickSave)(const uint8_t *zip, uint32_t size, const char *name);
+void (*rinc_stickStats)(char *said, size_t cap);
 /* the stick's commands (plans/drives.md): 1 a new, empty one; 2 it, downloaded as a zip */
 static void rinc_stickCommand(int which) {
   uint32_t size; uint8_t *zip; const char *name = rinc_stickIn();
@@ -3521,6 +3522,12 @@ static int rinc_command(rinc_Repl *r) {
                (unsigned long)(us / blocks * 100 / span), (unsigned long)(us / blocks), (unsigned long)span, (unsigned long)(peak * 100 / span), (unsigned long)blocks);
       rinc_replSay(r, said);
     }
+    return 1;
+  }
+  if (w == 5 && n == 5 && !memcmp(s, "stick", 5)) { /* the thumb drive's reads, writes and flushes, since last asked */
+    char said[200];
+    if (rinc_stickStats) rinc_stickStats(said, sizeof said); else snprintf(said, sizeof said, "stick: none here\r\n");
+    rinc_replSay(r, said);
     return 1;
   }
   if (w == 5 && n == 5 && !memcmp(s, "frame", 5)) { /* how long the app's frames take, since last asked (a frame is 16.7 ms at 60 a second) */

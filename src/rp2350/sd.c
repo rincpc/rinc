@@ -89,6 +89,7 @@ static int rinc_writeBlock(const uint8_t *buf, uint32_t n) {
 /* the stick: the first thumb drive plugged in (512-byte blocks), its blocks read and written through
    TinyUSB, each request waited for (TinyUSB run meanwhile, as the keyboard's poll runs it) */
 static uint8_t rinc_mscDev; static volatile int rinc_mscDone, rinc_mscOk;
+static int rinc_mscDirty; static uint64_t rinc_mscWrote, rinc_mscFlushed; /* (written to since the stick's cache was last flushed, and when) */
 static FATFS rinc_stickVolume; static int rinc_stickMounted;
 void tuh_msc_mount_cb(uint8_t dev) { if (!rinc_mscDev && tuh_msc_get_block_size(dev, 0) == 512) rinc_mscDev = dev; }
 void tuh_msc_umount_cb(uint8_t dev) {
@@ -103,30 +104,45 @@ static int rinc_mscWait(int ready) { /* (ready: till it takes a request; else ti
   while (rinc_mscDev && (ready ? !tuh_msc_ready(rinc_mscDev) : !rinc_mscDone)) { tuh_task(); if (time_reached(until)) return 0; }
   return rinc_mscDev && (ready || rinc_mscOk);
 }
+static uint32_t rinc_mscN[3], rinc_mscBlocks[3]; static uint64_t rinc_mscUs[3]; /* (reads, writes, flushes: since last asked) */
+static void rinc_mscStats(char *said, size_t cap) {
+  snprintf(said, cap, "stick: %lu reads (%lu blocks, %lu ms), %lu writes (%lu blocks, %lu ms), %lu flushes (%lu ms)\r\n",
+           (unsigned long)rinc_mscN[0], (unsigned long)rinc_mscBlocks[0], (unsigned long)(rinc_mscUs[0] / 1000), (unsigned long)rinc_mscN[1],
+           (unsigned long)rinc_mscBlocks[1], (unsigned long)(rinc_mscUs[1] / 1000), (unsigned long)rinc_mscN[2], (unsigned long)(rinc_mscUs[2] / 1000));
+  memset(rinc_mscN, 0, sizeof rinc_mscN); memset(rinc_mscBlocks, 0, sizeof rinc_mscBlocks); memset(rinc_mscUs, 0, sizeof rinc_mscUs);
+}
 static DRESULT rinc_mscIo(int write, BYTE *buf, LBA_t sector, UINT count) {
+  uint64_t t0 = time_us_64();
+  rinc_stickStats = rinc_mscStats;
+  rinc_mscN[write]++; rinc_mscBlocks[write] += count;
   for (; count; ) {
     uint16_t n = count > 64 ? 64 : (uint16_t)count; int sent;
     if (!rinc_mscWait(1)) return RES_NOTRDY;
     rinc_mscDone = 0;
     sent = write ? tuh_msc_write10(rinc_mscDev, 0, buf, (uint32_t)sector, n, rinc_mscCb, 0) : tuh_msc_read10(rinc_mscDev, 0, buf, (uint32_t)sector, n, rinc_mscCb, 0);
+    if (write) { if (!rinc_mscDirty) rinc_mscFlushed = time_us_64(); rinc_mscDirty = 1; rinc_mscWrote = time_us_64(); } /* (the first unflushed write: the 2 seconds from it) */
     if (!sent || !rinc_mscWait(0)) return RES_ERROR;
     count -= n; sector += n; buf += (size_t)n * 512;
   }
+  rinc_mscUs[write] += time_us_64() - t0;
   return RES_OK;
 }
 
-/* the stick's own cache written out (SCSI's SYNCHRONIZE CACHE (10)), as FatFs syncs (each file closed, so
-   what's written is on the stick, not just sent to it): 0 if the stick's gone. One that doesn't know the
-   command says so, and that's fine: it has no cache to lose */
+/* the stick's own cache written out (SCSI's SYNCHRONIZE CACHE (10)), so what's written is on the stick, not
+   just sent to it: 0 if the stick's gone. One that doesn't know the command says so, and that's fine: it
+   has no cache to lose. Not at each of FatFs's syncs (each file closed, each folder made: a flush each made
+   a copy of many files slow), but once the writing's paused a moment (rinc_stickIdle) */
 static int rinc_mscSync(void) {
-  msc_cbw_t cbw;
+  msc_cbw_t cbw; uint64_t t0 = time_us_64(); int ok;
   memset(&cbw, 0, sizeof cbw);
   cbw.signature = MSC_CBW_SIGNATURE; cbw.tag = 0x54555342; cbw.cmd_len = 10; cbw.command[0] = 0x35;
   if (!rinc_mscWait(1)) return 0;
   rinc_mscDone = 0;
   if (!tuh_msc_scsi_command(rinc_mscDev, &cbw, 0, rinc_mscCb, 0)) return 0;
   rinc_mscWait(0); /* (its status: either way) */
-  return rinc_mscDev != 0;
+  ok = rinc_mscDev != 0;
+  rinc_mscN[2]++; rinc_mscUs[2] += time_us_64() - t0;
+  return ok;
 }
 
 /* FatFs's disks: 0 the card, 1 the stick */
@@ -150,7 +166,7 @@ DRESULT disk_write(BYTE drive, const BYTE *buf, LBA_t sector, UINT count) {
 }
 DRESULT disk_ioctl(BYTE drive, BYTE cmd, void *buf) {
   if (drive == 1) {
-    if (cmd == CTRL_SYNC) return rinc_mscSync() ? RES_OK : RES_NOTRDY;
+    if (cmd == CTRL_SYNC) return rinc_mscDev ? RES_OK : RES_NOTRDY; /* (FatFs's own buffers written by now; the stick's cache, once it's quiet: rinc_stickIdle) */
     if (cmd == GET_BLOCK_SIZE) { *(DWORD *)buf = 1; return rinc_mscDev ? RES_OK : RES_NOTRDY; }
     return RES_PARERR;
   }
@@ -195,9 +211,13 @@ static int rinc_fsOpen(const char *path, int how) {
   if (rinc_isOpen) { f_close(&rinc_file); rinc_isOpen = 0; }
   if (!rinc_mount()) { rinc_mounted = 0; return -1; }
   if (!(path = rinc_fat(path, fat, sizeof fat))) return -1;
-  if (how != rinc_READ && !rinc_mkdirs(path)) return -1;
   if (how != rinc_READ) rinc_storageChanged(path);
-  { FRESULT r = f_open(&rinc_file, path, mode); if (r != FR_OK) return rinc_failed(r); }
+  { FRESULT r = f_open(&rinc_file, path, mode);
+    if (r == FR_NO_PATH && how != rinc_READ) { /* (its folders made only when they aren't there: not each write, a lookup each over a thumb drive's USB) */
+      if (!rinc_mkdirs(path)) return -1;
+      r = f_open(&rinc_file, path, mode);
+    }
+    if (r != FR_OK) return rinc_failed(r); }
   rinc_isOpen = 1;
   return 0;
 }
@@ -252,3 +272,16 @@ static int rinc_fsMkdir(const char *path) {
 }
 static const rinc_Fs rinc_sdFs = {rinc_fsOpen, rinc_fsRead, rinc_fsWrite, rinc_fsClose, rinc_fsList, rinc_fsRemove, rinc_fsCopy, rinc_fsRename, rinc_fsMkdir, rinc_fsSeek, rinc_fsSize};
 void rinc_sdSetup(void) { gpio_init(rinc_PIN_DETECT); gpio_pull_up(rinc_PIN_DETECT); rinc_fs = &rinc_sdFs; }
+
+/* between frames: the stick's cache flushed once writing to it has paused a quarter of a second, and at
+   least every 2 seconds while it goes on (a long copy): a finished save is on the stick a moment after,
+   and a long copy's files done so far within 2 seconds, so no eject's needed (a flush takes ~10 ms; a
+   flush a file had made a copy of many no faster, the stick's own requests being what takes the time) */
+void rinc_stickIdle(void) {
+  uint64_t now = time_us_64();
+  if (rinc_mscDirty && rinc_mscDev && (now - rinc_mscWrote > 250000 || now - rinc_mscFlushed > 2000000)) {
+    rinc_mscDirty = 0;
+    rinc_mscFlushed = now;
+    rinc_mscSync();
+  }
+}

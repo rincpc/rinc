@@ -90,6 +90,8 @@ uint8_t *rinc_stickZipped(uint32_t *size);
 /* the platform's way to hand the stick's zip out (the web: a download; the desktop: a file): set where
    there's one, and then the command list has the stick's commands (new, and download) */
 extern void (*rinc_stickSave)(const uint8_t *zip, uint32_t size, const char *name);
+/* the board's thumb drive: its reads, writes and flushes since last asked, a line (the firmware console's stick) */
+extern void (*rinc_stickStats)(char *said, size_t cap);
 /* a notice at the bottom left for a few seconds: what, then name (32 at most) */
 void rinc_noticeShow(const char *what, const char *name);
 /* after a drop on the screen (bad: nothing installed): home, if there is one now (rinc_launch), else
