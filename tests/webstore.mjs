@@ -43,17 +43,17 @@ const run = (page, name, data, local) => { // (a tab: its script, running; tick(
   const script = readFileSync(page, "utf8").match(/<script>([\s\S]*)<\/script>/)[1];
   const noop = () => {};
   const element = { addEventListener: noop, getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData: noop }), getBoundingClientRect: () => ({ left: 0, top: 0, width: 320, height: 240 }) };
-  const tab = { tick: null };
+  const tab = { tick: null, clock: 0 }; // (its own clock, a 60th of a second a frame: the page runs its app a frame each 60th, as the clock it's given says, so a machine's fast or slow timers don't change what's run)
   const errEl = { hidden: true, textContent: "" };
   vm.runInNewContext(script, {
-    localStorage: storage(local), indexedDB: fakeIndexedDB(data), BroadcastChannel, performance, atob, Blob, Response, DecompressionStream, TextDecoder, TextEncoder, Uint8Array, WebAssembly, URL, Math, Promise, Date,
+    localStorage: storage(local), indexedDB: fakeIndexedDB(data), BroadcastChannel, performance: { now: () => tab.clock }, atob, Blob, Response, DecompressionStream, TextDecoder, TextEncoder, Uint8Array, WebAssembly, URL, Math, Promise, Date,
     console: { log: s => { logged += name + ": " + s + "\n"; } }, navigator: {},
     document: { querySelector: () => element, getElementById: () => errEl, addEventListener: noop, documentElement: {} },
     addEventListener: noop, requestAnimationFrame: f => { tab.tick = f; }, confirm: () => true, location: { reload: noop },
   });
   tab.frames = async n => {
     for (let i = 0; i < 300 && !tab.tick; i++) await new Promise(r => setTimeout(r, 10));
-    for (let i = 0; i < n && tab.tick; i++) { const f = tab.tick; tab.tick = null; f(performance.now()); await new Promise(r => setTimeout(r, 1)); }
+    for (let i = 0; i < n && tab.tick; i++) { const f = tab.tick; tab.tick = null; tab.clock += 1000 / 60; f(tab.clock); await new Promise(r => setImmediate(r)); }
   };
   return tab;
 };
