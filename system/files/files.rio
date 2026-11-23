@@ -82,6 +82,7 @@ end
 import clip         # (rinc's library: the clipboard every app shares)
 include "parts/folder.rio"
 include "parts/opening.rio"
+include "parts/jobs.rio"
 include "parts/actions.rio"
 include "parts/clip.rio"
 include "parts/commands.rio"

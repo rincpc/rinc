@@ -74,6 +74,9 @@ openMenu :: proc()
 end
 
 startPrompt :: proc(m: Int)
+  if jobBusy() # (copying, renaming, deleting, a new folder: once a long one's done)
+    return
+  end
   mode = m
   field.set("")
   if m == RENAME or m == COPY # (from its name, selected but for a file's extension, as Windows has it)
@@ -147,17 +150,6 @@ projectRef :: proc(s: String) -> String
   return refTo[0..<refTo.len()].asString()
 end
 
-# this folder again, with name picked
-reopen :: proc(name: String)
-  ok := open(here())
-  for i in 0..<nshown
-    if nameOf(shown[i]) == name
-      pick = i
-    end
-  end
-  selectOnly(pick)
-  reveal()
-end
 
 from: Blob[..160]
 promptDone :: proc()
@@ -185,21 +177,29 @@ promptDone :: proc()
     mode = NONE
     gone := 0
     left := 0
+    begun := false
     for j in 0..<count
       if marked[j]
         res := 0
         ref := appRef(j)
         if kind[j] == FOLDER and ref.len() > 0
           res = pc.appDelete(ref)
-        else
-          res = pc.fileDelete(pathTo(nameOf(j)))
+        else # (a piece at a time: jobs.rio)
+          if not begun do jobBegin(true, false, "")
+          begun = true
+          jobAdd(pathTo(nameOf(j)), "")
+          res = 1
         end
         if res == 0
           gone += 1
-        else
+        case res < 0
           left += 1
         end
       end
+    end
+    if begun
+      jobGo("")
+      return
     end
     reopen("")
     message.clear()
@@ -221,6 +221,11 @@ promptDone :: proc()
     ref := appRef(k)
     if kind[k] == FOLDER and ref.len() > 0
       res = pc.appDelete(ref)
+    case kind[k] == FOLDER # (a folder: planned, then deleted, a box showing it: jobs.rio)
+      jobBegin(true, false, "")
+      jobAdd(pathTo(nameOf(k)), "")
+      jobGo("")
+      return
     else
       res = pc.fileDelete(pathTo(nameOf(k)))
     end

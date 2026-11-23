@@ -102,6 +102,7 @@ static uint32_t rinc_vline;   /* the line the next posted block belongs to */
 static bool rinc_pixelsNext; /* posted an active line's commands; its pixels come next */
 volatile uint32_t rinc_frames;
 volatile int rinc_drawing; /* an app's update and draw are under way: what's in rinc_screen isn't a whole frame yet */
+volatile uint32_t rinc_shownCopies; /* (each copy of a whole frame to the screen shown: main.c waits for one after a slow frame) */
 
 static void __scratch_x("") rinc_convert(int y) {
   int z = rinc_zoom; const uint8_t *s = shown[y >> z]; uint32_t *d = rinc_line[y & 1]; int x;
@@ -135,6 +136,7 @@ static void __scratch_x("") rinc_dmaDone(void) {
       if (!rinc_drawing) {
         dma_channel_set_read_addr(rinc_copy, rinc_screen, false);
         dma_channel_set_write_addr(rinc_copy, shown, true);
+        rinc_shownCopies++;
       }
       rinc_frames++;
     }
@@ -237,4 +239,11 @@ void rinc_videoStart(void) {
   for (i = 12; i <= 19; i++) gpio_set_function((uint)i, GPIO_FUNC_HSTX);
   dma_channel_wait_for_finish_blocking(rinc_copy);
   multicore_launch_core1(rinc_core1);
+}
+
+void rinc_waitShown(uint32_t copies, void (*poll)(void)) {
+  uint64_t until = time_us_64() + 20000;
+  if (rinc_shownCopies != copies) return;
+  while (rinc_shownCopies == copies && time_us_64() < until) poll();
+  while (dma_channel_is_busy(rinc_copy) && time_us_64() < until) {} /* (copied whole, before it's drawn over) */
 }

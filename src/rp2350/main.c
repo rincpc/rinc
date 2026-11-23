@@ -154,9 +154,15 @@ static void rinc_frameNow(void) {
     (rinc_lettersAsButtons() ? rinc_DOWN(HID_KEY_V) * rinc_Button_a | rinc_DOWN(HID_KEY_C) * rinc_Button_b | rinc_DOWN(HID_KEY_X) * rinc_Button_x |
                                rinc_DOWN(HID_KEY_Z) * rinc_Button_y : 0)); /* (a game's: a pointer app's keyboard types) */
   if (rinc_systemHeld()) rinc_buttons = 0; /* (a system combination: not the app's) */
-  rinc_drawing = 1; /* (until it's done, the screen shown stays the last whole frame) */
-  rinc_gameFrame(&rinc_vm); /* (an error goes on the screen) */
-  rinc_drawing = 0;
+  { uint32_t copies = rinc_shownCopies;
+    rinc_drawing = 1; /* (until it's done, the screen shown stays the last whole frame) */
+    rinc_gameFrame(&rinc_vm); /* (an error goes on the screen) */
+    rinc_drawing = 0;
+    /* a frame longer than the display's (a copy onto a thumb drive, say), with none shown since it began:
+       this one shown before the next begins (at most a 60th of a second), else frames back to back would
+       leave the screen as it was, the display only ever finding one under way */
+    rinc_waitShown(copies, rinc_keyboardPoll);
+  }
   if (rinc_launch) { rinc_launch = 0; rinc_open(rinc_launchName); } /* (pc.launch: after the frame) */
 }
 

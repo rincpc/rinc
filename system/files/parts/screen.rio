@@ -20,6 +20,78 @@ sizeOf :: proc(n: Int) -> String
   return sizeText[0..<sizeText.len()].asString()
 end
 
+# a job's box, in the middle of the screen: what it's doing, how far, the file in hand, and Esc
+jobText: Blob[..64]
+jobDraw :: proc()
+  x := 24
+  y := 74
+  w := 272
+  pc.rect({x - 1, y - 1}, {w + 2, 82}, accentColor)
+  pc.rect({x, y}, {w, 80}, barColor)
+  jobText.clear()
+  verb := "Copying "
+  if jobDeleting do verb = "Deleting "
+  if jobMoving do verb = "Moving "
+  _ = jobText.print(verb, jobItems)
+  if jobItems == 1
+    _ = jobText.print(" item")
+  else
+    _ = jobText.print(" items")
+  end
+  if jobDest.len() > 0 and jobText.len() + jobDest.len() < 42 do _ = jobText.print(" to ", jobDest.asString())
+  if jobMoving and jobDeleting do jobText.clear()
+  if jobMoving and jobDeleting do _ = jobText.print("Moving: the originals taken away")
+  pc.print(jobText.asString(), {x + 6, y + 6}, accentColor)
+  jobText.clear()
+  if jobPhase == JOB_PLANNING
+    _ = jobText.print("Looking: ", jobFolders, " folders, ", jobFiles, " files, ", sizeOf(jobBytes))
+  case jobPhase == JOB_FOLDERS_LEFT
+    _ = jobText.print("Folders: ", jobFolderNext + 1, " left")
+  case jobMaking
+    _ = jobText.print("Making folders: ", jobMade, " of ", jobFolders)
+  else
+    _ = jobText.print(min(jobDone + 1, jobFiles), " of ", jobFiles, " files, ")
+    _ = jobText.print(sizeOf(jobDoneBytes))
+    _ = jobText.print(" of ", sizeOf(jobBytes))
+  end
+  pc.print(jobText.asString(), {x + 6, y + 22}, textColor)
+  bx := x + 6
+  by := y + 36
+  bw := w - 12
+  pc.rect({bx, by}, {bw, 8}, backColor)
+  if jobPhase == JOB_PLANNING # (not known yet how much: a block going back and forth)
+    span := bw - 40
+    at := jobTick * 3 % (2 * span)
+    if at > span do at = 2 * span - at
+    pc.rect({bx + at, by}, {40, 8}, pickColor)
+  else
+    part := 0 # (by bytes, a folder made counting as 4 KB of them: making one is about as slow)
+    all := jobBytes + 4096 * jobFolders
+    if not jobDeleting and all > 0
+      part = bw * min(jobDoneBytes + 4096 * jobMade, all) / all
+    case jobBytes > 0
+      part = bw * min(jobDoneBytes, jobBytes) / jobBytes
+    case jobFiles > 0
+      part = bw * min(jobDone, jobFiles) / jobFiles
+    end
+    if jobPhase == JOB_FOLDERS_LEFT do part = bw
+    pc.rect({bx, by}, {part, 8}, pickColor)
+  end
+  t := jobFrom.asString()
+  if jobDeleting do t = jobTo.asString()
+  s := t.len()
+  for s > 0 and t[s - 1] != 47 do s -= 1
+  name := t[s..<t.len()]
+  if name.len() > 43 do name = name[0..<43]
+  pc.print(name, {x + 6, y + 50}, softColor)
+  pc.print("Esc stops it", {x + 6, y + 66}, faintColor)
+  if jobFailed > 0
+    jobText.clear()
+    _ = jobText.print(jobFailed, " couldn't be")
+    pc.print(jobText.asString(), {x + w - 6 - jobText.len() * 6, y + 66}, errorColor)
+  end
+end
+
 drawList :: proc()
   for row in 0..<min(nshown - top, ROWS)
     i := top + row
@@ -190,5 +262,8 @@ draw* :: proc()
   end
   if mode == OPEN_WITH
     drawOpenWith()
+  end
+  if jobOn()
+    jobDraw()
   end
 end

@@ -50,17 +50,6 @@ has :: proc(k: Int) -> Bool
   return false
 end
 
-narrow :: proc()
-  nshown = 0
-  for k in 0..<count
-    if has(k) # (.. too, unless something's typed: then just the names with it)
-      shown[nshown] = k
-      nshown += 1
-    end
-  end
-  pick = max(0, min(pick, nshown - 1))
-end
-
 # what's selected (as well as the one picked, which the arrows move): entries of the folder shown
 marked: [MOST]Bool
 markCount := 0
@@ -91,6 +80,32 @@ selectOnly :: proc(row: Int) # (row of what's shown: it alone, and the anchor th
     setMark(shown[row], true)
   end
   anchor = row
+end
+
+# what's shown, by what's typed: and what's selected kept to what's shown (what's hidden isn't cut,
+# copied or deleted unseen); with nothing selected that's shown, the one picked is
+narrow :: proc()
+  nshown = 0
+  for k in 0..<count
+    if has(k) # (.. too, unless something's typed: then just the names with it)
+      shown[nshown] = k
+      nshown += 1
+    end
+  end
+  pick = max(0, min(pick, nshown - 1))
+  if markCount == 0
+    return
+  end
+  for k in 0..<count
+    if marked[k]
+      seen := false
+      for i in 0..<nshown
+        if shown[i] == k do seen = true
+      end
+      if not seen do setMark(k, false)
+    end
+  end
+  if markCount == 0 do selectOnly(pick)
 end
 
 picked :: proc() -> Int

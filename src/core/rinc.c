@@ -687,9 +687,17 @@ int rinc_hostOwn(const char *path, char *out, uint32_t cap) {
 }
 /* a file, from storage, else the bundle: as much as fits in buf (cap), and its whole length (total) */
 static int rinc_readFile(const char *path, char *buf, uint32_t cap, uint32_t *total) {
-  char chunk[256]; int got;
+  char chunk[256]; int got; int32_t size;
   *total = 0;
   if (!rinc_fs || rinc_fs->open(path, 0)) return rinc_readBundled(path, buf, cap, total);
+  if ((size = rinc_fs->size()) >= 0) { /* (its size, from storage: only what fits read, straight into buf; none
+                                         read just to be measured, as Files' plans measure every file) */
+    uint32_t want = buf ? ((uint32_t)size < cap ? (uint32_t)size : cap) : 0, at = 0;
+    while (at < want && (got = rinc_fs->read(buf + at, (int)(want - at))) > 0) at += (uint32_t)got;
+    rinc_fs->close();
+    *total = (uint32_t)size;
+    return at < want ? -1 : 0;
+  }
   while ((got = rinc_fs->read(chunk, sizeof chunk)) > 0) {
     if (buf && *total < cap) memcpy(buf + *total, chunk, (size_t)got < cap - *total ? (size_t)got : cap - *total);
     *total += (uint32_t)got;
@@ -1397,6 +1405,7 @@ static void rinc_hostFileDelete(rio_Vm *v, rio_Val *a) {
   char path[96]; int named = rinc_argPath(v, a, path, 1);
   a[0].i = -1;
   if (!named || !rinc_fs || !rinc_exists(path)) return;
+  rinc_charge(rinc_Cost_fileWrite, 0); /* (board speed: a delete writes the drive's tables, a write's own cost; not measured apart yet) */
   a[0].i = rinc_fs->remove(path) && rinc_removeTree(path, 0) ? -1 : 0;
 }
 static void rinc_hostFileCopy(rio_Vm *v, rio_Val *a) {

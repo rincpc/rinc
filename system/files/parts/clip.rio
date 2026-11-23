@@ -107,6 +107,9 @@ end
 leaving* :: proc()
   viewStill = 14
   keepView()
+  if jobOn() # (a long paste or delete: stopped, as Esc stops it: whole files only, none half there)
+    jobStop()
+  end
 end
 # a line of kept's: line n (from 0), "" past its end
 viewLine :: proc(n: Int) -> String
@@ -243,10 +246,14 @@ paste :: proc()
     say("Can't paste here: only in Rinc's folders, or on the stick", errorColor)
     return
   end
+  if jobBusy()
+    return
+  end
   cut := clipHeld[0] == 120
   done := 0
   failed := 0
   at := 2
+  begun := false # (a job, for what's copied: planned, then done, a box showing it: jobs.rio)
   for i in 2..<clipHeld.len()
     if clipHeld[i] == 10
       pasteFrom.clear()
@@ -261,24 +268,40 @@ paste :: proc()
       ok = pasteName.pushAll(p[slash + 1..<p.len()])
       name := pasteName[0..<pasteName.len()].asString()
       into := here()
-      inside := into.len() > p.len() and into[0..<p.len()] == p and into[p.len()] == 47
+      inside := into == p or (into.len() > p.len() and into[0..<p.len()] == p and into[p.len()] == 47) # (it, or a folder in it)
       res := -1
       if inside or (cut and p[0..<max(slash, 1)] == into) # (not into itself; moved to where it is: nothing to do)
         res = -1
+      case cut and taken(pathTo(name))
+        res = -1
       case cut
         res = pc.fileRename(p, pathTo(name))
+        if res != 0 # (to another drive: copied, then taken away)
+          if not begun do jobBegin(false, true, into)
+          begun = true
+          jobAdd(p, pathTo(name))
+          _ = jobGone.print(p, "\n")
+          res = 1
+        end
       else
         if taken(pathTo(name))
           name = freshName(name)
         end
-        res = pc.fileCopy(p, pathTo(name))
+        if not begun do jobBegin(false, false, into)
+        begun = true
+        jobAdd(p, pathTo(name))
+        res = 1
       end
       if res == 0
         done += 1
-      else
+      case res < 0
         failed += 1
       end
     end
+  end
+  if begun # (copies: planned, then done, from the next frame on)
+    jobGo(pasteName[0..<pasteName.len()].asString())
+    return
   end
   if cut and failed == 0 # (moved: they're not there to paste again)
     clipHeld.clear()

@@ -58,6 +58,52 @@ app is a Rio program.
       storage keeps /rinc/ on the card. Devices stay short names at the top (recommended: /stick, no
       /devices/ level). Plan: plans/root.md; after writing to the stick. Done (2026-11-22): apps use /;
       the board's card updated. Left: boot and the clipboard into folders (the top only folders).
+      The old /clipboard file is a leftover (the clip library keeps /stash/rinc/clip): deleted on the
+      user's card; recommended: boot to /save/rinc/boot (moved once). Asked (the user, 2026-11-22): are
+      /save/rinc and /stash/rinc better as sys? Today rinc there is Rinc's own owner name, fixed (an
+      exported game's storage takes the game's name, but inside it, Rinc's own is still rinc), so nothing
+      changes with an export's name; sys would only say "Rinc's own" more plainly. Low priority, the
+      user to decide.
+  1e. More than one stick, later (the user, 2026-11-22: no rush): today the first drive plugged in is
+      the stick and others are ignored; pulled out, the next isn't taken up till replugged (small fix:
+      take the next one still in). Perhaps a folder of them (/mount/stick, say), so more devices can
+      come; to plan, not to rush.
+  1f. Long jobs in pieces (the user, 2026-11-22: very important): Files copying a file or a folder a
+      piece a frame (pc.fileReadAt and fileWriteAt), a progress line, Esc to stop; a thumb drive takes
+      about 120 ms a small file, so a folder of 50 froze the screen 6 s. Then other long jobs the same
+      way (deleting a big folder, saving a big map).
+      Done (2026-11-22), Files' pastes: a copy, or a move between drives (copied, then the sources
+      taken away), a job a piece a frame (files parts/jobs.rio: a folder made, or 8 KB of a file, a
+      step); "Copying 9 of 28: name (Esc stops)"; Esc, or leaving Files, stops it with no file half
+      there. tests/stick.py (part of it after a few frames, all of it after enough, Esc, left in the
+      middle of a big file, a move onto the stick), failing on the Files before. On the board: about
+      3 files a second onto the thumb drive, the screen keeping up. Then (the user: /apps pasted onto the
+      stick looked hung): the progress line had been too long for Files' message (53 characters) with a
+      long path, so nothing showed: now the file's name, cut to fit; the folder shown refreshed as the job
+      makes one in it; deleting a folder a job too ("Deleting 3 of 40"; an app's or project's through
+      pc.appDelete as before). On the board: /apps (157 files) onto the stick, about 1.5 a second with
+      pictures, shown as it goes. Then (the user: still felt locked up, arrows did nothing): folders
+      looked in as steps too (the first piece at once, "8 of 8+" while more's found), a small file
+      read and written whole, steps a few milliseconds a frame, Files usable meanwhile (only what
+      changes files waits); deletes charged a write's cost on the board clock; and what's copied is
+      what's shown (a filter typed dropped hidden selections: up from /stick, save typed, Ctrl+C had
+      copied the stick). Then (the user: still unclear what was happening; wanted a plan made first, a
+      box in the middle with a bar, and the plan's surprises handled): a job is planned (a folder
+      looked in a step, its files and sizes written to a plan in /cache/files/job, as long as it needs
+      to be), then done by it; a box from the moment it begins (Looking: folders, files, size; Making
+      folders: 21 of 74; 17 of 92 files, 85 KB of 630 KB; the bar by bytes, a folder as 4 KB); Esc
+      stops it, the rest waits (modal); what's not as planned (gone, another size, a damaged file, a
+      folder too big to list) said in the log and counted; its start and end logged. Tests: said at
+      once, 400 files, a damaged file on a zip stick. Left: a job carried on after coming back; the
+      stick's flush after each write (each folder made takes about 0.4 s there) maybe once a file.
+      Then (the user: stalled at "Looking: 74 folders, 105 files", then done): two board things. A
+      file's size was found by reading it all, 256 bytes at a time (rinc_readFile): now storage's own
+      size, and only what fits read; planning /apps (157 files) 1.2 s. And the display: the picture is
+      copied at a refresh only between an app's frames, so frames back to back, each longer than the
+      display's (a stick's writes), left the screen as it was the whole job: now a frame none of whose
+      pictures was shown waits for the next refresh (video.c's rinc_waitShown, at most a 60th of a
+      second; the copy 3% slower). The user saw it moving. The job's log says how long planning and
+      the whole job took. Not tested automatically (it's HDMI's): tried on the board.
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.
@@ -714,6 +760,14 @@ app is a Rio program.
   debugger, CJK sometime). Guesses: the PSRAM (8 MB, unused) is where most would go.
   - Apps switched instantly, each kept whole (256 KB each: PSRAM; Later, below).
   - An echo or reverb on the sound, as the SNES had (8 to 32 KB of delay).
+  - Controllers (2026-11-22, Claude's thoughts; the user has their own, not shared yet): not a move from
+    Xbox to SNES pads but the SNES layout as what every app can count on (d-pad, A B X Y, L R, Start,
+    Select: Rinc's buttons already), sticks and triggers extras (pc.stick, pc.trigger 0 without them),
+    Xbox pads a superset. To check: cheap USB SNES-style pads (plain HID gamepads) on the board's
+    gamepad.c, which knows Xbox 360 pads.
+    The user (2026-11-22): the keyboard alone must keep everything usable, so controllers get nothing
+    that doesn't map well to keys; four action buttons (SNES-like) is fair for a game to expect; local
+    multiplayer up to 4 controllers wanted (the user will get some to test).
   - Recorded sounds: sampled instruments, voices (the app's, or PSRAM).
   - Drawing a scanline at a time from tile and sprite layers, as old consoles did: this one gives RAM
     back (no second 75 KB screen buffer), paying for others.

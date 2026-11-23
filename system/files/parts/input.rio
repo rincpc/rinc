@@ -252,12 +252,24 @@ clicked := 0
 wasShown := 0
 pc.pointer(pc.Pointer.ui)
 update* :: proc()
+  if jobOn() # (a copy, a move or a delete: its box up; Esc stops it, nothing else typed counts meanwhile)
+    k := pc.key()
+    for k >= 0
+      if k == 27 and jobOn() do jobStop()
+      k = pc.key()
+    end
+    if jobOn() and jobFrame() # (a move done: the cut let go)
+      clipHeld.clear()
+      _ = clip.drop()
+    end
+    return
+  end
   c := pc.key()
   for c >= 0
     message.clear()
     key(c)
     c = -1
-    if not gone # (gone back to its caller: the rest typed is its)
+    if not gone and not jobOn() # (gone back to its caller: the rest typed is its; a job begun: the rest is its box's, Esc to stop it)
       c = pc.key()
     end
   end

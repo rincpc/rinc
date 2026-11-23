@@ -1,0 +1,446 @@
+# this folder again, with name picked
+reopen :: proc(name: String)
+  ok := open(here())
+  for i in 0..<nshown
+    if nameOf(shown[i]) == name
+      pick = i
+    end
+  end
+  selectOnly(pick)
+  reveal()
+end
+
+# ---------------------------------------------------------------- long jobs: planned, then done
+
+# Copying (a paste), moving between drives (the card and the stick: copied, then the originals taken
+# away), and deleting are jobs, shown in a box in the middle of the screen from the moment they begin
+# (screen.rio's jobDraw), Esc stopping them. A job is done in two parts, a little each frame, so the
+# screen keeps up:
+#   planning: a folder looked in a step, what's in it written down (the plan, in Files' cache, so as
+#     long as it needs to be): each file and its size, each folder to make; the box counts them up
+#   doing: the plan worked through, a file a step (8 KB of a big one): the box's bar, by bytes
+# What doesn't go by the plan (a file gone since, or another size, a write that fails) is said in the
+# log (Sys+O), counted, and the rest goes on; the end says how many couldn't be.
+# A delete's plan is its files; its folders, written down as they're found, go last, the deepest first.
+JOB_DIR :: "/cache/files/job"
+JOB_PLAN :: "/cache/files/job/plan"       # lines: "d to", "f size from<tab>to", "x size path"
+JOB_WALK :: "/cache/files/job/walk"       # folders still to look in: a record each ("from<tab>to", or a path)
+JOB_FOLDERS :: "/cache/files/job/folders" # a delete's folders, a record each, in the order found
+JOB_REC :: 256                            # (a record's bytes: a fixed size, so the nth is read by where it is)
+JOB_NONE :: 0
+JOB_PLANNING :: 1
+JOB_DOING :: 2
+JOB_FOLDERS_LEFT :: 3
+
+jobPhase := JOB_NONE
+jobDeleting := false   # (deleting, not copying)
+jobMoving := false     # (moving: copied, then the originals deleted)
+jobItems := 0          # what was picked: how many
+jobDest: Blob[..96]    # where it goes (copying)
+jobName: Blob[..64]    # (the last one pasted: picked once it's done)
+jobGone: Blob[..4000]  # a move's originals: taken away once all of it's copied, a path a line
+jobWalkHead := 0       # folders looked in so far, and found: records of JOB_WALK (and in it so far: the
+jobWalkCount := 0      # rest wait in jobWalkOut, written when it's full or the next is wanted)
+jobWalkWritten := 0
+jobFolderCount := 0    # records of JOB_FOLDERS (a delete's), and the next to go, from the end
+jobFolderNext := 0
+jobPlanEnd := 0        # the plan's bytes, and how far it's done
+jobPlanPos := 0
+jobFolders := 0        # found: folders, files, their bytes
+jobFiles := 0
+jobBytes := 0
+jobDone := 0           # done: files, bytes, folders made (a copy's)
+jobDoneBytes := 0
+jobMade := 0
+jobMaking := false     # (the last step made a folder: said so)
+jobFailed := 0
+jobTick := 0           # (frames of it: the planning bar's motion)
+jobT0 := 0.0           # (when it began: its times, in the log)
+jobPos := -1           # how far into the file in hand (-1: none)
+jobFrom: Blob[..128]
+jobTo: Blob[..128]
+jobBuf: Blob[..8192]
+jobLine: Blob[..600]
+jobRec: Blob[..256]
+jobRecOut: Blob[..256]
+jobOut: Blob[..8192]   # (a folder's plan lines, written at once)
+jobWalkOut: Blob[..8192]
+jobListing: Blob[..32000] # (a folder's listing: a few hundred names at least)
+jobPath: Blob[..128]
+jobPath2: Blob[..128]
+jobNone: Blob[..1]
+
+jobOn :: proc() -> Bool do return jobPhase != JOB_NONE
+
+# how long since it began, to a tenth of a second (said in the log)
+jobSecsText: Blob[..16]
+jobSecs :: proc() -> String
+  t := ((pc.appTime() - jobT0) * 10.0).toInt()
+  jobSecsText.clear()
+  _ = jobSecsText.print(t / 10, ".", t % 10)
+  return jobSecsText.asString()
+end
+
+# while a job's on, what would change files waits (said so): true then
+jobBusy :: proc() -> Bool
+  if not jobOn()
+    return false
+  end
+  say("Wait for this one first (Esc stops it)", errorColor)
+  return true
+end
+
+# a record (a fixed JOB_REC bytes, padded with spaces), added to what's to be written; and the nth of a
+# file, read back
+jobRecAdd :: proc(into: Blob[..], s: String)
+  _ = into.pushAll(s)
+  for i in s.len()..<JOB_REC do _ = into.push(32)
+end
+jobRecAt :: proc(file: String, n: Int) -> String
+  jobRec.clear()
+  _ = pc.fileReadAt(file, n * JOB_REC, jobRec)
+  e := jobRec.len()
+  for e > 0 and jobRec[e - 1] == 32 do e -= 1
+  return jobRec[0..<e].asString()
+end
+
+# the plan's lines written so far, and the folders to look in, put in their files
+jobFlush :: proc()
+  if jobOut.len() > 0
+    if pc.fileWriteAt(JOB_PLAN, -1, jobOut.asString()) < 0 do jobFailed += 1
+    jobPlanEnd += jobOut.len()
+    jobOut.clear()
+  end
+  if jobWalkOut.len() > 0
+    if pc.fileWriteAt(JOB_WALK, -1, jobWalkOut.asString()) < 0 do jobFailed += 1
+    jobWalkOut.clear()
+    jobWalkWritten = jobWalkCount
+  end
+end
+
+# a file's size (-1: not there)
+jobSizeOf :: proc(path: String) -> Int
+  sizeOnly: Blob[..] = jobNone[0..<0]
+  return pc.fileRead(path, sizeOnly)
+end
+
+# a file to copy, or delete, put in the plan
+jobPlanFile :: proc(from: String, to: String)
+  n := max(jobSizeOf(from), 0)
+  if jobOut.len() + from.len() + to.len() + 16 > 8000 do jobFlush()
+  if jobDeleting
+    _ = jobOut.print("x ", n, " ", from, "\n")
+  else
+    _ = jobOut.print("f ", n, " ", from, "\t", to, "\n")
+  end
+  jobFiles += 1
+  jobBytes += n
+end
+
+# a folder to look in, later: its record; copying, it's made before what's in it
+jobPlanFolder :: proc(from: String, to: String)
+  if jobWalkOut.len() + JOB_REC > 8000 do jobFlush()
+  if jobDeleting
+    jobRecAdd(jobWalkOut, from)
+  else
+    jobPath.clear()
+    _ = jobPath.print(from, "\t", to)
+    jobRecAdd(jobWalkOut, jobPath.asString())
+    if jobOut.len() + to.len() + 4 > 8000 do jobFlush()
+    _ = jobOut.print("d ", to, "\n")
+  end
+  jobWalkCount += 1
+  jobFolders += 1
+end
+
+# a job begun: copying into dest (or moving, or deleting: dest ""); the box shows from now
+jobBegin :: proc(deleting: Bool, moving: Bool, dest: String)
+  _ = pc.fileDelete(JOB_DIR) # (the last one's plan, if it was left)
+  jobPhase = JOB_PLANNING
+  jobDeleting = deleting
+  jobMoving = moving
+  jobItems = 0
+  jobDest.clear()
+  _ = jobDest.pushAll(dest)
+  jobGone.clear()
+  jobWalkHead = 0
+  jobWalkCount = 0
+  jobWalkWritten = 0
+  jobFolderCount = 0
+  jobFolderNext = 0
+  jobPlanEnd = 0
+  jobPlanPos = 0
+  jobFolders = 0
+  jobFiles = 0
+  jobBytes = 0
+  jobDone = 0
+  jobDoneBytes = 0
+  jobMade = 0
+  jobMaking = false
+  jobFailed = 0
+  jobTick = 0
+  jobT0 = pc.appTime()
+  jobPos = -1
+  jobOut.clear()
+  jobWalkOut.clear()
+  jobFrom.clear()
+  jobTo.clear()
+end
+
+# what was picked, put in the job: a file or a folder (to: where a copy goes)
+jobAdd :: proc(from: String, to: String)
+  jobItems += 1
+  jobListing.clear()
+  if pc.dir(from, jobListing) < 0
+    jobPlanFile(from, to)
+  else
+    jobPlanFolder(from, to)
+  end
+end
+
+# the job's list made: its planning goes on from the next frame (name: picked when it's done)
+jobGo :: proc(name: String)
+  jobName.clear()
+  _ = jobName.pushAll(name)
+  jobFlush()
+  verb := "copying"
+  if jobDeleting do verb = "deleting"
+  if jobMoving do verb = "moving"
+  if jobDest.len() > 0
+    log("files:", verb, jobItems, "to", jobDest.asString())
+  else
+    log("files:", verb, jobItems)
+  end
+end
+
+# planning: a folder looked in (the next one found), what's in it written down
+jobLook :: proc()
+  if jobWalkHead >= jobWalkWritten do jobFlush() # (the next one to look in: written out, to be read)
+  rec := jobRecAt(JOB_WALK, jobWalkHead)
+  jobWalkHead += 1
+  jobPath2.clear()
+  jobFrom.clear()
+  if jobDeleting
+    _ = jobFrom.pushAll(rec)
+    jobRecOut.clear() # (its record, for its turn at the end: JOB_REC bytes)
+    jobRecAdd(jobRecOut, rec)
+    _ = pc.fileWriteAt(JOB_FOLDERS, -1, jobRecOut.asString())
+    jobFolderCount += 1
+  else
+    tab := 0
+    for tab < rec.len() and rec[tab] != 9 do tab += 1
+    _ = jobFrom.pushAll(rec[0..<tab])
+    _ = jobPath2.pushAll(rec[min(tab + 1, rec.len())..<rec.len()])
+  end
+  jobTo.clear()
+  _ = jobTo.pushAll(jobFrom[])
+  jobListing.clear()
+  count := pc.dir(jobFrom.asString(), jobListing)
+  if count < 0
+    log("files: can't look in", jobFrom.asString())
+    jobFailed += 1
+    return
+  end
+  lines := 0
+  for i in 0..<jobListing.len()
+    if jobListing[i] == 10 do lines += 1
+  end
+  if lines < count # (more in it than its listing has room for: those said, and counted)
+    log("files:", jobFrom.asString(), "has", count, "things in it, more than can be listed at once:", count - lines, "left out")
+    jobFailed += count - lines
+  end
+  s := 0
+  for i in 0..<jobListing.len()
+    if jobListing[i] == 10
+      name := jobListing[s + 2..<i].asString()
+      folder := jobListing[s] == 100
+      jobPath.clear()
+      _ = jobPath.print(jobFrom.asString(), "/", name)
+      jobLine.clear()
+      if not jobDeleting
+        _ = jobLine.print(jobPath2.asString(), "/", name)
+      end
+      if folder
+        jobPlanFolder(jobPath.asString(), jobLine.asString())
+      else
+        jobPlanFile(jobPath.asString(), jobLine.asString())
+      end
+      s = i + 1
+    end
+  end
+end
+
+# doing: the plan's next line (or the file in hand's next piece)
+jobDo :: proc()
+  if jobPos >= 0 # (the file in hand: its next piece, at its end)
+    jobBuf.clear()
+    whole := pc.fileReadAt(jobFrom.asString(), jobPos, jobBuf)
+    if whole < 0 or (jobBuf.len() > 0 and pc.fileWriteAt(jobTo.asString(), -1, jobBuf.asString()) < 0)
+      log("files: couldn't copy", jobFrom.asString(), "to", jobTo.asString())
+      jobFailed += 1
+      jobPos = -1
+      return
+    end
+    jobPos += jobBuf.len()
+    jobDoneBytes += jobBuf.len()
+    if jobPos >= whole or jobBuf.len() == 0 # (all of it)
+      jobDone += 1
+      jobPos = -1
+    end
+    return
+  end
+  jobLine.clear()
+  _ = pc.fileReadAt(JOB_PLAN, jobPlanPos, jobLine)
+  e := 0
+  for e < jobLine.len() and jobLine[e] != 10 do e += 1
+  if e >= jobLine.len() # (the plan's end, or it can't be read)
+    jobPlanPos = jobPlanEnd
+    return
+  end
+  jobPlanPos += e + 1
+  kind := jobLine[0]
+  jobMaking = kind == 100
+  if kind == 100 # d to: a folder made
+    jobTo.clear()
+    _ = jobTo.pushAll(jobLine[2..<e])
+    jobFrom.clear()
+    _ = jobFrom.pushAll(jobTo[]) # (its name, shown)
+    _ = pc.dirMake(jobTo.asString())
+    jobMade += 1
+    t := jobTo.asString()
+    slash := t.len() - 1
+    for slash > 0 and t[slash] != 47 do slash -= 1
+    if t[0..<max(slash, 1)] == here() # (one made here: shown, so the screen's not "(empty)" while it fills)
+      reopen(t[slash + 1..<t.len()])
+    end
+    return
+  end
+  sp := 2 # (f size from<tab>to, x size path: the size)
+  n := 0
+  for sp < e and jobLine[sp] != 32
+    n = n * 10 + jobLine[sp] - 48
+    sp += 1
+  end
+  if kind == 120 # x: a file deleted
+    jobTo.clear()
+    _ = jobTo.pushAll(jobLine[sp + 1..<e])
+    if pc.fileDelete(jobTo.asString()) == 0
+      jobDone += 1
+      jobDoneBytes += n
+    else
+      log("files: couldn't delete", jobTo.asString())
+      jobFailed += 1
+    end
+    return
+  end
+  tab := sp + 1 # f: a file copied, its first piece (all of it, if it's small), read then written as one
+  for tab < e and jobLine[tab] != 9 do tab += 1
+  jobFrom.clear()
+  _ = jobFrom.pushAll(jobLine[sp + 1..<tab])
+  jobTo.clear()
+  _ = jobTo.pushAll(jobLine[min(tab + 1, e)..<e])
+  jobBuf.clear()
+  whole := pc.fileReadAt(jobFrom.asString(), 0, jobBuf)
+  if whole < 0
+    log("files: gone since it was looked at:", jobFrom.asString())
+    jobFailed += 1
+    return
+  end
+  if whole != n do log("files: its size changed since it was looked at:", jobFrom.asString(), n, "now", whole)
+  if pc.fileWrite(jobTo.asString(), jobBuf.asString()) != 0
+    log("files: couldn't write", jobTo.asString())
+    jobFailed += 1
+    return
+  end
+  jobDoneBytes += jobBuf.len()
+  if jobBuf.len() >= whole
+    jobDone += 1
+  else
+    jobPos = jobBuf.len()
+  end
+end
+
+# a step of the job, whichever part it's in
+jobStep :: proc()
+  if jobPhase == JOB_PLANNING and jobWalkHead < jobWalkCount
+    jobLook()
+  case jobPhase == JOB_PLANNING
+    jobFlush()
+    jobPhase = JOB_DOING
+    log("files: planned:", jobFolders, "folders,", jobFiles, "files,", jobBytes, "bytes, in", jobSecs(), "s")
+  case jobPhase == JOB_DOING and (jobPlanPos < jobPlanEnd or jobPos >= 0)
+    jobDo()
+  case jobPhase == JOB_DOING and jobDeleting
+    jobPhase = JOB_FOLDERS_LEFT
+    jobFolderNext = jobFolderCount - 1
+  case jobPhase == JOB_FOLDERS_LEFT and jobFolderNext >= 0
+    p := jobRecAt(JOB_FOLDERS, jobFolderNext)
+    jobFolderNext -= 1
+    jobTo.clear()
+    _ = jobTo.pushAll(p)
+    _ = pc.fileDelete(jobTo.asString()) # (emptied by now: else it stays, its files' failures said so)
+  else
+    jobPhase = JOB_NONE # (done)
+  end
+end
+
+# the end said: how many, and how many couldn't be
+jobSaid :: proc(stopped: Bool)
+  message.clear()
+  verb := "Copied "
+  if jobDeleting do verb = "Deleted "
+  if jobMoving do verb = "Moved "
+  if stopped do _ = message.print("Stopped: ")
+  _ = message.print(verb, jobDone, " of ", jobFiles, " files")
+  messageColor = softColor
+  if jobFailed > 0
+    _ = message.print("; ", jobFailed, " couldn't be (Sys+O)")
+    messageColor = errorColor
+  end
+  if stopped do messageColor = errorColor
+  log("files:", message.asString(), "-", jobDoneBytes, "bytes, in", jobSecs(), "s")
+end
+
+# the job stopped (Esc, or leaving Files): the file half copied taken away
+jobStop :: proc()
+  if jobPos >= 0 do _ = pc.fileDelete(jobTo.asString())
+  jobPos = -1
+  jobPhase = JOB_NONE
+  _ = pc.fileDelete(JOB_DIR)
+  reopen(jobName.asString())
+  jobSaid(true)
+end
+
+# a frame of the job: steps, a few milliseconds' worth (on the board, often one: a stick's write takes
+# more); once it's done, what's there shown, and the end said. A move, all of it copied, goes on to take
+# away the originals (a delete, planned the same way): true at its end, for the clipboard's cut to go
+jobFrame :: proc() -> Bool
+  jobTick += 1
+  t0 := pc.appTime()
+  jobStep()
+  for jobOn() and pc.appTime() - t0 < 0.008
+    jobStep()
+  end
+  if jobOn()
+    return false
+  end
+  if jobMoving and not jobDeleting and jobFailed == 0 and jobGone.len() > 0 # (copied: now the originals)
+    jobBuf.clear()
+    _ = jobBuf.pushAll(jobGone[])
+    jobBegin(true, true, "")
+    s := 0
+    for i in 0..<jobBuf.len()
+      if jobBuf[i] == 10
+        jobAdd(jobBuf[s..<i].asString(), "")
+        s = i + 1
+      end
+    end
+    jobGo(jobName.asString())
+    return false
+  end
+  moved := jobMoving and jobFailed == 0
+  _ = pc.fileDelete(JOB_DIR)
+  reopen(jobName.asString())
+  jobSaid(false)
+  return moved
+end
