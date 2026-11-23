@@ -27,6 +27,22 @@ app is a Rio program.
 
 ## Next
 
+- **Next, in order (the user, 2026-11-23):**
+  1. Cloudlamp's dialog font and text (4 below), made on the board with the apps, as a person would.
+     Done (2026-11-23): dialog.png, 5x6 cells, proportional, the 31 characters its lines use, drawn in
+     Paint on the board (by keys); the notice library takes a font (Notice.font: its box two of its lines
+     high; tests/notice.rio); Cloudlamp's dialog in it, its title taken out (title.png left in its folder,
+     unused, for the user to keep or drop). Left for the user: touching up letters (its "s" reads small).
+  2. Close (drop a file from the recent list; Ctrl+W or such, 1b's note) and Ctrl+Tab in every studio app.
+  3. Studio state per file; Maps' cleanups (paste anchor, Ctrl+T for every layer); map parts as brushes.
+  4. The app's log over serial while it runs, if it helps working on the board (Sys+M already shows frame
+     times on screen).
+  5. Sometime: drawing speed, and a transformed blit (rotated, scaled: 3D-ish); the Cloudlamp tutorial
+     (it would help polish how things work).
+  Held (the user, 2026-11-23): more sticks, /mount/stick and other mounts: still being considered.
+  Not now (the user, 2026-11-23, the recommendation): patterns from another song (copy and paste
+  covers it; a live link only if a real game asks).
+
 - **Priorities (2026-11-15), in order** (the user: keep them all listed; the 2026-11-14 list below is
   the history):
   1. Rio's compiler tables sharing their room (Rio's ROADMAP, Next), before Maps is trimmed (9 below).

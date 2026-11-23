@@ -6,8 +6,8 @@
 # the sheet (cloudlamp.png, Paint's: its rock and cloud flagged solid, which walking can't cross), the
 # map (cloudlamp.map, Maps': ground, the island and the yard side by side, a screen each, and folk, its
 # things, by name), the sounds (cloudlamp.snd, Sound's: a step, a chirp, and the song's) and the song
-# (cloudlamp.mus, Music's: after Satie's Gymnopedie No. 1, 1888). Its title is in a font of its own,
-# title.png, drawn in Paint. Made with studio's apps on a Fruit Jam, typed at over its serial port; it
+# (cloudlamp.mus, Music's: after Satie's Gymnopedie No. 1, 1888). Its dialog is in a font of its own,
+# dialog.png, drawn in Paint. Made with studio's apps on a Fruit Jam, typed at over its serial port; it
 # needs only rinc (and rinc's library: tilemap, song, notice) to run.
 
 import tilemap
@@ -24,8 +24,8 @@ songRoom: Blob[2805]                   # the song's sounds and the song (as Musi
 tune := song.Song{buffer = songRoom[], voice = 1}
 _ = tune.loop("cloudlamp.mus")
 pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels
-titleRoom: Blob[..(96 + 1) * 36 + 200] # (the title font, Paint's: its picture, then its letters' widths)
-title := pc.fontRead("title.png", titleRoom)
+dialogRoom: Blob[..3070]               # (its dialog's font, Paint's: its picture, then its letters' widths)
+dialog := pc.fontRead("dialog.png", dialogRoom)
 
 ground := m.layerNamed("ground")
 folk := m.layerNamed("folk")
@@ -33,7 +33,7 @@ solid := m.flag(ground, "solid")
 lamp := m.find("lamp")                 # (its layer and number)
 at := {3, 7}                           # the visitor, in cells
 lit := false
-said := notice.Notice{}                # (at the screen's bottom, for 4 seconds)
+said := notice.Notice{font = dialog}   # (at the screen's bottom, for 4 seconds, in its own small font)
 said.say("Cloudlamp. The lamp is dark: walk east.")
 
 talk :: proc(name: String)
@@ -80,6 +80,5 @@ draw* :: proc()
   end
   m.draw(folk, camera)
   m.sprite(ground, visitor, at * 8 - camera)
-  if camera.x == 0 and not lit do pc.print("CLOUDLAMP", {44, 6}, 7, {font = title})
   said.draw()
 end
