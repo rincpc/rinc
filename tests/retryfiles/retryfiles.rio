@@ -6,7 +6,7 @@ import tilemap
 import song
 import notice
 import clip
-import codebox
+import undolog
 include "parts/a.rio"
 include "parts/b.rio"
 include "parts/c.rio"

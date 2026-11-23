@@ -481,11 +481,12 @@ again), and `clip.count()` says how many are kept: a list of them to pick from, 
 Studio's Snippet app shows the code a game needs to load a file of studio's, so it's never typed: a map
 (its room and its sheets' pixels, sized as it needs, the `tilemap.Map`, its load, its layers' numbers by
 name and its sheets' flags), a picture (a sprite sheet and its flags, or a font), a song or sounds. Each
-of studio's apps has the command ("Copy a code snippet to load it", in Sys+P's list) for the file
-it has open, as saved; Snippet run on its own asks Files for one. Enter (or Ctrl+C) copies the code onto
-the clipboard as text, for the editor to paste; E shows a map's layers as an enum, not constants
-(`Layer.ground.toInt()` where tilemap wants a number); Esc goes back without copying. The sizes are just
-what the file needs: a byte less, and it doesn't load (the log says how much it needs).
+of studio's apps has the command ("Open a code snippet to load it", in Sys+P's list) for the file
+it has open, as saved; Snippet run on its own asks Files for one. The code is written to a file in
+Snippet's stash (`/stash/snippet/cloudlamp-map.rio`) and opened in Edit, to copy with Edit's own
+selection; Sys+Q there comes back. A map's layers are an enum, passed to tilemap's calls as they are
+(an enum goes where an Int is wanted). The sizes are just what the file needs: a byte less, and it
+doesn't load (the log says how much it needs).
 
 ```rio fragment
 import tilemap
@@ -494,14 +495,14 @@ mapRoom: Blob[1247]
 mapPixels: Blob[..520]
 level := tilemap.Map{room = mapRoom[], pixels = mapPixels}
 _ = level.load("cloudlamp.map")
-# its layers
-GROUND :: 0
-FOLK :: 1
+# its layers: level.at(Layer.ground, cell)
+Layer :: enum
+  ground
+  folk
+end
 # its flags: level.flagsAt(layer, cell) & one
 SOLID :: 1
 ```
-
-The box is rinc's `codebox` library, for any app that shows code to copy.
 
 ## Its cache, and its log
 
@@ -732,7 +733,6 @@ tune.tick()                               # only to show where it's playing: tun
 ```
 
 - `clip`: the clipboard every app shares (see the clipboard).
-- `codebox`: code shown in a box over an app, to copy (see the code to load a file).
 - `notice`: a few words shown for a while, then gone (a game's "Keeper: our lamp went out", an app's
   "Saved"): said once, drawn each frame while it lasts (counted as it's drawn: 4 seconds, or as long as
   it's told), in a box at the screen's bottom, or where the app says, wrapped to it. What's said is kept

@@ -314,6 +314,8 @@ app is a Rio program.
      copied should be seen first): studio's Snippet app shows the code to load a map, sheet, font, song or
      sounds in a box (library/codebox.rio), sized as the file needs, Enter copying it as text; each
      studio app's command list calls it (docs/spec/apps.md#the-code-to-load-a-file; studio's roadmap).
+     Then (2026-11-23) the box went: Snippet writes its code to a file in its stash and opens it in Edit
+     (copied with Edit's own selection), a map's layers always an enum; library/codebox.rio and its test gone.
      The clipboard's line kind went too: whole lines are text, the editor keeping their number
      (clip.number()) to paste them above a line while they're the newest.
      Found on the way: the command list took 56 of an app's commands and left the rest out without a
