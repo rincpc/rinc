@@ -237,12 +237,14 @@ soundSeek* :: host proc(v, at: Int)
 audioLoad* :: host proc() -> [2]Int # mixing's share of its time, in percent: on average and at most, since last asked ({-1, -1}: not measured here; the board measures it)
 # a song, played by Rinc (docs/spec/sound.md#songs): rinc's song library's tables in room (patterns,
 # uses, placements, then its sounds' speeds and loops), its sounds' notes in notes, from use from, its
-# channels on voices v on; how: 1 just that use, 2 round again at its end. One at a time
+# channels on voices v on; how: 1 just that use, 2 round again at its end, and from bit 8 on how many
+# voices it may take (0: 8). Its uses in tracks (a use's marks, bits 4 to 6), played side by side. One at a time
 songPlay* :: host proc(v: Int, room: Blob, notes: Blob, patterns: Int, uses: Int, from: Int, how: Int)
 songStop* :: host proc()
 songPause* :: host proc(on: Int)                     # 1 holds it where it is, 0 goes on
 songLevers* :: host proc(shift: Int, volume: Int, speed: Int) # semitones, eighths, percent (speed: from its next placements)
 songAt* :: host proc() -> [3]Int                     # the use playing, its time round, thousandths of its pattern played ({-1, 0, 0}: none)
+freeVoice* :: host proc() -> Int                     # the first voice not playing and not the song's (-1: none): a game's sounds there
 
 # ---------------------------------------------------------------- apps, for home and the console
 

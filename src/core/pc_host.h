@@ -131,6 +131,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_songPause_SIG "i"
 #define pc_songLevers_SIG "iii"
 #define pc_songAt_SIG ">iii"
+#define pc_freeVoice_SIG ">i"
 #define pc_apps_SIG ">i"
 #define pc_appName_SIG "iB>i"
 #define pc_appInfo_SIG "iB>i"
@@ -245,6 +246,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(songPause, pc_songPause_SIG) \
   X(songLevers, pc_songLevers_SIG) \
   X(songAt, pc_songAt_SIG) \
+  X(freeVoice, pc_freeVoice_SIG) \
   X(apps, pc_apps_SIG) \
   X(appName, pc_appName_SIG) \
   X(appInfo, pc_appInfo_SIG) \
@@ -304,7 +306,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x6da4a41du /* (rio_hashText of the source) */
+#define pc_HASH 0x001f4648u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -545,12 +547,14 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "audioLoad* :: host proc() -> [2]Int # mixing's share of its time, in percent: on average and at most, since last asked ({-1, -1}: not measured here; the board measures it)\n" \
   "# a song, played by Rinc (docs/spec/sound.md#songs): rinc's song library's tables in room (patterns,\n" \
   "# uses, placements, then its sounds' speeds and loops), its sounds' notes in notes, from use from, its\n" \
-  "# channels on voices v on; how: 1 just that use, 2 round again at its end. One at a time\n" \
+  "# channels on voices v on; how: 1 just that use, 2 round again at its end, and from bit 8 on how many\n" \
+  "# voices it may take (0: 8). Its uses in tracks (a use's marks, bits 4 to 6), played side by side. One at a time\n" \
   "songPlay* :: host proc(v: Int, room: Blob, notes: Blob, patterns: Int, uses: Int, from: Int, how: Int)\n" \
   "songStop* :: host proc()\n" \
   "songPause* :: host proc(on: Int)                     # 1 holds it where it is, 0 goes on\n" \
   "songLevers* :: host proc(shift: Int, volume: Int, speed: Int) # semitones, eighths, percent (speed: from its next placements)\n" \
   "songAt* :: host proc() -> [3]Int                     # the use playing, its time round, thousandths of its pattern played ({-1, 0, 0}: none)\n" \
+  "freeVoice* :: host proc() -> Int                     # the first voice not playing and not the song's (-1: none): a game's sounds there\n" \
   "\n" \
   "# ---------------------------------------------------------------- apps, for home and the console\n" \
   "\n" \

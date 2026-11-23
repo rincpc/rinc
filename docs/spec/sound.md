@@ -102,20 +102,28 @@ frame: rinc's `song` library reads the files and calls these, one song at a time
 
 | proc | |
 |---|---|
-| `pc.songPlay(v, room, notes, patterns, uses, from, how)` | play the song in `room`'s tables, its sounds' notes in `notes`, from use `from`, its channel `c` on voice `v + c`; `how`: 1 just that use, 2 round again from the first at its end; in place of the song playing |
+| `pc.songPlay(v, room, notes, patterns, uses, from, how)` | play the song in `room`'s tables, its sounds' notes in `notes`, from use `from` (its track; the others where they'd be then), on voices from `v` on; `how`: 1 just that use (its track alone), 2 round again from the first at its end, and from bit 8 on how many voices it may take (0: 8); in place of the song playing |
 | `pc.songStop()` | its voices fading out, as after a sound's last note |
 | `pc.songPause(on)` | 1 holds it where it is (its voices silent), 0 goes on |
 | `pc.songLevers(shift, volume, speed)` | semitones (-96 to 96), eighths (0 to 8), percent (1 to 400) over the whole song: shift and volume at once, speed from the next placements on |
-| `pc.songAt() -> [3]Int` | the use playing, its time round (from 0), and how far into its pattern, in thousandths; `{-1, 0, 0}` when none plays |
+| `pc.songAt() -> [3]Int` | the use playing in the track it was started from, its time round (from 0), and how far into its pattern, in thousandths (that track ended, the others on: its last use, 1000); `{-1, 0, 0}` when none plays |
+| `pc.freeVoice() -> Int` | the first voice not playing and not the song's (-1: none): a game's sounds there, never in the song's way (the song library's `sound(-1, n)` takes one so) |
 
 `room` holds, from its start: the patterns, 6 bytes each (its steps; a step's length, in 120ths of a
 second; its first placement, 2 bytes, low first; how many it has; 0); then the uses, 9 bytes each (its
 pattern; its shift and its shift at its end, each plus 64; its volume and at its end, in eighths; its
-speed, in percent, 2 bytes, low first; its marks, 1 a loop begins, 2 a loop ends, 4 the song stops; how
-many times it's played over); then the placements, 8 bytes each (its step; its channel, 0 to 7; its
+speed, in percent, 2 bytes, low first; its marks, 1 a loop begins, 2 a loop ends, 4 the song stops, and
+its track times 16, 0 to 7; how many times it's played over); then the placements, 8 bytes each (its step; its channel, 0 to 7; its
 sound; its shift plus 64; its volume, in eighths; its speed, or 0 for its sound's; its hold, in steps,
 or 0; 0); then, for each sound the song plays, from 0, its speed and its loop's start and end, 3 bytes.
 `notes` holds the sounds' notes, 128 bytes a sound (32 notes of 4 bytes, as the synth takes them).
+
+A song's uses are in tracks, played side by side (a drum beat in one, the melody's patterns in another):
+each track its uses in the table's order, in turn, as below, with its own loops; a stop mark in any
+ends the song, and the song ends when every track has. The tracks take voices in order: track 0's
+channel `c` on voice `v + c`, a later track's after the channels the tracks before it play now (its
+pattern's highest, plus one), worked out again as a track's pattern changes; a channel past the song's
+voices is dropped (silent). So the first track's are never dropped.
 
 Time goes in ticks of 1/120 s, kept by the mixer. At its step a placement starts on its channel's voice
 as `pc.synth` would play its sound, its notes as long as its speed (scaled by its use's speed and the

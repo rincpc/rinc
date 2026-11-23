@@ -7,7 +7,8 @@
 # placed in time (a piano roll: each at a step, on a channel, at a pitch shift, a volume and a speed);
 # and the song, patterns used in turn, each use with its own shift, volume and speed (shift and volume
 # ramped from its start to its end), played a number of times over (the ramps across them all), and
-# marks: a loop begins, a loop ends (back to where it began), the song stops. Levers over the whole song
+# marks: a loop begins, a loop ends (back to where it began), the song stops; its uses in tracks (up to 8),
+# each played in turn, side by side (a drum beat under the melody's patterns). Levers over the whole song
 # (shift, volume, speed) are in the file and a game can change them as it plays. Rinc plays it, on its
 # own, once started: each sound as Sound plays it, from its step, at its speed, a tick (1/120 s) exact.
 #
@@ -32,7 +33,8 @@ PATTERNS* :: 64           # a song's, at most
 USES* :: 128              # the song's row: patterns used, at most
 PLACES* :: 4096           # placements, in all the patterns, at most
 PER_PATTERN* :: 255       # placements in a pattern, at most
-CHANNELS* :: 8            # each a voice, from Song.voice on
+CHANNELS* :: 8            # a pattern's, each a voice from Song.voice on (a track's after the tracks' before it)
+TRACKS* :: 8              # a song's uses in tracks played side by side (a use's track: its marks' bits 4 to 6)
 STEPS* :: 128             # a pattern's, at most
 SHIFTS* :: 48             # a shift's reach, semitones either way
 LOOP_BEGINS* :: 1         # a use's flags
@@ -56,7 +58,10 @@ Song* :: struct
                           # sounds' notes first, as many as the song plays, and the room after
   notes: Blob             # the app's: the sounds' notes, SOUND_BYTES a sound, from the first
   room: Blob              # the app's: patterns, uses, placements, then each channel's notes as it plays
-  voice: Int              # the first of its voices (channel c plays on voice + c)
+  voice: Int              # the first of its voices (channel c plays on voice + c; a later track's after the
+                          # channels the tracks before it play now: past its voices, dropped)
+  voices: Int             # how many voices it may take, from voice on (0: 8)
+  tracks: Int             # how many tracks (its uses' highest, plus one)
   patterns: Int           # how many of each
   uses: Int
   places: Int
@@ -112,7 +117,8 @@ Song.useShiftEnd* :: proc(u: Int) -> Int do return self.use(u, 2) - 64
 Song.useVolume* :: proc(u: Int) -> Int do return self.use(u, 3)
 Song.useVolumeEnd* :: proc(u: Int) -> Int do return self.use(u, 4)
 Song.useSpeed* :: proc(u: Int) -> Int do return self.use(u, 5) + self.use(u, 6) * 256
-Song.useFlags* :: proc(u: Int) -> Int do return self.use(u, 7)
+Song.useFlags* :: proc(u: Int) -> Int do return self.use(u, 7) % 16 # (its marks: LOOP_BEGINS, LOOP_ENDS, STOPS)
+Song.useTrack* :: proc(u: Int) -> Int do return self.use(u, 7) / 16 % TRACKS
 Song.useTimes* :: proc(u: Int) -> Int do return max(1, self.use(u, 8)) # (played that many times over, its ramps across them all)
 Song.placeStep* :: proc(i: Int) -> Int do return self.place(i, 0)
 Song.placeChannel* :: proc(i: Int) -> Int do return self.place(i, 1)
@@ -121,7 +127,8 @@ Song.placeShift* :: proc(i: Int) -> Int do return self.place(i, 3) - 64
 Song.placeVolume* :: proc(i: Int) -> Int do return self.place(i, 4)
 Song.placeSpeed* :: proc(i: Int) -> Int do return self.place(i, 5)  # (0: the sound's own)
 Song.placeHold* :: proc(i: Int) -> Int do return self.place(i, 6)   # (0: as long as it plays)
-Song.setUseFlags* :: proc(u: Int, f: Int) do self.room[self.usesAt + u * USE_BYTES + 7] = f
+Song.setUseFlags* :: proc(u: Int, f: Int) do self.room[self.usesAt + u * USE_BYTES + 7] = self.useTrack(u) * 16 + f % 16
+Song.setUseTrack* :: proc(u: Int, t: Int) do self.room[self.usesAt + u * USE_BYTES + 7] = max(0, min(t, TRACKS - 1)) * 16 + self.useFlags(u)
 
 # ---------------------------------------------------------------- sounds
 
@@ -214,10 +221,14 @@ Song.needs* :: proc() -> Int
   end
   return most * SOUND_BYTES
 end
-# sound s on voice v (once, or round its loop until stopped): a game's sound effects
+# sound s on voice v (once, or round its loop until stopped): a game's sound effects. v -1: the first voice
+# that's free (not playing, and not the song's: pc.freeVoice), none if none is
 Song.sound* :: proc(v: Int, s: Int)
   n := self.notesOf(s)
-  if n == 0
+  if v < 0
+    v = pc.freeVoice()
+  end
+  if n == 0 or v < 0
     return
   end
   pc.synth(v, self.notes[s * SOUND_BYTES..<s * SOUND_BYTES + n * 4], self.speeds[s])
@@ -290,6 +301,8 @@ nP := 0
 nU := 0
 nL := 0
 most := 0                 # (channels: the highest, plus one)
+trackNow := 0             # (the track the uses read are in)
+mostTrack := 0            # (tracks: the highest, plus one)
 soundsUsed := 0           # (sounds: the highest placed, plus one)
 named: Blob[..96]
 filling := false
@@ -325,6 +338,7 @@ Song.addPlace :: proc(step, c, s, shift, vol, speed, hold: Int)
   nL += 1
 end
 Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags: Int)
+  mostTrack = max(mostTrack, trackNow + 1)
   if nU >= USES
     bad = true
     return
@@ -339,7 +353,7 @@ Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags: Int)
     v := max(1, min(speed, 400))
     self.room[o + 5] = v % 256
     self.room[o + 6] = v / 256
-    self.room[o + 7] = flags
+    self.room[o + 7] = trackNow * 16 + flags % 16
     self.room[o + 8] = max(1, min(times, TIMES))
   end
   nU += 1
@@ -415,11 +429,15 @@ Song.songLine :: proc(k: Int, l: String) -> Bool
     nL = 0
     most = 0
     soundsUsed = 0
+    trackNow = 0
+    mostTrack = 0
     bad = false
     if l == "rinc music 1"
       version = 1
     case l == "rinc music 2"
       version = 2
+    case l == "rinc music 3"
+      version = 3
     end
     if not filling
       named.clear()
@@ -463,6 +481,13 @@ Song.songLine :: proc(k: Int, l: String) -> Bool
     return true
   case startsWith(l, "song")
     section = 2
+    trackNow = 0
+    return true
+  case startsWith(l, "track") and section == 2 # (track N: the uses after it are its, N from 1)
+    readNumbers(l)
+    if numCount >= 1
+      trackNow = max(0, min(nums[0] - 1, TRACKS - 1))
+    end
     return true
   end
   readNumbers(l)
@@ -583,6 +608,7 @@ Song.filled :: proc() -> Bool
   self.uses = nU
   self.places = nL
   self.channels = most
+  self.tracks = max(1, mostTrack)
   if self.roomNeeds() > self.room.len()
     why.clear()
     self.short(self.roomNeeds(), "")
@@ -681,10 +707,15 @@ Song.reason* :: proc() -> String do return why.asString()
 
 # ---------------------------------------------------------------- writing
 
-# the song as text, a version 2 file's (Music saves it): false if out hasn't room
+# the song as text (Music saves it): false if out hasn't room. A version 2 file's, with one track (so older
+# Rincs read it); version 3's with more: each track's uses after its line, "track N" (the first's, "song")
 Song.write* :: proc(out: Blob[..]) -> Bool
   out.clear()
-  ok := out.print("rinc music 2\nsounds ", self.soundsPath.asString(), "\nlevers ", self.shift, " ", self.volume, " ", self.speed, "\n")
+  most := 1
+  for u in 0..<self.uses
+    most = max(most, self.useTrack(u) + 1)
+  end
+  ok := out.print("rinc music ", 2 + (most > 1).toInt(), "\nsounds ", self.soundsPath.asString(), "\nlevers ", self.shift, " ", self.volume, " ", self.speed, "\n")
   for p in 0..<self.patterns
     ok = ok and out.print("pattern ", self.patternSteps(p), " ", self.patternSpeed(p), "\n")
     for i in self.patternFirst(p)..<self.patternFirst(p) + self.patternCount(p)
@@ -692,7 +723,15 @@ Song.write* :: proc(out: Blob[..]) -> Bool
     end
   end
   ok = ok and out.pushAll("song\n")
-  for u in 0..<self.uses
+  for k in 0..<most * self.uses
+    t := k / max(1, self.uses)
+    u := k % max(1, self.uses)
+    if u == 0 and t > 0
+      ok = ok and out.print("track ", t + 1, "\n")
+    end
+    if self.useTrack(u) != t
+      continue
+    end
     ok = ok and out.print(self.usePattern(u), " ", self.useShift(u), " ", self.useShiftEnd(u), " ", self.useVolume(u), " ", self.useVolumeEnd(u), " ", self.useSpeed(u), " ", self.useTimes(u), " ")
     f := self.useFlags(u)
     if f == 0
@@ -733,7 +772,7 @@ Song.start :: proc(from: Int, how: Int) -> Bool
   end
   current = self.id
   pc.songLevers(self.shift, self.volume, self.speed)
-  pc.songPlay(self.voice, self.room, self.notes, self.patterns, self.uses, from, how)
+  pc.songPlay(self.voice, self.room, self.notes, self.patterns, self.uses, from, how + max(0, min(self.voices, 255)) * 256)
   self.playing = true
   self.playAlone = how & 1 != 0
   self.looping = how & 2 != 0

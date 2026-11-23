@@ -441,14 +441,19 @@ void rinc_audioReset(void) {
    hold, the next on its channel, or its pattern's end; its shift and volume ramped across its use's
    times round, and the levers' (speed from the next placement on) */
 #define rinc_SONG_CHANNELS 8
+#define rinc_SONG_TRACKS 8
 #define rinc_SOUND_BYTES 128
 enum { rinc_SONG_ALONE = 1, rinc_SONG_LOOP = 2, rinc_LOOP_BEGINS = 1, rinc_LOOP_ENDS = 2, rinc_STOPS = 4 };
-static struct {
-  const uint8_t *room, *notes; uint32_t roomLen, notesLen;
-  int voice, patterns, uses, usesAt, placesAt, infoAt, how, on, paused, held, use, rep, next, shift, volume, speed;
-  float pos;                                  /* ticks into the pattern (its own: before its speeds) */
+typedef struct {                              /* a track: its uses (those of its number, in order) played in turn */
+  int on, use, rep, next, base;               /* (base: its channel 0's voice, after the tracks before it) */
+  float pos;                                  /* ticks into its pattern (its own: before its speeds) */
   int place[rinc_SONG_CHANNELS];              /* the placement playing on each channel (-1: none) */
   float stopAt[rinc_SONG_CHANNELS];           /* and where it stops: its hold, or the pattern's end */
+} rinc_Track;
+static struct {
+  const uint8_t *room, *notes; uint32_t roomLen, notesLen;
+  int voice, voices, patterns, uses, usesAt, placesAt, infoAt, how, on, paused, held, follow, shift, volume, speed;
+  rinc_Track track[rinc_SONG_TRACKS];
 } rinc_song;
 static void rinc_songReset(void) { memset(&rinc_song, 0, sizeof rinc_song); }
 static int rinc_songByte(uint32_t at) { return at < rinc_song.roomLen ? rinc_song.room[at] : 0; }
@@ -456,23 +461,48 @@ static int rinc_songPat(int p, int k) { return rinc_songByte((uint32_t)(p * 6 + 
 static int rinc_songUse(int u, int k) { return rinc_songByte((uint32_t)(rinc_song.usesAt + u * 9 + k)); }
 static int rinc_songPlace(int i, int k) { return rinc_songByte((uint32_t)(rinc_song.placesAt + i * 8 + k)); }
 static int rinc_songTimes(int u) { int t = rinc_songUse(u, 8); return t > 0 ? t : 1; }
+static int rinc_songMarks(int u) { return rinc_songUse(u, 7) & 15; }
+static int rinc_songTrackOf(int u) { return rinc_songUse(u, 7) >> 4 & 7; }
 static float rinc_songTempo(int u) { /* (a use's speed, and the lever's: how many of its ticks a tick plays) */
   int pct = rinc_songUse(u, 5) | rinc_songUse(u, 6) << 8;
   return (float)(pct > 0 ? pct : 100) * (float)rinc_song.speed / 10000.0f;
 }
-static void rinc_songSilence(int c) { /* (channel c's voice: fading out, as after a sound's last note) */
-  int v = rinc_song.voice + c;
-  rinc_song.place[c] = -1;
-  if (v < rinc_VOICES && rinc_voices[v].on && rinc_voices[v].synth) { rinc_Voice *x = &rinc_voices[v]; x->loop0 = x->loop1 = 0; if (!x->tail) x->tail = x->fade; }
+static float rinc_songLen(int u) { int p = rinc_songUse(u, 0); return (float)(rinc_songPat(p, 0) * rinc_songPat(p, 1)); } /* (its pattern's ticks) */
+/* a track's channel c's voice: its base and c, from the song's first; -1 past the song's voices (dropped) */
+static int rinc_songVoiceOf(int t, int c) {
+  int v = rinc_song.voice + rinc_song.track[t].base + c;
+  return v < rinc_song.voice + rinc_song.voices && v < rinc_VOICES ? v : -1;
 }
-/* a channel's shift and volume, now: its placement's, the use's ramped across its times round, the levers' */
-static void rinc_songLevel(int c) {
-  int i = rinc_song.place[c], u = rinc_song.use, p = rinc_songUse(u, 0), v = rinc_song.voice + c;
-  float len = (float)(rinc_songPat(p, 0) * rinc_songPat(p, 1)), along, sh, vol;
+static void rinc_songSilence(int t, int c) { /* (a track's channel c's voice: fading out, as after a sound's last note) */
+  int v = rinc_songVoiceOf(t, c);
+  rinc_song.track[t].place[c] = -1;
+  if (v >= 0 && rinc_voices[v].on && rinc_voices[v].synth) { rinc_Voice *x = &rinc_voices[v]; x->loop0 = x->loop1 = 0; if (!x->tail) x->tail = x->fade; }
+}
+/* the channels a pattern's placements take: its highest, plus one */
+static int rinc_songChannelsOf(int p) {
+  int first = rinc_songPat(p, 2) | rinc_songPat(p, 3) << 8, count = rinc_songPat(p, 4), n = 0, i, c;
+  for (i = first; i < first + count; i++) { c = rinc_songPlace(i, 1); if (c < rinc_SONG_CHANNELS && c + 1 > n) n = c + 1; }
+  return n;
+}
+/* the tracks' voices, shifting: each track's channels after the tracks' before it (their patterns' channels
+   now), so the first track's are never dropped; a note playing on a voice that moves ends there */
+static void rinc_songVoices(void) {
+  int t, c, base = 0;
+  for (t = 0; t < rinc_SONG_TRACKS; t++) {
+    rinc_Track *r = &rinc_song.track[t];
+    if (r->base != base) { for (c = 0; c < rinc_SONG_CHANNELS; c++) if (r->place[c] >= 0) rinc_songSilence(t, c); r->base = base; }
+    if (r->on) base += rinc_songChannelsOf(rinc_songUse(r->use, 0));
+  }
+}
+/* a track's channel's shift and volume, now: its placement's, the use's ramped across its times round, the levers' */
+static void rinc_songLevel(int t, int c) {
+  rinc_Track *r = &rinc_song.track[t];
+  int i = r->place[c], u = r->use, v = rinc_songVoiceOf(t, c);
+  float len = rinc_songLen(u), along, sh, vol;
   rinc_Voice *x;
-  if (i < 0 || v >= rinc_VOICES) return;
+  if (i < 0 || v < 0) return;
   x = &rinc_voices[v];
-  along = len > 0 ? ((float)rinc_song.rep * len + rinc_song.pos) / ((float)rinc_songTimes(u) * len) : 0;
+  along = len > 0 ? ((float)r->rep * len + r->pos) / ((float)rinc_songTimes(u) * len) : 0;
   if (along > 1) along = 1;
   sh = (float)(rinc_songUse(u, 1) - 64) + (float)(rinc_songUse(u, 2) - rinc_songUse(u, 1)) * along;
   vol = (float)rinc_songUse(u, 3) + (float)(rinc_songUse(u, 4) - rinc_songUse(u, 3)) * along;
@@ -480,84 +510,134 @@ static void rinc_songLevel(int c) {
   x->vol = (float)rinc_songPlace(i, 4) / 8 * vol / 8 * (float)rinc_song.volume / 8;
   rinc_gains(x);
 }
-static void rinc_songStart(int c, int i) { /* placement i, on channel c's voice */
-  int v = rinc_song.voice + c, s = rinc_songPlace(i, 2), speed = rinc_songPlace(i, 5), hold = rinc_songPlace(i, 6), p = rinc_songUse(rinc_song.use, 0);
+static void rinc_songStart(int t, int c, int i) { /* placement i, on a track's channel c's voice (none: dropped) */
+  rinc_Track *r = &rinc_song.track[t];
+  int v = rinc_songVoiceOf(t, c), s = rinc_songPlace(i, 2), speed = rinc_songPlace(i, 5), hold = rinc_songPlace(i, 6), p = rinc_songUse(r->use, 0);
   int at = rinc_song.infoAt + s * 3, a = rinc_songByte((uint32_t)at + 1), b = rinc_songByte((uint32_t)at + 2), n, k;
   const uint8_t *notes;
   rinc_Voice *x;
-  if (v >= rinc_VOICES || (uint32_t)(s + 1) * rinc_SOUND_BYTES > rinc_song.notesLen) return;
+  if (r->place[c] >= 0) rinc_songSilence(t, c);
+  if (v < 0 || (uint32_t)(s + 1) * rinc_SOUND_BYTES > rinc_song.notesLen) return;
   notes = rinc_song.notes + s * rinc_SOUND_BYTES;
   if (!speed) speed = rinc_songByte((uint32_t)at);
   for (n = b > 0 ? b : 0, k = 0; !b && k < 32; k++) if (notes[k * 4 + 2] & 7) n = k + 1; /* (to its loop's end, or its last note heard) */
-  if (n <= 0 || n > 32) { rinc_songSilence(c); return; }
+  if (n <= 0 || n > 32) return;
   x = &rinc_voices[v];
   rinc_synthStart(x, notes, (uint32_t)n, speed > 0 ? speed : 1, v);
   if (b > a) { x->loop0 = (uint32_t)a; x->loop1 = (uint32_t)b; }
-  x->tempo = rinc_songTempo(rinc_song.use); rinc_synthApply(x);
-  rinc_song.place[c] = i;
-  rinc_song.stopAt[c] = (float)((hold ? rinc_songPlace(i, 0) + hold : rinc_songPat(p, 0)) * rinc_songPat(p, 1));
-  rinc_songLevel(c);
+  x->tempo = rinc_songTempo(r->use); rinc_synthApply(x);
+  r->place[c] = i;
+  r->stopAt[c] = (float)((hold ? rinc_songPlace(i, 0) + hold : rinc_songPat(p, 0)) * rinc_songPat(p, 1));
+  rinc_songLevel(t, c);
 }
-static void rinc_songBegin(int u, int rep) { /* use u, its time round rep, from its start */
-  int c;
-  for (c = 0; c < rinc_SONG_CHANNELS; c++) if (rinc_song.place[c] >= 0) rinc_songSilence(c);
-  rinc_song.use = u; rinc_song.rep = rep; rinc_song.pos = 0; rinc_song.next = 0;
+static void rinc_songQuiet(int t) { int c; for (c = 0; c < rinc_SONG_CHANNELS; c++) if (rinc_song.track[t].place[c] >= 0) rinc_songSilence(t, c); }
+static void rinc_songBegin(int t, int u, int rep) { /* a track's use u, its time round rep, from its start */
+  rinc_Track *r = &rinc_song.track[t];
+  rinc_songQuiet(t);
+  r->on = 1; r->use = u; r->rep = rep; r->pos = 0; r->next = 0;
+  rinc_songVoices();
 }
+static void rinc_songTrackEnd(int t) { rinc_songQuiet(t); rinc_song.track[t].on = 0; } /* (the tracks after it keep their voices till their next pattern: not cut short) */
 static void rinc_songEnd(void) {
-  int c;
-  for (c = 0; c < rinc_SONG_CHANNELS; c++) if (rinc_song.place[c] >= 0) rinc_songSilence(c);
+  int t;
+  for (t = 0; t < rinc_SONG_TRACKS; t++) rinc_songQuiet(t), rinc_song.track[t].on = 0;
   rinc_song.on = 0;
 }
-/* the use after u's end (its times round, then its marks): as the song library's tick had it */
-static void rinc_songNext(void) {
-  int u = rinc_song.use, f = rinc_songUse(u, 7);
-  if (rinc_song.rep + 1 < rinc_songTimes(u)) { rinc_songBegin(u, rinc_song.rep + 1); return; }
-  if ((rinc_song.how & rinc_SONG_LOOP) && !(rinc_song.how & rinc_SONG_ALONE) && !(f & (rinc_STOPS | rinc_LOOP_ENDS)) && u + 1 >= rinc_song.uses) { rinc_songBegin(0, 0); return; }
-  if ((rinc_song.how & rinc_SONG_ALONE) || (f & rinc_STOPS) || (!(f & rinc_LOOP_ENDS) && u + 1 >= rinc_song.uses)) { rinc_songEnd(); return; }
-  if (f & rinc_LOOP_ENDS) { while (u > 0 && !(rinc_songUse(u, 7) & rinc_LOOP_BEGINS)) u--; rinc_songBegin(u, 0); return; }
-  rinc_songBegin(u + 1, 0);
+/* a track's use after u (-1: none), and its first */
+static int rinc_songAfter(int t, int u) { for (u++; u < rinc_song.uses; u++) if (rinc_songTrackOf(u) == t) return u; return -1; }
+static int rinc_songFirst(int t) { return rinc_songAfter(t, -1); }
+/* a track at real tick ticks from its start (counted straight along its uses, loops not followed): its use
+   there, its time round and how far in (the placements before it skipped); none: it's ended */
+static void rinc_songSeek(int t, float ticks) {
+  int u, rep, first, count;
+  rinc_Track *r = &rinc_song.track[t];
+  for (u = rinc_songFirst(t); u >= 0; u = rinc_songAfter(t, u)) {
+    float one = rinc_songLen(u) / rinc_songTempo(u), all = one * (float)rinc_songTimes(u);
+    if (one <= 0) continue;
+    if (ticks < all) {
+      int p = rinc_songUse(u, 0);
+      rep = (int)(ticks / one);
+      rinc_songBegin(t, u, rep);
+      r->pos = (ticks - (float)rep * one) * rinc_songTempo(u);
+      first = rinc_songPat(p, 2) | rinc_songPat(p, 3) << 8; count = rinc_songPat(p, 4);
+      while (r->next < count && (float)(rinc_songPlace(first + r->next, 0) * rinc_songPat(p, 1)) < r->pos) r->next++;
+      return;
+    }
+    ticks -= all;
+  }
+  rinc_songTrackEnd(t);
+}
+/* every track from its first use again, together */
+static void rinc_songAgain(void) { int t; for (t = 0; t < rinc_SONG_TRACKS; t++) if (rinc_songFirst(t) >= 0) rinc_songBegin(t, rinc_songFirst(t), 0); }
+/* a track's use after its end (its times round, then its marks); the song's end when every track's ended */
+static void rinc_songNext(int t) {
+  rinc_Track *r = &rinc_song.track[t];
+  int u = r->use, f = rinc_songMarks(u), n;
+  if (r->rep + 1 < rinc_songTimes(u)) { rinc_songBegin(t, u, r->rep + 1); return; }
+  if (f & rinc_STOPS) { rinc_songEnd(); return; }
+  n = rinc_songAfter(t, u);
+  if (rinc_song.how & rinc_SONG_ALONE) rinc_songTrackEnd(t);
+  else if (f & rinc_LOOP_ENDS) { /* (back to where its loop began, in the track) */
+    while (!(rinc_songMarks(u) & rinc_LOOP_BEGINS)) { int b = u - 1; while (b >= 0 && rinc_songTrackOf(b) != t) b--; if (b < 0) break; u = b; }
+    rinc_songBegin(t, u, 0);
+  } else if (n >= 0) rinc_songBegin(t, n, 0);
+  else rinc_songTrackEnd(t);
+  for (n = 0; n < rinc_SONG_TRACKS; n++) if (rinc_song.track[n].on) return;
+  if ((rinc_song.how & rinc_SONG_LOOP) && !(rinc_song.how & rinc_SONG_ALONE)) rinc_songAgain(); else rinc_songEnd();
 }
 static void rinc_songTick(void) {
-  int p, first, count, c, guard;
+  int t, p, first, count, c, guard;
   if (!rinc_song.on || rinc_song.paused) return;
-  for (guard = 0; guard < 4 && rinc_song.on; guard++) { /* (a pattern done: the next, at once; a few at most, if they're empty) */
-    float len;
-    p = rinc_songUse(rinc_song.use, 0);
-    if (p >= rinc_song.patterns) { rinc_songEnd(); return; }
-    len = (float)(rinc_songPat(p, 0) * rinc_songPat(p, 1));
-    first = rinc_songPat(p, 2) | rinc_songPat(p, 3) << 8; count = rinc_songPat(p, 4);
-    for (c = 0; c < rinc_SONG_CHANNELS; c++) /* (holds done) */
-      if (rinc_song.place[c] >= 0 && rinc_song.pos >= rinc_song.stopAt[c]) rinc_songSilence(c);
-    if (rinc_song.pos >= len) { rinc_songNext(); continue; }
-    while (rinc_song.next < count) { /* (the placements starting now, in step order) */
-      int i = first + rinc_song.next;
-      if ((float)(rinc_songPlace(i, 0) * rinc_songPat(p, 1)) > rinc_song.pos) break;
-      c = rinc_songPlace(i, 1);
-      if (c < rinc_SONG_CHANNELS) rinc_songStart(c, i);
-      rinc_song.next++;
+  for (t = 0; t < rinc_SONG_TRACKS && rinc_song.on; t++) {
+    rinc_Track *r = &rinc_song.track[t];
+    for (guard = 0; guard < 4 && rinc_song.on && r->on; guard++) { /* (a pattern done: the next, at once; a few at most, if they're empty) */
+      float len;
+      p = rinc_songUse(r->use, 0);
+      if (p >= rinc_song.patterns) { rinc_songTrackEnd(t); break; }
+      len = rinc_songLen(r->use);
+      first = rinc_songPat(p, 2) | rinc_songPat(p, 3) << 8; count = rinc_songPat(p, 4);
+      for (c = 0; c < rinc_SONG_CHANNELS; c++) /* (holds done) */
+        if (r->place[c] >= 0 && r->pos >= r->stopAt[c]) rinc_songSilence(t, c);
+      if (r->pos >= len) { rinc_songNext(t); continue; }
+      while (r->next < count) { /* (the placements starting now, in step order) */
+        int i = first + r->next;
+        if ((float)(rinc_songPlace(i, 0) * rinc_songPat(p, 1)) > r->pos) break;
+        c = rinc_songPlace(i, 1);
+        if (c < rinc_SONG_CHANNELS) rinc_songStart(t, c, i);
+        r->next++;
+      }
+      for (c = 0; c < rinc_SONG_CHANNELS; c++) rinc_songLevel(t, c); /* (ramps, and levers) */
+      r->pos += rinc_songTempo(r->use);
+      break;
     }
-    for (c = 0; c < rinc_SONG_CHANNELS; c++) rinc_songLevel(c); /* (ramps, and levers) */
-    rinc_song.pos += rinc_songTempo(rinc_song.use);
-    break;
   }
+  if (rinc_song.on) { for (t = 0; t < rinc_SONG_TRACKS && !rinc_song.track[t].on; t++) {} if (t == rinc_SONG_TRACKS) rinc_songEnd(); }
 }
 /* songPlay(v, room, notes, patterns, uses, from, how): the song in room's tables, its sounds in notes,
-   from use from, on voices v on (a channel each); how: 1 just that use, 2 round again at its end */
+   from use from (its track; the others where they'd be then), on voices v on; how: 1 just that use, 2
+   round again at its end, and from bit 8 on how many voices it may take (0: 8) */
 static void rinc_hostSongPlay(rio_Vm *vm, rio_Val *a) {
   const uint8_t *room = (const uint8_t *)rio_sliceBytes(vm, a + 1), *notes = (const uint8_t *)rio_sliceBytes(vm, a + 3);
-  int v = a[0].i, patterns = a[5].i, uses = a[6].i, from = a[7].i, places = 0, p, c;
+  int v = a[0].i, patterns = a[5].i, uses = a[6].i, from = a[7].i, places = 0, p, c, t, u;
   rinc_lock(1);
   if (rinc_song.on) rinc_songEnd();
   if (room && notes && v >= 0 && v < rinc_VOICES && patterns > 0 && uses > 0 && from >= 0 && from < uses) {
+    float at = 0;
     rinc_song.room = room; rinc_song.roomLen = a[2].u; rinc_song.notes = notes; rinc_song.notesLen = a[4].u;
-    rinc_song.voice = v; rinc_song.patterns = patterns; rinc_song.uses = uses; rinc_song.how = a[8].i;
+    rinc_song.voice = v; rinc_song.patterns = patterns; rinc_song.uses = uses; rinc_song.how = a[8].i & 255;
+    rinc_song.voices = a[8].i >> 8 & 255 ? a[8].i >> 8 & 255 : 8;
     rinc_song.usesAt = patterns * 6; rinc_song.placesAt = rinc_song.usesAt + uses * 9;
     for (p = 0; p < patterns; p++) { int e = (rinc_songPat(p, 2) | rinc_songPat(p, 3) << 8) + rinc_songPat(p, 4); if (e > places) places = e; }
     rinc_song.infoAt = rinc_song.placesAt + places * 8;
     if (!rinc_song.speed) { rinc_song.volume = 8; rinc_song.speed = 100; }
-    for (c = 0; c < rinc_SONG_CHANNELS; c++) rinc_song.place[c] = -1;
+    for (t = 0; t < rinc_SONG_TRACKS; t++) { rinc_song.track[t].on = 0; rinc_song.track[t].base = 0; for (c = 0; c < rinc_SONG_CHANNELS; c++) rinc_song.track[t].place[c] = -1; }
     rinc_song.paused = 0; rinc_song.on = 1;
-    rinc_songBegin(from, 0);
+    rinc_song.follow = rinc_songTrackOf(from);
+    for (u = rinc_songFirst(rinc_song.follow); u >= 0 && u < from; u = rinc_songAfter(rinc_song.follow, u)) /* (where from starts, in real ticks) */
+      if (rinc_songTempo(u) > 0) at += rinc_songLen(u) / rinc_songTempo(u) * (float)rinc_songTimes(u);
+    rinc_songBegin(rinc_song.follow, from, 0);
+    if (!(rinc_song.how & rinc_SONG_ALONE))
+      for (t = 0; t < rinc_SONG_TRACKS; t++) if (t != rinc_song.follow) rinc_songSeek(t, at);
     rinc_songTick(); /* (its first placements, at once) */
   }
   rinc_lock(0);
@@ -565,17 +645,18 @@ static void rinc_hostSongPlay(rio_Vm *vm, rio_Val *a) {
 static void rinc_hostSongStop(rio_Vm *vm, rio_Val *a) { (void)vm; (void)a; rinc_lock(1); if (rinc_song.on) rinc_songEnd(); rinc_lock(0); }
 /* songPause(on): 1 holds it where it is (its voices silent), 0 goes on */
 static void rinc_hostSongPause(rio_Vm *vm, rio_Val *a) {
-  int c, on = a[0].i != 0; (void)vm;
+  int t, c, on = a[0].i != 0; (void)vm;
   rinc_lock(1);
   if (rinc_song.on && on != rinc_song.paused) {
     rinc_song.paused = on;
     if (on) rinc_song.held = 0;
-    for (c = 0; c < rinc_SONG_CHANNELS; c++) {
-      int v = rinc_song.voice + c;
-      if (v >= rinc_VOICES || rinc_song.place[c] < 0) continue;
-      if (on && rinc_voices[v].on) { rinc_voices[v].on = 0; rinc_song.held |= 1 << c; }
-      else if (!on && (rinc_song.held >> c & 1)) rinc_voices[v].on = 1;
-    }
+    for (t = 0; t < rinc_SONG_TRACKS; t++)
+      for (c = 0; c < rinc_SONG_CHANNELS; c++) {
+        int v = rinc_songVoiceOf(t, c);
+        if (v < 0 || rinc_song.track[t].place[c] < 0) continue;
+        if (on && rinc_voices[v].on) { rinc_voices[v].on = 0; rinc_song.held |= 1 << v; }
+        else if (!on && (rinc_song.held >> v & 1)) rinc_voices[v].on = 1;
+      }
   }
   rinc_lock(0);
 }
@@ -589,17 +670,28 @@ static void rinc_hostSongLevers(rio_Vm *vm, rio_Val *a) {
   rinc_song.speed = a[2].i < 1 ? 1 : a[2].i > 400 ? 400 : a[2].i;
   rinc_lock(0);
 }
-/* songAt() -> [3]Int: the use playing, its time round, and how far into its pattern, in thousandths
-   ({-1, 0, 0}: none playing) */
+/* songAt() -> [3]Int: the use playing in the track it was started from, its time round, and how far into
+   its pattern, in thousandths (that track ended, the others playing: its last use, all of it; {-1, 0, 0}:
+   none playing) */
 static void rinc_hostSongAt(rio_Vm *vm, rio_Val *a) {
-  int p; float len; (void)vm;
+  float len; rinc_Track *r; (void)vm;
   rinc_lock(1);
   if (!rinc_song.on) { a[0].i = -1; a[1].i = a[2].i = 0; }
   else {
-    p = rinc_songUse(rinc_song.use, 0); len = (float)(rinc_songPat(p, 0) * rinc_songPat(p, 1));
-    a[0].i = rinc_song.use; a[1].i = rinc_song.rep; a[2].i = len > 0 ? (int)(rinc_song.pos * 1000 / len) : 0;
+    r = &rinc_song.track[rinc_song.follow];
+    len = rinc_songLen(r->use);
+    a[0].i = r->use; a[1].i = r->rep; a[2].i = !r->on ? 1000 : len > 0 ? (int)(r->pos * 1000 / len) : 0;
     if (a[2].i > 1000) a[2].i = 1000;
   }
+  rinc_lock(0);
+}
+/* freeVoice() -> Int: the first voice not playing and not the song's (-1: none) */
+static void rinc_hostFreeVoice(rio_Vm *vm, rio_Val *a) {
+  int k; (void)vm;
+  rinc_lock(1);
+  a[0].i = -1;
+  for (k = 0; k < rinc_VOICES; k++)
+    if (!rinc_voices[k].on && !(rinc_song.on && k >= rinc_song.voice && k < rinc_song.voice + rinc_song.voices)) { a[0].i = k; break; }
   rinc_lock(0);
 }
 
@@ -775,7 +867,7 @@ static void rinc_hostAudioLoad(rio_Vm *vm, rio_Val *a) {
 int rinc_audioProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.sound", pc_sound_SIG, rinc_hostSound) || rio_addFfi(vm, "pc.soundRate", pc_soundRate_SIG, rinc_hostRate) || rio_addFfi(vm, "pc.soundVolume", pc_soundVolume_SIG, rinc_hostVolume) ||
          rio_addFfi(vm, "pc.soundPan", pc_soundPan_SIG, rinc_hostPan) || rio_addFfi(vm, "pc.soundLoop", pc_soundLoop_SIG, rinc_hostLoop) || rio_addFfi(vm, "pc.soundStop", pc_soundStop_SIG, rinc_hostStop) || rio_addFfi(vm, "pc.audioLoad", pc_audioLoad_SIG, rinc_hostAudioLoad) || rio_addFfi(vm, "pc.songPlay", pc_songPlay_SIG, rinc_hostSongPlay) || rio_addFfi(vm, "pc.songStop", pc_songStop_SIG, rinc_hostSongStop) ||
-         rio_addFfi(vm, "pc.songPause", pc_songPause_SIG, rinc_hostSongPause) || rio_addFfi(vm, "pc.songLevers", pc_songLevers_SIG, rinc_hostSongLevers) || rio_addFfi(vm, "pc.songAt", pc_songAt_SIG, rinc_hostSongAt) ||
+         rio_addFfi(vm, "pc.songPause", pc_songPause_SIG, rinc_hostSongPause) || rio_addFfi(vm, "pc.songLevers", pc_songLevers_SIG, rinc_hostSongLevers) || rio_addFfi(vm, "pc.songAt", pc_songAt_SIG, rinc_hostSongAt) || rio_addFfi(vm, "pc.freeVoice", pc_freeVoice_SIG, rinc_hostFreeVoice) ||
          rio_addFfi(vm, "pc.soundPlaying", pc_soundPlaying_SIG, rinc_hostPlaying) || rio_addFfi(vm, "pc.soundWav", pc_soundWav_SIG, rinc_hostWav) ||
          rio_addFfi(vm, "pc.synth", pc_synth_SIG, rinc_hostSynth) || rio_addFfi(vm, "pc.synthMake", pc_synthMake_SIG, rinc_hostSynthMake) ||
          rio_addFfi(vm, "pc.synthRate", pc_synthRate_SIG, rinc_hostSynthRate) || rio_addFfi(vm, "pc.synthBend", pc_synthBend_SIG, rinc_hostSynthBend) ||
