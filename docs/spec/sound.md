@@ -110,19 +110,22 @@ frame: rinc's `song` library reads the files and calls these, one song at a time
 | `pc.freeVoice() -> Int` | the first voice not playing and not the song's (-1: none): a game's sounds there, never in the song's way (the song library's `sound(-1, n)` takes one so) |
 
 `room` holds, from its start: the patterns, 6 bytes each (its steps; a step's length, in 120ths of a
-second; its first placement, 2 bytes, low first; how many it has; 0); then the uses, 9 bytes each (its
+second; its first placement, 2 bytes, low first; how many it has; 0); then the uses, 11 bytes each (its
 pattern; its shift and its shift at its end, each plus 64; its volume and at its end, in eighths; its
 speed, in percent, 2 bytes, low first; its marks, 1 a loop begins, 2 a loop ends, 4 the song stops, and
-its track times 16, 0 to 7; how many times it's played over); then the placements, 8 bytes each (its step; its channel, 0 to 7; its
-sound; its shift plus 64; its volume, in eighths; its speed, or 0 for its sound's; its hold, in steps,
-or 0; 0); then, for each sound the song plays, from 0, its speed and its loop's start and end, 3 bytes.
+its track times 16, 0 to 7; how many times it's played over; its pan and its pan at its end); then the
+placements, 9 bytes each (its step; its channel, 0 to 7; its sound; its shift plus 64; its volume, in
+eighths; its speed, or 0 for its sound's; its hold, in steps, or 0; its pan; 0, kept for later). A pan
+is a signed byte, -8 to 8, eighths of the way left or right, 0 the center: a placement's and its use's
+(ramped across its times round, as shift and volume are) added. Then, for each sound the song plays, from 0, its speed and its loop's start and end, 3 bytes.
 `notes` holds the sounds' notes, 128 bytes a sound (32 notes of 4 bytes, as the synth takes them).
 
 A song's uses are in tracks, played side by side (a drum beat in one, the melody's patterns in another):
 each track its uses in the table's order, in turn, as below, with its own loops; a stop mark in any
 ends the song, and the song ends when every track has. The tracks take voices in order: track 0's
-channel `c` on voice `v + c`, a later track's after the channels the tracks before it play now (its
-pattern's highest, plus one), worked out again as a track's pattern changes; a channel past the song's
+channel `c` on voice `v + c` (its pattern's highest channel, plus one, the voices it takes), a later
+track's after the tracks before it, just the channels its pattern uses (a bass on channel 6 alone takes
+one voice), worked out again as a track's pattern changes; a channel past the song's
 voices is dropped (silent). So the first track's are never dropped.
 
 Time goes in ticks of 1/120 s, kept by the mixer. At its step a placement starts on its channel's voice

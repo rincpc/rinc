@@ -20,7 +20,7 @@ room: Blob[2000]                       # the map's cells, things and names (as M
 pixels: Blob[..(64 + 1) * 8]           # its sheet's pixels and flags (as Paint says)
 m := tilemap.Map{room = room[], pixels = pixels}
 _ = m.load("cloudlamp.map")            # (and its sheet)
-songRoom: Blob[1993]                   # the song's sounds and the song (as Music says)
+songRoom: Blob[2150]                   # the song's sounds and the song (as Music says)
 tune := song.Song{buffer = songRoom[], voice = 1}
 _ = tune.loop("cloudlamp.mus")
 pc.screen(.half)                       # 160 by 120: a cell is a sprite's 8 pixels

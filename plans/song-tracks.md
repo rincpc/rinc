@@ -20,7 +20,8 @@ they did.
 ## Voices, shifting
 
 Each track's pattern playing uses some channels (those its placements name). The tracks take voices in
-order: track 0's channels the first, then track 1's, and so on, each track's in its channels' order,
+order: track 0's channels the first (as numbered: its highest, plus one), then track 1's (just the ones
+it uses, in order), and so on,
 from the song's first voice; past the song's voices, a channel's notes are dropped (silent). Worked out
 again each time a track's pattern changes; a note playing on a voice that moves ends there. A song of
 one track whose pattern uses channels 0 and 4 now takes two voices, not five.
@@ -81,4 +82,7 @@ Rincs read it. Both read.
    a use whose notes would be dropped outlined in red; rinc music 3 written with more than one track.
    Tests: studio's music.py (60, six on tracks).
 4. Done: the spec (sound.md), Music's help; the board (the player's test, and Music as it was).
-5. Next: pan (studio's ROADMAP), then sound banks a pattern (above), as the user decides.
+5. Done (2026-11-23): pan (a placement's, a use's and at its end; uses 11 bytes, placements 9; written
+   only when a song pans anything), notes starting at their own pan (not eased from the center); a later
+   track's voices just the channels it uses. tests/songtracks.py hears it (full left: the right silent).
+6. Next: sound banks a pattern (above), as the user decides.

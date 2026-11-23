@@ -159,7 +159,7 @@ out = (r.stdout + r.stderr).replace('\r', '')
 lines = out.split('\n')
 want = [
   'loops true 3 true notes.snd 384', # (its sounds: not at the path it names, but beside it; sounds 0 to 2 its patterns')
-  'converted 3 3 5 4 4 6 2 3 0 1 2 94', # (version 1: a pattern a line, its step its longest sound's speed)
+  'converted 3 3 5 4 4 6 2 3 0 1 2 105', # (version 1: a pattern a line, its step its longest sound's speed)
   'places 0 0 1 1 3 2',
   'sound 1 3 4 2 3 1 3 30 3 7 1',
   'not a song false false 3',
@@ -168,14 +168,14 @@ want = [
   "game.rio: not a song of Music's",
   'small false false false',
   'two sounds true 2 2 0',             # (as many as its room has: the first two)
-  'v2 true 2 2 5 7 2 6 150 79',       # (version 2: levers, a pattern's placements, the song's uses)
+  'v2 true 2 2 5 7 2 6 150 88',       # (version 2: levers, a pattern's placements, the song's uses)
   'place 3 2 6 0 -3 8 0 1',
   'uses 0 0 4 8 0 100 1 1 200 2 1 2', # (a use's times: none written, once),
   'lengths 266 33',                    # (8 steps of 6 at 150%; 4 of 3 at 200% of 150%)
   'written true true',
   'read back true 5 -3 0 2',
   'short true 2',
-  'tiny false 2 false it needs room Blob[70] at least (has 20)', # (the song as it was, when its tables don't fit)
+  'tiny false 2 false it needs room Blob[79] at least (has 20)', # (the song as it was, when its tables don't fit)
   'voices 0 1 1 0 1',              # (pattern 0: channels 0, 1 and 3 on voices 4, 5 and 7)
   'stops played 0 1  false',
   'plain stopped false false',         # (loop: round again, until stop)
@@ -187,7 +187,7 @@ want = [
   'relative true true notes.snd 4',   # (a path from the song's folder: songs/../notes.snd)
   'relative text true true notes.snd',
   'one buffer true 128 472 4',          # (one Blob for both: sound 0's notes, then the room)
-  'one buffer again true 384 216 3 79', # (a song with more sounds: split again, sounds 1 and 2 read too)
+  'one buffer again true 384 216 3 88', # (a song with more sounds: split again, sounds 1 and 2 read too)
   'one buffer short true']
 bad = [w for w in want if w not in lines]
 loops = [l for l in lines if l.startswith('loops played ')]
@@ -218,7 +218,7 @@ if os.path.exists(wav):
     run = 0 if loud else run + 1
 step = 48000 * 100 // 120 # (a step: 100 ticks, 40,000 frames)
 near = len(starts) == 4 and all(abs(starts[k] - starts[0] - k * step) <= 600 for k in range(4)) # (a tick: 400 frames, and the attack's rise)
-if 'timing true 53' not in said or not near:
-  bad.append('timing: room 53, starts a step (40,000 frames) apart: %r %r' % (said.strip(), starts))
+if 'timing true 59' not in said or not near:
+  bad.append('timing: room 59, starts a step (40,000 frames) apart: %r %r' % (said.strip(), starts))
 if bad: sys.exit('the song library: missing %r in:\n%s' % (bad, out))
 print('the song library read, played and looped songs, each placement on its step')

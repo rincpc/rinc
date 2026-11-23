@@ -45,9 +45,10 @@ NOTES* :: 32
 SOUND_BYTES* :: NOTES * 4 # a sound's notes, as pc.synth takes them: pitch, wave, volume, effect each
 ALL_SOUNDS* :: SOUNDS * SOUND_BYTES
 PATTERN_BYTES* :: 6       # the room each takes: a pattern (steps, speed, its first placement: 2 bytes, count, 0)
-USE_BYTES* :: 9           # a use (pattern, shift and shift at end + 64, volume, volume at end, speed %: 2 bytes, flags, times)
+USE_BYTES* :: 11          # a use (pattern, shift and shift at end + 64, volume, volume at end, speed %: 2 bytes, flags and track, times, pan, pan at end)
 TIMES* :: 99              # a use played over, at most
-PLACE_BYTES* :: 8         # a placement (step, channel, sound, shift + 64, volume, speed, hold, 0)
+PLACE_BYTES* :: 9         # a placement (step, channel, sound, shift + 64, volume, speed, hold, pan, 0: kept for later)
+PANS* :: 8                # a pan's reach, eighths of the way left (-) or right (+): kept as a signed byte, 0 the center
 TOP_PITCH :: 96           # the synth's highest note
 VOICES :: 16              # Rinc's
 LINE :: 166               # a sound's line in its file: 6 hex digits (speed, loop start, loop end), then 5 a note
@@ -120,6 +121,9 @@ Song.useSpeed* :: proc(u: Int) -> Int do return self.use(u, 5) + self.use(u, 6) 
 Song.useFlags* :: proc(u: Int) -> Int do return self.use(u, 7) % 16 # (its marks: LOOP_BEGINS, LOOP_ENDS, STOPS)
 Song.useTrack* :: proc(u: Int) -> Int do return self.use(u, 7) / 16 % TRACKS
 Song.useTimes* :: proc(u: Int) -> Int do return max(1, self.use(u, 8)) # (played that many times over, its ramps across them all)
+signed :: proc(b: Int) -> Int do return b - 256 * (b >= 128).toInt()
+Song.usePan* :: proc(u: Int) -> Int do return signed(self.use(u, 9))      # (eighths: -8 left, 8 right)
+Song.usePanEnd* :: proc(u: Int) -> Int do return signed(self.use(u, 10))  # (at its end: different, a ramp)
 Song.placeStep* :: proc(i: Int) -> Int do return self.place(i, 0)
 Song.placeChannel* :: proc(i: Int) -> Int do return self.place(i, 1)
 Song.placeSound* :: proc(i: Int) -> Int do return self.place(i, 2)
@@ -127,6 +131,7 @@ Song.placeShift* :: proc(i: Int) -> Int do return self.place(i, 3) - 64
 Song.placeVolume* :: proc(i: Int) -> Int do return self.place(i, 4)
 Song.placeSpeed* :: proc(i: Int) -> Int do return self.place(i, 5)  # (0: the sound's own)
 Song.placeHold* :: proc(i: Int) -> Int do return self.place(i, 6)   # (0: as long as it plays)
+Song.placePan* :: proc(i: Int) -> Int do return signed(self.place(i, 7)) # (eighths: -8 left, 8 right)
 Song.setUseFlags* :: proc(u: Int, f: Int) do self.room[self.usesAt + u * USE_BYTES + 7] = self.useTrack(u) * 16 + f % 16
 Song.setUseTrack* :: proc(u: Int, t: Int) do self.room[self.usesAt + u * USE_BYTES + 7] = max(0, min(t, TRACKS - 1)) * 16 + self.useFlags(u)
 
@@ -316,7 +321,7 @@ Song.setPattern :: proc(p: Int, steps: Int, speed: Int)
   self.room[o + 4] = 0
   self.room[o + 5] = 0
 end
-Song.addPlace :: proc(step, c, s, shift, vol, speed, hold: Int)
+Song.addPlace :: proc(step, c, s, shift, vol, speed, hold, pan: Int)
   if nP == 0 or nL >= PLACES or (filling and self.patternCount(nP - 1) >= PER_PATTERN)
     bad = true
     return
@@ -330,14 +335,15 @@ Song.addPlace :: proc(step, c, s, shift, vol, speed, hold: Int)
     self.room[o + 4] = max(0, min(vol, 8))
     self.room[o + 5] = max(0, min(speed, 255))
     self.room[o + 6] = max(0, min(hold, 255))
-    self.room[o + 7] = 0
+    self.room[o + 7] = (max(-PANS, min(pan, PANS)) + 256) % 256
+    self.room[o + 8] = 0
     self.room[(nP - 1) * PATTERN_BYTES + 4] = self.patternCount(nP - 1) + 1
   end
   most = max(most, max(0, min(c, CHANNELS - 1)) + 1)
   soundsUsed = max(soundsUsed, max(0, min(s, SOUNDS - 1)) + 1)
   nL += 1
 end
-Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags: Int)
+Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags, pan, panEnd: Int)
   mostTrack = max(mostTrack, trackNow + 1)
   if nU >= USES
     bad = true
@@ -355,6 +361,8 @@ Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags: Int)
     self.room[o + 6] = v / 256
     self.room[o + 7] = trackNow * 16 + flags % 16
     self.room[o + 8] = max(1, min(times, TIMES))
+    self.room[o + 9] = (max(-PANS, min(pan, PANS)) + 256) % 256
+    self.room[o + 10] = (max(-PANS, min(panEnd, PANS)) + 256) % 256
   end
   nU += 1
 end
@@ -414,10 +422,10 @@ Song.oldLine :: proc(l: String)
     a := hexDigit(l[c * 3])
     b := hexDigit(l[c * 3 + 1])
     if a >= 0 and b >= 0
-      self.addPlace(0, c, a * 16 + b, 0, 8, 0, 0)
+      self.addPlace(0, c, a * 16 + b, 0, 8, 0, 0, 0)
     end
   end
-  self.addUse(nP - 1, 0, 0, 8, 8, 100, 1, flagsOf(l[12..<l.len()]))
+  self.addUse(nP - 1, 0, 0, 8, 8, 100, 1, flagsOf(l[12..<l.len()]), 0, 0)
 end
 # line k of a song, l: false once it shows it isn't one (its first two lines)
 Song.songLine :: proc(k: Int, l: String) -> Bool
@@ -492,13 +500,23 @@ Song.songLine :: proc(k: Int, l: String) -> Bool
   end
   readNumbers(l)
   if section == 1 and numCount >= 7
-    self.addPlace(nums[0], nums[1], nums[2], nums[3], nums[4], nums[5], nums[6])
+    pan := 0 # (an 8th number: its pan; before pans, the center)
+    if numCount >= 8
+      pan = nums[7]
+    end
+    self.addPlace(nums[0], nums[1], nums[2], nums[3], nums[4], nums[5], nums[6], pan)
   case section == 2 and numCount >= 6
     times := 1 # (a 7th number: how many times; before it was written, once)
     if numCount >= 7
       times = nums[6]
     end
-    self.addUse(min(nums[0], max(nP - 1, 0)), nums[1], nums[2], nums[3], nums[4], nums[5], times, flagsOf(marks.asString()))
+    pan := 0 # (an 8th and 9th: its pan, and at its end)
+    panEnd := 0
+    if numCount >= 9
+      pan = nums[7]
+      panEnd = nums[8]
+    end
+    self.addUse(min(nums[0], max(nP - 1, 0)), nums[1], nums[2], nums[3], nums[4], nums[5], times, flagsOf(marks.asString()), pan, panEnd)
   end
   return true
 end
@@ -715,11 +733,22 @@ Song.write* :: proc(out: Blob[..]) -> Bool
   for u in 0..<self.uses
     most = max(most, self.useTrack(u) + 1)
   end
+  pans := false # (pans written only when there are any: a song without stays as it was)
+  for u in 0..<self.uses
+    pans = pans or self.usePan(u) != 0 or self.usePanEnd(u) != 0
+  end
+  for i in 0..<self.places
+    pans = pans or self.placePan(i) != 0
+  end
   ok := out.print("rinc music ", 2 + (most > 1).toInt(), "\nsounds ", self.soundsPath.asString(), "\nlevers ", self.shift, " ", self.volume, " ", self.speed, "\n")
   for p in 0..<self.patterns
     ok = ok and out.print("pattern ", self.patternSteps(p), " ", self.patternSpeed(p), "\n")
     for i in self.patternFirst(p)..<self.patternFirst(p) + self.patternCount(p)
-      ok = ok and out.print(self.placeStep(i), " ", self.placeChannel(i), " ", self.placeSound(i), " ", self.placeShift(i), " ", self.placeVolume(i), " ", self.placeSpeed(i), " ", self.placeHold(i), "\n")
+      ok = ok and out.print(self.placeStep(i), " ", self.placeChannel(i), " ", self.placeSound(i), " ", self.placeShift(i), " ", self.placeVolume(i), " ", self.placeSpeed(i), " ", self.placeHold(i))
+      if pans
+        ok = ok and out.print(" ", self.placePan(i))
+      end
+      ok = ok and out.pushAll("\n")
     end
   end
   ok = ok and out.pushAll("song\n")
@@ -733,6 +762,9 @@ Song.write* :: proc(out: Blob[..]) -> Bool
       continue
     end
     ok = ok and out.print(self.usePattern(u), " ", self.useShift(u), " ", self.useShiftEnd(u), " ", self.useVolume(u), " ", self.useVolumeEnd(u), " ", self.useSpeed(u), " ", self.useTimes(u), " ")
+    if pans
+      ok = ok and out.print(self.usePan(u), " ", self.usePanEnd(u), " ")
+    end
     f := self.useFlags(u)
     if f == 0
       ok = ok and out.pushAll("-")
