@@ -417,7 +417,7 @@ the Rinc drops all of an app's stash when it's told to start the app afresh: the
 | `pc.stashRead(key, out) -> Int` | what's kept under `key`, added to `out`, as much as fits: its whole length, or -1 if there's none |
 | `pc.stashReadAt(key, at, out) -> Int`, `pc.stashWriteAt(key, at, data) -> Int` | as `fileReadAt` and `fileWriteAt`, what's kept under `key`: a part of it, for a stash too big to hold at once (an undo log, say) |
 | `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
-| `pc.boot() -> Int` | how many times this Rinc has started (0 without storage): to tell a restart from being opened again |
+| `pc.boot() -> Int` | how many times this Rinc has started (kept in `/save/rinc/boot`; 0 without storage): to tell a restart from being opened again |
 
 Rinc keeps an app's stash when the app changes (a newer one installed, a project edited), so its drafts
 aren't lost; Sys+Q and Sys+R are what drop it. So an app that stashes something in a layout of its own,

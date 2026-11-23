@@ -57,7 +57,8 @@ app is a Rio program.
   1d. `/` as Rinc's root (the user, 2026-11-21): apps say `/projects/...`, not `/rinc/projects/...`;
       storage keeps /rinc/ on the card. Devices stay short names at the top (recommended: /stick, no
       /devices/ level). Plan: plans/root.md; after writing to the stick. Done (2026-11-22): apps use /;
-      the board's card updated. Left: boot and the clipboard into folders (the top only folders).
+      the board's card updated. Left: boot and the clipboard into folders (the top only folders). Boot done (2026-11-23):
+      /save/rinc/boot, the old /boot carried over once and taken away (tests/boot.py; the board's moved).
       The old /clipboard file is a leftover (the clip library keeps /stash/rinc/clip): deleted on the
       user's card; recommended: boot to /save/rinc/boot (moved once). Asked (the user, 2026-11-22): are
       /save/rinc and /stash/rinc better as sys? Today rinc there is Rinc's own owner name, fixed (an
@@ -242,6 +243,10 @@ app is a Rio program.
      Also (the user, 2026-11-20): Ctrl+Tab in every studio app as in the editor (the files had lately,
      walked while Ctrl's held), from one library (the editor's files.rio recent list and walk, moved
      out), with Paint's step 4 (plans/sheets.md). A gradients view in Paint, later.
+     With it (the user, 2026-11-23): a command to drop a file from the recent list, Close (Ctrl+W, as in
+     browsers and most editors; in the command list too): the file shown leaves the list and the next one
+     comes up (unsaved changes asked about first), without leaving the app. For files looked at a while
+     and done with, a snippet opened from Snippet, say. In the editor first, then the shared library.
      To fix later: a map's tile numbers are a sheet's sprites counted across its rows, so a sheet saved
      wider (Paint saves as wide as what's drawn) renumbers them. Maps notes each sheet's across and
      renumbers when it opens a map (tilemap's refit), but a game's tilemap.load doesn't, so the game

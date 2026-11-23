@@ -473,6 +473,9 @@ else()
         # a zip as the stick (/stick, read only): listed, read, copied off; a drop on a Rinc with home is one
         add_test(NAME stick COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/stick.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/stick-work)
         set_tests_properties(stick PROPERTIES PASS_REGULAR_EXPRESSION "the stick came through")
+        # pc.boot(): counted in /save/rinc/boot, the old /boot carried over once
+        add_test(NAME boot COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/boot.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/boot-work)
+        set_tests_properties(boot PROPERTIES PASS_REGULAR_EXPRESSION "boot came through")
         add_test(NAME demo_site COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/demosite.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/demo-site)
         set_tests_properties(demo_site PROPERTIES SKIP_RETURN_CODE 77 PASS_REGULAR_EXPRESSION "demo site came through")
       endif()

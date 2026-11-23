@@ -1709,22 +1709,29 @@ void rinc_themeLoad(void) {
 static void rinc_hostTheme(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < (uint32_t)rinc_ROLES ? rinc_theme[a[0].i] : rinc_theme[2]; }
 int rinc_themeColor(int role) { return role < 0 || role >= rinc_ROLES ? rinc_roleDefaults[2] : rinc_themeOn ? rinc_theme[role] : rinc_roleDefaults[role]; }
 
-/* boot() -> Int: how many times this Rinc has started (kept in /rinc/boot), counted the first time an
-   app asks after each start: so an app can tell a restart from just being opened again (0: no storage) */
+/* boot() -> Int: how many times this Rinc has started (kept in /save/rinc/boot: Rinc's own save space,
+   the top of storage only folders), counted the first time an app asks after each start: so an app can
+   tell a restart from just being opened again (0: no storage). One kept at the top (/boot, before
+   2026-11-23) is carried over the first time, then taken away */
 static int rinc_bootNow = -1;
 static void rinc_hostBoot(rio_Vm *v, rio_Val *a) {
   (void)v;
   if (rinc_bootNow < 0) {
-    char text[16]; uint32_t total; int k;
+    char text[16]; uint32_t total; int k, old = 0;
     rinc_bootNow = 0;
     if (rinc_fs) {
-      if (!rinc_readFile("/rinc/boot", text, sizeof text - 1, &total) && total < sizeof text) {
+      if (rinc_readFile("/rinc/save/rinc/boot", text, sizeof text - 1, &total) || total >= sizeof text)
+        old = !rinc_readFile("/rinc/boot", text, sizeof text - 1, &total) && total < sizeof text; /* (the old place's) */
+      else old = -1;
+      if (old) {
         text[total] = 0;
         for (k = 0; text[k] >= '0' && text[k] <= '9'; k++) rinc_bootNow = rinc_bootNow * 10 + text[k] - '0';
       }
       rinc_bootNow++;
       k = snprintf(text, sizeof text, "%d", rinc_bootNow);
-      if (rinc_fs->open("/rinc/boot", 1) || rinc_fs->write(text, k) != k || rinc_fs->close()) rinc_bootNow = 0;
+      (void)rinc_fs->mkdir("/rinc/save/rinc"); /* (there already, mostly) */
+      if (rinc_fs->open("/rinc/save/rinc/boot", 1) || rinc_fs->write(text, k) != k || rinc_fs->close()) rinc_bootNow = 0;
+      else if (old > 0) (void)rinc_fs->remove("/rinc/boot"); /* (carried over: the old one goes) */
     }
   }
   a[0].i = rinc_bootNow;
