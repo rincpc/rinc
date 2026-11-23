@@ -651,12 +651,13 @@ static void rinc_hostSongPlay(rio_Vm *vm, rio_Val *a) {
     if (!rinc_song.speed) { rinc_song.volume = 8; rinc_song.speed = 100; }
     for (t = 0; t < rinc_SONG_TRACKS; t++) { rinc_song.track[t].on = 0; rinc_song.track[t].base = 0; for (c = 0; c < rinc_SONG_CHANNELS; c++) rinc_song.track[t].place[c] = -1; }
     rinc_song.paused = 0; rinc_song.on = 1;
-    rinc_song.follow = rinc_songTrackOf(from);
-    for (u = rinc_songFirst(rinc_song.follow); u >= 0 && u < from; u = rinc_songAfter(rinc_song.follow, u)) /* (where from starts, in real ticks) */
+    p = rinc_songTrackOf(from); /* (from's track) */
+    for (u = rinc_songFirst(p); u >= 0 && u < from; u = rinc_songAfter(p, u)) /* (where from starts, in real ticks) */
       if (rinc_songTempo(u) > 0) at += rinc_songLen(u) / rinc_songTempo(u) * (float)rinc_songTimes(u);
-    rinc_songBegin(rinc_song.follow, from, 0);
+    rinc_songBegin(p, from, 0);
     if (!(rinc_song.how & rinc_SONG_ALONE))
-      for (t = 0; t < rinc_SONG_TRACKS; t++) if (t != rinc_song.follow) rinc_songSeek(t, at);
+      for (t = 0; t < rinc_SONG_TRACKS; t++) if (t != p) rinc_songSeek(t, at);
+    rinc_song.follow = rinc_song.how & rinc_SONG_ALONE ? p : 0; /* (songAt's: the first track, the song's own row, but for a use alone) */
     rinc_songTick(); /* (its first placements, at once) */
   }
   rinc_lock(0);
@@ -689,7 +690,7 @@ static void rinc_hostSongLevers(rio_Vm *vm, rio_Val *a) {
   rinc_song.speed = a[2].i < 1 ? 1 : a[2].i > 400 ? 400 : a[2].i;
   rinc_lock(0);
 }
-/* songAt() -> [3]Int: the use playing in the track it was started from, its time round, and how far into
+/* songAt() -> [3]Int: the use playing in the first track (one use alone: in its track), its time round, and how far into
    its pattern, in thousandths (that track ended, the others playing: its last use, all of it; {-1, 0, 0}:
    none playing) */
 static void rinc_hostSongAt(rio_Vm *vm, rio_Val *a) {

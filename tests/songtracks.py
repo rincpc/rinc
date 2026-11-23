@@ -81,34 +81,43 @@ update* :: proc() # (a stopped song's voices fade out a while: each step well af
     fine = tune.play(1, false)
   end
   if frame == 222
-    log("from use 1", playing(0, 12)) # (track 1's pattern 2: channel 3 on 7; track 2, its second time round, after its 4 channels: 8)
+    tune.tick()
+    log("from use 1", playing(0, 12), tune.playUse) # (where it plays: the first track's, use 1) # (track 1's pattern 2: channel 3 on 7; track 2, its second time round, after its 4 channels: 8)
     tune.stop()
   end
-  if frame == 260
+  if frame == 250
+    fine = tune.play(2, false) # (from track 2's use: the first track's where it'd be then, followed)
+  end
+  if frame == 252
+    tune.tick()
+    log("from track 2", tune.playUse)
+    tune.stop()
+  end
+  if frame == 280
     fine = tune.play(2, true)
   end
-  if frame == 262
+  if frame == 282
     log("alone", playing(0, 12)) # (track 2's use, its track alone: on 4)
     tune.stop()
   end
-  if frame == 300
+  if frame == 320
     tune.voice = 0
     tune.voices = 3
     fine = tune.play(0, false)
   end
-  if frame == 302
+  if frame == 322
     v := pc.freeVoice()
     tune.sound(-1, 0)
     log("free", v, pc.soundPlaying(3), pc.freeVoice()) # (the song's 0 to 2: 3 free, then taken by sound(-1, 0))
   end
 end
 ''')
-r = subprocess.run([rinc, os.path.join(work, 'game') + '/', '-data', os.path.join(work, 'data'), '-frames', '310'], capture_output=True, text=True, timeout=60)
+r = subprocess.run([rinc, os.path.join(work, 'game') + '/', '-data', os.path.join(work, 'data'), '-frames', '330'], capture_output=True, text=True, timeout=60)
 lines = (r.stdout + r.stderr).replace('\r', '').split('\n')
 want = ['read true 3 4 0 0 1 0', 'written true true', 'one track rinc music 2 0',
         'voices 000011110000 0', 'two voices 000011000000 0',
         'track 1 ended true 1 1000 1100', 'ended false 000000000000',
-        'from use 1 000000011100', 'alone 000010000000', 'free 3 1 4']
+        'from use 1 000000011100 1', 'from track 2 0', 'alone 000010000000', 'free 3 1 4']
 bad = [w for w in want if w not in lines]
 if bad:
   print('FAILED: wanted %r\n%s' % (bad, '\n'.join(lines)))
