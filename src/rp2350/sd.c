@@ -88,6 +88,7 @@ static int rinc_writeBlock(const uint8_t *buf, uint32_t n) {
 
 /* the stick: the first thumb drive plugged in (512-byte blocks), its blocks read and written through
    TinyUSB, each request waited for (TinyUSB run meanwhile, as the keyboard's poll runs it) */
+const unsigned char ff_zeros[FF_ZEROS_SECTORS * 512] = {0}; /* (zeros in flash, for FatFs's clearing of a folder made: ffconf.h) */
 static uint8_t rinc_mscDev; static volatile int rinc_mscDone, rinc_mscOk;
 static int rinc_mscDirty; static uint64_t rinc_mscWrote, rinc_mscFlushed; /* (written to since the stick's cache was last flushed, and when) */
 static FATFS rinc_stickVolume; static int rinc_stickMounted;

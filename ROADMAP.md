@@ -104,6 +104,15 @@ app is a Rio program.
       pictures was shown waits for the next refresh (video.c's rinc_waitShown, at most a 60th of a
       second; the copy 3% slower). The user saw it moving. The job's log says how long planning and
       the whole job took. Not tested automatically (it's HDMI's): tried on the board.
+      Then the stick's speed (/apps onto it, 157 files, 74 folders): 98 s to 76 s. Folders made only when
+      a write finds them missing (not looked up each write); the stick flushed a quarter second after
+      writing pauses and at least every 2 s while it goes on (not at each close: it was never the cost);
+      a folder made cleared from 32 KB of zeros in flash in a few writes (FatFs's ff_zeros), not 32
+      writes of a sector. Measured (the firmware console's stick: reads, writes, flushes): what's left is
+      Pico-PIO-USB's one packet a 1 ms frame (64 KB/s, ~8 ms a block); FatFs's tiny buffers made no
+      difference (2,504 reads without, 2,529 with). The stick to the card: 52 s. Further, only by more
+      packets a frame in Pico-PIO-USB (a submodule: a patch, or upstream; CPU time in its interrupt):
+      maybe 5 to 10 times as fast; not now (the user to decide).
   1c. To fix (the user, 2026-11-20): the whole Rinc's web page shows only black in their browser.
       Done (2026-11-21): its bundle, with both docs, had passed the web player's 512 KB for one, and ran
       over its memory; one limit now, 2 MB (rinc_BUNDLE_BYTES), for rinc -web's bundles and the player's.

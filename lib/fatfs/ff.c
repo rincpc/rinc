@@ -1687,6 +1687,13 @@ static FRESULT dir_clear (	/* Returns FR_OK or FR_DISK_ERR */
 	sect = clst2sect(fs, clst);		/* Top of the cluster */
 	fs->winsect = sect;				/* Set window to top of the cluster */
 	memset(fs->win, 0, sizeof fs->win);	/* Clear window buffer */
+#ifdef FF_ZEROS_SECTORS	/* Rinc: a quick clear from zeros kept in flash (no RAM spared for a buffer): a few multi-sector writes, not a sector each (a thumb drive's request each: slow) */
+	for (n = 0; n < fs->csize; n += szb) {
+		szb = fs->csize - n < FF_ZEROS_SECTORS ? fs->csize - n : FF_ZEROS_SECTORS;
+		if (disk_write(fs->pdrv, ff_zeros, sect + n, szb) != RES_OK) break;
+	}
+	return (n >= fs->csize) ? FR_OK : FR_DISK_ERR;
+#endif
 #if FF_USE_LFN == 3		/* Quick table clear by using multi-secter write */
 	/* Allocate a temporary buffer */
 	for (szb = ((DWORD)fs->csize * SS(fs) >= MAX_MALLOC) ? MAX_MALLOC : fs->csize * SS(fs), ibuf = 0; szb > SS(fs) && (ibuf = ff_memalloc(szb)) == 0; szb /= 2) ;
