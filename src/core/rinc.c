@@ -2349,14 +2349,45 @@ static int rinc_overlayText(const char *s, int x, int fg) {
 }
 static void rinc_overlayDot(int x, int y, int c) { if (x >= 0 && x < rinc_W && y >= 0 && y < rinc_OVERLAY_H) rinc_overlay[y][x] = (uint8_t)c; }
 
-/* recent apps, the latest first (each app's start puts it there): for Sys+Tab and Sys+Q */
+/* recent apps, the latest first (each app's start puts it there): for Sys+Tab and Sys+Q. Kept in rinc's
+   own stash (/stash/rinc/recent, as apps see it: a name a line), so they're there after a restart; read
+   the first time they're needed, an app that's gone since left out; written as they change */
 #define rinc_RECENT 8
+#define rinc_RECENT_FILE "/rinc/stash/rinc/recent"
 static char rinc_recent[rinc_RECENT][rinc_REF];
-static int rinc_recentCount;
+static int rinc_recentCount, rinc_recentRead;
 static void rinc_recentDrop(int i);
+static void rinc_recentKeep(void) {
+  char b[rinc_RECENT * rinc_REF]; int i, k = 0;
+  if (!rinc_fs) return;
+  for (i = 0; i < rinc_recentCount; i++) k += snprintf(b + k, sizeof b - (size_t)k, "%s\n", rinc_recent[i]);
+  rinc_fs->mkdir("/rinc/stash/rinc");
+  if (!rinc_fs->open(rinc_RECENT_FILE, rinc_REPLACE)) { rinc_fs->write(b, k); rinc_fs->close(); }
+}
+static void rinc_recentLoad(void) {
+  char b[rinc_RECENT * rinc_REF + 1]; uint32_t n = 0; char *at, *end;
+  if (rinc_recentRead) return;
+  rinc_recentRead = 1;
+  if (!rinc_fs || rinc_fs->open(rinc_RECENT_FILE, rinc_READ)) return; /* (none kept: not the bundle's either) */
+  rinc_fs->close();
+  rinc_readFile(rinc_RECENT_FILE, b, sizeof b - 1, &n);
+  b[n < sizeof b - 1 ? n : sizeof b - 1] = 0;
+  for (at = b; *at && rinc_recentCount < rinc_RECENT; at = end + 1) {
+    const char *app; int last;
+    for (end = at; *end && *end != '\n'; end++) {}
+    last = !*end;
+    *end = 0;
+    app = rinc_appFor(at);
+    if (end - at > 0 && end - at < rinc_REF && (rinc_readApp(app, 0, 0) != -1 || rinc_bundled(app))) /* (else gone since) */
+      snprintf(rinc_recent[rinc_recentCount++], rinc_REF, "%s", at);
+    if (last) break;
+  }
+}
 /* this app left out of the recent apps: the one before it (else home) */
 static const char *rinc_recentBefore(void) {
+  rinc_recentLoad();
   rinc_recentDrop(0);
+  rinc_recentKeep();
   return rinc_recentCount ? rinc_recent[0] : "home";
 }
 static void rinc_recentDrop(int i) {
@@ -2365,6 +2396,7 @@ static void rinc_recentDrop(int i) {
 }
 static void rinc_recentAdd(const char *name) {
   int i;
+  rinc_recentLoad();
   if (strchr(name, '/')) return; /* (an app's other file, its tests say: not one to go back to) */
   for (i = 0; i < rinc_recentCount && strcmp(rinc_recent[i], name); i++) {}
   if (i < rinc_recentCount) rinc_recentDrop(i);
@@ -2372,6 +2404,7 @@ static void rinc_recentAdd(const char *name) {
   memmove(rinc_recent[1], rinc_recent[0], sizeof rinc_recent[0] * (size_t)rinc_recentCount);
   snprintf(rinc_recent[0], sizeof rinc_recent[0], "%s", name);
   rinc_recentCount++;
+  rinc_recentKeep();
 }
 
 /* the performance strip (Sys+P): each frame's time, against the 1/60 s a frame has */
@@ -2540,10 +2573,23 @@ static int rinc_sysDo(int pressed, int mods, int held) {
       int back = (pressed & rinc_SysKey_prev) || ((pressed & rinc_SysKey_tab) && (mods & 1));
       rinc_switching = 1; rinc_pick = back ? rinc_recentCount - 1 : 1;
       rinc_switchHeld = held;
+    } else if ((pressed & rinc_SysKey_q) && (!strcmp(rinc_appRef, "home") || !strcmp(rinc_appRef, rinc_appFor("home")))) {
+      /* at home (nothing before it to go back to): as anywhere, its stash dropped and it fresh, without
+         leaving* (forgotten); and the recent apps forgotten too, rinc's stash of them, home starting them again */
+      rinc_stashDrop(rinc_appNow);
+      rinc_forgetting = 1;
+      rinc_recentLoad();
+      rinc_recentCount = 0;
+      rinc_recentKeep();
+      rinc_noticeSay("Recent apps forgotten", "");
+      snprintf(rinc_launchName, sizeof rinc_launchName, "home");
+      go = 1;
     } else if (pressed & rinc_SysKey_q) { /* back to the app before, this one forgotten, its stash too */
+      rinc_recentLoad();
       rinc_stashDrop(rinc_appNow);
       rinc_forgetting = 1;
       rinc_recentDrop(0);
+      rinc_recentKeep();
       snprintf(rinc_launchName, sizeof rinc_launchName, "%s", rinc_recentCount ? rinc_recent[0] : "home");
       go = 1;
     } else if (pressed & rinc_SysKey_r) { /* this app again, fresh: its stash dropped, and its compiled image */

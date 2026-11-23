@@ -588,7 +588,7 @@ on, what's typed isn't the app's. It's:
 | system + Esc (or a controller's Back) | home, from any app |
 | system + Tab (or a controller's RB) | the switcher: the recent apps, the one before this picked |
 | system + Shift+Tab (or LB) | the switcher, from the other end |
-| system + Q | back to the app before, this one left out of the recent apps (its stash dropped) |
+| system + Q | back to the app before, this one left out of the recent apps (its stash dropped); at home, the recent apps forgotten (home's stash dropped too) |
 | system + R | this app again, fresh: its stash and its compiled image dropped |
 | system + H | this app's help (its `help/README`), in the help app; or a notice, at the bottom, that it has none |
 | system + O | this app's log, in the Log app (see [its cache, and its log](#its-cache-and-its-log)); Esc there comes back |
@@ -607,7 +607,10 @@ the file back (see [the Fruit Jam](../guide/fruit-jam.md)).
 While the system key is on, a strip across the bottom of the screen shows these, apart from the app's
 own screen (which it doesn't change), and the app gets none of the keys or buttons that make them. In
 the switcher, Tab and Shift+Tab (RB and LB) move along the recent apps; Enter, or letting go of a held
-system key, switches to the one picked, and Esc stays. Nothing here has a time limit.
+system key, switches to the one picked, and Esc stays. Nothing here has a time limit. The recent apps
+are kept in rinc's own stash (`/stash/rinc/recent`, a name a line), so they're there after a restart;
+an app gone since is left out, and so is anything in it that isn't an app's name (it never decides what
+starts: a Rinc always starts at home).
 
 **Locks.** Shift, Ctrl or Alt tapped twice locks it: it then counts as held for every key typed, until
 it's tapped again. A tap is a press of those keys alone, let go within 0.4 seconds, with the two taps of

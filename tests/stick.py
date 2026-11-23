@@ -50,7 +50,7 @@ end
 ''')
 data = os.path.join(work, 'data')
 code, out = run(app, '-stick', z, '-data', data, '-frames', '2')
-for want in ('dir / 1 d stick\n', 'dir /stick 2 d notes\nd rinc\n', 'dir /stick/notes 3 d deeper\nf long.txt\nf short.txt\n',
+for want in ('dir / 2 d stash\nd stick\n', 'dir /stick 2 d notes\nd rinc\n', 'dir /stick/notes 3 d deeper\nf long.txt\nf short.txt\n',
              'dir /stick/nothing -1', 'long 7200 7200', 'short 5 short', 'write 0', 'copy 0', 'app 0', 'copied 1 x', 'old way -1'):
   if want not in out: fail('no %r in:\n%s' % (want, out))
 code, out = run('-data', data, '-app', 'hi', '-frames', '2')
@@ -62,7 +62,7 @@ files = os.path.join(here, '..', 'system', 'files', 'files.rio')
 fdata = os.path.join(work, 'fdata')
 os.makedirs(os.path.join(fdata, 'apps', 'other'))
 open(os.path.join(fdata, 'apps', 'other', 'other.rio'), 'w').write('log(1)\n')
-code, out = run(files, '-data', fdata, '-stick', z, '-frames', '400', '-type', 'st\\nri\\nap\\nhi\\x03\\e\\x08\\x08\\x08ap\\n\\x16')
+code, out = run(files, '-data', fdata, '-stick', z, '-frames', '400', '-type', 'sti\\nri\\nap\\nhi\\x03\\e\\x08\\x08\\x08ap\\n\\x16')
 if not os.path.exists(os.path.join(fdata, 'apps', 'hi', 'hi.rio')): fail('Files copying an app off the stick:\n' + out)
 
 # writing to it (in memory): a file made in a folder made, one written over, renamed, removed, one copied
@@ -129,7 +129,7 @@ end
 fdown = os.path.join(work, 'fdownloads')
 os.makedirs(fdown)
 code, out = run(fapp, '-stick', folder, '-data', os.path.join(work, 'fsdata'), '-downloads', fdown, '-frames', '30', '-type', 'download\\n')
-for want in ('fr 15 from the folder', 'fw 0', 'fmv 0', 'froot 1 d stick\n', 'the stick, downloaded:'):
+for want in ('fr 15 from the folder', 'fw 0', 'fmv 0', 'froot 2 d stash\nd stick\n', 'the stick, downloaded:'):
   if want not in out: fail('a folder as the stick: no %r in:\n%s' % (want, out))
 if open(os.path.join(folder, 'made', 'b.txt')).read() != 'made on the folder' or not os.path.exists(os.path.join(folder, 'inner', 'c.txt')):
   fail('a folder as the stick: not changed on disk')
@@ -142,7 +142,7 @@ with zipfile.ZipFile(os.path.join(fdown, 'myfolder.zip')) as f:
 # (copied there, then gone from storage)
 def longPaste(keys, frames, name, *more):
   d = os.path.join(work, name)
-  stick = os.path.join(d, 'stickdir')
+  stick = os.path.join(d, 'plugged')
   os.makedirs(os.path.join(d, 'save', 'many'))
   os.makedirs(stick)
   for i in range(60): open(os.path.join(d, 'save', 'many', 'f%02d.txt' % i), 'w').write('file %d\n' % i)
@@ -150,11 +150,11 @@ def longPaste(keys, frames, name, *more):
   run(files, '-data', d, '-stick', stick, '-frames', str(frames), '-type', keys, *more)
   there = os.path.join(stick, 'many')
   return d, stick, (sorted(os.listdir(there)) if os.path.isdir(there) else [])
-COPY = 'sa\\nmany\\x03\\e\\x08\\x08st\\n\\x16'
+COPY = 'sa\\nmany\\x03\\e\\x08\\x08sti\\n\\x16'
 d, stick, got = longPaste(COPY, 400, 'long-all')
 if len(got) != 61 or open(os.path.join(stick, 'many', 'big.bin'), 'rb').read() != bytes(range(256)) * 80 or open(os.path.join(stick, 'many', 'f42.txt')).read() != 'file 42\n':
   fail('a long paste, all of it: %d of 61' % len(got))
-DELETE = '\\x08\\x08st\\nmany\\x1b[3~many\\n' # (Delete, then its name typed: a folder, a piece a frame too)
+DELETE = '\\x08\\x08sti\\nmany\\x1b[3~many\\n' # (Delete, then its name typed: a folder, a piece a frame too)
 run(files, '-data', d, '-stick', stick, '-frames', '40', '-type', DELETE, '-board') # (-board: as fast as the board, its file calls their cost)
 left = os.listdir(os.path.join(stick, 'many')) if os.path.isdir(os.path.join(stick, 'many')) else []
 if not 0 < len(left) < 61: fail('a long delete, a piece a frame: %d of 61 left after a few frames' % len(left))
@@ -167,10 +167,10 @@ if 'files: copying 1 to /stick' not in out: fail('a paste, said at once: ' + out
 # a plan as long as it needs to be (in Files' cache, not its memory): a folder of 400 files, each copied
 d = os.path.join(work, 'long-400')
 os.makedirs(os.path.join(d, 'save', 'lots'))
-os.makedirs(os.path.join(d, 'stickdir'))
+os.makedirs(os.path.join(d, 'plugged'))
 for i in range(400): open(os.path.join(d, 'save', 'lots', 'a-rather-long-file-name-%03d.txt' % i), 'w').write('%d' % i)
-code, out = run(files, '-data', d, '-stick', os.path.join(d, 'stickdir'), '-frames', '600', '-type', 'sa\\nlots\\x03\\e\\x08\\x08st\\n\\x16')
-there = os.path.join(d, 'stickdir', 'lots')
+code, out = run(files, '-data', d, '-stick', os.path.join(d, 'plugged'), '-frames', '600', '-type', 'sa\\nlots\\x03\\e\\x08\\x08sti\\n\\x16')
+there = os.path.join(d, 'plugged', 'lots')
 if not os.path.isdir(there) or len(os.listdir(there)) != 400 or 'Copied 400 of 400 files' not in out: fail('400 files: %s' % (len(os.listdir(there)) if os.path.isdir(there) else out))
 # what doesn't go by the plan: a file on a zip stick that can't be read (damaged), copied off with the rest:
 # said in the log, counted, the rest copied
@@ -185,7 +185,7 @@ b[at + 2] ^= 0xFF
 open(bad, 'wb').write(bytes(b))
 d = os.path.join(work, 'damaged')
 os.makedirs(os.path.join(d, 'save', 'here'))
-code, out = run(files, '-data', d, '-stick', bad, '-frames', '200', '-type', 'st\\nbox\\x03\\e\\x08\\x08sa\\nhere\\n\\x16')
+code, out = run(files, '-data', d, '-stick', bad, '-frames', '200', '-type', 'sti\\nbox\\x03\\e\\x08\\x08sa\\nhere\\n\\x16')
 copied = os.path.join(d, 'save', 'here', 'box')
 if not (os.path.exists(os.path.join(copied, 'good.txt')) and os.path.exists(os.path.join(copied, 'also.txt')) and not os.path.exists(os.path.join(copied, 'bad.txt'))):
   fail('a damaged file, the rest copied: %s\n%s' % (os.listdir(copied) if os.path.isdir(copied) else '-', out))
@@ -195,9 +195,9 @@ if '1 couldn\'t be' not in out or 'bad.txt' not in out: fail('a damaged file, sa
 d = os.path.join(work, 'hidden-copy')
 os.makedirs(os.path.join(d, 'stash', 'files'))
 os.makedirs(os.path.join(d, 'save', 'x'))
-os.makedirs(os.path.join(d, 'stickdir'))
+os.makedirs(os.path.join(d, 'plugged'))
 open(os.path.join(d, 'stash', 'files', 'place'), 'w').write('/stick')
-run(files, '-data', d, '-stick', os.path.join(d, 'stickdir'), '-frames', '30', '-type', '\\esa\\x03')
+run(files, '-data', d, '-stick', os.path.join(d, 'plugged'), '-frames', '30', '-type', '\\esa\\x03')
 clipDir = os.path.join(d, 'stash', 'rinc', 'clip')
 last = open(os.path.join(clipDir, 'last')).read().strip() if os.path.exists(os.path.join(clipDir, 'last')) else ''
 held = open(os.path.join(clipDir, last + '.data')).read() if last else ''
@@ -213,15 +213,15 @@ for name in got: # (Files stopped mid-paste, leaving: each file there whole, non
   if not whole: fail('a long paste, left part way: %s not whole' % name)
 d = os.path.join(work, 'long-left') # (one big file, 50 pieces; Files left in the middle of it: nothing half there)
 os.makedirs(os.path.join(d, 'save', 'huge'))
-os.makedirs(os.path.join(d, 'stickdir'))
+os.makedirs(os.path.join(d, 'plugged'))
 open(os.path.join(d, 'save', 'huge', 'huge.bin'), 'wb').write(bytes(range(256)) * 1600)
-run(files, '-data', d, '-stick', os.path.join(d, 'stickdir'), '-frames', '40', '-type', 'sa\\nhuge\\x03\\e\\x08\\x08st\\n\\x16', '-board')
-if not os.path.isdir(os.path.join(d, 'stickdir', 'huge')) or os.path.exists(os.path.join(d, 'stickdir', 'huge', 'huge.bin')):
-  fail('Files left in the middle of a big file: %s' % os.listdir(os.path.join(d, 'stickdir')))
+run(files, '-data', d, '-stick', os.path.join(d, 'plugged'), '-frames', '40', '-type', 'sa\\nhuge\\x03\\e\\x08\\x08sti\\n\\x16', '-board')
+if not os.path.isdir(os.path.join(d, 'plugged', 'huge')) or os.path.exists(os.path.join(d, 'plugged', 'huge', 'huge.bin')):
+  fail('Files left in the middle of a big file: %s' % os.listdir(os.path.join(d, 'plugged')))
 d, stick, got = longPaste(COPY + '\\e', 400, 'long-stopped', '-board')
 if len(got) >= 61 or (os.path.exists(os.path.join(stick, 'many', 'big.bin')) and os.path.getsize(os.path.join(stick, 'many', 'big.bin')) != 20480):
   fail('a long paste, Esc: stopped, nothing half there: %d of 61' % len(got))
-d, stick, got = longPaste('sa\\nmany\\x18\\e\\x08\\x08st\\n\\x16', 400, 'long-moved')
+d, stick, got = longPaste('sa\\nmany\\x18\\e\\x08\\x08sti\\n\\x16', 400, 'long-moved')
 if len(got) != 61 or os.path.exists(os.path.join(d, 'save', 'many')): fail('a long move, onto the stick: %d there, still in storage: %s' % (len(got), os.path.exists(os.path.join(d, 'save', 'many'))))
 
 # a drop: on a Rinc with home, the stick; with nothing installed, installed (a release's bundle)

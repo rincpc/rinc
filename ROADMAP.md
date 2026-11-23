@@ -43,6 +43,9 @@ app is a Rio program.
      (the user's note: one finger slipping; it only drops a file from the list, and asks first if unsaved).
      The user (2026-11-23): later, maybe simple 3D and an ultra easy 3D modeling app, after a transformed
      blit with shading; and text formatting, text animation and visual novel features in a library.
+  The user (2026-11-23): the recent apps (Sys+Tab's) kept over a restart: done (2026-11-23), in rinc's
+     own stash (/stash/rinc/recent), an app gone since left out, garbage there never stopping home; Sys+Q
+     at home forgets them. Tests: tests/recentapps.py.
   3. Studio state per file (done 2026-11-23: each file's place, in the recent list); Maps' cleanups
      (paste anchor, Ctrl+T for every layer); map parts as brushes.
   4. The app's log over serial while it runs, if it helps working on the board (Sys+M already shows frame
