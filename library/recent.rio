@@ -7,6 +7,7 @@
 #   import recent
 #   files := recent.Recent{}
 #   files.note(path, "12 3")                 (each time a file opens or saves: first, with where it was)
+#   at := files.placeOf(path)                (where it was, opening it again: recent.num(at, 0, 0), its first number)
 #   case Ctrl+Tab: if files.step(shift, path) == 1 do open(files.pickPath(), files.pickPlace())
 #   case Ctrl+W:   next := files.drop(path)  (the file closed: "" for none left, else the one to open)
 #   in update, before the keys: if files.released(path) do open(files.pickPath(), files.pickPlace())
@@ -115,6 +116,49 @@ Recent.drop* :: proc(path: String) -> String
   self.at = 0
   self.read()
   return pathIn(lineOf(lines.asString(), 0))
+end
+# path's place, as it was last noted ("" for none: not in the list); a view of the list, good till it's read again
+Recent.placeOf* :: proc(path: String) -> String
+  self.read()
+  t := lines.asString()
+  for k in 0..<linesOf(t)
+    l := lineOf(t, k)
+    if pathIn(l) == path
+      return placeIn(l)
+    end
+  end
+  return ""
+end
+# a place's k-th number (from 0; a minus before it or not), or otherwise if it hasn't one
+num* :: proc(place: String, k: Int, otherwise: Int) -> Int
+  n := -1
+  v := 0
+  neg := false
+  inside := false
+  for i in 0..<place.len() + 1
+    c := 32
+    if i < place.len()
+      c = place[i]
+    end
+    if c >= '0' and c <= '9'
+      if not inside
+        n += 1
+        v = 0
+        inside = true
+        neg = i > 0 and place[i - 1] == '-'
+      end
+      v = v * 10 + c - '0'
+    case inside
+      inside = false
+      if n == k
+        if neg
+          return -v
+        end
+        return v
+      end
+    end
+  end
+  return otherwise
 end
 # file k's path and place (from 0: the latest), as the list was last read
 Recent.pathAt* :: proc(k: Int) -> String do return pathIn(lineOf(lines.asString(), k))

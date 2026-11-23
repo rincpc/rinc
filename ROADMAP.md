@@ -43,7 +43,8 @@ app is a Rio program.
      (the user's note: one finger slipping; it only drops a file from the list, and asks first if unsaved).
      The user (2026-11-23): later, maybe simple 3D and an ultra easy 3D modeling app, after a transformed
      blit with shading; and text formatting, text animation and visual novel features in a library.
-  3. Studio state per file; Maps' cleanups (paste anchor, Ctrl+T for every layer); map parts as brushes.
+  3. Studio state per file (done 2026-11-23: each file's place, in the recent list); Maps' cleanups
+     (paste anchor, Ctrl+T for every layer); map parts as brushes.
   4. The app's log over serial while it runs, if it helps working on the board (Sys+M already shows frame
      times on screen).
   5. Sometime: drawing speed, and a transformed blit (rotated, scaled: 3D-ish); the Cloudlamp tutorial
