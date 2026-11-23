@@ -5,7 +5,7 @@ first's as its channels say; a later one's just those it uses: a channel 6 alone
 its longest track ends; played from a use of the first track, the second where it'd be then; one use
 alone, its track alone (on the first voices). pc.freeVoice: the first voice not playing and not the
 song's; a sound on voice -1 takes it. Pan: read and written back, and heard (full left: the right
-channel silent)."""
+channel silent). Banks: a pattern's own file of sounds, read, played and written back."""
 import os, shutil, subprocess, sys
 
 rinc, work = os.path.abspath(sys.argv[1]), sys.argv[2]
@@ -144,5 +144,34 @@ left = max(abs(v) for v in samples[0::2])
 right = max(abs(v) for v in samples[1::2])
 if 'pans true -8 0 0' not in said or 'pans written true true' not in said or not (left > 1000 and right < 50):
   print('FAILED: pan: %r left %d right %d' % (said, left, right))
+  sys.exit(1)
+# banks: a pattern's own file of sounds (a "sounds" line after its pattern line): the sounds it places
+# read after the song's own (only those: to the highest it places), its placements' sounds in that row,
+# written back as that file numbers them; the room its notes need, just so; played; a file that isn't
+# there, logged, the song loading still
+other = 'rinc sound 1\n' + sound(6, [(40, 0, 5, 0)] * 4, (0, 4)) + '\n' + sound(1, []) + '\n' + sound(6, [(50, 0, 5, 0)] * 4, (0, 4)) + '\n' + ''.join(sound(1, []) + '\n' for _ in range(29))
+banked = ('rinc music 2\nsounds notes.snd\nlevers 0 8 100\npattern 8 6\n0 0 0 0 8 0 0\npattern 8 6\nsounds other.snd\n'
+          '0 0 2 0 8 0 0\n0 1 0 0 8 0 0\nsong\n0 0 0 8 8 100 1 -\n1 0 0 8 8 100 1 -\n')
+put('banks/notes.snd', open(os.path.join(work, 'game', 'notes.snd'), newline='').read())
+put('banks/other.snd', other)
+put('banks/song.mus', banked)
+put('banks/gone.mus', banked.replace('other.snd', 'gone.snd'))
+put('banks/banks.rio', 'import song\nbuf: Blob[3000]\nt := song.Song{buffer = buf[]}\n'
+    'log("banks", t.load("song.mus"), t.banks, t.patternBank(0), t.patternBank(1), t.bankPath(1), t.bankBase[1], t.bankUsed[1], t.needs(), t.notes.len())\n'
+    'log("placed", t.placeSound(1), t.placeOwnSound(1), t.placeBank(1), t.placeSound(2), t.placeOwnSound(2), t.notes[0], t.notes[128], t.notes[3 * 128])\n'
+    'text: Blob[..song.TEXT]\n'
+    'log("banks written", t.write(text), text.asString() == "' + banked.replace('\n', '\\n') + '")\n'
+    'fine := t.play(1, true)\n'
+    'log("banks playing", pc.soundPlaying(0), pc.soundPlaying(1))\n'
+    'gone := song.Song{buffer = buf[]}\n'
+    'goneOk := gone.load("gone.mus")\nlog("gone", goneOk, gone.banks)\n')
+r = subprocess.run([rinc, os.path.join(work, 'banks') + '/', '-data', os.path.join(work, 'data'), '-frames', '3'], capture_output=True, text=True, timeout=60)
+said = (r.stdout + r.stderr).replace('\r', '').split('\n')
+for w in ['banks true 2 0 1 other.snd 1 3 512 512', 'placed 3 2 1 1 0 24 40 50', 'banks written true true', 'banks playing 1 1', 'gone true 2']:
+  if w not in said:
+    print('FAILED: banks: wanted %r in %r' % (w, said))
+    sys.exit(1)
+if not any('gone.snd: no such file' in l for l in said):
+  print('FAILED: banks: a file not there, not logged: %r' % said)
   sys.exit(1)
 print('song tracks came through')

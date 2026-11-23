@@ -85,4 +85,10 @@ Rincs read it. Both read.
 5. Done (2026-11-23): pan (a placement's, a use's and at its end; uses 11 bytes, placements 9; written
    only when a song pans anything), notes starting at their own pan (not eased from the center); a later
    track's voices just the channels it uses. tests/songtracks.py hears it (full left: the right silent).
-6. Next: sound banks a pattern (above), as the user decides.
+6. Done (2026-11-23): a pattern's own file of sounds (up to 3 more a song): a "sounds" line after its
+   pattern line (older Rincs skip it: the song's own sounds); the library numbers every sound the song
+   places in one row (the song's file's first, then each other's, just those placed), so the player is
+   as it was; a placement's spare byte its file. Music reads each file whole (Song.whole) to pick from,
+   shows a game's Blob as the sounds placed; Ctrl+T in a roll picks the pattern's. Tests: songtracks.py
+   (banks), studio's music.py (Ctrl+T with a stand-in Files). Cloudlamp: its bass (track 2) from
+   bass.snd, made in Sound on the board.

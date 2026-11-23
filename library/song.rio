@@ -41,6 +41,9 @@ LOOP_BEGINS* :: 1         # a use's flags
 LOOP_ENDS* :: 2
 STOPS* :: 4
 SOUNDS* :: 32             # a sound file's, each of 32 notes
+BANKS* :: 4               # a song's files of sounds: its own, and up to 3 more, a pattern's own if it picks one
+                          # (only the sounds the song places are read: one of another file costs its 128 bytes)
+EVERY* :: BANKS * SOUNDS  # (its sounds, numbered in one row: its own file's, then each other file's placed)
 NOTES* :: 32
 SOUND_BYTES* :: NOTES * 4 # a sound's notes, as pc.synth takes them: pitch, wave, volume, effect each
 ALL_SOUNDS* :: SOUNDS * SOUND_BYTES
@@ -74,9 +77,18 @@ Song* :: struct
   volume: Int
   speed: Int
   sounds: Int             # the file's sounds read (as many as notes has room for)
-  speeds: Blob[SOUNDS]    # each sound's speed (120ths of a second a note), and its loop (loopB 0: none)
-  loopAs: Blob[SOUNDS]
-  loopBs: Blob[SOUNDS]
+  speeds: Blob[EVERY]     # each sound's speed (120ths of a second a note), and its loop (loopB 0: none)
+  loopAs: Blob[EVERY]
+  loopBs: Blob[EVERY]
+  banks: Int              # its files of sounds: 1 its own, more when a pattern picks its own
+  bankPaths: Blob[BANKS * 96] # (each's path, as the song names it; the first, soundsPath's)
+  bankLens: [BANKS]Int
+  bankBase: [BANKS]Int    # where each's sounds start in the row of them all (notes, and the placements' sounds)
+  bankUsed: [BANKS]Int    # and how many: to the highest the song places (its own: as notes has room for)
+  patBanks: Blob[PATTERNS] # each pattern's file (0: the song's own)
+  bankFulls: Blob[BANKS * 200] # (each's path whole, found from the song's folder)
+  bankFullLens: [BANKS]Int
+  whole: Bool             # every file's sounds read whole, 32 each (an editor's, to pick from: notes needs EVERY sounds' room)
   hasSounds: Bool
   soundsPath: Blob[..96]  # its file of sounds (kept, though it isn't there)
   playing: Bool
@@ -132,6 +144,23 @@ Song.placeVolume* :: proc(i: Int) -> Int do return self.place(i, 4)
 Song.placeSpeed* :: proc(i: Int) -> Int do return self.place(i, 5)  # (0: the sound's own)
 Song.placeHold* :: proc(i: Int) -> Int do return self.place(i, 6)   # (0: as long as it plays)
 Song.placePan* :: proc(i: Int) -> Int do return signed(self.place(i, 7)) # (eighths: -8 left, 8 right)
+Song.placeBank* :: proc(i: Int) -> Int do return min(self.place(i, 8), BANKS - 1) # (its file of sounds: 0 the song's own)
+# its sound as its file numbers it (placeSound: in the row of all the song's sounds)
+Song.placeOwnSound* :: proc(i: Int) -> Int do return self.placeSound(i) - self.bankBase[self.placeBank(i)]
+Song.patternBank* :: proc(p: Int) -> Int do return min(self.patBanks[p], BANKS - 1)
+Song.bankPath* :: proc(b: Int) -> String
+  if b == 0
+    return self.soundsPath.asString()
+  end
+  return self.bankPaths[b * 96..<b * 96 + self.bankLens[b]].asString()
+end
+# its file whole, as it was found (beside the song, or from its folder)
+Song.bankFile* :: proc(b: Int) -> String
+  if b == 0
+    return self.soundsPath.asString()
+  end
+  return self.bankFulls[b * 200..<b * 200 + self.bankFullLens[b]].asString()
+end
 Song.setUseFlags* :: proc(u: Int, f: Int) do self.room[self.usesAt + u * USE_BYTES + 7] = self.useTrack(u) * 16 + f % 16
 Song.setUseTrack* :: proc(u: Int, t: Int) do self.room[self.usesAt + u * USE_BYTES + 7] = max(0, min(t, TRACKS - 1)) * 16 + self.useFlags(u)
 
@@ -162,10 +191,9 @@ lineAt :: proc(p: String, at: Int) -> Int
   return at + line.len()
 end
 why: Blob[..160]          # why the last load failed (it logs it)
-Song.loadSounds* :: proc(p: String) -> Bool
+# file p's first count sounds, into the row of them from at (notes, speeds and loops): false if it isn't one
+Song.readInto :: proc(p: String, from: Int, count: Int) -> Bool
   at := lineAt(p, 0)
-  self.hasSounds = false
-  self.sounds = 0
   why.clear()
   if at < 0
     _ = why.print("sounds ", p, ": no such file")
@@ -174,12 +202,15 @@ Song.loadSounds* :: proc(p: String) -> Bool
     _ = why.print("sounds ", p, ": not a file of Sound's")
     return false
   end
-  room := min(SOUNDS, self.notes.len() / SOUND_BYTES)
-  for s in 0..<room
+  for q in 0..<min(count, min(SOUNDS, EVERY - from))
+    s := from + q
     at = lineAt(p, at)
-    if at < 0 or lineEnd < LINE
-      _ = why.print("sounds ", p, ": not a file of Sound's")
-      return false
+    if at < 0 or lineEnd < LINE or (s + 1) * SOUND_BYTES > self.notes.len()
+      if at < 0 or lineEnd < LINE
+        _ = why.print("sounds ", p, ": not a file of Sound's")
+        return false
+      end
+      return true # (no room for more: as many as there is)
     end
     d := line[0..<LINE].asString()
     self.speeds[s] = max(1, hexAt(d, 0))
@@ -193,6 +224,15 @@ Song.loadSounds* :: proc(p: String) -> Bool
       self.notes[k + 2] = max(hexDigit(d[j + 3]), 0) % 8
       self.notes[k + 3] = max(hexDigit(d[j + 4]), 0) % 8
     end
+  end
+  return true
+end
+Song.loadSounds* :: proc(p: String) -> Bool
+  self.hasSounds = false
+  self.sounds = 0
+  room := min(SOUNDS, self.notes.len() / SOUND_BYTES)
+  if not self.readInto(p, 0, room)
+    return false
   end
   self.sounds = room
   self.hasSounds = true
@@ -307,12 +347,19 @@ nU := 0
 nL := 0
 most := 0                 # (channels: the highest, plus one)
 trackNow := 0             # (the track the uses read are in)
+bankNow := 0              # (the file of sounds the pattern read last picks: 0 the song's)
+nB := 1                   # (files of sounds named, and their paths, and the highest sound each places)
+bankNames: Blob[BANKS * 96]
+bankNameLens: [BANKS]Int
+usedOf: [BANKS]Int
+baseOf: [BANKS]Int
 mostTrack := 0            # (tracks: the highest, plus one)
 soundsUsed := 0           # (sounds: the highest placed, plus one)
 named: Blob[..96]
 filling := false
 bad := false              # (a line it couldn't take)
 Song.setPattern :: proc(p: Int, steps: Int, speed: Int)
+  self.patBanks[p] = 0
   o := p * PATTERN_BYTES
   self.room[o] = max(1, min(steps, STEPS))
   self.room[o + 1] = max(1, min(speed, 255))
@@ -330,17 +377,17 @@ Song.addPlace :: proc(step, c, s, shift, vol, speed, hold, pan: Int)
     o := self.placesAt + nL * PLACE_BYTES
     self.room[o] = max(0, min(step, STEPS - 1))
     self.room[o + 1] = max(0, min(c, CHANNELS - 1))
-    self.room[o + 2] = max(0, min(s, SOUNDS - 1))
+    self.room[o + 2] = baseOf[bankNow] + max(0, min(s, SOUNDS - 1)) # (in the row of all the song's sounds)
     self.room[o + 3] = max(-SHIFTS, min(shift, SHIFTS)) + 64
     self.room[o + 4] = max(0, min(vol, 8))
     self.room[o + 5] = max(0, min(speed, 255))
     self.room[o + 6] = max(0, min(hold, 255))
     self.room[o + 7] = (max(-PANS, min(pan, PANS)) + 256) % 256
-    self.room[o + 8] = 0
+    self.room[o + 8] = bankNow
     self.room[(nP - 1) * PATTERN_BYTES + 4] = self.patternCount(nP - 1) + 1
   end
   most = max(most, max(0, min(c, CHANNELS - 1)) + 1)
-  soundsUsed = max(soundsUsed, max(0, min(s, SOUNDS - 1)) + 1)
+  usedOf[bankNow] = max(usedOf[bankNow], max(0, min(s, SOUNDS - 1)) + 1)
   nL += 1
 end
 Song.addUse :: proc(p, shift, shiftEnd, vol, volEnd, speed, times, flags, pan, panEnd: Int)
@@ -439,6 +486,14 @@ Song.songLine :: proc(k: Int, l: String) -> Bool
     soundsUsed = 0
     trackNow = 0
     mostTrack = 0
+    bankNow = 0
+    if not filling
+      nB = 1
+      for b in 0..<BANKS
+        usedOf[b] = 0
+        baseOf[b] = 0
+      end
+    end
     bad = false
     if l == "rinc music 1"
       version = 1
@@ -486,6 +541,31 @@ Song.songLine :: proc(k: Int, l: String) -> Bool
     end
     nP += 1
     section = 1
+    bankNow = 0
+    return true
+  case startsWith(l, "sounds ") and section == 1 and nP > 0 # (a pattern's own file of sounds: the next of the song's, or one named already)
+    n := l[7..<l.len()]
+    b := 1
+    for b < nB and bankNames[b * 96..<b * 96 + bankNameLens[b]].asString() != n
+      b += 1
+    end
+    if b == nB and not filling
+      if nB == BANKS or n.len() > 96
+        bad = true
+        return true
+      end
+      for j in 0..<n.len()
+        bankNames[nB * 96 + j] = n[j]
+      end
+      bankNameLens[nB] = n.len()
+      nB += 1
+    end
+    if b < nB
+      bankNow = b
+      if filling
+        self.patBanks[nP - 1] = b
+      end
+    end
     return true
   case startsWith(l, "song")
     section = 2
@@ -577,6 +657,16 @@ Song.counted :: proc(folder: String) -> Bool
     _ = why.print("not a song of Music's (no patterns used)")
     return false
   end
+  soundsUsed = 0 # (the row of all its sounds: its own file's, then each other's it places)
+  if self.whole
+    for b in 0..<nB
+      usedOf[b] = SOUNDS
+    end
+  end
+  for b in 0..<nB
+    baseOf[b] = soundsUsed
+    soundsUsed += usedOf[b]
+  end
   if self.buffer.len() > 0 # (one Blob for both: the notes its sounds need, then the room)
     k := min(soundsUsed * SOUND_BYTES, self.buffer.len())
     self.notes = self.buffer[0..<k]
@@ -598,12 +688,46 @@ Song.counted :: proc(folder: String) -> Bool
   if p.len() > 0 and p[0] != '/' and folder.len() > 0
     full = within(folder, p)
   end
-  if self.hasSounds and full == self.soundsPath.asString() and self.sounds * SOUND_BYTES >= self.notes.len() # (read already, as many: Music plays each change this way)
-    return true
+  others := nB > 1 or self.banks > 1 # (other files: read each time, the row's laid out anew)
+  self.banks = nB
+  for b in 0..<BANKS
+    self.bankBase[b] = baseOf[b]
+    self.bankUsed[b] = usedOf[b]
+    self.bankLens[b] = bankNameLens[b] * (b < nB).toInt()
+    for k in 0..<self.bankLens[b]
+      self.bankPaths[b * 96 + k] = bankNames[b * 96 + k]
+    end
   end
-  if full.len() > 0 and not self.loadSounds(full) and not self.loadSounds(beside(folder, p))
-    self.soundsPath.clear()
-    fine = self.soundsPath.pushAll(full) # (kept, though it's not there now)
+  if not (self.hasSounds and full == self.soundsPath.asString() and self.sounds * SOUND_BYTES >= self.notes.len() and not others) # (read already, as many: Music plays each change this way)
+    if full.len() > 0 and not self.loadSounds(full) and not self.loadSounds(beside(folder, p))
+      self.soundsPath.clear()
+      fine = self.soundsPath.pushAll(full) # (kept, though it's not there now)
+    end
+  end
+  for b in 1..<nB # (each other file's sounds the song places, after the song's own; one not there: silent)
+    q := self.bankPath(b)
+    fullB := q
+    if q.len() > 0 and q[0] != '/' and folder.len() > 0
+      fullB = within(folder, q)
+    end
+    for k in baseOf[b] * SOUND_BYTES..<min((baseOf[b] + usedOf[b]) * SOUND_BYTES, self.notes.len())
+      self.notes[k] = 0
+    end
+    found := fullB
+    if not self.readInto(fullB, baseOf[b], usedOf[b])
+      found = beside(folder, q)
+      if not self.readInto(found, baseOf[b], usedOf[b])
+        log(why.asString()) # (its sounds silent: the song plays on)
+        found = fullB
+      end
+    end
+    self.bankFullLens[b] = min(found.len(), 200)
+    for k in 0..<self.bankFullLens[b]
+      self.bankFulls[b * 200 + k] = found[k]
+    end
+  end
+  if others and self.hasSounds
+    self.sounds = max(self.sounds, soundsUsed)
   end
   return true
 end
@@ -743,8 +867,11 @@ Song.write* :: proc(out: Blob[..]) -> Bool
   ok := out.print("rinc music ", 2 + (most > 1).toInt(), "\nsounds ", self.soundsPath.asString(), "\nlevers ", self.shift, " ", self.volume, " ", self.speed, "\n")
   for p in 0..<self.patterns
     ok = ok and out.print("pattern ", self.patternSteps(p), " ", self.patternSpeed(p), "\n")
+    if self.patternBank(p) > 0
+      ok = ok and out.print("sounds ", self.bankPath(self.patternBank(p)), "\n")
+    end
     for i in self.patternFirst(p)..<self.patternFirst(p) + self.patternCount(p)
-      ok = ok and out.print(self.placeStep(i), " ", self.placeChannel(i), " ", self.placeSound(i), " ", self.placeShift(i), " ", self.placeVolume(i), " ", self.placeSpeed(i), " ", self.placeHold(i))
+      ok = ok and out.print(self.placeStep(i), " ", self.placeChannel(i), " ", self.placeOwnSound(i), " ", self.placeShift(i), " ", self.placeVolume(i), " ", self.placeSpeed(i), " ", self.placeHold(i))
       if pans
         ok = ok and out.print(" ", self.placePan(i))
       end

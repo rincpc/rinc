@@ -115,7 +115,10 @@ pattern; its shift and its shift at its end, each plus 64; its volume and at its
 speed, in percent, 2 bytes, low first; its marks, 1 a loop begins, 2 a loop ends, 4 the song stops, and
 its track times 16, 0 to 7; how many times it's played over; its pan and its pan at its end); then the
 placements, 9 bytes each (its step; its channel, 0 to 7; its sound; its shift plus 64; its volume, in
-eighths; its speed, or 0 for its sound's; its hold, in steps, or 0; its pan; 0, kept for later). A pan
+eighths; its speed, or 0 for its sound's; its hold, in steps, or 0; its pan; its file of sounds, 0 the
+song's own). Its sound is its number in the row of all the song's sounds: the song's own file's first,
+then each file a pattern picks of its own, just the sounds the song places from it (the song library
+lays them out so, and `notes` holds them in that order). A pan
 is a signed byte, -8 to 8, eighths of the way left or right, 0 the center: a placement's and its use's
 (ramped across its times round, as shift and volume are) added. Then, for each sound the song plays, from 0, its speed and its loop's start and end, 3 bytes.
 `notes` holds the sounds' notes, 128 bytes a sound (32 notes of 4 bytes, as the synth takes them).
