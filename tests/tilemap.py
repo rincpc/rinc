@@ -29,7 +29,7 @@ said = (r.stdout + r.stderr).strip()
 if 'tilemap came through' not in said or 'assert' in said or 'error' in said:
   sys.exit('FAIL: %s' % said)
 for want in ('/save/none.map: no such file', '/save/big.map: needs Blob[600], 1 sheets, 1 layers (has 400, 3, 6)',
-             "/save/old.map: not a map (its first line isn't rinc map 3) (line 1)", "/save/bad.map: a row with a cell that isn't one (line 5)", "/save/long.map: couldn't read it all (line 5)",
+             "/save/old.map: not a map (its first line isn't rinc map 4) (line 1)", "/save/bad.map: a row with a cell that isn't one (line 5)", "/save/long.map: couldn't read it all (line 5)",
              '/save/three.map: needs Blob[52], 2 sheets, 2 layers (has 400, 3, 1)'):
   if want not in said: sys.exit('FAIL: load\'s log: wanted %r in %r' % (want, said))
 pixels = open(shot, 'rb').read()[-320 * 240 * 3:]

@@ -7,48 +7,50 @@ doors, signs. Rinc keeps maps in `.map` files, as studio's Maps app makes them, 
 
 ## A map's file
 
-Text, so it's small and can be read and changed in the editor. `rinc map 3`, then its sheets, then its
+Text, so it's small and can be read and changed in the editor. `rinc map 4`, then its sheets, then its
 layers, drawn one over another, the first at the bottom:
 
 ```
-rinc map 3
-sheet 1 /save/paint/cave.png 8 across 16
-sheet 2 /save/paint/chars.png 8x16 across 5
+rinc map 4
+sheet 1 /save/paint/cave.png 8
+sheet 2 /save/paint/chars.png 8x16
 layer 1 ground tiles 1
 size 4 2
 offset 0 0
-000001002---
----------003
+000001000200----
+------------0300
 layer 2 actors things 2
 offset 0 0
-thing 012 at 40 64 name player
-thing 007 at 120 64
-thing 003 at 64 96 span 2 1
-thing --- at 200 0 span 2 4 name exit
+thing 0201 at 40 64 name player
+thing 0700 at 120 64
+thing 0300 at 64 96 span 2 1
+thing ---- at 200 0 span 2 4 name exit
 ```
 
-- `sheet`: its number (from 1), its path, its sprites' size (`8`, or `8x16` for 8 across and 16 down;
-  4 to 64 each) and `across`, how many sprites it had across when the map was saved. A sheet can be any
-  width and height: its sprites are the whole ones across and down (pixels past the last whole sprite,
-  at its right or bottom, aren't one), numbered from 0 across each row. A new map with no sheet yet
-  has one with an empty path.
+- `sheet`: its number (from 1), its path, and its sprites' size (`8`, or `8x16` for 8 across and 16
+  down; 4 to 64 each). A sheet can be any width and height: its sprites are the whole ones across and
+  down (pixels past the last whole sprite, at its right or bottom, aren't one). A new map with no sheet
+  yet has one with an empty path.
+- A tile, or a thing's sprite, is a sprite's place in its sheet, `{column, row}` from `{0, 0}`: four hex
+  digits, the column's two then the row's (`0201`: column 2, row 1), or `----` for none. So a sheet
+  grown or shrunk across never moves a map's tiles (one past its edge now is drawn as missing, and
+  kept). Up to 256 sprites across and down; the very last of them, `{255, 255}`, means none, and Maps
+  keeps the one before it for its fill.
 - `layer`: its number (from 1), its name, its kind (`tiles` or `things`) and its sheet's number.
 - A `tiles` layer: its `size` (cells across and down, 1024 at most each), its `offset` (where its first
-  cell is, in the map's pixels, negative too), then a line a row, three hex digits a cell: its sprite's
-  number, or `---` for empty.
+  cell is, in the map's pixels, negative too), then a line a row, four hex digits a cell (its sprite,
+  column and row), or `----` for empty.
 - A `things` layer: its `offset`, then a `thing` line each, in the order they're drawn: its sprite
-  (three hex digits; `---` for none, a trigger or a start), `at` (pixels from the layer's offset, -32768
+  (four hex digits, column and row; `----` for none, a trigger or a start), `at` (pixels from the layer's offset, -32768
   to 32767 each), then only when they aren't the usual: `span`, how many sprites across and down it is
   from its sprite at the top left (1 to 16 each; `1 1` left out), and `name`.
 - A name, a layer's or a thing's: 1 to 15 bytes of letters, digits, `_`, `-` and `.`. No spaces, so a
   line reads only one way. Two things can share a name (`find` finds the first).
 
-A sprite's number depends on how wide its sheet is. `across` is what keeps a map right when its sheet
-gets wider or narrower: renumbered (tilemap's `refit`), each tile stays the same picture, and any now
-past the sheet's edge goes empty.
-
-`rinc map 2`, of before sheets were listed and things, is read too (each layer with its own `tiles`
-path and size, and `across`: a sheet each), and written as `rinc map 3`. A `rinc map 1` isn't read.
+Maps of before read too, and are written as `rinc map 4`: `rinc map 3` (each sprite a number, three hex
+digits, counted across its sheet's rows, with `across` on the sheet's line: made `{column, row}` as
+they're read), and `rinc map 2`, of before sheets were listed and things (each layer with its own
+`tiles` path and size, and `across`: a sheet each). A `rinc map 1` isn't read.
 
 ## tilemap: the library's maps
 
@@ -78,7 +80,7 @@ if level.load("/save/maps/cave.map")    # (and its sheet; else the log says why:
     t := level.thing(actors, i)
     if t.name.asString() == "player"
       start(t.at)
-    case t.sprite != tilemap.EMPTY
+    case t.sprite.x >= 0                     # ({-1, -1}: no sprite)
       spawn(t.at, t.sprite, t.span)
     end
   end
@@ -87,8 +89,8 @@ camera := {0, 0}
 draw* :: proc()
   pc.cls(0)
   level.draw(0, camera)                      # layer 0, the map's pixel camera at the screen's top left
-  if level.at(0, (camera + {160, 120}) / 8) == 5
-    pc.print("on a 5", {4, 4}, 7)
+  if level.at(0, (camera + {160, 120}) / 8) == {5, 0}   # (the sprite at column 5, row 0 of its sheet)
+    pc.print("on a {5, 0}", {4, 4}, 7)
   end
 end
 ```
@@ -99,7 +101,6 @@ end
 Sheet* :: struct
   path: Blob[..96]
   sprite: [2]Int     # its sprites' size, in pixels
-  across: Int        # sprites across, when the map was saved (-1: not known)
   at: Int            # read (readSheets): its pixels, from here in the map's pixels
   size: [2]Int       # and its picture's size ({0, 0}: not read)
   flagsAt: Int       # then its sprites' flags, a byte each, flagCount of them
@@ -116,7 +117,7 @@ Layer* :: struct
 end
 Thing* :: struct     # one thing, unpacked (in the room it's packed: below)
   at: [2]Int         # pixels, from its layer's offset
-  sprite: Int        # its top-left sprite, or EMPTY
+  sprite: [2]Int     # its top-left sprite, {column, row} in its sheet ({-1, -1}: none)
   span: [2]Int       # sprites across and down ({1, 1}: one)
   name: Blob[..15]   # "" for none: a copy, so it stays good as the map changes
 end
@@ -152,19 +153,19 @@ A layer's cells are where its `start` says: a layer moved (`moveLayer`) moves no
 | | |
 |---|---|
 | `m.load(path) -> Bool`, `m.loadStash(key) -> Bool` | a map's file (or one kept in the app's stash) read into it: false if it can't be, and it's as it was; the log says why: no such file, not a map (and the line), or the room it needs (`Blob[n]`, sheets, layers) |
-| `m.save(path) -> Bool`, `m.saveStash(key) -> Bool` | written as `rinc map 3`: false if it couldn't be |
+| `m.save(path) -> Bool`, `m.saveStash(key) -> Bool` | written as `rinc map 4`: false if it couldn't be |
 | `tilemap.roomIn(path) -> Room`, `m.needs() -> Room`, `m.used() -> Int` | what a map's file needs, and what this one does; the room's bytes it uses |
-| `m.start(size, path, sprite, across) -> Bool` | a new map: one tiles layer of `size`, all empty, of the sheet at `path` |
-| `m.at(layer, p) -> Int`, `m.set(layer, p, t)`, `m.inside(layer, p) -> Bool` | cell `p`'s tile (`tilemap.EMPTY` for none, and past the layer's edges); changed; whether it's a cell |
+| `m.start(size, path, sprite) -> Bool` | a new map: one tiles layer of `size`, all empty, of the sheet at `path` |
+| `m.at(layer, p) -> [2]Int`, `m.filled(layer, p) -> Bool`, `m.set(layer, p, t)`, `m.clear(layer, p)`, `m.inside(layer, p) -> Bool` | cell `p`'s tile, `{column, row}` in its sheet (`{-1, -1}` for none, and past the layer's edges); whether it has one; changed; emptied; whether it's a cell |
+| `m.cell(layer, p) -> Int`, `m.setCell(layer, p, c)`, `tilemap.packed(t) -> Int`, `tilemap.unpacked(c) -> [2]Int` | for editors: a cell's tile packed as the room keeps it, column + row * 256 (`tilemap.NO_TILE`, 65535, for none), and set so; a tile packed, and back |
 | `m.tile(layer) -> [2]Int`, `m.sheetPath(layer) -> String` | a layer's sheet: its sprites' size, its path |
-| `m.spriteAt(layer, t, width) -> [2]Int` | sprite `t`'s top left in the layer's sheet, `width` pixels wide |
+| `m.spriteAt(layer, t) -> [2]Int` | sprite `t`'s (`{column, row}`) top left in the layer's sheet, in pixels |
 | `m.readSheets() -> Bool` | each sheet's picture, then its sprites' flags (a byte a sprite, as Paint sets them: [apps](apps.md#sprite-flags)), into the map's `pixels`; `load` does it, for a map given `pixels`. False if one can't be read, or there's no room (the log says) |
 | `m.flag(layer, name) -> Int`, `m.flagsAt(layer, p) -> Int` | a flag's bit, by its name in the layer's sheet (0: none of that name); the flags of cell `p`'s tile (0 for an empty cell, or past the edges). A game asks a flag's bit once (`solid := m.flag(ground, "solid")`) and tests `m.flagsAt(ground, cell) & solid` |
 | `m.sprite(layer, t, p)` | sprite `t` of the layer's sheet (the map's own) drawn with its top left at the screen's `p` |
 | `m.thingIn(layer, p) -> ?Thing` | the thing of a things layer whose top left is in cell `p` (counted in its tiles, from its offset), or nil |
-| `m.sheetFor(path, sprite, across) -> Int` | a sheet's number in the map's list, added if it isn't there (-1: no room) |
-| `m.setSheet(layer, path, sprite) -> Bool` | a layer's sheet changed, its tiles kept where they are in the sheet (renumbered, for a sheet the map has across another number) |
-| `m.refit(sheet, width) -> Int` | a sheet's tiles and things renumbered for it now `width` pixels wide: -1 if they're as they were, else how many went |
+| `m.sheetFor(path, sprite) -> Int` | a sheet's number in the map's list, added if it isn't there (-1: no room) |
+| `m.setSheet(layer, path, sprite) -> Bool` | a layer's sheet changed, its tiles kept as they are (`{column, row}` in it) |
 | `m.draw(layer, camera, how?)` | a layer from its sheet (the map's own, read into its `pixels`), the map's pixel `camera` at the top left: a tiles layer's tiles; a things layer's things, in order (one with no sprite isn't drawn). `how` (a `tilemap.Drawing`): `sheet`, another sheet's picture to draw from (an editor's); the box it's in (`at`, `size`: left out, to the screen's edge, whatever its size: `pc.screen`), `shrink` (2, 4: an editor's view of big tiles), `missing` (a color for a sprite past the sheet's) |
 | `m.things(layer) -> Int`, `m.thing(layer, j) -> Thing` | a things layer's count, and its thing `j`, unpacked |
 | `m.place(layer, t) -> Bool`, `m.placeAt(layer, j, t) -> Bool`, `m.change(layer, j, t) -> Bool`, `m.takeOut(layer, j)` | a thing added (drawn over the others; or as thing `j`, those from it on one later), changed, or taken out: false if there's no room (or it's no thing) |
@@ -188,12 +189,13 @@ card's. Reshaping, finding a thing and placing one take a millisecond or two.
 
 ### Limits
 
-- **Sprites.** Three hex digits number 4,095 sprites, `---` taking the last. A 320 by 256 sheet of 4 by
-  4 sprites has 5,120, and those past 4,094 can't be placed.
+- **Sprites.** A sheet's first 256 sprites across and 256 down can be placed (a 2048 by 2048 sheet of 8
+  by 8 sprites, all of it), but for the very last, `{255, 255}`: none.
 - **Pixels.** A thing's x and y are 16 bits, -32,768 to 32,767, though a layer 1,024 cells of 64 pixels
   is 65,536 across.
-- **Sheets changing width.** `refit` renumbers cells and things' sprites alike. A thing's span stays:
-  one that now runs past the sheet's right edge draws as missing past it.
+- **Sheets changing width.** Nothing's renumbered: each tile is `{column, row}`. One now past the
+  sheet's right or bottom edge draws as missing (`how.missing`), and is kept, so it's back if the sheet
+  grows again.
 - **One sheet a layer.** A level whose things come from two sheets uses two things layers.
 - **Order.** Things draw in their list's order. Games that sort by y (a thing lower down drawn over one
   higher) sort them themselves.

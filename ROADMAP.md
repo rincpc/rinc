@@ -247,7 +247,11 @@ app is a Rio program.
      browsers and most editors; in the command list too): the file shown leaves the list and the next one
      comes up (unsaved changes asked about first), without leaving the app. For files looked at a while
      and done with, a snippet opened from Snippet, say. In the editor first, then the shared library.
-     To fix later: a map's tile numbers are a sheet's sprites counted across its rows, so a sheet saved
+     The user (2026-11-23): Ctrl+W may be OK, but one finger slipping shouldn't do something else (W is
+     next to Q, and Sys+Q quits the app). Recommended: Ctrl+W, since it only drops the file from the
+     list (it's still on the card, Ctrl+Tab's list or Ctrl+O brings it back, and unsaved changes are
+     asked about), so a slip costs little either way. Not decided.
+     Done (2026-11-23), the {column, row} way (the user's pick): see below. Was: a map's tile numbers are a sheet's sprites counted across its rows, so a sheet saved
      wider (Paint saves as wide as what's drawn) renumbers them. Maps notes each sheet's across and
      renumbers when it opens a map (tilemap's refit), but a game's tilemap.load doesn't, so the game
      shows the wrong tiles until the map is opened in Maps and saved; and Rio code naming sprites by
@@ -259,6 +263,18 @@ app is a Rio program.
      2D place, {column, row}, in code and maps, so any width works and nothing's noted. Recommended
      for maps: a cell as two bytes, column and row (sheets up to 256x256 sprites), written as four hex
      digits (`0301`, `----` empty) in `rinc map 4`, still text; never renumbered, on save or anywhere.
+     Done (2026-11-23): `rinc map 4` (cells and things' sprites as 4 hex digits, column then row; no
+     across on sheet lines); maps 3 and 2 read and made {column, row} with their across, written as 4.
+     tilemap: at() -> [2]Int ({-1, -1}: none), filled(), set(layer, p, {c, r}), clear(); Thing.sprite
+     [2]Int; for editors cell()/setCell() packed (column + row * 256, NO_TILE 65535) and
+     packed()/unpacked(); flagsAt by {column, row} in the sheet as it is now; refit, renumber, across
+     and EMPTY gone; start() and sheetFor() without across. Its work 4224 bytes (a 1024-cell row, 4 KB,
+     fits). Maps keeps tiles packed (the fill's mark: 65534, so {254, 255} can't be placed); its undo
+     log version 2 and state 5 (older ones dropped, not misread). Cloudlamp: filled(), its visitor
+     {4, 0}, its map converted. Tested: tests/tilemap.py (map 3 across 3 read as {column, row}, map 4
+     round trip, packed limits, flags by place, a 1024 row), studio's maps.py (125, a sheet grown or
+     shrunk keeping tiles, a map of before), snippet.py; the board (Cloudlamp from its map 3; Maps on
+     the user's raceworld map).
   9. Later: the messages library (dialog, visual novels: under 4 below); drawing speed (8 below);
      sizes on disk (9b below).
 

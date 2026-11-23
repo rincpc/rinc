@@ -17,13 +17,17 @@
 #   end
 #
 # A layer is its name, its kind and its sheet: a TILES layer, a grid of cells, each a sprite of its
-# sheet by number (from 0, across its rows) or EMPTY, and its offset (where its first cell is, in the
+# sheet by its place there, {column, row} (from {0, 0}; {-1, -1} for none: an empty cell), and its offset (where its first cell is, in the
 # map's pixels); a THINGS layer, a list of things placed anywhere (pixels from its offset), each a sprite
-# or a rectangle of them (its span), or none (EMPTY: a trigger, a start), with a name if a game looks for
+# or a rectangle of them (its span), or none ({-1, -1}: a trigger, a start), with a name if a game looks for
 # it. The file: rinc/docs/spec/maps.md. Its own room: work, 4 KB, to read and write files through (an
 # app's to use between its calls).
 
-EMPTY* :: 4095            # a cell with no tile; a thing with no sprite
+NO_TILE* :: 65535         # a cell with no tile, packed (as cell gives it); a thing with no sprite. A tile
+                          # is a sprite's place in its sheet, {column, row}, kept in a cell's 2 bytes as
+                          # column + row * 256 (packed): sheets up to 256 sprites across and down, the
+                          # last of them all ({255, 255}) none. So a sheet grown or shrunk across never
+                          # moves a map's tiles
 MOST_SIDE* :: 1024        # a tiles layer's width or height, at most
 TILES* :: 0               # a layer's kinds
 THINGS* :: 1
@@ -36,7 +40,6 @@ THING :: 10               # a thing's bytes in the room: x, y (2 each, signed), 
 Sheet* :: struct
   path: Blob[..96]
   sprite: [2]Int          # its sprites' size, in pixels
-  across: Int             # how many sprites across it was (-1: not known): its tiles numbered so
   at: Int                 # read (readSheets): its pixels, from here in the map's pixels
   size: [2]Int            # and its picture's size ({0, 0}: not read)
   flagsAt: Int            # then its sprites' flags, a byte each (flagCount of them), from here
@@ -53,7 +56,7 @@ Layer* :: struct
 end
 Thing* :: struct          # a thing, as thing gives it (in the room, it's packed)
   at: [2]Int              # pixels, from its layer's offset
-  sprite: Int             # its top-left sprite, or EMPTY
+  sprite: [2]Int          # its top-left sprite, {column, row} in its sheet ({-1, -1}: none)
   span: [2]Int            # sprites across and down ({1, 1}: one)
   name: Blob[..15]        # "" for none: a copy, so it stays good as the map changes
 end
@@ -92,27 +95,48 @@ Map.inside* :: proc(layer: Int, p: [2]Int) -> Bool
   l := &self.layers[layer]
   return l.kind == TILES and p.x >= 0 and p.y >= 0 and p.x < l.size.x and p.y < l.size.y
 end
-# the tile at cell p of a tiles layer (EMPTY past its edges)
-Map.at* :: proc(layer: Int, p: [2]Int) -> Int
+# a tile, {column, row}, packed as a cell keeps it (NO_TILE: none, or past 255 either way)
+packed* :: proc(t: [2]Int) -> Int
+  if t.x < 0 or t.y < 0 or t.x > 255 or t.y > 255
+    return NO_TILE
+  end
+  return t.x + t.y * 256
+end
+# a cell's packed tile, as {column, row} ({-1, -1}: none)
+unpacked* :: proc(c: Int) -> [2]Int
+  if c < 0 or c >= NO_TILE
+    return {-1, -1}
+  end
+  return {c % 256, c / 256}
+end
+# for editors: a cell's tile packed (column + row * 256; NO_TILE past its edges), and set so
+Map.cell* :: proc(layer: Int, p: [2]Int) -> Int
   if not self.inside(layer, p)
-    return EMPTY
+    return NO_TILE
   end
   l := &self.layers[layer]
   return self.room.getInt((l.start + p.y * l.size.x + p.x) * 2, 16)
 end
-# tile t at cell p of a tiles layer (nothing, past its edges)
-Map.set* :: proc(layer: Int, p: [2]Int, t: Int)
+Map.setCell* :: proc(layer: Int, p: [2]Int, c: Int)
   if self.inside(layer, p)
     l := &self.layers[layer]
-    self.room.setInt((l.start + p.y * l.size.x + p.x) * 2, 16, t)
+    self.room.setInt((l.start + p.y * l.size.x + p.x) * 2, 16, c)
   end
 end
+# the tile at cell p of a tiles layer, {column, row} in its sheet ({-1, -1}: empty, or past its edges)
+Map.at* :: proc(layer: Int, p: [2]Int) -> [2]Int do return unpacked(self.cell(layer, p))
+# whether cell p of a tiles layer has a tile (not past its edges)
+Map.filled* :: proc(layer: Int, p: [2]Int) -> Bool do return self.cell(layer, p) != NO_TILE
+# tile t, {column, row}, at cell p of a tiles layer (nothing, past its edges; {-1, -1}: empty)
+Map.set* :: proc(layer: Int, p: [2]Int, t: [2]Int) do self.setCell(layer, p, packed(t))
+# cell p of a tiles layer, emptied
+Map.clear* :: proc(layer: Int, p: [2]Int) do self.setCell(layer, p, NO_TILE)
 # n cells from byte at on, empty (doubling: a cell, then two, four...)
 Map.empty :: proc(at: Int, n: Int)
   if n < 1
     return
   end
-  self.room.setInt(at, 16, EMPTY)
+  self.room.setInt(at, 16, NO_TILE)
   done := 1
   for done < n
     k := min(done, n - done)
@@ -172,68 +196,39 @@ Map.flag* :: proc(layer: Int, name: String) -> Int do return pc.imageFlag(self.s
 Map.flagsAt* :: proc(layer: Int, p: [2]Int) -> Int
   t := self.at(layer, p)
   s := self.layers[layer].sheet
-  if t < 0 or s < 0 or s >= self.sheetCount or t >= self.sheets[s].flagCount
+  if t.x < 0 or s < 0 or s >= self.sheetCount
     return 0
   end
-  return self.pixels[self.sheets[s].flagsAt + t]
+  sh := &self.sheets[s]
+  a := sh.size.x / max(1, sh.sprite.x) # (its flags: a byte a sprite, across its rows as it is now)
+  n := t.y * a + t.x
+  if t.x >= a or n >= sh.flagCount
+    return 0
+  end
+  return self.pixels[sh.flagsAt + n]
 end
-# sprite t's top left in a layer's sheet, that sheet width pixels wide
-Map.spriteAt* :: proc(layer: Int, t: Int, width: Int) -> [2]Int
-  ts := self.tile(layer)
-  a := max(1, width / ts.x)
-  return {t % a, t / a} * ts
-end
-# sprite t of a layer's sheet (the map's own, as readSheets read it), drawn with its top left at p
-Map.sprite* :: proc(layer: Int, t: Int, p: [2]Int)
+# sprite t's top left in a layer's sheet, in pixels
+Map.spriteAt* :: proc(layer: Int, t: [2]Int) -> [2]Int do return t * self.tile(layer)
+# sprite t, {column, row}, of a layer's sheet (the map's own, as readSheets read it), drawn with its top left at p
+Map.sprite* :: proc(layer: Int, t: [2]Int, p: [2]Int)
   s := self.layers[layer].sheet
   if s < 0 or s >= self.sheetCount or self.sheets[s].size.x == 0
     return
   end
   sh := &self.sheets[s]
-  pc.blit(pc.Image{pixels = self.pixels[sh.at..<sh.at + sh.size.x * sh.size.y], size = sh.size}, p, {from = self.spriteAt(layer, t, sh.size.x), size = self.tile(layer)})
+  if t.x < 0
+    return
+  end
+  pc.blit(pc.Image{pixels = self.pixels[sh.at..<sh.at + sh.size.x * sh.size.y], size = sh.size}, p, {from = self.spriteAt(layer, t), size = self.tile(layer)})
 end
 
 # ---------------------------------------------------------------- sheets
 
 # where a things layer's thing j is, in the room's bytes
 Map.thingAt :: proc(layer: Int, j: Int) -> Int do return self.cells * 2 + (self.layers[layer].start + j) * THING
-# a sheet's sprite t, numbered for it was sprites across, numbered for it now across (EMPTY: past its edge)
-moved :: proc(t: Int, was: Int, now: Int) -> Int
-  if t == EMPTY
-    return EMPTY
-  end
-  k := t % was
-  n := t / was * now + k
-  if k >= now or n >= EMPTY
-    return EMPTY
-  end
-  return n
-end
-# a layer's sprites renumbered, from a sheet was sprites across to now: how many went (past its edge now)
-Map.renumber :: proc(layer: Int, was: Int, now: Int) -> Int
-  l := &self.layers[layer]
-  lost := 0
-  if l.kind == TILES
-    for c in l.start..<l.start + l.size.x * l.size.y
-      t := self.room.getInt(c * 2, 16)
-      n := moved(t, was, now)
-      lost += (t != EMPTY and n == EMPTY).toInt()
-      self.room.setInt(c * 2, 16, n)
-    end
-  else
-    for j in 0..<l.count
-      k := self.thingAt(layer, j) + 4
-      t := self.room.getInt(k, 16)
-      n := moved(t, was, now)
-      lost += (t != EMPTY and n == EMPTY).toInt()
-      self.room.setInt(k, 16, n)
-    end
-  end
-  return lost
-end
-# the sheet at path, its sprites sprite big: its number in the map's list, added if it isn't there (its
-# sprites across, across), or -1 if there's no room for another
-Map.sheetFor* :: proc(path: String, sprite: [2]Int, across: Int) -> Int
+# the sheet at path, its sprites sprite big: its number in the map's list, added if it isn't there, or -1
+# if there's no room for another
+Map.sheetFor* :: proc(path: String, sprite: [2]Int) -> Int
   for i in 0..<self.sheetCount
     if self.sheets[i].sprite == sprite and self.sheets[i].path.asString() == path
       return i
@@ -246,7 +241,6 @@ Map.sheetFor* :: proc(path: String, sprite: [2]Int, across: Int) -> Int
   s.path.clear()
   fine := s.path.pushAll(path)
   s.sprite = sprite
-  s.across = across
   self.sheetCount += 1
   return self.sheetCount - 1
 end
@@ -273,44 +267,16 @@ Map.tidySheets :: proc()
     end
   end
 end
-# a layer's sheet, made path, its sprites sprite big: its tiles kept where they are in the sheet (a sheet
-# the map has already, across another number of sprites: renumbered for it). False if there's no room
-# for another sheet (and it's as it was)
+# a layer's sheet, made path, its sprites sprite big: its tiles kept as they are ({column, row} in it).
+# False if there's no room for another sheet (and it's as it was)
 Map.setSheet* :: proc(layer: Int, path: String, sprite: [2]Int) -> Bool
-  was := self.layers[layer].sheet
-  across := -1
-  if was >= 0 and was < self.sheetCount
-    across = self.sheets[was].across
-  end
-  k := self.sheetFor(path, sprite, across)
+  k := self.sheetFor(path, sprite)
   if k < 0
     return false
-  end
-  if across > 0 and self.sheets[k].across > 0 and self.sheets[k].across != across
-    _ = self.renumber(layer, across, self.sheets[k].across)
   end
   self.layers[layer].sheet = k
   self.tidySheets()
   return true
-end
-# a sheet's sprites, numbered for it its across sprites across, numbered now for it width pixels wide,
-# in every layer of it: each kept where it is in the sheet, though the sheet's grown or shrunk across (one
-# past its edge now: gone). -1: they're as they were; else how many went
-Map.refit* :: proc(sheet: Int, width: Int) -> Int
-  s := &self.sheets[sheet]
-  now := max(1, width / s.sprite.x)
-  was := s.across
-  s.across = now
-  if was < 1 or now == was
-    return -1
-  end
-  lost := 0
-  for i in 0..<self.count
-    if self.layers[i].sheet == sheet
-      lost += self.renumber(i, was, now)
-    end
-  end
-  return lost
 end
 
 # ---------------------------------------------------------------- names
@@ -392,19 +358,19 @@ end
 Map.thing* :: proc(layer: Int, j: Int) -> Thing
   k := self.thingAt(layer, j)
   s := self.room[k + 6]
-  t := Thing{at = {self.room.getInt(k, -16), self.room.getInt(k + 2, -16)}, sprite = self.room.getInt(k + 4, 16), span = {s / 16 + 1, s % 16 + 1}}
+  t := Thing{at = {self.room.getInt(k, -16), self.room.getInt(k + 2, -16)}, sprite = unpacked(self.room.getInt(k + 4, 16)), span = {s / 16 + 1, s % 16 + 1}}
   fine := t.name.pushAll(self.nameAt(self.room.getInt(k + 8, 16)))
   return t
 end
 thingFits :: proc(t: Thing) -> Bool
-  return t.at.x >= -32768 and t.at.x <= 32767 and t.at.y >= -32768 and t.at.y <= 32767 and t.sprite >= 0 and t.sprite <= EMPTY and
+  return t.at.x >= -32768 and t.at.x <= 32767 and t.at.y >= -32768 and t.at.y <= 32767 and (t.sprite == {-1, -1} or packed(t.sprite) != NO_TILE) and
     t.span.x >= 1 and t.span.y >= 1 and t.span.x <= SPAN_MOST and t.span.y <= SPAN_MOST and (t.name.len() == 0 or nameOk(t.name.asString()))
 end
 # thing j's bytes, as t (its name: ref)
 Map.pack :: proc(k: Int, t: Thing, ref: Int)
   self.room.setInt(k, 16, t.at.x)
   self.room.setInt(k + 2, 16, t.at.y)
-  self.room.setInt(k + 4, 16, t.sprite)
+  self.room.setInt(k + 4, 16, packed(t.sprite))
   self.room[k + 6] = (t.span.x - 1) * 16 + t.span.y - 1
   self.room[k + 7] = 0
   self.room.setInt(k + 8, 16, ref)
@@ -554,8 +520,8 @@ Map.drawWith :: proc(layer: Int, sheet: pc.Image, camera: [2]Int, how: &Drawing)
   missing := how.missing
   k := max(1, how.shrink)
   ts := self.tile(layer)
-  a := max(1, sheet.size.x / ts.x)
-  sprites := a * (sheet.size.y / ts.y)
+  a := sheet.size.x / max(1, ts.x) # (its sprites across and down: one past them, missing)
+  d := sheet.size.y / max(1, ts.y)
   corner := at + {fdiv(l.at.x - camera.x, k), fdiv(l.at.y - camera.y, k)}
   if l.kind == THINGS
     for j in 0..<l.count
@@ -564,18 +530,18 @@ Map.drawWith :: proc(layer: Int, sheet: pc.Image, camera: [2]Int, how: &Drawing)
       s := self.room[q + 6]
       size := {s / 16 + 1, s % 16 + 1} * ts
       p := corner + {fdiv(self.room.getInt(q, -16), k), fdiv(self.room.getInt(q + 2, -16), k)}
-      if t == EMPTY or p.x >= at.x + box.x or p.y >= at.y + box.y or p.x + size.x / k <= at.x or p.y + size.y / k <= at.y
+      if t == NO_TILE or p.x >= at.x + box.x or p.y >= at.y + box.y or p.x + size.x / k <= at.x or p.y + size.y / k <= at.y
         continue
       end
-      if t >= sprites
+      if t % 256 >= a or t / 256 >= d
         if missing != 0
           pc.rect(p, max(size / k - 1, {1, 1}), missing)
         end
       case k == 1
-        from := {t % a, t / a} * ts
+        from := {t % 256, t / 256} * ts
         pc.blit(sheet, p, {from = from, size = min(size, sheet.size - from)})
       else
-        shrunk(sheet, {t % a, t / a} * ts, size, p, k)
+        shrunk(sheet, {t % 256, t / 256} * ts, size, p, k)
       end
     end
     return
@@ -589,16 +555,16 @@ Map.drawWith :: proc(layer: Int, sheet: pc.Image, camera: [2]Int, how: &Drawing)
     for x in lo.x..<hi.x
       t := self.room.getInt(k2, 16)
       k2 += 2
-      if t != EMPTY
+      if t != NO_TILE
         p := corner + {x, y} * cell
-        if t >= sprites
+        if t % 256 >= a or t / 256 >= d
           if missing != 0
             pc.rect(p, max(cell - 1, {1, 1}), missing)
           end
         case k == 1
-          pc.blit(sheet, p, {from = {t % a, t / a} * ts, size = ts})
+          pc.blit(sheet, p, {from = {t % 256, t / 256} * ts, size = ts})
         else
-          shrunk(sheet, {t % a, t / a} * ts, ts, p, k)
+          shrunk(sheet, {t % 256, t / 256} * ts, ts, p, k)
         end
       end
     end
@@ -799,9 +765,9 @@ Map.moveLayer* :: proc(layer: Int, to: Int)
   end
   self.layers[to] = l
 end
-# a new map: one tiles layer of size, all empty, from the sheet at path (its sprites sprite big, across
-# of them across). False if there's no room
-Map.start* :: proc(size: [2]Int, path: String, sprite: [2]Int, across: Int) -> Bool
+# a new map: one tiles layer of size, all empty, from the sheet at path (its sprites sprite big). False if
+# there's no room
+Map.start* :: proc(size: [2]Int, path: String, sprite: [2]Int) -> Bool
   self.own()
   if size.x * size.y * 2 > self.room.len() or self.layers.len() < 1 or self.sheets.len() < 1
     return false
@@ -811,7 +777,7 @@ Map.start* :: proc(size: [2]Int, path: String, sprite: [2]Int, across: Int) -> B
   self.thingCount = 0
   self.names = 0
   self.count = 1
-  self.layers[0] = Layer{kind = TILES, sheet = self.sheetFor(path, sprite, across), size = size}
+  self.layers[0] = Layer{kind = TILES, sheet = self.sheetFor(path, sprite), size = size}
   layerName(TILES, 1, self.layers[0].name)
   self.empty(0, self.cells)
   return true
@@ -819,8 +785,9 @@ end
 
 # ---------------------------------------------------------------- its file: read and written a piece at a time
 
-# "rinc map 3", then its sheets, then each layer, as rinc/docs/spec/maps.md says. A map of before
-# ("rinc map 2", its layers each with its own sheet) reads too, and writes as one of now
+# "rinc map 4", then its sheets, then each layer, as rinc/docs/spec/maps.md says. Maps of before read
+# too, and write as one of now: "rinc map 3" (tiles numbered across their sheet's rows, its across on its
+# sheet's line: made {column, row} as they're read) and "rinc map 2" (each layer its own sheet)
 hexDigits := "0123456789abcdef"
 hexOf: Blob[256]           # each byte's hex digit's value; 16 for -, 255 for the rest (a row's cells, read)
 for c in 0..<256
@@ -844,6 +811,19 @@ digit :: proc(c: Int) -> Int
   end
   return -1
 end
+# a tile numbered as maps of before numbered it (across its sheet's rows, a sprites across; 3 hex digits,
+# --- for none), packed as {column, row}
+oldTile :: proc(t: Int, a: Int) -> Int
+  if t < 0 or t >= 4095
+    return NO_TILE
+  end
+  w := a
+  if w < 1
+    w = 16 # (no word of its width: PICO-8's, 16 across, as Maps took it)
+  end
+  return packed({t % w, t / w})
+end
+acrossRead: [64]Int # (maps of before: each sheet's across, as read, to make its tiles {column, row})
 startsWith :: proc(t: String, s: String) -> Bool do return t.len() >= s.len() and t[0..<s.len()] == s
 # the k-th number in s (from 0), a minus before it or not: 0 if there's none
 numberIn :: proc(s: String, k: Int) -> Int
@@ -943,7 +923,7 @@ end
 # where it's read from, or written to: a file or the stash, through work, a piece at a time
 FROM_FILE :: 0
 FROM_STASH :: 1
-WORK* :: 4096             # (a card's reads and writes cost most: fewer, bigger ones)
+WORK* :: 4224             # (a card's reads and writes cost most: fewer, bigger ones; a row of 1024 cells, 4 KB and its newline, fits)
 # the room it reads and writes files through: an app's to use as it likes between its calls (none of them
 # leaves anything in it), as Maps keeps its undo's steps there. A line read is in it, whole: the longest a
 # map's file has (a row of 1024 cells) fits
@@ -1150,12 +1130,18 @@ Map.readAs :: proc(keep: Bool) -> Bool
     return fails("no first line")
   end
   version := 0
-  if lineText() == "rinc map 3"
+  if lineText() == "rinc map 4"
+    version = 4
+  case lineText() == "rinc map 3"
     version = 3
   case lineText() == "rinc map 2"
     version = 2
   else
-    return fails("not a map (its first line isn't rinc map 3)")
+    return fails("not a map (its first line isn't rinc map 4)")
+  end
+  cellChars := 4 # (a cell's characters in a row)
+  if version < 4
+    cellChars = 3
   end
   kind := -1      # the layer read last's (-1: none yet)
   w := 0
@@ -1173,15 +1159,18 @@ Map.readAs :: proc(keep: Bool) -> Bool
     if s.len() == 0
       continue
     end
-    if startsWith(s, "sheet ") and version == 3
-      # sheet N path SIZE across A (its path may have spaces: its size and across from its end)
+    if startsWith(s, "sheet ") and version >= 3
+      # sheet N path SIZE (rinc map 3: then across A; its path may have spaces: its size from its end)
       a := s.len()
       for a > 0 and s[a - 1] != 32
         a -= 1
       end
-      e := a - 8 # (" across " before it)
-      if e < 7 or s[e..<a] != " across "
-        return fails("a sheet's line without across")
+      e := s.len()
+      if version == 3
+        e = a - 8 # (" across " before it)
+        if e < 7 or s[e..<a] != " across "
+          return fails("a sheet's line without across")
+        end
       end
       z := e
       for z > 0 and s[z - 1] != 32
@@ -1194,8 +1183,11 @@ Map.readAs :: proc(keep: Bool) -> Bool
       end
       need.sheets += 1
       if keep
-        if self.sheetFor(fromFile(s[p..<z - 1]), sprite, numberIn(s[a..<s.len()], 0)) != self.sheetCount - 1
+        if self.sheetFor(fromFile(s[p..<z - 1]), sprite) != self.sheetCount - 1
           return fails("a sheet listed twice")
+        end
+        if version == 3 and self.sheetCount <= 64
+          acrossRead[self.sheetCount - 1] = numberIn(s[a..<s.len()], 0)
         end
       end
     case startsWith(s, "layer ")
@@ -1207,7 +1199,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
       h = 0
       rows = 0
       kind = TILES
-      if version == 3
+      if version >= 3
         k := wordAt(s, wordStart(s, 3))
         if k == "things"
           kind = THINGS
@@ -1232,7 +1224,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
         l.start = self.cells
         l.count = 0
         l.name.clear()
-        if version == 3
+        if version >= 3
           fine := l.name.pushAll(wordAt(s, wordStart(s, 2)))
           l.sheet = numberIn(wordAt(s, wordStart(s, 4)), 0) - 1
         else
@@ -1255,13 +1247,17 @@ Map.readAs :: proc(keep: Bool) -> Bool
         if sprite.x == 0
           sprite = {8, 8}
         end
-        self.layers[self.count - 1].sheet = self.sheetFor(fromFile(s[6..<max(a - 1, 6)]), sprite, -1)
+        sh := self.sheetFor(fromFile(s[6..<max(a - 1, 6)]), sprite)
+        self.layers[self.count - 1].sheet = sh
+        if sh >= 0 and sh < 64 and sh == self.sheetCount - 1
+          acrossRead[sh] = -1
+        end
       end
     case startsWith(s, "across ") and version == 2
       if keep
         sh := self.layers[self.count - 1].sheet
-        if sh >= 0 and self.sheets[sh].across < 0
-          self.sheets[sh].across = numberIn(s, 0)
+        if sh >= 0 and sh < 64 and acrossRead[sh] < 0
+          acrossRead[sh] = numberIn(s, 0)
         end
       end
     case startsWith(s, "size ") and kind == TILES
@@ -1285,14 +1281,34 @@ Map.readAs :: proc(keep: Bool) -> Bool
         self.layers[self.count - 1].at = {numberIn(s, 0), numberIn(s, 1)}
       end
     case startsWith(s, "thing ") and kind == THINGS
-      # thing SSS at X Y [span W H] [name NAME]: words 0 to 4, then each that's there
-      t := Thing{sprite = EMPTY, span = {1, 1}}
+      # thing CCRR at X Y [span W H] [name NAME]: words 0 to 4, then each that's there (CCRR: its sprite's
+      # column and row, 2 hex digits each, or ----; rinc map 3's, 3 digits across its sheet's rows)
+      t := Thing{sprite = {-1, -1}, span = {1, 1}}
       sp := wordAt(s, wordStart(s, 1))
-      if sp.len() != 3 or wordAt(s, wordStart(s, 2)) != "at" or wordStart(s, 4) >= s.len()
+      if sp.len() != cellChars or wordAt(s, wordStart(s, 2)) != "at" or wordStart(s, 4) >= s.len()
         return fails("a thing's line, not as it should be")
       end
-      if sp != "---"
-        t.sprite = digit(sp[0]) * 256 + digit(sp[1]) * 16 + digit(sp[2])
+      spOk := true
+      none := true
+      v := 0
+      for c in sp
+        none = none and c == '-'
+        spOk = spOk and digit(c) >= 0
+        v = v * 16 + max(0, digit(c))
+      end
+      if not none and spOk
+        if version == 4
+          t.sprite = unpacked(v % 256 * 256 + v / 256) # (CCRR: the column first)
+        case keep
+          sh := self.layers[self.count - 1].sheet
+          a := -1
+          if sh >= 0 and sh < 64
+            a = acrossRead[sh]
+          end
+          t.sprite = unpacked(oldTile(v, a))
+        else
+          t.sprite = {0, 0} # (as it's checked: some sprite)
+        end
       end
       t.at = {numberIn(wordAt(s, wordStart(s, 3)), 0), numberIn(wordAt(s, wordStart(s, 4)), 0)}
       k := 5
@@ -1304,31 +1320,52 @@ Map.readAs :: proc(keep: Bool) -> Bool
         fine := t.name.pushAll(wordAt(s, wordStart(s, k + 1)))
         k += 2
       end
-      if wordStart(s, k) < s.len() or digit(sp[0]) < 0 and sp != "---" or not thingFits(t) or (sp != "---" and (digit(sp[1]) < 0 or digit(sp[2]) < 0))
+      if wordStart(s, k) < s.len() or not (none or spOk) or not thingFits(t)
         return fails("a thing's line, not as it should be")
       end
       need.bytes += THING + t.name.len() + (t.name.len() > 0).toInt()
       if keep and not self.place(self.count - 1, t)
         return fails("more than the room has room for")
       end
-    case kind == TILES and h > 0 # (a row: three hex digits a cell, or ---)
-      if rows >= h or s.len() != w * 3
+    case kind == TILES and h > 0 # (a row: four hex digits a cell, column then row, or ----; rinc map 3's, three across its sheet's rows, or ---)
+      if rows >= h or s.len() != w * cellChars
         return fails("a row too short or long, or too many")
       end
       if not keep
         for k in 0..<w
-          a := hexOf[s[k * 3]]
-          b := hexOf[s[k * 3 + 1]]
-          c := hexOf[s[k * 3 + 2]]
-          if (a > 15 or b > 15 or c > 15) and (a != 16 or b != 16 or c != 16)
+          dashes := 0
+          digits := 0
+          for j in 0..<cellChars
+            d := hexOf[s[k * cellChars + j]]
+            dashes += (d == 16).toInt()
+            digits += (d < 16).toInt()
+          end
+          if dashes != cellChars and digits != cellChars
             return fails("a row with a cell that isn't one")
           end
         end
       end
-      if keep
+      if keep and version == 4
         c := (self.layers[self.count - 1].start + rows * w) * 2
-        for x in 0..<w # (--- is 16 * 273: past EMPTY, so EMPTY)
-          self.room.setInt(c + x * 2, 16, min(hexOf[s[x * 3]] * 256 + hexOf[s[x * 3 + 1]] * 16 + hexOf[s[x * 3 + 2]], EMPTY))
+        for x in 0..<w # (---- : past 255 each way, so NO_TILE)
+          q := x * 4
+          col := hexOf[s[q]] * 16 + hexOf[s[q + 1]]
+          row := hexOf[s[q + 2]] * 16 + hexOf[s[q + 3]]
+          v := NO_TILE
+          if col < 256 and row < 256
+            v = col + row * 256
+          end
+          self.room.setInt(c + x * 2, 16, v)
+        end
+      case keep
+        c := (self.layers[self.count - 1].start + rows * w) * 2
+        sh := self.layers[self.count - 1].sheet
+        a := -1
+        if sh >= 0 and sh < 64
+          a = acrossRead[sh]
+        end
+        for x in 0..<w # (--- is 16 * 273: past 4095, so none)
+          self.room.setInt(c + x * 2, 16, oldTile(hexOf[s[x * 3]] * 256 + hexOf[s[x * 3 + 1]] * 16 + hexOf[s[x * 3 + 2]], a))
         end
       end
       rows += 1
@@ -1404,18 +1441,22 @@ num :: proc(n: Int) -> String
   _ = numText.print(n)
   return numText.asString()
 end
-hex3 :: proc(t: Int)
-  if t == EMPTY
-    put("---")
+# a tile, packed, as 4 hex digits: its column, then its row (---- for none)
+hex4 :: proc(t: Int)
+  if t == NO_TILE
+    put("----")
   else
-    put(hexDigits[t / 256..<t / 256 + 1])
-    put(hexDigits[t / 16 % 16..<t / 16 % 16 + 1])
-    put(hexDigits[t % 16..<t % 16 + 1])
+    c := t % 256
+    r := t / 256
+    put(hexDigits[c / 16..<c / 16 + 1])
+    put(hexDigits[c % 16..<c % 16 + 1])
+    put(hexDigits[r / 16..<r / 16 + 1])
+    put(hexDigits[r % 16..<r % 16 + 1])
   end
 end
-# its text (rinc map 3), written a piece at a time
+# its text (rinc map 4), written a piece at a time
 Map.writeOut :: proc()
-  put("rinc map 3\n")
+  put("rinc map 4\n")
   for i in 0..<self.sheetCount
     s := &self.sheets[i]
     put("sheet ")
@@ -1428,8 +1469,6 @@ Map.writeOut :: proc()
       put("x")
       put(num(s.sprite.y))
     end
-    put(" across ")
-    put(num(s.across))
     put("\n")
   end
   for i in 0..<self.count
@@ -1459,20 +1498,24 @@ Map.writeOut :: proc()
       for y in 0..<l.size.y
         c := (l.start + y * l.size.x) * 2
         for x in 0..<l.size.x # (straight into work, a cell at a time: the most of a map's text)
-          if ioLen + 3 > WORK
+          if ioLen + 4 > WORK
             flushIo()
           end
           t := self.room.getInt(c + x * 2, 16)
-          if t == EMPTY
+          if t == NO_TILE
             work[ioLen] = '-'
             work[ioLen + 1] = '-'
             work[ioLen + 2] = '-'
+            work[ioLen + 3] = '-'
           else
-            work[ioLen] = hexDigits[t / 256]
-            work[ioLen + 1] = hexDigits[t / 16 % 16]
-            work[ioLen + 2] = hexDigits[t % 16]
+            col := t % 256
+            row := t / 256
+            work[ioLen] = hexDigits[col / 16]
+            work[ioLen + 1] = hexDigits[col % 16]
+            work[ioLen + 2] = hexDigits[row / 16]
+            work[ioLen + 3] = hexDigits[row % 16]
           end
-          ioLen += 3
+          ioLen += 4
         end
         put("\n")
       end
@@ -1480,7 +1523,7 @@ Map.writeOut :: proc()
       for j in 0..<l.count
         t := self.thing(i, j)
         put("thing ")
-        hex3(t.sprite)
+        hex4(packed(t.sprite))
         put(" at ")
         put(num(t.at.x))
         put(" ")

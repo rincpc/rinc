@@ -14,7 +14,7 @@ import tilemap
 import song
 import notice
 
-PLAYER :: 4                            # the sheet's sprite for the visitor
+visitor: [2]Int = {4, 0}               # the sheet's sprite for the visitor: {column, row}
 
 room: Blob[2000]                       # the map's cells, things and names (as Maps says)
 pixels: Blob[..(64 + 1) * 8]           # its sheet's pixels and flags (as Paint says)
@@ -60,7 +60,7 @@ step :: proc(d: [2]Int)
   to := at + d
   if t := m.thingIn(folk, to)
     talk(t.name.asString())
-  case m.at(ground, to) != tilemap.EMPTY and m.flagsAt(ground, to) & solid == 0
+  case m.filled(ground, to) and m.flagsAt(ground, to) & solid == 0
     at = to
     tune.sound(0, 0)
   end
@@ -79,7 +79,7 @@ draw* :: proc()
     pc.rect(m.thing(lamp.x, lamp.y).at - camera - 3, {14, 14}, 10)
   end
   m.draw(folk, camera)
-  m.sprite(ground, PLAYER, at * 8 - camera)
+  m.sprite(ground, visitor, at * 8 - camera)
   if camera.x == 0 and not lit do pc.print("CLOUDLAMP", {44, 6}, 7, {font = title})
   said.draw()
 end
