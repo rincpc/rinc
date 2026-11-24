@@ -52,6 +52,8 @@ app is a Rio program.
      times on screen).
   5. Sometime: drawing speed, and a transformed blit (rotated, scaled: 3D-ish); the Cloudlamp tutorial
      (it would help polish how things work).
+  The user (2026-11-24), before long: a review of rinc and every app for consistency and cohesion, and
+     for people coming from modern systems: far less opaque, obvious to use, still efficient by keys.
   Held (the user, 2026-11-23): more sticks, /mount/stick and other mounts: still being considered.
   Not now (the user, 2026-11-23, the recommendation): patterns from another song (copy and paste
   covers it; a live link only if a real game asks).
