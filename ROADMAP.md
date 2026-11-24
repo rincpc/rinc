@@ -58,7 +58,10 @@ app is a Rio program.
      cubic Bezier, stroked: lines a few pixels long, its points by forward differences, adds alone); the
      ellipse outline's rows worked out once, the triangle's slopes once. Speed (the user, 2026-11-24):
      designed for it as they're made; a pass over all of them with drawing speed, after the transformed
-     blit. Next: polygons and filled paths (an app's room for the edges), arcs (an
+     blit. Then pc.polygon (2026-11-24): x, y pairs in a []Int (the host interface takes no [][2]Int yet:
+     later, Rio's ffi taking slices of arrays, so points read as {x, y}); filled by non-zero winding, a row
+     at a time, no room needed (64 crossings a row at most). Next: filled paths of lines, curves and arcs
+     (the user, 2026-11-24: arcs in paths, filled or not), and arcs alone (an
      option of ellipse). Also (the user, 2026-11-24): gradients, with dithering options, as primitives
      (linear and radial fills), which Paint uses too; and Paint's tools to grow with them (line, rect,
      ellipse, triangle, curves, gradients). Before: pc had only cls, pset, rect, blit and print. Candidates,
@@ -69,6 +72,21 @@ app is a Rio program.
      colour (a table, 256 by 256 by a few levels, too big for the board as is); later, if wanted.
   The user (2026-11-24), before long: a review of rinc and every app for consistency and cohesion, and
      for people coming from modern systems: far less opaque, obvious to use, still efficient by keys.
+  The user (2026-11-24): drawing modes through colour tables, as Picotron's. A full table (the colour
+     drawn by the colour under it) is 256 by 256, 64 KB: too much to keep in the host; recommended (not
+     decided), in steps: a remap for every drawing call (as blit's map, 256 bytes); then a shade table:
+     each pixel covered becomes table[the colour under it] (256 bytes each: shadows, light, tint,
+     glass-ish), the palette's hues and steps making darker and lighter ones easy to make (a tool, or a
+     library); a few translucent colours (256 bytes each); a whole 64 KB table only from the app's own
+     room, for an app that wants it. Each a pixel read and written: slower than a fill, still a C loop.
+  The user (2026-11-24): a general UI library for Rinc, with layout (buttons, lists, fields, menus,
+     dialogs, scrolling, focus by keys), used by the system and studio apps so they look and work alike
+     (the consistency review). Recommended (not decided): immediate mode (each frame, ui.button("Save")
+     draws it and says if it was pressed), the app keeping its own state; the library keeping just what
+     it must between frames (focus, the hot item, scroll), by an id per widget. It fits Rio (no closures,
+     no allocation), the apps already redraw each frame, and the board's room (no tree of widgets kept).
+     Layout as rows and columns that the calls fill in order (a cursor that moves, sizes from text), with
+     a measuring pass only where a size must be known first.
   Held (the user, 2026-11-23): more sticks, /mount/stick and other mounts: still being considered.
   Not now (the user, 2026-11-23, the recommendation): patterns from another song (copy and paste
   covers it; a live link only if a real game asks).

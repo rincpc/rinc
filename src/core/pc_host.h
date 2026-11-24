@@ -94,6 +94,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_ellipse_SIG "iiiii" pc_Shape_LAYOUT
 #define pc_triangle_SIG "iiiiiii" pc_Shape_LAYOUT
 #define pc_curve_SIG "iiiiiiiii"
+#define pc_polygon_SIG "[i]i" pc_Shape_LAYOUT
 #define pc_rgb_SIG "i>i"
 #define pc_blit_SIG pc_Image_LAYOUT "ii" pc_Blit_LAYOUT
 #define pc_print_SIG "siii" pc_Text_LAYOUT
@@ -213,6 +214,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(ellipse, pc_ellipse_SIG) \
   X(triangle, pc_triangle_SIG) \
   X(curve, pc_curve_SIG) \
+  X(polygon, pc_polygon_SIG) \
   X(rgb, pc_rgb_SIG) \
   X(blit, pc_blit_SIG) \
   X(print, pc_print_SIG) \
@@ -321,7 +323,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x3f6bad06u /* (rio_hashText of the source) */
+#define pc_HASH 0x73225f4cu /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -352,6 +354,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "ellipse* :: host proc(pos, size: [2]Int, c: Int, how?: Shape) # an ellipse in the rectangle pos, size (a square: a circle)\n" \
   "triangle* :: host proc(p, q, r: [2]Int, c: Int, how?: Shape) # a triangle, its corners pixels\n" \
   "curve* :: host proc(from, c1, c2, to: [2]Int, c: Int) # a curve (cubic Bezier) from from to to, pulled toward c1 then c2\n" \
+  "polygon* :: host proc(points: []Int, c: Int, how?: Shape) # a polygon: its corners in order, x and y each ({10, 10, 40, 10, 25, 30}); filled where its edges wind around\n" \
   "rgb* :: host proc(c: Int) -> Int                    # color c of the palette, as 0xRRGGBB\n" \
   "\n" \
   "# a rectangle on the screen: its top left and its size, in pixels\n" \

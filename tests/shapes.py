@@ -1,5 +1,5 @@
 """python shapes.py path/to/rinc work-folder: pc's shapes drawn (rect, with an outline and rounded corners;
-ellipse; triangle; line; curve), each in a corner of its own, the screen read back (-o): the pixels each drew.
+ellipse; triangle; line; curve; polygon), each in a corner of its own, the screen read back (-o): the pixels each drew.
 A rectangle's outline, its edge alone; rounded corners left out; an ellipse and a circle the same each
 way they're turned, their outlines inside their fills; a triangle's corners in it, its outline inside it;
 lines with both ends drawn, each step one pixel, rising ones too (one stepped past its end before); a
@@ -9,7 +9,11 @@ import os, shutil, subprocess, sys
 rinc, work = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 shutil.rmtree(work, ignore_errors=True)
 os.makedirs(os.path.join(work, 'apps', 'shapes'))
-open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').write('''update* :: proc()
+open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').write('''square: [8]Int = {10, 130, 40, 130, 40, 150, 10, 150}
+star: [10]Int = {80, 120, 92, 160, 60, 135, 100, 135, 68, 160}
+ell: [12]Int = {120, 120, 160, 120, 160, 130, 135, 130, 135, 160, 120, 160}
+two: [4]Int = {180, 120, 200, 130}
+update* :: proc()
   pc.cls(0)
   pc.rect({2, 2}, {10, 6}, 8)
   pc.rect({20, 2}, {10, 6}, 8, {outline = true})
@@ -26,6 +30,11 @@ open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').writ
   pc.curve({200, 60}, {210, 20}, {250, 20}, {260, 60}, 8)
   pc.curve({280, 30}, {280, 30}, {280, 30}, {280, 30}, 8)
   pc.curve({-90000, 150}, {50000, -90000}, {90000, 90000}, {-5000, 150}, 8)
+  pc.polygon(square[], 8)
+  pc.polygon(star[], 8)
+  pc.polygon(ell[], 8)
+  pc.polygon(two[], 8)
+  pc.polygon(star[0..<0], 8)
 end
 ''')
 ppm = os.path.join(work, 's.ppm')
@@ -79,5 +88,9 @@ def connected(pts):
 check(on(200, 60) and on(260, 60) and connected(arch) and all(any((460 - x + dx, y + dy) in arch for dx in (-1, 0, 1) for dy in (-1, 0, 1)) for (x, y) in arch) and all(200 <= x <= 260 and 20 <= y <= 60 for x, y in arch) and not on(230, 50),
       'a curve, an arch: both ends, no gaps, turned left to right the same within a pixel (halves round one way), inside its control points\' box, its middle empty')
 check(drawn(276, 26, 286, 36) == {(280, 30)}, 'a curve of no length: its pixel')
+check(drawn(4, 116, 50, 156) == {(x, y) for x in range(10, 41) for y in range(130, 151)}, 'a polygon, a square: each of its corners\' pixels and all between')
+check(on(80, 140) and on(80, 121) and on(61, 135) and not on(70, 125), 'a polygon, a star crossing itself: filled through its middle (where its edges wind around), its corners in, outside its arms empty')
+check(on(125, 155) and on(155, 125) and not on(150, 145), 'a polygon, concave (an L): its notch left out')
+check(on(180, 120) and on(200, 130) and len(drawn(176, 116, 206, 134)) == 21, 'a polygon of two points: a line')
 print('%d failed' % failed if failed else 'the shapes came through')
 sys.exit(1 if failed else 0)

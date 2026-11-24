@@ -27,6 +27,7 @@ line* :: host proc(from, to: [2]Int, c: Int)       # a line, both ends' pixels d
 ellipse* :: host proc(pos, size: [2]Int, c: Int, how?: Shape) # an ellipse in the rectangle pos, size (a square: a circle)
 triangle* :: host proc(p, q, r: [2]Int, c: Int, how?: Shape) # a triangle, its corners pixels
 curve* :: host proc(from, c1, c2, to: [2]Int, c: Int) # a curve (cubic Bezier) from from to to, pulled toward c1 then c2
+polygon* :: host proc(points: []Int, c: Int, how?: Shape) # a polygon: its corners in order, x and y each ({10, 10, 40, 10, 25, 30}); filled where its edges wind around
 rgb* :: host proc(c: Int) -> Int                    # color c of the palette, as 0xRRGGBB
 
 # a rectangle on the screen: its top left and its size, in pixels
