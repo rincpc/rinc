@@ -388,7 +388,7 @@ static void rinc_hostCurve(rio_Vm *v, rio_Val *a) {
    whole; nothing kept between rows, so no room's needed. Outlined: its edges, as line draws them */
 #define rinc_CROSSINGS 64
 static void rinc_hostPolygon(rio_Vm *v, rio_Val *a) {
-  const int32_t *pt = (const int32_t *)rio_sliceBytes(v, a); int n = (int)a[1].u / 2, i, y, top, bottom; /* (x, y pairs) */
+  const int32_t *pt = (const int32_t *)rio_sliceBytes(v, a); int n = (int)a[1].u, i, y, top, bottom; /* (its points: x, y each) */
   uint8_t c = (uint8_t)a[2].i; pc_Shape how;
   float xs[rinc_CROSSINGS]; int8_t dirs[rinc_CROSSINGS];
   memset(&how, 0, sizeof how);

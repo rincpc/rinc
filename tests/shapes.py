@@ -9,10 +9,10 @@ import os, shutil, subprocess, sys
 rinc, work = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 shutil.rmtree(work, ignore_errors=True)
 os.makedirs(os.path.join(work, 'apps', 'shapes'))
-open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').write('''square: [8]Int = {10, 130, 40, 130, 40, 150, 10, 150}
-star: [10]Int = {80, 120, 92, 160, 60, 135, 100, 135, 68, 160}
-ell: [12]Int = {120, 120, 160, 120, 160, 130, 135, 130, 135, 160, 120, 160}
-two: [4]Int = {180, 120, 200, 130}
+open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').write('''square: [4][2]Int = {{10, 130}, {40, 130}, {40, 150}, {10, 150}}
+star: [5][2]Int = {{80, 120}, {92, 160}, {60, 135}, {100, 135}, {68, 160}}
+ell: [6][2]Int = {{120, 120}, {160, 120}, {160, 130}, {135, 130}, {135, 160}, {120, 160}}
+two: [2][2]Int = {{180, 120}, {200, 130}}
 update* :: proc()
   pc.cls(0)
   pc.rect({2, 2}, {10, 6}, 8)
