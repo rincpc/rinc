@@ -1,5 +1,5 @@
 """python shapes.py path/to/rinc work-folder: pc's shapes drawn (rect, with an outline and rounded corners;
-ellipse; triangle; line), each in a corner of its own, the screen read back (-o): the pixels each drew.
+ellipse; triangle; line; curve), each in a corner of its own, the screen read back (-o): the pixels each drew.
 A rectangle's outline, its edge alone; rounded corners left out; an ellipse and a circle the same each
 way they're turned, their outlines inside their fills; a triangle's corners in it, its outline inside it;
 lines with both ends drawn, each step one pixel, rising ones too (one stepped past its end before); a
@@ -22,6 +22,10 @@ open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').writ
   pc.line({90, 64}, {50, 90}, 8)
   pc.line({100, 70}, {140, 70}, 8)
   pc.line({-1000000, 200}, {1000000, 200}, 8)
+  pc.curve({160, 10}, {170, 10}, {180, 10}, {190, 10}, 8)
+  pc.curve({200, 60}, {210, 20}, {250, 20}, {260, 60}, 8)
+  pc.curve({280, 30}, {280, 30}, {280, 30}, {280, 30}, 8)
+  pc.curve({-90000, 150}, {50000, -90000}, {90000, 90000}, {-5000, 150}, 8)
 end
 ''')
 ppm = os.path.join(work, 's.ppm')
@@ -62,5 +66,18 @@ ln = drawn(46, 61, 96, 94)
 check(on(90, 64) and on(50, 90) and len(ln) == 41 and len({x for x, y in ln}) == 41, 'a line rising (once stepped past its end): both ends, a pixel a column')
 check(drawn(98, 68, 144, 72) == {(x, 70) for x in range(100, 141)}, 'a level line: both ends drawn')
 check(drawn(0, 199, W, 202) == {(x, 200) for x in range(W)}, 'a line from far off the screen to far off it: clipped, the row it crosses whole')
+check(drawn(150, 5, 200, 15) == {(x, 10) for x in range(160, 191)}, 'a curve, its control points on a line: that line')
+arch = drawn(196, 16, 266, 66)
+def connected(pts):
+  pts = set(pts); seen = set(); todo = [next(iter(pts))] if pts else []
+  while todo:
+    q = todo.pop()
+    if q in seen: continue
+    seen.add(q)
+    todo += [(q[0] + dx, q[1] + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (q[0] + dx, q[1] + dy) in pts]
+  return seen == pts
+check(on(200, 60) and on(260, 60) and connected(arch) and all(any((460 - x + dx, y + dy) in arch for dx in (-1, 0, 1) for dy in (-1, 0, 1)) for (x, y) in arch) and all(200 <= x <= 260 and 20 <= y <= 60 for x, y in arch) and not on(230, 50),
+      'a curve, an arch: both ends, no gaps, turned left to right the same within a pixel (halves round one way), inside its control points\' box, its middle empty')
+check(drawn(276, 26, 286, 36) == {(280, 30)}, 'a curve of no length: its pixel')
 print('%d failed' % failed if failed else 'the shapes came through')
 sys.exit(1 if failed else 0)

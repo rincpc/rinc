@@ -54,8 +54,11 @@ app is a Rio program.
      (it would help polish how things work).
   6. Drawing primitives (the user, 2026-11-24). Done (2026-11-24), first batch: pc.line; pc.rect with
      pc.Shape (outline, radius: rounded corners); pc.ellipse (a square box: a circle); pc.triangle (three
-     points, filled or outlined); in C, clipped, charged as rect is; tests/shapes.py. Next: Bezier curves
-     (stroked, in C: no buffer), then polygons and filled paths (an app's room for the edges), arcs (an
+     points, filled or outlined); in C, clipped, charged as rect is; tests/shapes.py. Then pc.curve (a
+     cubic Bezier, stroked: lines a few pixels long, its points by forward differences, adds alone); the
+     ellipse outline's rows worked out once, the triangle's slopes once. Speed (the user, 2026-11-24):
+     designed for it as they're made; a pass over all of them with drawing speed, after the transformed
+     blit. Next: polygons and filled paths (an app's room for the edges), arcs (an
      option of ellipse). Also (the user, 2026-11-24): gradients, with dithering options, as primitives
      (linear and radial fills), which Paint uses too; and Paint's tools to grow with them (line, rect,
      ellipse, triangle, curves, gradients). Before: pc had only cls, pset, rect, blit and print. Candidates,
@@ -874,6 +877,10 @@ app is a Rio program.
 - A speed throttle matching the board.
 
 ## Known bugs
+
+- Found 2026-11-24 (making the shapes demo): an app run with -app sees pc.btn(.a) held for its first 3
+  frames (btnp(.a) 1 on the first), nothing pressed. To check on the board: an app started from home
+  with Enter or A may see that press too. apps/shapes.rio waits 4 frames before reading A and B.
 
 - Ctrl-B after the console app runs an app hangs the board's USB serial.
 - Desktop tests now and then fail under heavy parallel runs on Windows (`ctest -j 12`): `stash_first`

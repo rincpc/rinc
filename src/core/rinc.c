@@ -271,16 +271,21 @@ static int rinc_rowOf(int round, int x, int y0, int w, int h, int r, int y, int 
   return *lo <= *hi;
 }
 /* a rectangle or an ellipse, drawn: filled, or its outline (each row's ends, reaching to the next row's
-   and the one before's, so the edge has no gaps; the first and last rows whole) */
+   and the one before's, so the edge has no gaps; the first and last rows whole). Each row's worked out
+   once: the one before and this one kept as it goes on */
 static void rinc_roundShape(int round, int x, int y0, int w, int h, int r, int outline, uint8_t c) {
-  int y = y0 < 0 ? 0 : y0, end = y0 + h > rinc_appH ? rinc_appH : y0 + h, lo, hi;
+  int y = y0 < 0 ? 0 : y0, end = y0 + h > rinc_appH ? rinc_appH : y0 + h, lo, hi, plo = 0, phi = 0, nlo = 0, nhi = 0, hasP, hasN, has;
   if (!round) { if (r > w / 2) r = w / 2; if (r > h / 2) r = h / 2; }
-  for (; y < end; y++) {
-    int plo, phi, nlo, nhi, hasP, hasN, l, rr;
-    if (!rinc_rowOf(round, x, y0, w, h, r, y, &lo, &hi)) continue;
-    if (!outline) { rinc_span(y, lo, hi, c); continue; }
-    hasP = rinc_rowOf(round, x, y0, w, h, r, y - 1, &plo, &phi);
+  if (!outline) {
+    for (; y < end; y++) if (rinc_rowOf(round, x, y0, w, h, r, y, &lo, &hi)) rinc_span(y, lo, hi, c);
+    return;
+  }
+  hasP = rinc_rowOf(round, x, y0, w, h, r, y - 1, &plo, &phi);
+  has = rinc_rowOf(round, x, y0, w, h, r, y, &lo, &hi);
+  for (; y < end; y++, plo = lo, phi = hi, hasP = has, lo = nlo, hi = nhi, has = hasN) {
+    int l, rr;
     hasN = rinc_rowOf(round, x, y0, w, h, r, y + 1, &nlo, &nhi);
+    if (!has) continue;
     if (!hasP || !hasN) { rinc_span(y, lo, hi, c); continue; }
     l = (plo > nlo ? plo : nlo) - 1; rr = (phi < nhi ? phi : nhi) + 1;
     if (l < lo) l = lo;
@@ -349,6 +354,34 @@ static void rinc_hostLine(rio_Vm *v, rio_Val *a) {
   rinc_line(a[0].i, a[1].i, a[2].i, a[3].i, (uint8_t)a[4].i);
   rinc_shapeCharge();
 }
+/* curve(from, c1, c2, to, c): a cubic Bezier, as lines between points along it, enough that each is a few
+   pixels at most (its control points' path long: more); the points by forward differences (adds alone, a
+   point), each rounded to the nearest pixel, the last its end exactly */
+static void rinc_hostCurve(rio_Vm *v, rio_Val *a) {
+  float x0 = (float)a[0].i, y0 = (float)a[1].i, x1 = (float)a[2].i, y1 = (float)a[3].i, x2 = (float)a[4].i, y2 = (float)a[5].i, x3 = (float)a[6].i, y3 = (float)a[7].i;
+  float len = fabsf(x1 - x0) + fabsf(y1 - y0) + fabsf(x2 - x1) + fabsf(y2 - y1) + fabsf(x3 - x2) + fabsf(y3 - y2), h, h2, h3;
+  float ax = -x0 + 3 * x1 - 3 * x2 + x3, ay = -y0 + 3 * y1 - 3 * y2 + y3, bx = 3 * x0 - 6 * x1 + 3 * x2, by = 3 * y0 - 6 * y1 + 3 * y2, cx = 3 * (x1 - x0), cy = 3 * (y1 - y0);
+  float px, py, dx, dy, ddx, ddy, dddx, dddy;
+  int n = (int)(len / 4) + 1, i, drew = 0; int64_t lx = a[0].i, ly = a[1].i;
+  uint8_t c = (uint8_t)a[8].i;
+  (void)v;
+  if (n > 512) n = 512; /* (a curve far off the screen: its lines cut off there, cheaply) */
+  h = 1.0f / (float)n; h2 = h * h; h3 = h2 * h;
+  px = x0; py = y0;
+  dx = ax * h3 + bx * h2 + cx * h; dy = ay * h3 + by * h2 + cy * h;
+  ddx = 6 * ax * h3 + 2 * bx * h2; ddy = 6 * ay * h3 + 2 * by * h2;
+  dddx = 6 * ax * h3; dddy = 6 * ay * h3;
+  for (i = 1; i <= n; i++) {
+    int64_t nx, ny;
+    px += dx; py += dy; dx += ddx; dy += ddy; ddx += dddx; ddy += dddy;
+    nx = i == n ? a[6].i : (int64_t)floorf(px + 0.5f); ny = i == n ? a[7].i : (int64_t)floorf(py + 0.5f);
+    if (nx == lx && ny == ly) continue;
+    rinc_line(lx, ly, nx, ny, c);
+    lx = nx; ly = ny; drew = 1;
+  }
+  if (!drew) rinc_line(lx, ly, lx, ly, c); /* (a curve of no length: its pixel) */
+  rinc_shapeCharge();
+}
 /* a triangle: filled, each row the span between its edges (a pixel's drawn if it's between them, its
    corners' pixels in); or its outline, three lines */
 static void rinc_hostTriangle(rio_Vm *v, rio_Val *a) {
@@ -365,13 +398,15 @@ static void rinc_hostTriangle(rio_Vm *v, rio_Val *a) {
   top = (int)ceilf(fminf(py[0], fminf(py[1], py[2]))); bottom = (int)floorf(fmaxf(py[0], fmaxf(py[1], py[2])));
   if (top < 0) top = 0;
   if (bottom >= rinc_appH) bottom = rinc_appH - 1;
+  float slope[3]; /* (each edge's x a row: worked out once) */
+  for (i = 0; i < 3; i++) slope[i] = py[i] == py[(i + 1) % 3] ? 0 : (px[(i + 1) % 3] - px[i]) / (py[(i + 1) % 3] - py[i]);
   for (y = top; y <= bottom; y++) {
     float lo = 1e30f, hi = -1e30f, yy = (float)y;
     for (i = 0; i < 3; i++) {
       float xa = px[i], ya = py[i], xb = px[(i + 1) % 3], yb = py[(i + 1) % 3], x;
       if (ya == yb) { if (ya == yy) { lo = fminf(lo, fminf(xa, xb)); hi = fmaxf(hi, fmaxf(xa, xb)); } continue; }
       if (yy < fminf(ya, yb) || yy > fmaxf(ya, yb)) continue;
-      x = xa + (yy - ya) * (xb - xa) / (yb - ya);
+      x = xa + (yy - ya) * slope[i];
       lo = fminf(lo, x); hi = fmaxf(hi, x);
     }
     if (lo <= hi) rinc_span(y, (int)ceilf(lo - 0.0001f), (int)floorf(hi + 0.0001f), c);
@@ -2849,7 +2884,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 }
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.appsFor", pc_appsFor_SIG, rinc_hostAppsFor) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
-         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.line", pc_line_SIG, rinc_hostLine) || rio_addFfi(vm, "pc.ellipse", pc_ellipse_SIG, rinc_hostEllipse) || rio_addFfi(vm, "pc.triangle", pc_triangle_SIG, rinc_hostTriangle) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.textSize", pc_textSize_SIG, rinc_hostTextSize) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.appTime", pc_appTime_SIG, rinc_hostAppTime) || rio_addFfi(vm, "pc.appTimeReset", pc_appTimeReset_SIG, rinc_hostAppTimeReset) ||
+         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.line", pc_line_SIG, rinc_hostLine) || rio_addFfi(vm, "pc.ellipse", pc_ellipse_SIG, rinc_hostEllipse) || rio_addFfi(vm, "pc.triangle", pc_triangle_SIG, rinc_hostTriangle) || rio_addFfi(vm, "pc.curve", pc_curve_SIG, rinc_hostCurve) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.textSize", pc_textSize_SIG, rinc_hostTextSize) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.appTime", pc_appTime_SIG, rinc_hostAppTime) || rio_addFfi(vm, "pc.appTimeReset", pc_appTimeReset_SIG, rinc_hostAppTimeReset) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.keyHeld", pc_keyHeld_SIG, rinc_hostKeyHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||

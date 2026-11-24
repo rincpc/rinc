@@ -16,6 +16,7 @@ where what it logs shows until it draws, and where Rinc shows what went wrong if
 | `pc.rect(pos, size, c, {outline = true, radius = r})` | its edge alone, a pixel wide; its corners rounded by `r` pixels (at most half its width or height) |
 | `pc.ellipse({x, y}, {w, h}, c)` | the ellipse in that rectangle (a square: a circle); a pixel's drawn if its center's inside; `{outline = true}`: its edge alone, with no gaps |
 | `pc.triangle(p, q, r, c)` | the triangle with those corners (pixels: each in it); `{outline = true}`: its three edges, as `line` draws them |
+| `pc.curve(from, c1, c2, to, c)` | a curve (cubic Bezier) from `from` to `to`, pulled toward `c1` then `c2` (both the same point: a gentler, quadratic-like bend); as lines a few pixels long, both ends drawn |
 | `pc.line(from, to, c)` | a line, both ends drawn, a pixel each step along its longer way; cut off at the screen's edges (far off it costs nothing) |
 | `pc.rgb(c) -> Int` | color `c` of the palette (0 to 255), as `0xRRGGBB` |
 | `pc.print(s, {x, y}, c)` | the text's characters, one every 6 pixels from `x`, drawn at `y` in color `c` |
