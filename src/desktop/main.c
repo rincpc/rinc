@@ -934,7 +934,7 @@ int main(int argc, char **argv) {
     for (i = 0; i < ninstall; i++) bad |= rinc_install(installs[i], root);
     return bad;
   }
-  if (rinc_start(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, rinc_put)) { fprintf(stderr, "rinc: can't start\n"); return 1; }
+  if (rinc_start(&rinc_vm, rinc_appSpace, sizeof rinc_appSpace, rinc_put)) { fprintf(stderr, "rinc: can't start: %s\n", rio_error(&rinc_vm)); return 1; }
   if (!app && !named && !repl && rinc_hasHome()) named = "home"; /* (plain rinc: home, if it's installed) */
   if (!app && !named && !repl) { /* nothing installed: a window that says so, and takes a bundle dropped on it */
     char text[400];

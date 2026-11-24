@@ -1,9 +1,11 @@
 # Shapes: pc's shapes turning and drifting. F (or A) fills or outlines them, R (or B) rounds the boxes,
-# Up and Down more or fewer of each, Space pauses
+# T turns the whole scene (a transform), Left and Right tilt it, Up and Down more or fewer of each, Space pauses
 outline := false
 round := true
 count := 7
 paused := false
+spin := false
+tilt := 0.0
 t := 0.0
 label: Blob[..40]
 star: [5][2]Float
@@ -19,6 +21,8 @@ update* :: proc()
       round = not round
     case k == ' '
       paused = not paused
+    case k == 't' or k == 'T'
+      spin = not spin
     end
     c = pc.key()
   end
@@ -27,8 +31,16 @@ update* :: proc()
   if pc.btnp(.up) == 1 do count = min(count + 1, 24)
   if pc.btnp(.down) == 1 do count = max(count - 1, 1)
   if not paused do t += 1.0 / 60.0
+  tilt += (pc.btn(.right) - pc.btn(.left)).toFloat() * 0.02 # (held: the scene tilts on, a transform under all of it)
   how := pc.Shape{outline = outline}
   pc.cls(1)
+  _ = pc.transform(pc.turnedAround(tilt, {160.0, 120.0}))
+  if spin # (every shape after it through the transform: turning around the screen's middle, breathing)
+    _ = pc.transformBy(pc.turnedAround(t * 0.4, {160.0, 120.0}))
+    _ = pc.transformBy(pc.moved({160.0, 120.0}))
+    _ = pc.transformBy(pc.scaled({0.8 + sin(t) * 0.2, 0.8 + sin(t) * 0.2}))
+    _ = pc.transformBy(pc.moved({-160.0, -120.0}))
+  end
   for i in 0..<count
     f := i.toFloat()
     a := t * (0.6 + f * 0.13) + f * 1.7
@@ -84,6 +96,7 @@ update* :: proc()
       path.draw(col, how)
     end
   end
+  _ = pc.transform(pc.plain()) # (the words as they are: print isn't transformed yet)
   label.clear()
   fine := label.print("Shapes: ", count)
   if outline
@@ -92,5 +105,5 @@ update* :: proc()
     fine = label.pushAll(", filled")
   end
   pc.print(label.asString(), {4, 4}, 7)
-  pc.print("F fill  R round  Up/Down how many  Space pause", {4, 228}, 6)
+  pc.print("F fill  R round  T turn  Left/Right tilt  Up/Down count", {4, 228}, 6)
 end

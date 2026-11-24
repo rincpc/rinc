@@ -96,6 +96,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_curve_SIG "ffffffffi"
 #define pc_polygon_SIG "[ff]i" pc_Shape_LAYOUT
 #define pc_path_SIG "[ff]si" pc_Shape_LAYOUT
+#define pc_transform_SIG "ffffff>ffffff"
+#define pc_transformBy_SIG "ffffff>ffffff"
 #define pc_rgb_SIG "i>i"
 #define pc_blit_SIG pc_Image_LAYOUT "ii" pc_Blit_LAYOUT
 #define pc_print_SIG "siii" pc_Text_LAYOUT
@@ -217,6 +219,8 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(curve, pc_curve_SIG) \
   X(polygon, pc_polygon_SIG) \
   X(path, pc_path_SIG) \
+  X(transform, pc_transform_SIG) \
+  X(transformBy, pc_transformBy_SIG) \
   X(rgb, pc_rgb_SIG) \
   X(blit, pc_blit_SIG) \
   X(print, pc_print_SIG) \
@@ -325,7 +329,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x87429871u /* (rio_hashText of the source) */
+#define pc_HASH 0x88c13532u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -358,6 +362,31 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "curve* :: host proc(from, c1, c2, to: [2]Float, c: Int) # a curve (cubic Bezier) from from to to, pulled toward c1 then c2 (between pixels too: {10.5, 3})\n" \
   "polygon* :: host proc(points: [][2]Float, c: Int, how?: Shape) # a polygon: its corners in order (between pixels too); filled where its edges wind around\n" \
   "path* :: host proc(points: [][2]Float, kinds: String, c: Int, how?: Shape) # a path's points and their kinds, as a Path keeps them (Path.draw)\n" \
+  "\n" \
+  "# the transform every shape's points go through (pset, line, rect, ellipse, triangle, curve, polygon, path;\n" \
+  "# not yet blit and print): a, b, c, d, e, f, each point x, y drawn at a x + c y + e, b x + d y + f. Back to\n" \
+  "# plain at each frame's start (and each app's). transform sets it; transformBy puts m under it (m first,\n" \
+  "# then the one there: a part turned inside its whole, moved); each gives back the one it replaced, to put\n" \
+  "# back with transform\n" \
+  "transform* :: host proc(m: [6]Float) -> [6]Float\n" \
+  "transformBy* :: host proc(m: [6]Float) -> [6]Float\n" \
+  "plain* :: proc() -> [6]Float # (none: each point where it is)\n" \
+  "  return {1.0, 0.0, 0.0, 1.0, 0.0, 0.0}\n" \
+  "end\n" \
+  "moved* :: proc(by: [2]Float) -> [6]Float\n" \
+  "  return {1.0, 0.0, 0.0, 1.0, by.x, by.y}\n" \
+  "end\n" \
+  "scaled* :: proc(by: [2]Float) -> [6]Float # (from 0, 0: by.x across, by.y down)\n" \
+  "  return {by.x, 0.0, 0.0, by.y, 0.0, 0.0}\n" \
+  "end\n" \
+  "turned* :: proc(angle: Float) -> [6]Float # (around 0, 0; radians, as sin and cos: a quarter turn, right to down)\n" \
+  "  return {cos(angle), sin(angle), -sin(angle), cos(angle), 0.0, 0.0}\n" \
+  "end\n" \
+  "turnedAround* :: proc(angle: Float, at: [2]Float) -> [6]Float # (around at)\n" \
+  "  c := cos(angle)\n" \
+  "  s := sin(angle)\n" \
+  "  return {c, s, -s, c, at.x - c * at.x + s * at.y, at.y - s * at.x - c * at.y}\n" \
+  "end\n" \
   "\n" \
   "# a path: lines, curves and arcs from point to point, in parts (move starts one), drawn filled (each part\n" \
   "# closed, filled where its edges wind around: a part inside another, the other way round, a hole) or\n" \

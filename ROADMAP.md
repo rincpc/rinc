@@ -82,7 +82,12 @@ app is a Rio program.
   The user (2026-11-24): transformed drawing for everything, not just blit: one current transform (2x3,
      floats) over all drawing; vector shapes transform their points (a rect a 4-point polygon, ellipses and
      rounded rects flattened), images and text by each screen pixel's source (the transformed blit); no
-     transform set, today's fast paths. Basics stay Int (pset, rect, blit, print). Recommended (the user
+     transform set, today's fast paths. Basics stay Int (pset, rect, blit, print). Done (2026-11-24), the
+     shapes: pc.transform and pc.transformBy (each giving back the one replaced), pc.plain, moved, scaled,
+     turned, turnedAround; every shape through it (rects and ellipses as polygons, paths a piece at a
+     time); plain again each frame and app; tests/transform.py; the shapes demo's T. Host procs past
+     rinc's cap (RINC_MAX_FFI): 120 to 122 (each a slot in both VMs: the board's RAM, short). Next: blit and print through it (the transformed blit).
+     Recommended (the user
      agreeing, 2026-11-24): two calls, one applying a transform on top of the one there (nesting: a
      part's own turn inside its whole's), one setting it outright, each giving back the one it replaced
      (to put back: no stack in the host); kept until changed, and reset at each frame's start and each

@@ -30,6 +30,31 @@ curve* :: host proc(from, c1, c2, to: [2]Float, c: Int) # a curve (cubic Bezier)
 polygon* :: host proc(points: [][2]Float, c: Int, how?: Shape) # a polygon: its corners in order (between pixels too); filled where its edges wind around
 path* :: host proc(points: [][2]Float, kinds: String, c: Int, how?: Shape) # a path's points and their kinds, as a Path keeps them (Path.draw)
 
+# the transform every shape's points go through (pset, line, rect, ellipse, triangle, curve, polygon, path;
+# not yet blit and print): a, b, c, d, e, f, each point x, y drawn at a x + c y + e, b x + d y + f. Back to
+# plain at each frame's start (and each app's). transform sets it; transformBy puts m under it (m first,
+# then the one there: a part turned inside its whole, moved); each gives back the one it replaced, to put
+# back with transform
+transform* :: host proc(m: [6]Float) -> [6]Float
+transformBy* :: host proc(m: [6]Float) -> [6]Float
+plain* :: proc() -> [6]Float # (none: each point where it is)
+  return {1.0, 0.0, 0.0, 1.0, 0.0, 0.0}
+end
+moved* :: proc(by: [2]Float) -> [6]Float
+  return {1.0, 0.0, 0.0, 1.0, by.x, by.y}
+end
+scaled* :: proc(by: [2]Float) -> [6]Float # (from 0, 0: by.x across, by.y down)
+  return {by.x, 0.0, 0.0, by.y, 0.0, 0.0}
+end
+turned* :: proc(angle: Float) -> [6]Float # (around 0, 0; radians, as sin and cos: a quarter turn, right to down)
+  return {cos(angle), sin(angle), -sin(angle), cos(angle), 0.0, 0.0}
+end
+turnedAround* :: proc(angle: Float, at: [2]Float) -> [6]Float # (around at)
+  c := cos(angle)
+  s := sin(angle)
+  return {c, s, -s, c, at.x - c * at.x + s * at.y, at.y - s * at.x - c * at.y}
+end
+
 # a path: lines, curves and arcs from point to point, in parts (move starts one), drawn filled (each part
 # closed, filled where its edges wind around: a part inside another, the other way round, a hole) or
 # outlined (a part closed only if close says so). Kept here, in the app's memory: 128 points at most (a

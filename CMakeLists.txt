@@ -40,7 +40,7 @@ endif()
 include(${RIO_DIR}/library.cmake)
 # the most host procs a vm holds, on every Rinc (rio_MAX_FFI, below; tools/web.py's too):
 # the pc test fails if rinc registers more
-set(RINC_MAX_FFI 120)
+set(RINC_MAX_FFI 122)
 # rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
 # so an app behaves the same everywhere: its log lines and error texts as long, say
 target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})
@@ -345,6 +345,7 @@ else()
     set_tests_properties(home_keys PROPERTIES PASS_REGULAR_EXPRESSION "home came through")
     add_test(NAME opening COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/opening.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system ${CMAKE_CURRENT_BINARY_DIR}/opening-data)
     add_test(NAME leaving COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/leaving.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_LIST_DIR}/system ${CMAKE_CURRENT_BINARY_DIR}/leaving-data)
+    add_test(NAME transform COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/transform.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/transform-test)
     add_test(NAME start_keys COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/startkeys.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/startkeys-test)
     add_test(NAME shapes COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/shapes.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/shapes-test)
     add_test(NAME recent_apps COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/recentapps.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/recent-apps)

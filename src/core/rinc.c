@@ -129,9 +129,16 @@ static void rinc_hostCls(rio_Vm *v, rio_Val *a) {
    4 times as big; screenSize() -> [2]Int: its size now */
 static void rinc_hostScreen(rio_Vm *v, rio_Val *a) { (void)v; rinc_setZoom(a[0].i); }
 static void rinc_hostScreenSize(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_appW; a[1].i = rinc_appH; }
+/* the shapes' transform and helpers (below, with the shapes) */
+static int rinc_tmOn;
+static void rinc_tmPoint(float *x, float *y);
+static int64_t rinc_px(float v);
+static int rinc_tptsArc(int k, float cx, float cy, float rx, float ry, float a0, float sweep, int m);
+static void rinc_tptsDraw(int n, int outline, uint8_t c);
 static void rinc_hostPset(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
+  if (rinc_tmOn) { float fx = (float)a[0].i, fy = (float)a[1].i; rinc_tmPoint(&fx, &fy); x = (uint32_t)(int32_t)floorf(fx + 0.5f); y = (uint32_t)(int32_t)floorf(fy + 0.5f); }
   rinc_charge(rinc_Cost_pset, 0);
   if (x < (uint32_t)rinc_appW && y < (uint32_t)rinc_appH) rinc_screen[y][x] = (uint8_t)a[2].i;
 }
@@ -235,6 +242,37 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
    rounded by how.radius) and line. Each is drawn a row at a time, a span of pixels a row (as rect fills),
    clipped to the screen: a pixel's drawn if its center is inside. Charged as rect is: its pixels, its rows */
 static uint32_t rinc_shapePx, rinc_shapeRows;
+/* the transform (pc.transform): a, b, c, d, e, f; rinc_tmOn when it isn't plain (then shapes go through it,
+   rects and ellipses as polygons; plain, each as before, fast). Plain again at each frame's start, each app's */
+static float rinc_tm[6] = {1, 0, 0, 1, 0, 0};
+static int rinc_tmOn;
+static void rinc_tmSet(const float *m) {
+  memcpy(rinc_tm, m, sizeof rinc_tm);
+  rinc_tmOn = !(m[0] == 1 && m[1] == 0 && m[2] == 0 && m[3] == 1 && m[4] == 0 && m[5] == 0);
+}
+static void rinc_tmReset(void) { static const float plain[6] = {1, 0, 0, 1, 0, 0}; rinc_tmSet(plain); }
+static void rinc_tmPoint(float *x, float *y) { float px = *x, py = *y; *x = rinc_tm[0] * px + rinc_tm[2] * py + rinc_tm[4]; *y = rinc_tm[1] * px + rinc_tm[3] * py + rinc_tm[5]; }
+static void rinc_hostTransform(rio_Vm *v, rio_Val *a) {
+  float m[6]; int i;
+  (void)v;
+  for (i = 0; i < 6; i++) m[i] = a[i].f;
+  for (i = 0; i < 6; i++) a[i].f = rinc_tm[i];
+  rinc_tmSet(m);
+}
+static void rinc_hostTransformBy(rio_Vm *v, rio_Val *a) { /* (the one there times m: m's first) */
+  float m[6], t[6], *o = rinc_tm; int i;
+  (void)v;
+  for (i = 0; i < 6; i++) m[i] = a[i].f;
+  t[0] = o[0] * m[0] + o[2] * m[1]; t[1] = o[1] * m[0] + o[3] * m[1];
+  t[2] = o[0] * m[2] + o[2] * m[3]; t[3] = o[1] * m[2] + o[3] * m[3];
+  t[4] = o[0] * m[4] + o[2] * m[5] + o[4]; t[5] = o[1] * m[4] + o[3] * m[5] + o[5];
+  for (i = 0; i < 6; i++) a[i].f = rinc_tm[i];
+  rinc_tmSet(t);
+}
+/* a rect's or an ellipse's points, made while it's drawn transformed (as a polygon): rinc_TPTS at most
+   (an ellipse's 64: within a sixth of a pixel of it, the screen's size); RAM's short on the board */
+#define rinc_TPTS 64
+static float rinc_tpts[rinc_TPTS * 2];
 static void rinc_span(int y, int x0, int x1, uint8_t c) { /* (x0 to x1, both drawn) */
   if (y < 0 || y >= rinc_appH) return;
   if (x0 < 0) x0 = 0;
@@ -298,6 +336,24 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
   pc_Shape how;
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 5, &how, sizeof how);
+  if (rinc_tmOn) { /* (transformed: a polygon of its pixels' centers, its corners rounded as quarter ellipses) */
+    float x0 = (float)a[0].i, y0 = (float)a[1].i, x1 = x0 + (float)a[2].i - 1, y1 = y0 + (float)a[3].i - 1, r = (float)how.radius; int k = 0;
+    if (a[2].i <= 0 || a[3].i <= 0) return;
+    if (r > (x1 - x0 + 1) / 2) r = (x1 - x0 + 1) / 2;
+    if (r > (y1 - y0 + 1) / 2) r = (y1 - y0 + 1) / 2;
+    if (r <= 0) {
+      rinc_tpts[0] = x0; rinc_tpts[1] = y0; rinc_tpts[2] = x1; rinc_tpts[3] = y0; rinc_tpts[4] = x1; rinc_tpts[5] = y1; rinc_tpts[6] = x0; rinc_tpts[7] = y1; k = 4;
+    } else {
+      int m = (int)r + 2; float q = r - 0.5f;
+      if (m > rinc_TPTS / 4) m = rinc_TPTS / 4;
+      k = rinc_tptsArc(k, x1 - q, y0 + q, q, q, -1.5707963f, 1.5707963f, m);
+      k = rinc_tptsArc(k, x1 - q, y1 - q, q, q, 0, 1.5707963f, m);
+      k = rinc_tptsArc(k, x0 + q, y1 - q, q, q, 1.5707963f, 1.5707963f, m);
+      k = rinc_tptsArc(k, x0 + q, y0 + q, q, q, 3.1415927f, 1.5707963f, m);
+    }
+    rinc_tptsDraw(k, how.outline, (uint8_t)a[4].i);
+    return;
+  }
   if (!how.outline && how.radius <= 0) { /* (as ever: rows filled) */
     int x0 = a[0].i, y0 = a[1].i, x1 = x0 + a[2].i, y1 = y0 + a[3].i, y;
     if (x0 < 0) x0 = 0;
@@ -316,6 +372,15 @@ static void rinc_hostEllipse(rio_Vm *v, rio_Val *a) {
   pc_Shape how;
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 5, &how, sizeof how);
+  if (rinc_tmOn) { /* (transformed: a polygon around it, a point a few pixels along) */
+    float rx = (float)a[2].i * 0.5f, ry = (float)a[3].i * 0.5f; int m;
+    if (a[2].i <= 0 || a[3].i <= 0) return;
+    m = (int)((rx + ry) * 1.6f) + 8;
+    if (m > rinc_TPTS) m = rinc_TPTS;
+    rinc_tptsArc(0, (float)a[0].i + rx - 0.5f, (float)a[1].i + ry - 0.5f, rx - 0.5f, ry - 0.5f, 0, 6.2831853f * (float)(m - 1) / (float)m, m);
+    rinc_tptsDraw(m, how.outline, (uint8_t)a[4].i);
+    return;
+  }
   rinc_roundShape(1, a[0].i, a[1].i, a[2].i, a[3].i, 0, how.outline, (uint8_t)a[4].i);
   rinc_shapeCharge();
 }
@@ -351,6 +416,13 @@ static void rinc_line(int64_t x0, int64_t y0, int64_t x1, int64_t y1, uint8_t c)
 }
 static void rinc_hostLine(rio_Vm *v, rio_Val *a) {
   (void)v;
+  if (rinc_tmOn) {
+    float x0 = (float)a[0].i, y0 = (float)a[1].i, x1 = (float)a[2].i, y1 = (float)a[3].i;
+    rinc_tmPoint(&x0, &y0); rinc_tmPoint(&x1, &y1);
+    rinc_line(rinc_px(x0), rinc_px(y0), rinc_px(x1), rinc_px(y1), (uint8_t)a[4].i);
+    rinc_shapeCharge();
+    return;
+  }
   rinc_line(a[0].i, a[1].i, a[2].i, a[3].i, (uint8_t)a[4].i);
   rinc_shapeCharge();
 }
@@ -360,7 +432,10 @@ static int64_t rinc_px(float v) { return v > 1e9f ? 1000000000 : v < -1e9f ? -10
    pixels at most (its control points' path long: more); the points by forward differences (adds alone, a
    point), each rounded to the nearest pixel, the last its end exactly */
 static void rinc_hostCurve(rio_Vm *v, rio_Val *a) {
-  float x0 = a[0].f, y0 = a[1].f, x1 = a[2].f, y1 = a[3].f, x2 = a[4].f, y2 = a[5].f, x3 = a[6].f, y3 = a[7].f; /* (its points: between pixels too) */
+  float q[8]; int k;
+  for (k = 0; k < 8; k++) q[k] = a[k].f;
+  if (rinc_tmOn) for (k = 0; k < 4; k++) rinc_tmPoint(&q[k * 2], &q[k * 2 + 1]); /* (a curve transformed: its points transformed) */
+  float x0 = q[0], y0 = q[1], x1 = q[2], y1 = q[3], x2 = q[4], y2 = q[5], x3 = q[6], y3 = q[7]; /* (its points: between pixels too) */
   float len = fabsf(x1 - x0) + fabsf(y1 - y0) + fabsf(x2 - x1) + fabsf(y2 - y1) + fabsf(x3 - x2) + fabsf(y3 - y2), h, h2, h3;
   float ax = -x0 + 3 * x1 - 3 * x2 + x3, ay = -y0 + 3 * y1 - 3 * y2 + y3, bx = 3 * x0 - 6 * x1 + 3 * x2, by = 3 * y0 - 6 * y1 + 3 * y2, cx = 3 * (x1 - x0), cy = 3 * (y1 - y0);
   float px, py, dx, dy, ddx, ddy, dddx, dddy;
@@ -389,26 +464,32 @@ static void rinc_hostCurve(rio_Vm *v, rio_Val *a) {
    edges wind around (non-zero: one crossing itself or another still filled), a flat edge on a row drawn
    whole; nothing kept between rows, so no room's needed. Outlined: its edges, as line draws them */
 #define rinc_CROSSINGS 64
-static void rinc_hostPolygon(rio_Vm *v, rio_Val *a) {
-  const float *pt = (const float *)rio_sliceBytes(v, a); int n = (int)a[1].u, i, y, top, bottom; /* (its points: x, y each, between pixels too) */
-  float lo, hi;
-  uint8_t c = (uint8_t)a[2].i; pc_Shape how;
-  float xs[rinc_CROSSINGS]; int8_t dirs[rinc_CROSSINGS];
-  memset(&how, 0, sizeof how);
-  rio_getStruct(v, a + 3, &how, sizeof how);
-  if (!pt || n <= 0) return;
-  if (how.outline || n < 3) {
-    for (i = 0; i < (n == 2 ? 1 : n); i++) rinc_line(rinc_px(pt[i * 2]), rinc_px(pt[i * 2 + 1]), rinc_px(pt[(i + 1) % n * 2]), rinc_px(pt[(i + 1) % n * 2 + 1]), c); /* (two points: one line, not there and back) */
-    rinc_shapeCharge();
-    return;
+/* a polygon's points (n of them, x and y each), drawn: filled (non-zero), or (stroke) its edges, the last
+   to the first if it's closed */
+/* point i of pt, through the transform if tm */
+static void rinc_ptAt(const float *pt, int i, int tm, float *x, float *y) { *x = pt[i * 2]; *y = pt[i * 2 + 1]; if (tm) rinc_tmPoint(x, y); }
+static void rinc_polyStroke(const float *pt, int n, int closed, int tm, uint8_t c) {
+  int i;
+  for (i = 0; i < (closed ? (n == 2 ? 1 : n) : n - 1); i++) { /* (two points: one line, not there and back) */
+    float x0, y0, x1, y1;
+    rinc_ptAt(pt, i, tm, &x0, &y0); rinc_ptAt(pt, (i + 1) % n, tm, &x1, &y1);
+    rinc_line(rinc_px(x0), rinc_px(y0), rinc_px(x1), rinc_px(y1), c);
   }
-  lo = hi = pt[1];
-  for (i = 1; i < n; i++) { if (pt[i * 2 + 1] < lo) lo = pt[i * 2 + 1]; if (pt[i * 2 + 1] > hi) hi = pt[i * 2 + 1]; }
+}
+static void rinc_polyFill(const float *pt, int n, int tm, uint8_t c) {
+  float xs[rinc_CROSSINGS], lo, hi, px, py; int8_t dirs[rinc_CROSSINGS]; int i, y, top, bottom;
+  if (n < 3) { rinc_polyStroke(pt, n, 1, tm, c); return; }
+  rinc_ptAt(pt, 0, tm, &px, &py);
+  lo = hi = py;
+  for (i = 1; i < n; i++) { rinc_ptAt(pt, i, tm, &px, &py); if (py < lo) lo = py; if (py > hi) hi = py; }
   top = lo < 0 ? 0 : (int)ceilf(lo); bottom = hi >= (float)rinc_appH ? rinc_appH - 1 : (int)floorf(hi);
   for (y = top; y <= bottom; y++) {
     int k = 0, j, w = 0;
-    for (i = 0; i < n; i++) {
-      float x0 = pt[i * 2], y0 = pt[i * 2 + 1], x1 = pt[(i + 1) % n * 2], y1 = pt[(i + 1) % n * 2 + 1], yy = (float)y;
+    float x0, y0, x1, y1, yy = (float)y;
+    rinc_ptAt(pt, n - 1, tm, &x1, &y1);
+    for (i = 0; i < n; i++) { /* (each edge: the point before to this one) */
+      x0 = x1; y0 = y1;
+      rinc_ptAt(pt, i, tm, &x1, &y1);
       if (y0 == y1) { if (y0 == yy) rinc_span(y, (int)ceilf(fminf(x0, x1) - 0.0001f), (int)floorf(fmaxf(x0, x1) + 0.0001f), c); continue; } /* (flat, on this row: whole) */
       if (yy < fminf(y0, y1) || yy >= fmaxf(y0, y1)) continue; /* (each edge from its top row, not its bottom one: a corner crossed once) */
       if (k < rinc_CROSSINGS) {
@@ -423,9 +504,34 @@ static void rinc_hostPolygon(rio_Vm *v, rio_Val *a) {
     }
   }
   for (i = 0; i < n; i++) { /* (its corners: each its pixel in, as a triangle's) */
-    int64_t cx = rinc_px(pt[i * 2]), cy = rinc_px(pt[i * 2 + 1]);
+    int64_t cx, cy;
+    rinc_ptAt(pt, i, tm, &px, &py);
+    cx = rinc_px(px); cy = rinc_px(py);
     if (cy >= 0 && cy < rinc_appH && cx >= 0 && cx < rinc_appW) rinc_span((int)cy, (int)cx, (int)cx, c);
   }
+}
+/* the points kept (rinc_tpts, n of them), transformed, drawn as a polygon: filled, or its outline */
+static void rinc_tptsDraw(int n, int outline, uint8_t c) {
+  if (outline) rinc_polyStroke(rinc_tpts, n, 1, 1, c); else rinc_polyFill(rinc_tpts, n, 1, c);
+  rinc_shapeCharge();
+}
+/* an ellipse's points (or, a quarter each, a rounded rect's corners) into rinc_tpts from k: center cx, cy,
+   radii rx, ry, from angle a0 over sweep, m of them; where it got to */
+static int rinc_tptsArc(int k, float cx, float cy, float rx, float ry, float a0, float sweep, int m) {
+  int j;
+  for (j = 0; j < m && k < rinc_TPTS; j++, k++) {
+    float t = a0 + sweep * (float)j / (float)(m > 1 ? m - 1 : 1);
+    rinc_tpts[k * 2] = cx + rx * cosf(t); rinc_tpts[k * 2 + 1] = cy + ry * sinf(t);
+  }
+  return k;
+}
+static void rinc_hostPolygon(rio_Vm *v, rio_Val *a) {
+  const float *pt = (const float *)rio_sliceBytes(v, a); int n = (int)a[1].u; /* (its points: x, y each, between pixels too) */
+  uint8_t c = (uint8_t)a[2].i; pc_Shape how;
+  memset(&how, 0, sizeof how);
+  rio_getStruct(v, a + 3, &how, sizeof how);
+  if (!pt || n <= 0) return;
+  if (how.outline || n < 3) rinc_polyStroke(pt, n, 1, rinc_tmOn, c); else rinc_polyFill(pt, n, rinc_tmOn, c); /* (transformed: each point as it's read) */
   rinc_shapeCharge();
 }
 /* path(points, kinds, c, how?): Path's points, each with its kind (M a part's start; L a line to it; c c C
@@ -492,6 +598,12 @@ static void rinc_pathCross(float x0, float y0, float x1, float y1, void *ud) { /
   r->xs[j] = x; r->dirs[j] = (int8_t)(y1 > y0 ? 1 : -1); r->k++;
 }
 static void rinc_pathLine(float x0, float y0, float x1, float y1, void *ud) { rinc_line(rinc_px(x0), rinc_px(y0), rinc_px(x1), rinc_px(y1), *(uint8_t *)ud); }
+typedef struct { rinc_Seg seg; void *ud; } rinc_TmSeg; /* (a piece, transformed, then handed on) */
+static void rinc_tmSeg(float x0, float y0, float x1, float y1, void *ud) {
+  rinc_TmSeg *t = (rinc_TmSeg *)ud;
+  rinc_tmPoint(&x0, &y0); rinc_tmPoint(&x1, &y1);
+  t->seg(x0, y0, x1, y1, t->ud);
+}
 static void rinc_hostPath(rio_Vm *v, rio_Val *a) {
   const float *pt = (const float *)rio_sliceBytes(v, a); const char *kd = (const char *)rio_sliceBytes(v, a + 2);
   int n = (int)a[1].u, i, y, top, bottom; uint8_t c = (uint8_t)a[4].i; pc_Shape how; float lo = 1e30f, hi = -1e30f;
@@ -501,23 +613,29 @@ static void rinc_hostPath(rio_Vm *v, rio_Val *a) {
   if (!pt || !kd || n <= 0) return;
   if ((int)a[3].u < n) n = (int)a[3].u;
   if (how.outline) {
-    rinc_pathWalk(pt, kd, n, -1e30f, 1e30f, 0, rinc_pathLine, &c);
+    rinc_TmSeg t = {rinc_pathLine, &c};
+    if (rinc_tmOn) rinc_pathWalk(pt, kd, n, -1e30f, 1e30f, 0, rinc_tmSeg, &t); else rinc_pathWalk(pt, kd, n, -1e30f, 1e30f, 0, rinc_pathLine, &c);
     rinc_shapeCharge();
     return;
   }
-  for (i = 0; i < n; i++) { /* (its rows: its points', an arc's its center's give or take its radius) */
-    float py = pt[i * 2 + 1], r = 0;
+  for (i = 0; i < n; i++) { /* (its rows: its points', an arc's its center's give or take its radius; transformed, its box's corners') */
+    float px = pt[i * 2], py = pt[i * 2 + 1], r = 0, rr = 0; int k;
     if (kd[i] == 'r' || kd[i] == 'A') continue;
-    if (kd[i] == 'a' && i + 1 < n) r = fabsf(pt[i * 2 + 3]);
-    if (py - r < lo) lo = py - r;
-    if (py + r > hi) hi = py + r;
+    if (kd[i] == 'a' && i + 1 < n) { rr = fabsf(pt[i * 2 + 2]); r = fabsf(pt[i * 2 + 3]); }
+    for (k = 0; k < 4; k++) {
+      float qx = px + (k & 1 ? rr : -rr), qy = py + (k & 2 ? r : -r);
+      if (rinc_tmOn) rinc_tmPoint(&qx, &qy);
+      if (qy < lo) lo = qy;
+      if (qy > hi) hi = qy;
+    }
   }
   top = lo < 0 ? 0 : (int)ceilf(lo); bottom = hi >= (float)rinc_appH ? rinc_appH - 1 : (int)floorf(hi);
   row.c = c;
   for (y = top; y <= bottom; y++) {
     int j, w = 0;
     row.y = y; row.k = 0;
-    rinc_pathWalk(pt, kd, n, (float)y, (float)y, 1, rinc_pathCross, &row);
+    if (rinc_tmOn) { rinc_TmSeg t = {rinc_pathCross, &row}; rinc_pathWalk(pt, kd, n, -1e30f, 1e30f, 1, rinc_tmSeg, &t); } /* (its rows in its own space aren't the screen's) */
+    else rinc_pathWalk(pt, kd, n, (float)y, (float)y, 1, rinc_pathCross, &row);
     for (j = 0; j + 1 < row.k; j++) {
       w += row.dirs[j];
       if (w) rinc_span(y, (int)ceilf(row.xs[j] - 0.0001f), (int)floorf(row.xs[j + 1] + 0.0001f), c);
@@ -533,6 +651,11 @@ static void rinc_hostTriangle(rio_Vm *v, rio_Val *a) {
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 7, &how, sizeof how);
   for (i = 0; i < 3; i++) { px[i] = (float)a[i * 2].i; py[i] = (float)a[i * 2 + 1].i; }
+  if (rinc_tmOn) { /* (transformed: a polygon of three) */
+    for (i = 0; i < 3; i++) { rinc_tpts[i * 2] = px[i]; rinc_tpts[i * 2 + 1] = py[i]; }
+    rinc_tptsDraw(3, how.outline, c);
+    return;
+  }
   if (how.outline) {
     for (i = 0; i < 3; i++) rinc_line(a[i * 2].i, a[i * 2 + 1].i, a[(i + 1) % 3 * 2].i, a[(i + 1) % 3 * 2 + 1].i, c);
     rinc_shapeCharge();
@@ -3031,7 +3154,7 @@ static int rinc_pcSource(rio_Vm *vm) {
 }
 int rinc_hostProcs(rio_Vm *vm) {
   return rio_addFfi(vm, "pc.cls", pc_cls_SIG, rinc_hostCls) || rio_addFfi(vm, "pc.pset", pc_pset_SIG, rinc_hostPset) || rio_addFfi(vm, "pc.pget", pc_pget_SIG, rinc_hostPget) || rio_addFfi(vm, "pc.appsFor", pc_appsFor_SIG, rinc_hostAppsFor) || rio_addFfi(vm, "pc.showCommands", pc_showCommands_SIG, rinc_hostShowCommands) || rio_addFfi(vm, "pc.rgb", pc_rgb_SIG, rinc_hostRgb) ||
-         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.line", pc_line_SIG, rinc_hostLine) || rio_addFfi(vm, "pc.ellipse", pc_ellipse_SIG, rinc_hostEllipse) || rio_addFfi(vm, "pc.triangle", pc_triangle_SIG, rinc_hostTriangle) || rio_addFfi(vm, "pc.curve", pc_curve_SIG, rinc_hostCurve) || rio_addFfi(vm, "pc.polygon", pc_polygon_SIG, rinc_hostPolygon) || rio_addFfi(vm, "pc.path", pc_path_SIG, rinc_hostPath) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.textSize", pc_textSize_SIG, rinc_hostTextSize) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.appTime", pc_appTime_SIG, rinc_hostAppTime) || rio_addFfi(vm, "pc.appTimeReset", pc_appTimeReset_SIG, rinc_hostAppTimeReset) ||
+         rio_addFfi(vm, "pc.rect", pc_rect_SIG, rinc_hostRect) || rio_addFfi(vm, "pc.line", pc_line_SIG, rinc_hostLine) || rio_addFfi(vm, "pc.ellipse", pc_ellipse_SIG, rinc_hostEllipse) || rio_addFfi(vm, "pc.triangle", pc_triangle_SIG, rinc_hostTriangle) || rio_addFfi(vm, "pc.curve", pc_curve_SIG, rinc_hostCurve) || rio_addFfi(vm, "pc.polygon", pc_polygon_SIG, rinc_hostPolygon) || rio_addFfi(vm, "pc.path", pc_path_SIG, rinc_hostPath) || rio_addFfi(vm, "pc.transform", pc_transform_SIG, rinc_hostTransform) || rio_addFfi(vm, "pc.transformBy", pc_transformBy_SIG, rinc_hostTransformBy) || rio_addFfi(vm, "pc.blit", pc_blit_SIG, rinc_hostBlit) || rio_addFfi(vm, "pc.print", pc_print_SIG, rinc_hostPrint) || rio_addFfi(vm, "pc.textSize", pc_textSize_SIG, rinc_hostTextSize) || rio_addFfi(vm, "pc.btn", pc_btn_SIG, rinc_hostBtn) || rio_addFfi(vm, "pc.btnp", pc_btnp_SIG, rinc_hostBtnp) || rio_addFfi(vm, "pc.screen", pc_screen_SIG, rinc_hostScreen) || rio_addFfi(vm, "pc.screenSize", pc_screenSize_SIG, rinc_hostScreenSize) || rinc_audioProcs(vm) || rio_addFfi(vm, "pc.appTime", pc_appTime_SIG, rinc_hostAppTime) || rio_addFfi(vm, "pc.appTimeReset", pc_appTimeReset_SIG, rinc_hostAppTimeReset) ||
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.keyHeld", pc_keyHeld_SIG, rinc_hostKeyHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
@@ -3093,6 +3216,7 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   snprintf(rinc_callee, sizeof rinc_callee, "%s", name); /* (who'd be the caller, if this calls) */
   rinc_projectSaves();
   rinc_recentAdd(name);
+  rinc_tmReset(); /* (a new app: plain) */
   rinc_startButtons = rinc_buttons; memcpy(rinc_startKeys, rinc_keysHeld, sizeof rinc_startKeys); /* (what's held as it starts, the key that started it, say: not the app's, till let go) */
   rinc_pointerMode = 0; rinc_scrolled[0] = rinc_scrolled[1] = 0; /* (a game's, until it says) */
   return 0;
@@ -3576,6 +3700,7 @@ int rinc_frame(rio_Vm *vm) {
     if (rinc_cmdOn) { rinc_cmdFrame(); if (rinc_shotWanted) rinc_shot(); return 0; } /* (Print Screen: the list too) */
     if (rinc_cmdSettle && !rinc_buttons && !rinc_pointerHeld) rinc_cmdSettle = 0;
   }
+  if (vm != &rinc_nest) rinc_tmReset(); /* (each frame's start: plain, so a transform not put back reaches no further) */
   t0 = rinc_clock();
   if (u >= 0 && rio_call(vm, u)) return -1;
   t1 = rinc_clock();
