@@ -878,9 +878,11 @@ app is a Rio program.
 
 ## Known bugs
 
-- Found 2026-11-24 (making the shapes demo): an app run with -app sees pc.btn(.a) held for its first 3
-  frames (btnp(.a) 1 on the first), nothing pressed. To check on the board: an app started from home
-  with Enter or A may see that press too. apps/shapes.rio waits 4 frames before reading A and B.
+- Fixed 2026-11-24 (found making the shapes demo): what's held as an app starts (the Enter or A that
+  started it from home) was the app's: a press on its first frame. Now the buttons and keys held as an app
+  starts aren't its till each is let go (btn, btnp, keyHeld); others work at once. (The A an app run
+  with -app without a window sees for 3 frames is the desktop's own, to start games in tests: as before.)
+  Tests: tests/startkeys.py (an app started by another while A is held, as home does).
 
 - Ctrl-B after the console app runs an app hangs the board's USB serial.
 - Desktop tests now and then fail under heavy parallel runs on Windows (`ctest -j 12`): `stash_first`

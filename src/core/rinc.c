@@ -1146,6 +1146,10 @@ static char rinc_nestApp[rinc_REF]; /* (the app the session's own paths start in
 static void rinc_hostKey(rio_Vm *v, rio_Val *a) { a[0].i = v == &rinc_nest ? rinc_dequeue(&rinc_nestTyped) : rinc_cmdWanted ? -1 : rinc_dequeue(&rinc_typed); } /* (the command list asked for: the rest is its) */
 extern int rinc_pointerMode; /* (below) */
 uint8_t rinc_keysHeld[32];
+/* the buttons and keys held as this app started (the Enter or A that started it from home, say): not its
+   till each is let go (btn, btnp, keyHeld), each frame's let go taken out */
+static uint16_t rinc_startButtons;
+static uint8_t rinc_startKeys[32];
 int rinc_keysKnown;
 void rinc_keyHold(int k, int down) {
   if (k < 0) { memset(rinc_keysHeld, 0, sizeof rinc_keysHeld); return; }
@@ -1159,7 +1163,7 @@ static void rinc_hostKeyHeld(rio_Vm *v, rio_Val *a) {
   int k = a[0].i;
   (void)v;
   if (k >= 'A' && k <= 'Z') k += 32;
-  a[0].i = !rinc_keysKnown ? -1 : k < 0 || k > 255 || rinc_cmdSettle || rinc_systemHeld() ? 0 : rinc_keysHeld[k >> 3] >> (k & 7) & 1;
+  a[0].i = !rinc_keysKnown ? -1 : k < 0 || k > 255 || rinc_cmdSettle || rinc_systemHeld() ? 0 : (rinc_keysHeld[k >> 3] & ~rinc_startKeys[k >> 3]) >> (k & 7) & 1;
 }
 static void rinc_hostModsHeld(rio_Vm *v, rio_Val *a) { /* (as key() adds them: 256 Shift, 512 Ctrl, 1024 Alt, a locked one too; -1: it can't tell) */
   int m = rinc_modsHeld, pad = rinc_pointerMode == 1 ? (rinc_axes[4] > 16000 ? 256 : 0) | (rinc_axes[5] > 16000 ? 512 : 0) : 0; /* (in a pointer app, a controller's LT is Shift, RT Ctrl) */
@@ -1984,12 +1988,12 @@ static void rinc_hostRioLog(rio_Vm *v, rio_Val *a) {
   a[0].i = n;
 }
 static void rinc_hostRioIndent(rio_Vm *v, rio_Val *a) { const char *s = (const char *)rio_sliceBytes(v, a); a[0].i = s ? rio_replIndent(s, a[1].u) : 0; }
-static void rinc_hostBtn(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 16 && !rinc_cmdSettle ? rinc_buttons >> a[0].i & 1 : 0; }
+static void rinc_hostBtn(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 16 && !rinc_cmdSettle ? (rinc_buttons & ~rinc_startButtons) >> a[0].i & 1 : 0; }
 /* btnp(b) -> Int: 1 when button b was pressed this frame, and again while it's held, as PICO-8's: after
    15 frames, each 4th (rinc_heldFor: frames each has been held, counted as each frame starts) */
 static uint16_t rinc_heldFor[16];
 static void rinc_hostBtnp(rio_Vm *v, rio_Val *a) {
-  int h = a[0].u < 16 && !rinc_cmdSettle ? rinc_heldFor[a[0].i] : 0;
+  int h = a[0].u < 16 && !rinc_cmdSettle && !(rinc_startButtons >> a[0].i & 1) ? rinc_heldFor[a[0].i] : 0;
   (void)v;
   a[0].i = h == 1 || (h >= 16 && (h - 16) % 4 == 0);
 }
@@ -2946,6 +2950,7 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   snprintf(rinc_callee, sizeof rinc_callee, "%s", name); /* (who'd be the caller, if this calls) */
   rinc_projectSaves();
   rinc_recentAdd(name);
+  rinc_startButtons = rinc_buttons; memcpy(rinc_startKeys, rinc_keysHeld, sizeof rinc_startKeys); /* (what's held as it starts, the key that started it, say: not the app's, till let go) */
   rinc_pointerMode = 0; rinc_scrolled[0] = rinc_scrolled[1] = 0; /* (a game's, until it says) */
   return 0;
 }
@@ -3420,6 +3425,7 @@ int rinc_frame(rio_Vm *vm) {
     if (rinc_axes[1] > 16000) rinc_buttons |= rinc_Button_down;
   }
   rinc_buttons |= rinc_typedButtons & (rinc_lettersAsButtons() ? 0xff : 15); /* (held over serial: above) */
+  if (vm != &rinc_nest) { int i; rinc_startButtons &= rinc_buttons; for (i = 0; i < 32; i++) rinc_startKeys[i] &= rinc_keysHeld[i]; }
   if (vm != &rinc_nest) { int i; for (i = 0; i < 16; i++) rinc_heldFor[i] = rinc_buttons >> i & 1 ? (uint16_t)(rinc_heldFor[i] < 60000 ? rinc_heldFor[i] + 1 : 60000) : 0; } /* (btnp's) */
   if (u < 0 && d < 0) return 1;
   if (vm != &rinc_nest) { /* (the command list: while it's up, the app waits) */

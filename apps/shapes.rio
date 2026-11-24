@@ -5,7 +5,7 @@ round := true
 count := 6
 paused := false
 t := 0.0
-frames := 0
+label: Blob[..40]
 
 update* :: proc()
   c := pc.key()
@@ -20,9 +20,8 @@ update* :: proc()
     end
     c = pc.key()
   end
-  frames += 1
-  if frames > 4 and pc.btnp(.a) == 1 do outline = not outline # (not before: see ROADMAP's known bugs, A held as an app starts)
-  if frames > 4 and pc.btnp(.b) == 1 do round = not round
+  if pc.btnp(.a) == 1 do outline = not outline
+  if pc.btnp(.b) == 1 do round = not round
   if pc.btnp(.up) == 1 do count = min(count + 1, 24)
   if pc.btnp(.down) == 1 do count = max(count - 1, 1)
   if not paused do t += 1.0 / 60.0
@@ -53,10 +52,13 @@ update* :: proc()
       pc.line({x - s * 2, y + s}, {x + s * 2, y + s}, col)
     end
   end
+  label.clear()
+  fine := label.print("Shapes: ", count)
   if outline
-    pc.print("Shapes: outlined", {4, 4}, 7)
+    fine = label.pushAll(", outlined")
   else
-    pc.print("Shapes: filled", {4, 4}, 7)
+    fine = label.pushAll(", filled")
   end
+  pc.print(label.asString(), {4, 4}, 7)
   pc.print("F fill  R round  Up/Down how many  Space pause", {4, 228}, 6)
 end
