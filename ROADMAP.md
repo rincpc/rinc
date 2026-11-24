@@ -95,6 +95,16 @@ app is a Rio program.
      UI library, split screens); then convex clips (any transformed rect, triangle or convex polygon: one
      span a row, so each span's cut cheaply); and any shape at all through a mask in the app's memory
      (a bit a pixel: 9.6 KB for the screen), drawn into with the shapes themselves.
+  The user (2026-11-24): paths filled with a picture (an image's pixels, placed and maybe transformed),
+     and with gradients (linear, radial; dithering modes), the same fills for every shape, Paint using them.
+  The user (2026-11-24): a vector drawing and animation tool, its animations playing with sound and
+     music (linked to Music's songs and Sound's sounds), with text and text styling and animation; maybe
+     one with the 3D app, or at least taking 3D models. Paths can get costly: what to speed up first, to
+     see when it's nearer (drawing speed's pass, after the transformed blit).
+  Fixed 2026-11-24 (the user's raceworld): an app whose update was empty (its lines commented out) hung
+     the board, all of it: the board's JIT compiled the empty proc (just its ret), and native code carries
+     on at the ret, which was its own entry, now the jit op: around for ever. Rio's JIT leaves such procs
+     out (src/jit.c; tests/jit_procs.rio, on ARM); checked on the board. The desktop and web have no JIT.
   The user (2026-11-24): drawing modes through colour tables, as Picotron's. A full table (the colour
      drawn by the colour under it) is 256 by 256, 64 KB: too much to keep in the host; recommended (not
      decided), in steps: a remap for every drawing call (as blit's map, 256 bytes); then a shade table:
