@@ -86,7 +86,13 @@ app is a Rio program.
      shapes: pc.transform and pc.transformBy (each giving back the one replaced), pc.plain, moved, scaled,
      turned, turnedAround; every shape through it (rects and ellipses as polygons, paths a piece at a
      time); plain again each frame and app; tests/transform.py; the shapes demo's T. Host procs past
-     rinc's cap (RINC_MAX_FFI): 120 to 122 (each a slot in both VMs: the board's RAM, short). Next: blit and print through it (the transformed blit).
+     rinc's cap (RINC_MAX_FFI): 120 to 122 (each a slot in both VMs: the board's RAM, short). Then blit and
+     print through it (2026-11-24): each screen row's span worked out from the image's edges, the image's
+     pixel stepped in 16.16 fixed point (two adds a pixel; a byte a pixel read straight); the board: a 64 by
+     64 image at scale 2, 2.0 ms plain, 2.8 ms turned. The transform is of the plane the pixels tile (a
+     scale of 2: as blit's own). The shapes demo: a sprite, spinning, the scene tilting (Left, Right).
+     The user (2026-11-24): with host procs near rinc's cap, more optional params (a how? as Shape and
+     Blit are) rather than more procs; to weigh as calls are added.
      Recommended (the user
      agreeing, 2026-11-24): two calls, one applying a transform on top of the one there (nesting: a
      part's own turn inside its whole's), one setting it outright, each giving back the one it replaced

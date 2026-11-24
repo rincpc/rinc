@@ -329,7 +329,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x88c13532u /* (rio_hashText of the source) */
+#define pc_HASH 0xac3852e5u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -363,8 +363,9 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "polygon* :: host proc(points: [][2]Float, c: Int, how?: Shape) # a polygon: its corners in order (between pixels too); filled where its edges wind around\n" \
   "path* :: host proc(points: [][2]Float, kinds: String, c: Int, how?: Shape) # a path's points and their kinds, as a Path keeps them (Path.draw)\n" \
   "\n" \
-  "# the transform every shape's points go through (pset, line, rect, ellipse, triangle, curve, polygon, path;\n" \
-  "# not yet blit and print): a, b, c, d, e, f, each point x, y drawn at a x + c y + e, b x + d y + f. Back to\n" \
+  "# the transform all drawing goes through (pset, line, rect, ellipse, triangle, curve, polygon, path, blit,\n" \
+  "# print): a, b, c, d, e, f, the plane the pixels tile (pixel x, y: the square from x, y to x + 1, y + 1)\n" \
+  "# taken to a x + c y + e, b x + d y + f; an image's or a rect's area turned, scaled, as a whole. Back to\n" \
   "# plain at each frame's start (and each app's). transform sets it; transformBy puts m under it (m first,\n" \
   "# then the one there: a part turned inside its whole, moved); each gives back the one it replaced, to put\n" \
   "# back with transform\n" \

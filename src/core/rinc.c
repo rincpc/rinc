@@ -131,10 +131,11 @@ static void rinc_hostScreen(rio_Vm *v, rio_Val *a) { (void)v; rinc_setZoom(a[0].
 static void rinc_hostScreenSize(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_appW; a[1].i = rinc_appH; }
 /* the shapes' transform and helpers (below, with the shapes) */
 static int rinc_tmOn;
+static float rinc_tm[6];
 static void rinc_tmPoint(float *x, float *y);
 static int64_t rinc_px(float v);
 static int rinc_tptsArc(int k, float cx, float cy, float rx, float ry, float a0, float sweep, int m);
-static void rinc_tptsDraw(int n, int outline, uint8_t c);
+static void rinc_tptsDraw(int n, int outline, int corners, uint8_t c);
 static void rinc_hostPset(rio_Vm *v, rio_Val *a) {
   uint32_t x = a[0].u, y = a[1].u;
   (void)v;
@@ -178,6 +179,57 @@ static int rinc_picAt(const rinc_Pic *q, int x, int y) {
   if (q->pal) return i < q->npal ? q->pal[i] : 0;
   return i;
 }
+/* a picture's part (sx, sy, w by h of q), as blit places it (x0, y0, each pixel kx by ky, flipped as
+   it says), drawn through the transform: each screen pixel's center taken back through the transform's
+   inverse to the picture's pixel there. A row at a time: the span the picture covers worked out from its
+   edges (no test a pixel), then the picture's pixel stepped along in 16.16 fixed point, two adds a pixel */
+/* what blitTm reads: pixel u, v of its w by h (0: see-through) */
+typedef int (*rinc_TmRead)(const void *ud, int u, int v);
+typedef struct { const rinc_Pic *q; int sx, sy; } rinc_TmPic;
+static int rinc_tmPicAt(const void *ud, int u, int v) { const rinc_TmPic *t = (const rinc_TmPic *)ud; return rinc_picAt(t->q, t->sx + u, t->sy + v); }
+static void rinc_blitTm(const rinc_Pic *q, int plain, int sx, int sy, int w, int h, int x0, int y0, int kx, int ky, int flipX, int flipY, rinc_TmRead read, const void *ud) {
+  float *m = rinc_tm, det = m[0] * m[3] - m[1] * m[2], ia, ib, ic, id, ie, iff, lo = 1e30f, hi = -1e30f;
+  float bx = (float)x0 - 0.5f, by = (float)y0 - 0.5f, fw = (float)(w * kx), fh = (float)(h * ky); /* (its rect, untransformed: from its first pixel's edge) */
+  int k, y, top, bottom; uint32_t drawn = 0;
+  if (w <= 0 || h <= 0 || det == 0) return;
+  ia = m[3] / det; ib = -m[1] / det; ic = -m[2] / det; id = m[0] / det; /* (the inverse: screen to untransformed) */
+  ie = -(ia * m[4] + ic * m[5]); iff = -(ib * m[4] + id * m[5]);
+  for (k = 0; k < 4; k++) { /* (its rows: its corners', transformed) */
+    float cx = bx + (k & 1 ? fw : 0), cy = by + (k & 2 ? fh : 0);
+    rinc_tmPoint(&cx, &cy);
+    if (cy < lo) lo = cy;
+    if (cy > hi) hi = cy;
+  }
+  top = lo < 0 ? 0 : (int)ceilf(lo); bottom = hi >= (float)rinc_appH ? rinc_appH - 1 : (int)floorf(hi);
+  for (y = top; y <= bottom; y++) {
+    /* untransformed, at screen x: u = (ia x + ic y + ie - bx) / kx across the part, v = (ib x + id y + iff - by) / ky down it */
+    float u0 = (ic * (float)y + ie - bx) / (float)kx, du = ia / (float)kx, v0 = (id * (float)y + iff - by) / (float)ky, dv = ib / (float)ky;
+    float xa = 0, xb = (float)rinc_appW; /* (the screen's x where 0 <= u < w and 0 <= v < h) */
+    int x, xe; int32_t fu, fv, fdu, fdv; uint8_t *out;
+    if (du != 0) { float e0 = -u0 / du, e1 = ((float)w - u0) / du; if (e0 > e1) { float t = e0; e0 = e1; e1 = t; } if (e0 > xa) xa = e0; if (e1 < xb) xb = e1; }
+    else if (u0 < 0 || u0 >= (float)w) continue;
+    if (dv != 0) { float e0 = -v0 / dv, e1 = ((float)h - v0) / dv; if (e0 > e1) { float t = e0; e0 = e1; e1 = t; } if (e0 > xa) xa = e0; if (e1 < xb) xb = e1; }
+    else if (v0 < 0 || v0 >= (float)h) continue;
+    x = (int)ceilf(xa); xe = (int)ceilf(xb);
+    if (x < 0) x = 0;
+    if (xe > rinc_appW) xe = rinc_appW;
+    if (x >= xe) continue;
+    fu = (int32_t)((u0 + du * (float)x) * 65536.0f); fv = (int32_t)((v0 + dv * (float)x) * 65536.0f);
+    fdu = (int32_t)(du * 65536.0f); fdv = (int32_t)(dv * 65536.0f);
+    out = rinc_screen[y];
+    drawn += (uint32_t)(xe - x);
+    for (; x < xe; x++, fu += fdu, fv += fdv) {
+      int iu = fu >> 16, iv = fv >> 16, c;
+      if (iu < 0) iu = 0; else if (iu >= w) iu = w - 1; /* (its edges, as rounding leaves them) */
+      if (iv < 0) iv = 0; else if (iv >= h) iv = h - 1;
+      if (flipX) iu = w - 1 - iu;
+      if (flipY) iv = h - 1 - iv;
+      c = plain ? q->px[(sy + iv) * q->row + sx + iu] : read(ud, iu, iv); /* (a byte a pixel, as it is: straight) */
+      if (c) out[x] = (uint8_t)c;
+    }
+  }
+  rinc_charge(plain ? rinc_Cost_blit : rinc_Cost_blitPacked, drawn);
+}
 /* blit(image, at, b: Blit): a picture (pc.Image: its pixels row by row, a byte each or packed, as its depth
    says, and its width and height), or b.size of it from b.from (a 0 in size: the rest of it that way),
    drawn at at, each pixel b.scale wide and high (0: 1; negative: mirrored that way); color 0 is
@@ -200,6 +252,7 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
   if (sy < 0) { h += sy; y0 -= sy * ky; sy = 0; }
   if (w > pw - sx) w = pw - sx;
   if (h > ph - sy) h = ph - sy;
+  if (rinc_tmOn) { rinc_TmPic t = {&q, sx, sy}; rinc_blitTm(&q, plain, sx, sy, w, h, x0, y0, kx, ky, flipX, flipY, rinc_tmPicAt, &t); return; } /* (transformed) */
   if (kx == 1 && ky == 1 && !flipX) { /* (the usual: a pixel for a pixel, a row at a time; a map's tiles are many) */
     int i0 = x0 < 0 ? -x0 : 0, i1 = x0 + w > rinc_appW ? rinc_appW - x0 : w;
 #ifdef rio_METER
@@ -244,10 +297,16 @@ static void rinc_hostBlit(rio_Vm *v, rio_Val *a) {
 static uint32_t rinc_shapePx, rinc_shapeRows;
 /* the transform (pc.transform): a, b, c, d, e, f; rinc_tmOn when it isn't plain (then shapes go through it,
    rects and ellipses as polygons; plain, each as before, fast). Plain again at each frame's start, each app's */
-static float rinc_tm[6] = {1, 0, 0, 1, 0, 0};
+static float rinc_tm[6] = {1, 0, 0, 1, 0, 0}, rinc_tmApp[6] = {1, 0, 0, 1, 0, 0};
 static int rinc_tmOn;
+/* the app's transform is of the plane its pixels tile (pixel x, y the square x to x + 1, y to y + 1: an
+   image's or a rect's area turned, scaled, as a whole); drawing's points name pixels (their centers, a half
+   in), so rinc_tm is the app's around that half: T(p + 0.5) - 0.5 */
 static void rinc_tmSet(const float *m) {
+  memcpy(rinc_tmApp, m, sizeof rinc_tmApp);
   memcpy(rinc_tm, m, sizeof rinc_tm);
+  rinc_tm[4] = m[4] + 0.5f * (m[0] + m[2]) - 0.5f;
+  rinc_tm[5] = m[5] + 0.5f * (m[1] + m[3]) - 0.5f;
   rinc_tmOn = !(m[0] == 1 && m[1] == 0 && m[2] == 0 && m[3] == 1 && m[4] == 0 && m[5] == 0);
 }
 static void rinc_tmReset(void) { static const float plain[6] = {1, 0, 0, 1, 0, 0}; rinc_tmSet(plain); }
@@ -256,17 +315,17 @@ static void rinc_hostTransform(rio_Vm *v, rio_Val *a) {
   float m[6]; int i;
   (void)v;
   for (i = 0; i < 6; i++) m[i] = a[i].f;
-  for (i = 0; i < 6; i++) a[i].f = rinc_tm[i];
+  for (i = 0; i < 6; i++) a[i].f = rinc_tmApp[i];
   rinc_tmSet(m);
 }
 static void rinc_hostTransformBy(rio_Vm *v, rio_Val *a) { /* (the one there times m: m's first) */
-  float m[6], t[6], *o = rinc_tm; int i;
+  float m[6], t[6], *o = rinc_tmApp; int i;
   (void)v;
   for (i = 0; i < 6; i++) m[i] = a[i].f;
   t[0] = o[0] * m[0] + o[2] * m[1]; t[1] = o[1] * m[0] + o[3] * m[1];
   t[2] = o[0] * m[2] + o[2] * m[3]; t[3] = o[1] * m[2] + o[3] * m[3];
   t[4] = o[0] * m[4] + o[2] * m[5] + o[4]; t[5] = o[1] * m[4] + o[3] * m[5] + o[5];
-  for (i = 0; i < 6; i++) a[i].f = rinc_tm[i];
+  for (i = 0; i < 6; i++) a[i].f = rinc_tmApp[i];
   rinc_tmSet(t);
 }
 /* a rect's or an ellipse's points, made while it's drawn transformed (as a polygon): rinc_TPTS at most
@@ -336,22 +395,22 @@ static void rinc_hostRect(rio_Vm *v, rio_Val *a) {
   pc_Shape how;
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 5, &how, sizeof how);
-  if (rinc_tmOn) { /* (transformed: a polygon of its pixels' centers, its corners rounded as quarter ellipses) */
-    float x0 = (float)a[0].i, y0 = (float)a[1].i, x1 = x0 + (float)a[2].i - 1, y1 = y0 + (float)a[3].i - 1, r = (float)how.radius; int k = 0;
+  if (rinc_tmOn) { /* (transformed, a polygon: filled, its area's edge; outlined, through its edge pixels; its corners rounded as quarter ellipses) */
+    float in = how.outline ? 0 : 0.5f, x0 = (float)a[0].i - in, y0 = (float)a[1].i - in, x1 = (float)a[0].i + (float)a[2].i - 1 + in, y1 = (float)a[1].i + (float)a[3].i - 1 + in, r = (float)how.radius; int k = 0;
     if (a[2].i <= 0 || a[3].i <= 0) return;
-    if (r > (x1 - x0 + 1) / 2) r = (x1 - x0 + 1) / 2;
-    if (r > (y1 - y0 + 1) / 2) r = (y1 - y0 + 1) / 2;
+    if (r > (float)a[2].i / 2) r = (float)a[2].i / 2;
+    if (r > (float)a[3].i / 2) r = (float)a[3].i / 2;
     if (r <= 0) {
       rinc_tpts[0] = x0; rinc_tpts[1] = y0; rinc_tpts[2] = x1; rinc_tpts[3] = y0; rinc_tpts[4] = x1; rinc_tpts[5] = y1; rinc_tpts[6] = x0; rinc_tpts[7] = y1; k = 4;
     } else {
-      int m = (int)r + 2; float q = r - 0.5f;
+      int m = (int)r + 2; float q = r - 0.5f + in;
       if (m > rinc_TPTS / 4) m = rinc_TPTS / 4;
       k = rinc_tptsArc(k, x1 - q, y0 + q, q, q, -1.5707963f, 1.5707963f, m);
       k = rinc_tptsArc(k, x1 - q, y1 - q, q, q, 0, 1.5707963f, m);
       k = rinc_tptsArc(k, x0 + q, y1 - q, q, q, 1.5707963f, 1.5707963f, m);
       k = rinc_tptsArc(k, x0 + q, y0 + q, q, q, 3.1415927f, 1.5707963f, m);
     }
-    rinc_tptsDraw(k, how.outline, (uint8_t)a[4].i);
+    rinc_tptsDraw(k, how.outline, 0, (uint8_t)a[4].i);
     return;
   }
   if (!how.outline && how.radius <= 0) { /* (as ever: rows filled) */
@@ -377,8 +436,9 @@ static void rinc_hostEllipse(rio_Vm *v, rio_Val *a) {
     if (a[2].i <= 0 || a[3].i <= 0) return;
     m = (int)((rx + ry) * 1.6f) + 8;
     if (m > rinc_TPTS) m = rinc_TPTS;
-    rinc_tptsArc(0, (float)a[0].i + rx - 0.5f, (float)a[1].i + ry - 0.5f, rx - 0.5f, ry - 0.5f, 0, 6.2831853f * (float)(m - 1) / (float)m, m);
-    rinc_tptsDraw(m, how.outline, (uint8_t)a[4].i);
+    float in = how.outline ? 0.5f : 0;
+    rinc_tptsArc(0, (float)a[0].i + rx - 0.5f, (float)a[1].i + ry - 0.5f, rx - in, ry - in, 0, 6.2831853f * (float)(m - 1) / (float)m, m);
+    rinc_tptsDraw(m, how.outline, 0, (uint8_t)a[4].i);
     return;
   }
   rinc_roundShape(1, a[0].i, a[1].i, a[2].i, a[3].i, 0, how.outline, (uint8_t)a[4].i);
@@ -476,7 +536,7 @@ static void rinc_polyStroke(const float *pt, int n, int closed, int tm, uint8_t 
     rinc_line(rinc_px(x0), rinc_px(y0), rinc_px(x1), rinc_px(y1), c);
   }
 }
-static void rinc_polyFill(const float *pt, int n, int tm, uint8_t c) {
+static void rinc_polyFill(const float *pt, int n, int tm, int corners, uint8_t c) {
   float xs[rinc_CROSSINGS], lo, hi, px, py; int8_t dirs[rinc_CROSSINGS]; int i, y, top, bottom;
   if (n < 3) { rinc_polyStroke(pt, n, 1, tm, c); return; }
   rinc_ptAt(pt, 0, tm, &px, &py);
@@ -503,7 +563,7 @@ static void rinc_polyFill(const float *pt, int n, int tm, uint8_t c) {
       if (w) rinc_span(y, (int)ceilf(xs[j] - 0.0001f), (int)floorf(xs[j + 1] + 0.0001f), c);
     }
   }
-  for (i = 0; i < n; i++) { /* (its corners: each its pixel in, as a triangle's) */
+  for (i = 0; i < n && corners; i++) { /* (its corners, pixels: each in, as a triangle's) */
     int64_t cx, cy;
     rinc_ptAt(pt, i, tm, &px, &py);
     cx = rinc_px(px); cy = rinc_px(py);
@@ -511,8 +571,8 @@ static void rinc_polyFill(const float *pt, int n, int tm, uint8_t c) {
   }
 }
 /* the points kept (rinc_tpts, n of them), transformed, drawn as a polygon: filled, or its outline */
-static void rinc_tptsDraw(int n, int outline, uint8_t c) {
-  if (outline) rinc_polyStroke(rinc_tpts, n, 1, 1, c); else rinc_polyFill(rinc_tpts, n, 1, c);
+static void rinc_tptsDraw(int n, int outline, int corners, uint8_t c) {
+  if (outline) rinc_polyStroke(rinc_tpts, n, 1, 1, c); else rinc_polyFill(rinc_tpts, n, 1, corners, c);
   rinc_shapeCharge();
 }
 /* an ellipse's points (or, a quarter each, a rounded rect's corners) into rinc_tpts from k: center cx, cy,
@@ -531,7 +591,7 @@ static void rinc_hostPolygon(rio_Vm *v, rio_Val *a) {
   memset(&how, 0, sizeof how);
   rio_getStruct(v, a + 3, &how, sizeof how);
   if (!pt || n <= 0) return;
-  if (how.outline || n < 3) rinc_polyStroke(pt, n, 1, rinc_tmOn, c); else rinc_polyFill(pt, n, rinc_tmOn, c); /* (transformed: each point as it's read) */
+  if (how.outline || n < 3) rinc_polyStroke(pt, n, 1, rinc_tmOn, c); else rinc_polyFill(pt, n, rinc_tmOn, 1, c); /* (transformed: each point as it's read) */
   rinc_shapeCharge();
 }
 /* path(points, kinds, c, how?): Path's points, each with its kind (M a part's start; L a line to it; c c C
@@ -653,7 +713,7 @@ static void rinc_hostTriangle(rio_Vm *v, rio_Val *a) {
   for (i = 0; i < 3; i++) { px[i] = (float)a[i * 2].i; py[i] = (float)a[i * 2 + 1].i; }
   if (rinc_tmOn) { /* (transformed: a polygon of three) */
     for (i = 0; i < 3; i++) { rinc_tpts[i * 2] = px[i]; rinc_tpts[i * 2 + 1] = py[i]; }
-    rinc_tptsDraw(3, how.outline, c);
+    rinc_tptsDraw(3, how.outline, 1, c);
     return;
   }
   if (how.outline) {
@@ -716,12 +776,27 @@ static int rinc_advance(const rinc_Font *u, int c) {
   return u->glyphs[g * 2 + 1] + u->gap;
 }
 static int rinc_trailing(const rinc_Font *u) { return !u->px ? 1 : u->gap; }
+/* a glyph's pixel, transformed (rinc_blitTm's read): the font's (Rinc's own: its bits, from its top row) */
+typedef struct { const rinc_Font *u; int c, gx, gy, color; } rinc_TmGlyph;
+static int rinc_tmGlyphAt(const void *ud, int i, int j) {
+  const rinc_TmGlyph *t = (const rinc_TmGlyph *)ud; int p;
+  if (!t->u->px) return rinc_fontBit(t->c, i, t->u->top + j - rinc_fontTopRows()) ? t->color : 0;
+  if (t->gx + i >= t->u->pw || t->gy + j >= t->u->ph) return 0;
+  p = rinc_picAt(&t->u->pic, t->gx + i, t->gy + j);
+  return p ? (t->u->colors ? p : t->color) : 0;
+}
 static void rinc_glyph(const rinc_Font *u, int c, int x, int y, int color) {
   int g = c - u->first, gx, gy, left = 0, w = u->cw, i, j;
+  if (rinc_tmOn && !u->px) { /* (transformed, Rinc's own font: its cell) */
+    rinc_TmGlyph t = {u, c, 0, 0, color};
+    rinc_blitTm(0, 0, 0, 0, rinc_CHAR_W, u->rows, x, y, 1, 1, 0, 0, rinc_tmGlyphAt, &t);
+    return;
+  }
   if (!u->px) { rinc_charRows(c, x, y, color, -1, u->top, u->rows); return; }
   if (g < 0 || c > u->last) return;
   if (u->glyphs) { if (g >= u->nglyphs) return; left = u->glyphs[g * 2]; w = u->glyphs[g * 2 + 1]; }
   gx = g % u->across * u->cw + left; gy = g / u->across * u->ch;
+  if (rinc_tmOn) { rinc_TmGlyph t = {u, c, gx, gy, color}; rinc_blitTm(0, 0, 0, 0, w, u->ch, x, y, 1, 1, 0, 0, rinc_tmGlyphAt, &t); return; }
   for (j = 0; j < u->ch; j++) {
     int sy = gy + j, py = y + j;
     if (sy >= u->ph || py < 0 || py >= rinc_appH) continue;
