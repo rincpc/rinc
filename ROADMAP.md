@@ -744,6 +744,19 @@ app is a Rio program.
 
 ## Later
 
+- Other RP2350 boards (the user, 2026-11-23: cheaper Rincs, and none with a radio). Rinc needs only the
+  RP2350's 520 KB (no PSRAM), DVI on HSTX, an SD card, a USB host and sound (HDMI's own works with no
+  codec: hdmi_packet.c), so a port is mostly pins: a board setting in the build, its pins under it.
+  - Waveshare RP2350-PiZero (about $10): RP2350B, DVI on mini HDMI, microSD (SPI or SDIO), one PIO-USB
+    host port (a hub for a keyboard and a gamepad), USB-C, a LiPo header, no radio, no audio codec (sound
+    over HDMI, if its DVI is on HSTX's GPIO 12-19). To check in its schematic first: the pins, and whether
+    DVI and PIO-USB share any (a summary of its page said they can't be used at once: likely its demo's).
+  - Olimex RP2350pc (about EUR 25): RP2350B, HDMI/DVI, 4 USB ports, microSD, an ES8311 codec with
+    headphone and line-in jacks, no radio: the closest to the Fruit Jam without Wi-Fi (a codec driver new).
+  - Adafruit Metro RP2350 ($25; $28 with PSRAM): an HSTX connector (a DVI breakout), microSD, USB host
+    pins: more parts to add.
+  - Pimoroni Pico DV Demo Base with a Pico 2 (or Pico Plus 2): HDMI, SD, I2S audio; two boards.
+
 - Working as a team, on the board itself (ideas, 2026-11-10: not decided; for later, after the priorities in Next). No chat, no netplay, no
   Wi-Fi needed; phones do the talking. What's missing is moving files safely without pulling the card:
   - Not the board as a USB drive (its card shown to a computer): tried before and not working yet, and
