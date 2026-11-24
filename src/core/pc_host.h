@@ -93,8 +93,9 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_line_SIG "iiiii"
 #define pc_ellipse_SIG "iiiii" pc_Shape_LAYOUT
 #define pc_triangle_SIG "iiiiiii" pc_Shape_LAYOUT
-#define pc_curve_SIG "iiiiiiiii"
-#define pc_polygon_SIG "[ii]i" pc_Shape_LAYOUT
+#define pc_curve_SIG "ffffffffi"
+#define pc_polygon_SIG "[ff]i" pc_Shape_LAYOUT
+#define pc_path_SIG "[ff]si" pc_Shape_LAYOUT
 #define pc_rgb_SIG "i>i"
 #define pc_blit_SIG pc_Image_LAYOUT "ii" pc_Blit_LAYOUT
 #define pc_print_SIG "siii" pc_Text_LAYOUT
@@ -215,6 +216,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(triangle, pc_triangle_SIG) \
   X(curve, pc_curve_SIG) \
   X(polygon, pc_polygon_SIG) \
+  X(path, pc_path_SIG) \
   X(rgb, pc_rgb_SIG) \
   X(blit, pc_blit_SIG) \
   X(print, pc_print_SIG) \
@@ -323,7 +325,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x50d823a5u /* (rio_hashText of the source) */
+#define pc_HASH 0x87429871u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -353,8 +355,57 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "line* :: host proc(from, to: [2]Int, c: Int)       # a line, both ends' pixels drawn\n" \
   "ellipse* :: host proc(pos, size: [2]Int, c: Int, how?: Shape) # an ellipse in the rectangle pos, size (a square: a circle)\n" \
   "triangle* :: host proc(p, q, r: [2]Int, c: Int, how?: Shape) # a triangle, its corners pixels\n" \
-  "curve* :: host proc(from, c1, c2, to: [2]Int, c: Int) # a curve (cubic Bezier) from from to to, pulled toward c1 then c2\n" \
-  "polygon* :: host proc(points: [][2]Int, c: Int, how?: Shape) # a polygon: its corners in order; filled where its edges wind around\n" \
+  "curve* :: host proc(from, c1, c2, to: [2]Float, c: Int) # a curve (cubic Bezier) from from to to, pulled toward c1 then c2 (between pixels too: {10.5, 3})\n" \
+  "polygon* :: host proc(points: [][2]Float, c: Int, how?: Shape) # a polygon: its corners in order (between pixels too); filled where its edges wind around\n" \
+  "path* :: host proc(points: [][2]Float, kinds: String, c: Int, how?: Shape) # a path's points and their kinds, as a Path keeps them (Path.draw)\n" \
+  "\n" \
+  "# a path: lines, curves and arcs from point to point, in parts (move starts one), drawn filled (each part\n" \
+  "# closed, filled where its edges wind around: a part inside another, the other way round, a hole) or\n" \
+  "# outlined (a part closed only if close says so). Kept here, in the app's memory: 128 points at most (a\n" \
+  "# curve takes 3, an arc 3); past that, what's added is left out\n" \
+  "Path* :: struct\n" \
+  "  points: [..128][2]Float\n" \
+  "  kinds: Blob[..128]\n" \
+  "end\n" \
+  "Path.clear* :: proc()\n" \
+  "  self.points.clear()\n" \
+  "  self.kinds.clear()\n" \
+  "end\n" \
+  "Path.add :: proc(k: Int, p: [2]Float)\n" \
+  "  if self.points.len() < 128\n" \
+  "    _ = self.points.push(p)\n" \
+  "    _ = self.kinds.push(k)\n" \
+  "  end\n" \
+  "end\n" \
+  "Path.move* :: proc(to: [2]Float) # a new part, starting at to\n" \
+  "  self.add('M', to)\n" \
+  "end\n" \
+  "Path.line* :: proc(to: [2]Float) # a line to to (with no part yet: the start of one)\n" \
+  "  self.add('L', to)\n" \
+  "end\n" \
+  "Path.curve* :: proc(c1, c2, to: [2]Float) # a curve (cubic Bezier) to to, pulled toward c1 then c2\n" \
+  "  if self.points.len() + 3 <= 128\n" \
+  "    self.add('c', c1)\n" \
+  "    self.add('c', c2)\n" \
+  "    self.add('C', to)\n" \
+  "  end\n" \
+  "end\n" \
+  "# an arc of the ellipse at center with radii (a circle's: both the same), from angle from to angle to\n" \
+  "# (radians, as sin and cos: 0 right, a quarter turn down; to less than from: the other way round); a line\n" \
+  "# to its start first, from where the path is\n" \
+  "Path.arc* :: proc(center, radii: [2]Float, from, to: Float)\n" \
+  "  if self.points.len() + 3 <= 128\n" \
+  "    self.add('a', center)\n" \
+  "    self.add('r', radii)\n" \
+  "    self.add('A', {from, to})\n" \
+  "  end\n" \
+  "end\n" \
+  "Path.close* :: proc() # back to the part's start, closed\n" \
+  "  self.add('Z', {0.0, 0.0})\n" \
+  "end\n" \
+  "Path.draw* :: proc(c: Int, how?: Shape)\n" \
+  "  path(self.points[], self.kinds.asString(), c, how)\n" \
+  "end\n" \
   "rgb* :: host proc(c: Int) -> Int                    # color c of the palette, as 0xRRGGBB\n" \
   "\n" \
   "# a rectangle on the screen: its top left and its size, in pixels\n" \

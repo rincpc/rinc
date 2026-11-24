@@ -60,8 +60,11 @@ app is a Rio program.
      designed for it as they're made; a pass over all of them with drawing speed, after the transformed
      blit. Then pc.polygon (2026-11-24): its points a [][2]Int (Rio's ffi taking slices of [2]Int now:
      a sig's [ii]); filled by non-zero winding, a row
-     at a time, no room needed (64 crossings a row at most). Next: filled paths of lines, curves and arcs
-     (the user, 2026-11-24: arcs in paths, filled or not), and arcs alone (an
+     at a time, no room needed (64 crossings a row at most). Polygons and curves take [2]Float points
+     (2026-11-24: between pixels, for smooth turning and moving). Then pc.Path (2026-11-24): lines,
+     curves and arcs in parts, filled (non-zero: holes the other way round) or outlined; 128 points in the
+     app's memory; filled a row at a time, curves and arcs flattened only where they cross it, no room
+     needed. Arcs alone: a path of one (an
      option of ellipse). Also (the user, 2026-11-24): gradients, with dithering options, as primitives
      (linear and radial fills), which Paint uses too; and Paint's tools to grow with them (line, rect,
      ellipse, triangle, curves, gradients). Before: pc had only cls, pset, rect, blit and print. Candidates,
@@ -74,8 +77,24 @@ app is a Rio program.
      for people coming from modern systems: far less opaque, obvious to use, still efficient by keys.
   The user (2026-11-24): lines thicker than a pixel, dashed, with end caps (flat, square, round) and
      joins (miter, bevel, round), for line, curve, the outlines and paths: pc.Shape growing (width, dash,
-     cap, join). And an outline of a polygon crossing itself that's just its outside (not the edges
-     across its fill): its filled area's edge, traced, not its lines.
+     cap, join). (An outline of just a star's outside: its outside points as the polygon, a concave one,
+     already: the user, 2026-11-24, nothing to trace.)
+  The user (2026-11-24): transformed drawing for everything, not just blit: one current transform (2x3,
+     floats) over all drawing; vector shapes transform their points (a rect a 4-point polygon, ellipses and
+     rounded rects flattened), images and text by each screen pixel's source (the transformed blit); no
+     transform set, today's fast paths. Basics stay Int (pset, rect, blit, print). Recommended (the user
+     agreeing, 2026-11-24): two calls, one applying a transform on top of the one there (nesting: a
+     part's own turn inside its whole's), one setting it outright, each giving back the one it replaced
+     (to put back: no stack in the host); kept until changed, and reset at each frame's start and each
+     app's (a forgotten put-back can't leak further); the clip rect alike. Perspective (to decide): the
+     textured triangle taking each corner's depth from the start, so perspective (a divide each 8 to 16
+     pixels, a few percent more) is an option later, not a new call. For 3D later: the app
+     (or a library) projects its points and draws screen triangles textured by their corners' image points
+     (the same machinery as the transformed blit; affine, as early consoles').
+     Clipping (the user, 2026-11-24): a clip rect (every span cut to it: nearly free; scrolled panes, the
+     UI library, split screens); then convex clips (any transformed rect, triangle or convex polygon: one
+     span a row, so each span's cut cheaply); and any shape at all through a mask in the app's memory
+     (a bit a pixel: 9.6 KB for the screen), drawn into with the shapes themselves.
   The user (2026-11-24): drawing modes through colour tables, as Picotron's. A full table (the colour
      drawn by the colour under it) is 256 by 256, 64 KB: too much to keep in the host; recommended (not
      decided), in steps: a remap for every drawing call (as blit's map, 256 bytes); then a shade table:

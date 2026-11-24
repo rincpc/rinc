@@ -2,11 +2,12 @@
 # Up and Down more or fewer of each, Space pauses
 outline := false
 round := true
-count := 6
+count := 7
 paused := false
 t := 0.0
 label: Blob[..40]
-star: [5][2]Int
+star: [5][2]Float
+path: pc.Path
 
 update* :: proc()
   c := pc.key()
@@ -35,7 +36,7 @@ update* :: proc()
     y := (112.0 + sin(a * 1.3) * (50.0 + f * 5.0)).toInt()
     s := 10 + (sin(t * 2.0 + f) * 6.0 + 6.0).toInt()
     col := 8 + i % 8
-    switch i % 5
+    switch i % 7
     case 0 # (a box, rounded or not)
       box := pc.Shape{outline = outline, radius = 0}
       if round do box.radius = s / 2
@@ -49,14 +50,38 @@ update* :: proc()
       pc.triangle(p, q, r, col, how)
     case 3 # (a curve, waving, and the line under it)
       w := (sin(t * 3.0 + f) * 20.0).toInt()
-      pc.curve({x - s * 2, y}, {x - s, y - 20 - w}, {x + s, y + 20 + w}, {x + s * 2, y}, col)
+      fx := x.toFloat()
+      fy := y.toFloat()
+      fs := s.toFloat()
+      fw := w.toFloat()
+      pc.curve({fx - fs * 2.0, fy}, {fx - fs, fy - 20.0 - fw}, {fx + fs, fy + 20.0 + fw}, {fx + fs * 2.0, fy}, col)
       pc.line({x - s * 2, y + s}, {x + s * 2, y + s}, col)
     case 4 # (a star, turning: a polygon crossing itself, filled through)
       for k in 0..<5
         b := a + k.toFloat() * 2.5133 # (each point two fifths of a turn on: a star)
-        star[k] = {x + (cos(b) * (s + 6).toFloat()).toInt(), y + (sin(b) * (s + 6).toFloat()).toInt()}
+        star[k] = {x.toFloat() + cos(b) * (s + 6).toFloat(), y.toFloat() + sin(b) * (s + 6).toFloat()}
       end
       pc.polygon(star[], col, how)
+    case 5 # (a pie chart's slice, a path: to its middle, an arc, back; growing and shrinking as it turns)
+      fx := x.toFloat()
+      fy := y.toFloat()
+      sweep := 3.2 + sin(t * 1.5 + f) * 2.8
+      path.clear()
+      path.move({fx, fy})
+      path.arc({fx, fy}, {(s + 4).toFloat(), (s + 4).toFloat()}, a, a + sweep)
+      path.close()
+      path.draw(col, how)
+    case 6 # (a ring, a path: a circle, and one inside it the other way round: a hole)
+      fx := x.toFloat()
+      fy := y.toFloat()
+      r := (s + 4).toFloat()
+      path.clear()
+      path.arc({fx, fy}, {r, r * 0.8}, 0.0, 6.2832)
+      path.close()
+      path.move({fx + r * 0.5, fy}) # (the inner one's start: else a line to it from the outer one's, outlined)
+      path.arc({fx, fy}, {r * 0.5, r * 0.4}, 6.2832, 0.0)
+      path.close()
+      path.draw(col, how)
     end
   end
   label.clear()

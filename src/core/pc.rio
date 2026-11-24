@@ -26,8 +26,57 @@ rect* :: host proc(pos, size: [2]Int, c: Int, how?: Shape) # a rectangle: its to
 line* :: host proc(from, to: [2]Int, c: Int)       # a line, both ends' pixels drawn
 ellipse* :: host proc(pos, size: [2]Int, c: Int, how?: Shape) # an ellipse in the rectangle pos, size (a square: a circle)
 triangle* :: host proc(p, q, r: [2]Int, c: Int, how?: Shape) # a triangle, its corners pixels
-curve* :: host proc(from, c1, c2, to: [2]Int, c: Int) # a curve (cubic Bezier) from from to to, pulled toward c1 then c2
-polygon* :: host proc(points: [][2]Int, c: Int, how?: Shape) # a polygon: its corners in order; filled where its edges wind around
+curve* :: host proc(from, c1, c2, to: [2]Float, c: Int) # a curve (cubic Bezier) from from to to, pulled toward c1 then c2 (between pixels too: {10.5, 3})
+polygon* :: host proc(points: [][2]Float, c: Int, how?: Shape) # a polygon: its corners in order (between pixels too); filled where its edges wind around
+path* :: host proc(points: [][2]Float, kinds: String, c: Int, how?: Shape) # a path's points and their kinds, as a Path keeps them (Path.draw)
+
+# a path: lines, curves and arcs from point to point, in parts (move starts one), drawn filled (each part
+# closed, filled where its edges wind around: a part inside another, the other way round, a hole) or
+# outlined (a part closed only if close says so). Kept here, in the app's memory: 128 points at most (a
+# curve takes 3, an arc 3); past that, what's added is left out
+Path* :: struct
+  points: [..128][2]Float
+  kinds: Blob[..128]
+end
+Path.clear* :: proc()
+  self.points.clear()
+  self.kinds.clear()
+end
+Path.add :: proc(k: Int, p: [2]Float)
+  if self.points.len() < 128
+    _ = self.points.push(p)
+    _ = self.kinds.push(k)
+  end
+end
+Path.move* :: proc(to: [2]Float) # a new part, starting at to
+  self.add('M', to)
+end
+Path.line* :: proc(to: [2]Float) # a line to to (with no part yet: the start of one)
+  self.add('L', to)
+end
+Path.curve* :: proc(c1, c2, to: [2]Float) # a curve (cubic Bezier) to to, pulled toward c1 then c2
+  if self.points.len() + 3 <= 128
+    self.add('c', c1)
+    self.add('c', c2)
+    self.add('C', to)
+  end
+end
+# an arc of the ellipse at center with radii (a circle's: both the same), from angle from to angle to
+# (radians, as sin and cos: 0 right, a quarter turn down; to less than from: the other way round); a line
+# to its start first, from where the path is
+Path.arc* :: proc(center, radii: [2]Float, from, to: Float)
+  if self.points.len() + 3 <= 128
+    self.add('a', center)
+    self.add('r', radii)
+    self.add('A', {from, to})
+  end
+end
+Path.close* :: proc() # back to the part's start, closed
+  self.add('Z', {0.0, 0.0})
+end
+Path.draw* :: proc(c: Int, how?: Shape)
+  path(self.points[], self.kinds.asString(), c, how)
+end
 rgb* :: host proc(c: Int) -> Int                    # color c of the palette, as 0xRRGGBB
 
 # a rectangle on the screen: its top left and its size, in pixels

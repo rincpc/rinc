@@ -1,5 +1,5 @@
 """python shapes.py path/to/rinc work-folder: pc's shapes drawn (rect, with an outline and rounded corners;
-ellipse; triangle; line; curve; polygon), each in a corner of its own, the screen read back (-o): the pixels each drew.
+ellipse; triangle; line; curve; polygon; path), each in a corner of its own, the screen read back (-o): the pixels each drew.
 A rectangle's outline, its edge alone; rounded corners left out; an ellipse and a circle the same each
 way they're turned, their outlines inside their fills; a triangle's corners in it, its outline inside it;
 lines with both ends drawn, each step one pixel, rising ones too (one stepped past its end before); a
@@ -9,10 +9,12 @@ import os, shutil, subprocess, sys
 rinc, work = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 shutil.rmtree(work, ignore_errors=True)
 os.makedirs(os.path.join(work, 'apps', 'shapes'))
-open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').write('''square: [4][2]Int = {{10, 130}, {40, 130}, {40, 150}, {10, 150}}
-star: [5][2]Int = {{80, 120}, {92, 160}, {60, 135}, {100, 135}, {68, 160}}
-ell: [6][2]Int = {{120, 120}, {160, 120}, {160, 130}, {135, 130}, {135, 160}, {120, 160}}
-two: [2][2]Int = {{180, 120}, {200, 130}}
+open(os.path.join(work, 'apps', 'shapes', 'shapes.rio'), 'w', newline='\n').write('''square: [4][2]Float = {{10, 130}, {40, 130}, {40, 150}, {10, 150}}
+star: [5][2]Float = {{80, 120}, {92, 160}, {60, 135}, {100, 135}, {68, 160}}
+ell: [6][2]Float = {{120, 120}, {160, 120}, {160, 130}, {135, 130}, {135, 160}, {120, 160}}
+two: [2][2]Float = {{180, 120}, {200, 130}}
+half: [3][2]Float = {{220.4, 120.0}, {240.0, 120.0}, {220.4, 140.0}}
+p: pc.Path
 update* :: proc()
   pc.cls(0)
   pc.rect({2, 2}, {10, 6}, 8)
@@ -25,7 +27,7 @@ update* :: proc()
   pc.triangle({40, 40}, {68, 30}, {58, 60}, 8, {outline = true})
   pc.line({90, 64}, {50, 90}, 8)
   pc.line({100, 70}, {140, 70}, 8)
-  pc.line({-1000000, 200}, {1000000, 200}, 8)
+  pc.line({-1000000, 238}, {1000000, 238}, 8)
   pc.curve({160, 10}, {170, 10}, {180, 10}, {190, 10}, 8)
   pc.curve({200, 60}, {210, 20}, {250, 20}, {260, 60}, 8)
   pc.curve({280, 30}, {280, 30}, {280, 30}, {280, 30}, 8)
@@ -34,6 +36,28 @@ update* :: proc()
   pc.polygon(star[], 8)
   pc.polygon(ell[], 8)
   pc.polygon(two[], 8)
+  pc.polygon(half[], 8)
+  p.clear()
+  p.move({10.0, 170.0})
+  p.line({40.0, 170.0})
+  p.line({40.0, 190.0})
+  p.line({10.0, 190.0})
+  p.draw(8)
+  p.clear()
+  p.move({80.0, 190.0})
+  p.arc({80.0, 190.0}, {20.0, 20.0}, 0.0, 1.5708)
+  p.close()
+  p.draw(8)
+  p.clear()
+  p.arc({150.0, 190.0}, {20.0, 20.0}, 0.0, 6.2832)
+  p.close()
+  p.arc({150.0, 190.0}, {8.0, 8.0}, 6.2832, 0.0)
+  p.close()
+  p.draw(8)
+  p.clear()
+  p.arc({220.0, 190.0}, {15.0, 15.0}, 0.0, 3.1416)
+  p.draw(8, {outline = true})
+  pc.curve({290.4, 120.0}, {290.4, 120.0}, {300.6, 120.0}, {300.6, 120.0}, 8)
   pc.polygon(star[0..<0], 8)
 end
 ''')
@@ -74,7 +98,7 @@ check(to and {(x - 38, y) for (x, y) in to} <= near and not on(55, 42), 'triangl
 ln = drawn(46, 61, 96, 94)
 check(on(90, 64) and on(50, 90) and len(ln) == 41 and len({x for x, y in ln}) == 41, 'a line rising (once stepped past its end): both ends, a pixel a column')
 check(drawn(98, 68, 144, 72) == {(x, 70) for x in range(100, 141)}, 'a level line: both ends drawn')
-check(drawn(0, 199, W, 202) == {(x, 200) for x in range(W)}, 'a line from far off the screen to far off it: clipped, the row it crosses whole')
+check(drawn(0, 237, W, 240) == {(x, 238) for x in range(W)}, 'a line from far off the screen to far off it: clipped, the row it crosses whole')
 check(drawn(150, 5, 200, 15) == {(x, 10) for x in range(160, 191)}, 'a curve, its control points on a line: that line')
 arch = drawn(196, 16, 266, 66)
 def connected(pts):
@@ -92,5 +116,13 @@ check(drawn(4, 116, 50, 156) == {(x, y) for x in range(10, 41) for y in range(13
 check(on(80, 140) and on(80, 121) and on(61, 135) and not on(70, 125), 'a polygon, a star crossing itself: filled through its middle (where its edges wind around), its corners in, outside its arms empty')
 check(on(125, 155) and on(155, 125) and not on(150, 145), 'a polygon, concave (an L): its notch left out')
 check(on(180, 120) and on(200, 130) and len(drawn(176, 116, 206, 134)) == 21, 'a polygon of two points: a line')
+check(not on(220, 130) and on(221, 130) and on(221, 121), 'a polygon between pixels: a pixel in only if its center is (its left edge at 220.4: 220 out, 221 in)')
+check(drawn(286, 116, 306, 124) == {(x, 120) for x in range(290, 302)}, 'a curve between pixels: its ends at the pixels nearest (290.4: 290; 300.6: 301)')
+check(drawn(4, 164, 50, 196) == {(x, y) for x in range(10, 41) for y in range(170, 191)}, 'a path of lines, left open: filled as the polygon of its points, closed')
+pie = drawn(56, 166, 104, 214)
+check(on(90, 200) and not on(70, 180) and not on(90, 180) and not on(70, 200) and all(x >= 80 and y >= 190 for x, y in pie), 'a path, a pie: move to its center, an arc a quarter turn (right to down), closed: just that quarter')
+check(on(165, 190) and on(150, 175) and not on(150, 190) and not on(155, 190), 'a path, a ring: a circle, and one inside it the other way round: a hole')
+arc = drawn(200, 186, 240, 210)
+check(on(235, 190) and on(205, 190) and on(220, 205) and not on(220, 190) and all(y >= 190 for x, y in arc) and connected(arc), 'a path, an arc outlined: half a circle, right round through the bottom to the left, no gaps, not closed')
 print('%d failed' % failed if failed else 'the shapes came through')
 sys.exit(1 if failed else 0)
