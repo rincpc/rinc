@@ -52,6 +52,18 @@ app is a Rio program.
      times on screen).
   5. Sometime: drawing speed, and a transformed blit (rotated, scaled: 3D-ish); the Cloudlamp tutorial
      (it would help polish how things work).
+  6. Drawing primitives (the user, 2026-11-24). Done (2026-11-24), first batch: pc.line; pc.rect with
+     pc.Shape (outline, radius: rounded corners); pc.ellipse (a square box: a circle); pc.triangle (three
+     points, filled or outlined); in C, clipped, charged as rect is; tests/shapes.py. Next: Bezier curves
+     (stroked, in C: no buffer), then polygons and filled paths (an app's room for the edges), arcs (an
+     option of ellipse). Also (the user, 2026-11-24): gradients, with dithering options, as primitives
+     (linear and radial fills), which Paint uses too; and Paint's tools to grow with them (line, rect,
+     ellipse, triangle, curves, gradients). Before: pc had only cls, pset, rect, blit and print. Candidates,
+     in the host (fast, clipped, every platform alike): line; a rectangle's outline; ellipses and circles,
+     filled and outlined; filled triangles and polygons; arcs; Bezier curves (maybe in a library, from
+     line). Antialiasing: hard with a fixed palette (a blend needs the colour between two, which the
+     palette may lack): ideas, a dither of the two colours at the edge, or blending to the nearest palette
+     colour (a table, 256 by 256 by a few levels, too big for the board as is); later, if wanted.
   The user (2026-11-24), before long: a review of rinc and every app for consistency and cohesion, and
      for people coming from modern systems: far less opaque, obvious to use, still efficient by keys.
   Held (the user, 2026-11-23): more sticks, /mount/stick and other mounts: still being considered.

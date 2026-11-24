@@ -13,6 +13,10 @@ where what it logs shows until it draws, and where Rinc shows what went wrong if
 | `pc.pset({x, y}, c)` | pixel `x, y` becomes `c`; nothing happens off the screen |
 | `pc.pget({x, y}) -> Int` | pixel `x, y`, or 0 off the screen |
 | `pc.rect({x, y}, {w, h}, c)` | pixels from `x` up to `x + w`, and `y` up to `y + h`, become `c`; cut off at the screen's edges; nothing when `w` or `h` is 0 or less |
+| `pc.rect(pos, size, c, {outline = true, radius = r})` | its edge alone, a pixel wide; its corners rounded by `r` pixels (at most half its width or height) |
+| `pc.ellipse({x, y}, {w, h}, c)` | the ellipse in that rectangle (a square: a circle); a pixel's drawn if its center's inside; `{outline = true}`: its edge alone, with no gaps |
+| `pc.triangle(p, q, r, c)` | the triangle with those corners (pixels: each in it); `{outline = true}`: its three edges, as `line` draws them |
+| `pc.line(from, to, c)` | a line, both ends drawn, a pixel each step along its longer way; cut off at the screen's edges (far off it costs nothing) |
 | `pc.rgb(c) -> Int` | color `c` of the palette (0 to 255), as `0xRRGGBB` |
 | `pc.print(s, {x, y}, c)` | the text's characters, one every 6 pixels from `x`, drawn at `y` in color `c` |
 | `pc.blit(image, at, b?)` | a picture (a `pc.Image`: its `pixels`, row by row, a byte each or packed as its `depth` says, and its `size`; as `pc.imageRead` gives one, see [apps](apps.md#files)), its top left at `at`, or `b.size` of it from `b.from` (a 0 in `size`: the rest of it that way), each pixel `b.scale` wide and high (a 0: 1; negative mirrors it that way: `{-1, 1}` flips it left for right); its 0s are see-through. `b` is a `pc.Blit` (`from`, `size` and `scale`, each a `[2]Int`, and `map`), so what's left out of `{...}` is 0, and `b` left out is all 0s: `pc.blit(image, {10, 20})` draws all of it at its size. `b.map`, a `[]Int`, draws it in other colors: each pixel's index (a byte-a-pixel picture's color) to the color drawn, 0 or -1 see-through, instead of its own palette: a sheet's red team blue, a hit's flash |

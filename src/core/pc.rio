@@ -17,7 +17,15 @@ screen* :: host proc(size: Screen)
 screenSize* :: host proc() -> [2]Int                # the screen's size now, in its pixels
 pset* :: host proc(pos: [2]Int, c: Int)             # one pixel
 pget* :: host proc(pos: [2]Int) -> Int
-rect* :: host proc(pos, size: [2]Int, c: Int)       # a filled rectangle: its top left, and its size
+# how a shape's drawn (rect, ellipse, triangle; left out: filled, square)
+Shape* :: struct
+  outline: Bool   # just its edge, a pixel wide (else filled)
+  radius: Int     # rect's corners rounded, by this many pixels (0: square)
+end
+rect* :: host proc(pos, size: [2]Int, c: Int, how?: Shape) # a rectangle: its top left, and its size
+line* :: host proc(from, to: [2]Int, c: Int)       # a line, both ends' pixels drawn
+ellipse* :: host proc(pos, size: [2]Int, c: Int, how?: Shape) # an ellipse in the rectangle pos, size (a square: a circle)
+triangle* :: host proc(p, q, r: [2]Int, c: Int, how?: Shape) # a triangle, its corners pixels
 rgb* :: host proc(c: Int) -> Int                    # color c of the palette, as 0xRRGGBB
 
 # a rectangle on the screen: its top left and its size, in pixels

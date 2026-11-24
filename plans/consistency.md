@@ -16,7 +16,8 @@ Nothing here is decided; the user picks from it.
 
 ## The inventory (to do: no changes made in it)
 
-For each app (home, Files, Edit, the console, log, Paint, Maps, Music, Sound, Snippet, the demos):
+For each app: every system app (home, Files, Edit, the console, log, help, and the rest in system/)
+and every studio app (Paint, Maps, Music, Sound, Snippet), first; the demos after, mattering a bit less:
 - its keys, by mode: what moves, what changes values, what picks, what confirms, what backs out;
 - what it shows: hints, a status line, the command list, help;
 - how it does the shared jobs: new, open, save, save as, close (Ctrl+W), the recent files (Ctrl+Tab),
