@@ -27,6 +27,12 @@ app is a Rio program.
 
 ## Next
 
+- **Next, in order (the user, 2026-11-24, from Friday 2026-11-27):** 1. the API cleaned up
+  (plans/host-procs.md); 2. maybe the UI library first, if it helps (the user, 2026-11-24): the text
+  field helper and the notice box folded into it; then the system and studio apps' UI cleaned up on it
+  (plans/consistency.md: extremely
+  clear for new users, extremely consistent, still very efficient for experienced ones); 3. more on
+  drawing (gradients and image fills, clip, colour tables, drawing speed's pass).
 - **Next, in order (the user, 2026-11-23):**
   1. Cloudlamp's dialog font and text (4 below), made on the board with the apps, as a person would.
      Done (2026-11-23): dialog.png, 5x6 cells, proportional, the 31 characters its lines use, drawn in
@@ -116,6 +122,21 @@ app is a Rio program.
      the board, all of it: the board's JIT compiled the empty proc (just its ret), and native code carries
      on at the ret, which was its own entry, now the jit op: around for ever. Rio's JIT leaves such procs
      out (src/jit.c; tests/jit_procs.rio, on ARM); checked on the board. The desktop and web have no JIT.
+  To discuss Friday (the user, 2026-11-24): Float positions for all drawing (pixel x the plane from x to
+     x + 1, a pixel drawn if its center's inside; whole numbers drawing as now), floored inside for the
+     simple common cases. The host's cost is small (a conversion is a few cycles against a call's ~180 ns:
+     maybe 10% on pset, under 1% on a rect or a blit); the apps' math is where Floats cost (91 vs 72 ns an
+     op interpreted, 20 vs 5 JIT'd). The user's read: grid and turn games (Int) are the less busy ones;
+     busy action games (platformers, shooters, racing, particles: as PICO-8's, all fractional) do Float
+     math already and only pay .toInt() at drawing. No Int-to-Float conversion by itself (the user,
+     2026-11-24: neither is wider than the other, both 32 bits: a Float holds Ints exactly only to 2^24);
+     literals already pass as Floats. So all-Float drawing means apps give Floats: Int code converts at
+     the call ((cell * 8).toFloat(), a point at a time), clear if a little more to type. Evidence to gather:
+     port a few games each way (raceworld, Cloudlamp, a shooter, a grid puzzle) and count the conversions
+     and frame times; look at how PICO-8 and Picotron carts use positions. Fixed point (Ints times 256) as
+     a heavy game's speed-up, not the default.
+  The user (2026-11-24): fewer host procs in pc (near rinc's cap): plans/host-procs.md, about 40 of 121
+     that could go (storage as file paths first); to act on, the user deciding.
   The user (2026-11-24): drawing modes through colour tables, as Picotron's. A full table (the colour
      drawn by the colour under it) is 256 by 256, 64 KB: too much to keep in the host; recommended (not
      decided), in steps: a remap for every drawing call (as blit's map, 256 bytes); then a shade table:
@@ -132,6 +153,14 @@ app is a Rio program.
      no allocation), the apps already redraw each frame, and the board's room (no tree of widgets kept).
      Layout as rows and columns that the calls fill in order (a cursor that moves, sizes from text), with
      a measuring pass only where a size must be known first.
+     A flat look and simple borders by default (the user, 2026-11-24).
+     Easy above all (the user, 2026-11-24): hello world a line or 3, a kitchen sink as short as it can
+     be. So: defaults for everything (the theme's colors, Rinc's font, a margin, top to bottom), focus
+     and keys (Tab, arrows, Enter) from the order of the calls, no ids unless two widgets share a label,
+     and an app's state in its own plain values (a Bool, an Int, a Blob[..] for text), e.g.
+       update* :: proc()
+         if ui.button("Hello") do log("hi")
+       end
   Held (the user, 2026-11-23): more sticks, /mount/stick and other mounts: still being considered.
   Not now (the user, 2026-11-23, the recommendation): patterns from another song (copy and paste
   covers it; a live link only if a real game asks).
@@ -262,6 +291,11 @@ app is a Rio program.
        keyboard is on the Fruit Jam's USB host already (PIO-USB, TinyUSB), and TinyUSB has a mass
        storage host, with FatFS (the card's) reading the drive: a few KB of RAM (a sector buffer, a
        volume), full speed (12 Mbit/s, about 1 MB/s). Files would show the drive beside /rinc.
+     - Not used yet (2026-11-24): the transformed blit steps u, v in plain C (16.16, clamped), about 25
+       cycles a pixel on the board (a 128 by 128 turned: 2.8 ms). For drawing speed's pass: on the board,
+       an interpolator pair giving each texel's address (u and v stepped, masked, added to the row's base:
+       one load a pixel), for images whose row is a power of two wide (sprites, 128 or 256 sheets, mode-7
+       maps; others as now); its gain measured first. Also for gradients (a value stepped, clamped).
      - Rotated, scaled and skewed drawing (SNES's mode 7: a whole layer turned and stretched a line at a
        time, and sprites turned), and textured triangles for simple 3D: the RP2350's interpolators
        (two a core) are made for exactly that lookup (u, v stepped along a line). Little RAM (it draws
@@ -940,6 +974,16 @@ app is a Rio program.
 - A speed throttle matching the board.
 
 ## Known bugs
+
+- Fixed 2026-11-27, not yet checked on the board (the user's raceworld in Edit: Ctrl+Space after "level."
+  listing wrong things): Edit's check (pc.checkRio, which completion and error marks rely on) failed for an
+  app that imports a library of any size ("/tilemap.rio too many fields"), so completion fell back to
+  wrong names. Now (Rio): a check takes the files other than the one being edited as declarations only
+  (rio_Source's declsOnly, which rinc's check loader sets): their procs' bodies are skipped, so their
+  errors aren't marked there (running still reports them); a check whose first sizes are short for one
+  table is checked again with more room for it, as a compile is; a check's first shares suit host
+  modules as pc (more types, fields and params a symbol); constants filling counts as a table filling.
+  Tests: tests/checklib.py (an app importing tilemap, in Edit's 61,440 bytes); Rio's tests/complete.c.
 
 - Fixed 2026-11-24 (found making the shapes demo): what's held as an app starts (the Enter or A that
   started it from home) was the app's: a press on its first frame. Now the buttons and keys held as an app
