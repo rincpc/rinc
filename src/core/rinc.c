@@ -2713,7 +2713,9 @@ static void rinc_runCheck(void *arg) {
   else {
     rinc_Reader *top = &rinc_srcFiles[rinc_SRC_FILES];
     if (!rinc_readerStart(top, rinc_checking.main, 0)) top->path[0] = 0;
+    rio_checkMainDeclsOnly(&rinc_nest, 1); /* (a part's being edited: main's declarations, as the other files', not its bodies) */
     rinc_checking.result = rio_check(&rinc_nest, 0, 0, rinc_readAt, top, rinc_checking.room, rinc_checking.size);
+    rio_checkMainDeclsOnly(&rinc_nest, 0);
   }
 #endif
 }

@@ -991,8 +991,9 @@ app is a Rio program.
   room is 94,208 bytes, its formatted buffer taking the 32 KB its scratch had (the text now moves in
   place: pushAll moves, as memmove does, now in Rio's spec), so Edit's memory is as it was; Maps' and
   Music's main files split into parts (every studio file under the 32 KB Edit opens). Test: studio's
-  tests/checks.py, every studio app's files checked as Edit checks them, in Edit's room. Still to try on
-  the board: a check's time on a big app, and Edit's memory.
+  tests/checks.py, every studio app's files checked as Edit checks them, in Edit's room. Then: a part
+  being edited takes the main file as declarations only too (rio_checkMainDeclsOnly), its private procs
+  kept for its parts. Still to try on the board: a check's time on a big app, and Edit's memory.
 
 - Fixed 2026-11-24 (found making the shapes demo): what's held as an app starts (the Enter or A that
   started it from home) was the app's: a press on its first frame. Now the buttons and keys held as an app
