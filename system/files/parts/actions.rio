@@ -84,7 +84,7 @@ startPrompt :: proc(m: Int)
     field.set(n)
     dot := n.len()
     for i in 1..<n.len()
-      if n[i] == 46 and kind[target] == FILE
+      if n[i] == '.' and kind[target] == FILE
         dot = i
       end
     end
@@ -131,11 +131,11 @@ end
 
 # a name: letters, digits, _, - and (for a file) dots, not starting with one
 validName :: proc(s: String, dots: Bool) -> Bool
-  if s.len() == 0 or s.len() > 60 or s[0] == 46
+  if s.len() == 0 or s.len() > 60 or s[0] == '.'
     return false
   end
   for c in s
-    if not ((c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45 or (dots and c == 46))
+    if not ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_' or c == '-' or (dots and c == '.'))
       return false
     end
   end
@@ -146,7 +146,7 @@ refTo: Blob[..34]
 projectRef :: proc(s: String) -> String
   refTo.clear()
   ok := refTo.pushAll(s)
-  ok = refTo.push(43)
+  ok = refTo.push('+')
   return refTo[0..<refTo.len()].asString()
 end
 
@@ -289,7 +289,7 @@ promptDone :: proc()
   if app and m == COPY and inApps()
     say("Copied as project ", softColor)
     ok := message.pushAll(s)
-    ok = message.push(43)
+    ok = message.push('+')
   else
     say("Done: ", softColor)
     ok := message.pushAll(s)

@@ -54,14 +54,14 @@ printCode :: proc(t: String, x: Int, y: Int)
     j := i + 1
     color := punctColor
     c := t[i]
-    if quote != 0 or c == '"' or c == 39
+    if quote != 0 or c == '"' or c == '\''
       if quote == 0
         quote = c
       else
         j = i
       end
       for j < t.len() and t[j] != quote # (to its end, a backslash's next character skipped)
-        j += 1 + (t[j] == 92).toInt()
+        j += 1 + (t[j] == '\\').toInt()
       end
       j = min(j + 1, t.len())
       quote = 0
@@ -120,7 +120,7 @@ end
 say :: proc(text: String, color: Int)
   start := 0
   for i in 0..=text.len()
-    if i == text.len() or text[i] == 10
+    if i == text.len() or text[i] == '\n'
       if i < text.len() or start < i or text.len() == 0
         line := text[start..<i]
         log(line)

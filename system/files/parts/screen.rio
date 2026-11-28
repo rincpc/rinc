@@ -80,7 +80,7 @@ jobDraw :: proc()
   t := jobFrom.asString()
   if jobDeleting do t = jobTo.asString()
   s := t.len()
-  for s > 0 and t[s - 1] != 47 do s -= 1
+  for s > 0 and t[s - 1] != '/' do s -= 1
   name := t[s..<t.len()]
   if name.len() > 43 do name = name[0..<43]
   pc.print(name, {x + 6, y + 50}, softColor)

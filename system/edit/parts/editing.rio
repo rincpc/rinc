@@ -3,10 +3,10 @@
 # ---------------------------------------------------------------- moving
 
 isWord :: proc(c: Int) -> Bool
-  return (c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95
+  return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_'
 end
 isSpace :: proc(c: Int) -> Bool
-  return c == 32 or c == 9 or c == 10
+  return c == ' ' or c == '\t' or c == '\n'
 end
 
 wordLeft :: proc(p: Int) -> Int
@@ -47,7 +47,7 @@ end
 indentEnd :: proc(l: Int) -> Int
   p := lineAt[l]
   e := lineEnd(l)
-  for p < e and text[p] == 32
+  for p < e and text[p] == ' '
     p += 1
   end
   return p
@@ -76,7 +76,7 @@ end
 # ---------------------------------------------------------------- editing
 
 typeChar :: proc(c: Int)
-  if c == 32 and cursor > 0 and text[cursor - 1] != 32
+  if c == ' ' and cursor > 0 and text[cursor - 1] != ' '
     merging = 0 # (a word and the space after it undo together)
   end
   one[0] = c
@@ -133,11 +133,11 @@ end
 commentMark :: proc(l: Int) -> Int
   p := indentEnd(l)
   e := lineEnd(l)
-  if p == e or text[p] != 35
+  if p == e or text[p] != '#'
     return 0
   end
   q := p + 1
-  for q < e and text[q] == 32
+  for q < e and text[q] == ' '
     q += 1
   end
   return q - p
@@ -158,14 +158,14 @@ enter :: proc()
     indent += 2
   end
   built.clear()
-  _ = built.push(10)
+  _ = built.push('\n')
   for _ in 0..<indent
-    _ = built.push(32)
+    _ = built.push(' ')
   end
   if mark > 0 and selStart() >= indentEnd(l) + 1
     _ = built.pushAll(text[indentEnd(l)..<indentEnd(l) + mark])
     if mark == 1
-      _ = built.push(32) # ("#" alone: "# " to go on)
+      _ = built.push(' ') # ("#" alone: "# " to go on)
     end
   end
   merging = 0
@@ -254,11 +254,11 @@ indentLines :: proc(dir: Int)
     p := lineAt[l]
     e := lineEnd(l)
     if dir > 0 and e > p
-      _ = built.push(32)
-      _ = built.push(32)
+      _ = built.push(' ')
+      _ = built.push(' ')
     case dir < 0
       k := 0
-      for k < 2 and p < e and text[p] == 32
+      for k < 2 and p < e and text[p] == ' '
         p += 1
         k += 1
       end
@@ -269,7 +269,7 @@ indentLines :: proc(dir: Int)
     end
     _ = built.pushAll(text[p..<e])
     if l < lastLine
-      _ = built.push(10)
+      _ = built.push('\n')
     end
   end
   delta := built.len() - (b - a)
@@ -297,7 +297,7 @@ toggleComment :: proc()
       if least < 0 or p - lineAt[l] < least
         least = p - lineAt[l]
       end
-      all = all and text[p] == 35
+      all = all and text[p] == '#'
     end
   end
   if least < 0
@@ -321,7 +321,7 @@ toggleComment :: proc()
     case all
       _ = built.pushAll(text[p..<q])
       q += 1
-      if q < e and text[q] == 32
+      if q < e and text[q] == ' '
         q += 1
       end
       _ = built.pushAll(text[q..<e])
@@ -331,7 +331,7 @@ toggleComment :: proc()
       _ = built.pushAll(text[p + least..<e])
     end
     if l < lastLine
-      _ = built.push(10)
+      _ = built.push('\n')
     end
   end
   delta := built.len() - (b - a)
@@ -389,7 +389,7 @@ moveLines :: proc(dir: Int)
   built.clear()
   if dir < 0
     _ = built.pushAll(text[a..<b])
-    _ = built.push(10)
+    _ = built.push('\n')
     _ = built.pushAll(text[oa..<oe])
     merging = 0
     ok := edit(oa, b, built[0..<built.len()].asString(), 0)
@@ -397,7 +397,7 @@ moveLines :: proc(dir: Int)
     anchor = n - (oe - oa) - 1
   else
     _ = built.pushAll(text[oa..<oe])
-    _ = built.push(10)
+    _ = built.push('\n')
     _ = built.pushAll(text[a..<b])
     merging = 0
     ok := edit(a, oe, built[0..<built.len()].asString(), 0)
@@ -443,7 +443,7 @@ joinLines :: proc()
   end
   built.clear()
   e := lineEnd(first)
-  for e > a and text[e - 1] == 32
+  for e > a and text[e - 1] == ' '
     e -= 1
   end
   _ = built.pushAll(text[a..<e])
@@ -451,16 +451,16 @@ joinLines :: proc()
   for l in first + 1..=lastLine
     p := indentEnd(l)
     e = lineEnd(l)
-    for e > p and text[e - 1] == 32
+    for e > p and text[e - 1] == ' '
       e -= 1
     end
     if commentMark(l) > 0 and commentMark(l - 1) > 0
       p += commentMark(l) # (a comment going on: one comment)
     end
     n := built.len()
-    if p < e and n > 0 and built[n - 1] != 32 and built[n - 1] != 40 and built[n - 1] != 91 and built[n - 1] != 123 and
-        text[p] != 41 and text[p] != 93 and text[p] != 125 and text[p] != 44 and text[p] != 46
-      _ = built.push(32)
+    if p < e and n > 0 and built[n - 1] != ' ' and built[n - 1] != '(' and built[n - 1] != '[' and built[n - 1] != '{' and
+        text[p] != ')' and text[p] != ']' and text[p] != '}' and text[p] != ',' and text[p] != '.'
+      _ = built.push(' ')
     end
     if at < 0
       at = a + built.len()
@@ -478,7 +478,7 @@ formatted: Blob[94208] # the text, as rio fmt lays it out (more than the text ca
 
 # a character rio fmt keeps (it changes only spaces and line breaks, and may add a comma)
 kept :: proc(c: Int) -> Bool
-  return c != 32 and c != 10 and c != 13 and c != 9 and c != 44
+  return c != ' ' and c != '\n' and c != '\r' and c != '\t' and c != ','
 end
 
 # how many kept characters come before p in s
@@ -606,7 +606,7 @@ paste :: proc()
   newest: Blob[..12]
   _ = newest.print(clip.number())
   if lines.len() > 0 and lines.asString() == newest.asString() and cursor == anchor # (whole lines, the editor's: above this one)
-    if formatted[n - 1] != 10
+    if formatted[n - 1] != '\n'
       formatted[n] = 10
       n += 1
     end

@@ -30,12 +30,12 @@ appOf :: proc(p: String) -> String
     end
     if p.len() > start.len() and startsWith(p, start)
       e := start.len()
-      for e < p.len() and p[e] != 47
+      for e < p.len() and p[e] != '/'
         e += 1
       end
       ok := appIn.pushAll(p[start.len()..<e])
       if k == 1
-        ok = appIn.push(43)
+        ok = appIn.push('+')
       end
     end
   end
@@ -62,7 +62,7 @@ pathOf :: proc(line: String) -> String
   e := line.len()
   for _ in 0..<4
     s := e - 1
-    for s >= 0 and line[s] != 32
+    for s >= 0 and line[s] != ' '
       s -= 1
     end
     if s < 0 or not isNumber(line[s + 1..<e])
@@ -77,7 +77,7 @@ placeOf :: proc(line: String) -> [4]Int
   part := -1
   for i in pathOf(line).len()..<line.len()
     c := line[i]
-    if c == 32
+    if c == ' '
       part += 1
     case c >= 48 and c <= 57 and part >= 0 and part < 4
       r[part] = max(r[part], 0) * 10 + c - 48
@@ -101,7 +101,7 @@ lineIn :: proc(list: String, k: Int) -> String
   at := 0
   n := 0
   for i in 0..<list.len()
-    if list[i] == 10
+    if list[i] == '\n'
       if n == k
         return list[at..<i]
       end
@@ -114,7 +114,7 @@ end
 linesIn :: proc(list: String) -> Int
   n := 0
   for i in 0..<list.len()
-    if list[i] == 10
+    if list[i] == '\n'
       n += 1
     end
   end
@@ -160,13 +160,13 @@ mainPath :: proc(ref: String) -> String
   mainBuf.clear()
   n := ref
   ok := mainBuf.pushAll("/apps/")
-  if ref.len() > 1 and ref[end] == 43
+  if ref.len() > 1 and ref[end] == '+'
     n = ref[0..<end]
     mainBuf.clear()
     ok = mainBuf.pushAll("/projects/")
   end
   ok = mainBuf.pushAll(n)
-  ok = mainBuf.push(47)
+  ok = mainBuf.push('/')
   ok = mainBuf.pushAll(n)
   ok = mainBuf.pushAll(".rio")
   return mainBuf[0..<mainBuf.len()].asString()
@@ -176,7 +176,7 @@ end
 settle :: proc(n: Int)
   k := 0
   for i in 0..<n
-    if text[i] != 13
+    if text[i] != '\r'
       text[k] = text[i]
       k += 1
     end
@@ -207,10 +207,10 @@ isText :: proc(p: String, n: Int) -> Bool
     end
     for i in 0..<piece.len()
       c := piece[i]
-      if was13 and c != 10
+      if was13 and c != '\n'
         return false
       end
-      was13 = c == 13
+      was13 = c == '\r'
       if more > 0
         if c < 128 or c >= 192
           return false
@@ -226,7 +226,7 @@ isText :: proc(p: String, n: Int) -> Bool
         else
           return false
         end
-      case c < 32 and c != 9 and c != 10 and c != 13 or c == 127
+      case c < ' ' and c != '\t' and c != '\n' and c != '\r' or c == 127
         return false
       end
     end
@@ -240,7 +240,7 @@ load :: proc(p: String) -> Bool
   n := pc.fileRead(p, sizeOnly)
   a := appOf(p)
   bundled := false
-  if n < 0 and a.len() > 0 and a[end] != 42 and p == mainPath(a) # (an app the Rinc has built in)
+  if n < 0 and a.len() > 0 and a[end] != '*' and p == mainPath(a) # (an app the Rinc has built in)
     n = sourceLen(a)
     bundled = n >= 0
   end
@@ -378,7 +378,7 @@ callFiles :: proc(how: String)
   toFiles = true # (what's typed next is Files')
   argsBuf.clear()
   pushed := argsBuf.pushAll(how)
-  pushed = argsBuf.push(32)
+  pushed = argsBuf.push(' ')
   p := here()
   if p.len() == 0
     a: Blob[..34]
@@ -389,7 +389,7 @@ callFiles :: proc(how: String)
     end
   end
   slash := p.len() - 1
-  for slash > 0 and p[slash] != 47
+  for slash > 0 and p[slash] != '/'
     slash -= 1
   end
   if startsWith(p, "/projects") and slash < 9 # (/projects itself)
@@ -432,7 +432,7 @@ save :: proc() -> Bool
     # an installed app's file: saved in its project, the app copied as one first if it hasn't one
     refBuf.clear()
     ok := refBuf.pushAll(a)
-    ok = refBuf.push(43)
+    ok = refBuf.push('+')
     if sourceLen(refBuf[0..<refBuf.len()].asString()) < 0 and appfiles.copy(a, refBuf[0..<refBuf.len()].asString()) != 0
       say("Couldn't make its project", errorColor)
       return false

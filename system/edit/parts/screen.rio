@@ -7,7 +7,7 @@ KEYWORDS :: " proc struct if else for in end return break continue import includ
 isKeyword :: proc(a, b: Int) -> Bool
   n := b - a
   for p in 1..<KEYWORDS.len() - n
-    if KEYWORDS[p - 1] == 32 and KEYWORDS[p + n] == 32
+    if KEYWORDS[p - 1] == ' ' and KEYWORDS[p + n] == ' '
       k := 0
       for k < n and KEYWORDS[p + k] == text[a + k]
         k += 1
@@ -50,15 +50,15 @@ drawLine :: proc(l: Int, y: Int)
         color = commentColor
       case inString > 0
         color = stringColor
-        if c == inString and text[p - 1] != 92
+        if c == inString and text[p - 1] != '\\'
           inString = 0
         end
       case p < wordEnd
         color = wordColor
-      case c == 35
+      case c == '#'
         inComment = true
         color = commentColor
-      case c == 34 or c == 39
+      case c == '"' or c == '\''
         inString = c
         color = stringColor
       case isWord(c)
@@ -74,7 +74,7 @@ drawLine :: proc(l: Int, y: Int)
           wordColor = keywordColor
         case c >= 65 and c <= 90
           wordColor = typeColor
-        case q < e and text[q] == 40
+        case q < e and text[q] == '('
           wordColor = callColor
         end
         color = wordColor

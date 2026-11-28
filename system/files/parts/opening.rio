@@ -18,7 +18,7 @@ owExt: Blob[..16]     # the extension, lowercase
 extOf :: proc(name: String) -> String
   for i in 1..<name.len()
     j := name.len() - i
-    if name[j] == 46
+    if name[j] == '.'
       return name[j + 1..<name.len()]
     end
   end
@@ -28,8 +28,8 @@ end
 owListed :: proc(app: String) -> Bool
   at := 0
   for i in 0..<owList.len()
-    if owList[i] == 10
-      if i - at > app.len() and owList[at..<at + app.len()].asString() == app and owList[at + app.len()] == 32
+    if owList[i] == '\n'
+      if i - at > app.len() and owList[at..<at + app.len()].asString() == app and owList[at + app.len()] == ' '
         return true
       end
       at = i + 1
@@ -57,9 +57,9 @@ appsFor :: proc(k: Int) -> Bool
   _ = pc.appsFor("*", owAny)
   from := 0
   for i in 0..<owAny.len()
-    if owAny[i] == 10
+    if owAny[i] == '\n'
       sp := from
-      for sp < i and owAny[sp] != 32
+      for sp < i and owAny[sp] != ' '
         sp += 1
       end
       if not owListed(owAny[from..<sp].asString())
@@ -70,7 +70,7 @@ appsFor :: proc(k: Int) -> Bool
   end
   at := 0
   for i in 0..<owList.len()
-    if owList[i] == 10 and owCount < OW_MOST
+    if owList[i] == '\n' and owCount < OW_MOST
       owAt[owCount] = at
       owNameLen[owCount] = 0
       for at + owNameLen[owCount] < i and owList[at + owNameLen[owCount]] != 32
@@ -86,7 +86,7 @@ owApp :: proc(i: Int) -> String do return owList[owAt[i]..<owAt[i] + owNameLen[i
 owWhat :: proc(i: Int) -> String # (what it calls such a file)
   e := owAt[i] + owNameLen[i] + 1
   for j in e..<owList.len()
-    if owList[j] == 10
+    if owList[j] == '\n'
       return owList[min(e, j)..<j].asString()
     end
   end

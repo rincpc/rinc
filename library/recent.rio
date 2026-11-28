@@ -44,7 +44,7 @@ lineOf :: proc(t: String, k: Int) -> String
   at := 0
   n := 0
   for i in 0..<t.len()
-    if t[i] == 10
+    if t[i] == '\n'
       if n == k
         return t[at..<i]
       end
@@ -57,14 +57,14 @@ end
 linesOf :: proc(t: String) -> Int
   n := 0
   for i in 0..<t.len()
-    n += (t[i] == 10).toInt()
+    n += (t[i] == '\n').toInt()
   end
   return n
 end
 # a line's path (before its tab) and place (after it)
 tabIn :: proc(l: String) -> Int
   for i in 0..<l.len()
-    if l[i] == 9
+    if l[i] == '\t'
       return i
     end
   end
@@ -95,7 +95,7 @@ Recent.write :: proc(first: String, skip: String)
     l := lineOf(t, k)
     if n < MOST and pathIn(l) != skip and tabIn(l) < l.len() and tabIn(l) > 0
       one.clear()
-      fine := one.pushAll(l) and one.push(10)
+      fine := one.pushAll(l) and one.push('\n')
       _ = pc.fileWriteAt(self.stashPath(), at, one.asString())
       at += one.len()
       n += 1
@@ -109,7 +109,7 @@ Recent.note* :: proc(path: String, place: String)
   end
   self.read()
   one.clear()
-  fine := one.pushAll(path) and one.push(9) and one.pushAll(place) and one.push(10)
+  fine := one.pushAll(path) and one.push('\t') and one.pushAll(place) and one.push('\n')
   self.write(one.asString(), path)
 end
 # path taken out of the list (Close): the latest still in it, to open next ("" for none)
@@ -250,13 +250,13 @@ Recent.draw* :: proc()
   for i in 0..<n
     p := pathIn(lineOf(t, i))
     s := p.len() - 1
-    for s >= 0 and p[s] != 47
+    for s >= 0 and p[s] != '/'
       s -= 1
     end
     name := p[s + 1..<p.len()]
     name = name[0..<min(name.len(), cols)]
     folder := p[0..<max(s, 0)]
-    if folder.len() > 0 and folder[0] == 47
+    if folder.len() > 0 and folder[0] == '/'
       folder = folder[1..<folder.len()]
     end
     y := y0 + 16 + i * 10

@@ -107,14 +107,14 @@ offerWords :: proc()
   p := 0
   for p < textLen
     c := text[p]
-    if c == 35 # (a comment, to its line's end)
-      for p < textLen and text[p] != 10
+    if c == '#' # (a comment, to its line's end)
+      for p < textLen and text[p] != '\n'
         p += 1
       end
-    case c == 34 or c == 39 # (a string or character)
+    case c == '"' or c == '\'' # (a string or character)
       p += 1
-      for p < textLen and text[p] != c and text[p] != 10
-        if text[p] == 92
+      for p < textLen and text[p] != c and text[p] != '\n'
+        if text[p] == '\\'
           p += 1
         end
         p += 1
@@ -163,16 +163,16 @@ offerRio :: proc()
   i := 0
   for p < n
     t := p # (name, tab, kind, tab, what it is, 10)
-    for t < n and items[t] != 9
+    for t < n and items[t] != '\t'
       t += 1
     end
     e := t
-    for e < n and items[e] != 10
+    for e < n and items[e] != '\n'
       e += 1
     end
     if t + 3 <= e
       rank := i
-      if items[t + 1] == 107 # (k: a word of Rio's)
+      if items[t + 1] == 'k' # (k: a word of Rio's)
         rank = 500000 + i
       end
       offer(1, p, t - p, t + 3, e - t - 3, rank, items[p..<t].asString())
@@ -283,7 +283,7 @@ complete :: proc(how: Int)
   end
   wordFrom = p
   offers = 0
-  dot := p > 0 and text[p - 1] == 46 and (p < 2 or text[p - 2] != 46)
+  dot := p > 0 and text[p - 1] == '.' and (p < 2 or text[p - 2] != '.')
   offerRio()
   if not dot or offers == 0 # (after a dot, the file's words only when Rio has nothing)
     offerWords()
@@ -331,7 +331,7 @@ completeKey :: proc(k: Int) -> Bool
     return true
   case k == 8
     backspace(false)
-    if cursor <= wordFrom and (cursor == 0 or text[cursor - 1] != 46)
+    if cursor <= wordFrom and (cursor == 0 or text[cursor - 1] != '.')
       completing = false
     else
       complete(2)

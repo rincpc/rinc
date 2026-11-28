@@ -94,13 +94,13 @@ end
 # file, read back
 jobRecAdd :: proc(into: Blob[..], s: String)
   _ = into.pushAll(s)
-  for i in s.len()..<JOB_REC do _ = into.push(32)
+  for i in s.len()..<JOB_REC do _ = into.push(' ')
 end
 jobRecAt :: proc(file: String, n: Int) -> String
   jobRec.clear()
   _ = pc.fileReadAt(file, n * JOB_REC, jobRec)
   e := jobRec.len()
-  for e > 0 and jobRec[e - 1] == 32 do e -= 1
+  for e > 0 and jobRec[e - 1] == ' ' do e -= 1
   return jobRec[0..<e].asString()
 end
 
@@ -228,7 +228,7 @@ jobLook :: proc()
     jobFolderCount += 1
   else
     tab := 0
-    for tab < rec.len() and rec[tab] != 9 do tab += 1
+    for tab < rec.len() and rec[tab] != '\t' do tab += 1
     _ = jobFrom.pushAll(rec[0..<tab])
     _ = jobPath2.pushAll(rec[min(tab + 1, rec.len())..<rec.len()])
   end
@@ -243,7 +243,7 @@ jobLook :: proc()
   end
   lines := 0
   for i in 0..<jobListing.len()
-    if jobListing[i] == 10 do lines += 1
+    if jobListing[i] == '\n' do lines += 1
   end
   if lines < count # (more in it than its listing has room for: those said, and counted)
     log("files:", jobFrom.asString(), "has", count, "things in it, more than can be listed at once:", count - lines, "left out")
@@ -251,9 +251,9 @@ jobLook :: proc()
   end
   s := 0
   for i in 0..<jobListing.len()
-    if jobListing[i] == 10
+    if jobListing[i] == '\n'
       name := jobListing[s + 2..<i].asString()
-      folder := jobListing[s] == 100
+      folder := jobListing[s] == 'd'
       jobPath.clear()
       _ = jobPath.print(jobFrom.asString(), "/", name)
       jobLine.clear()
@@ -292,15 +292,15 @@ jobDo :: proc()
   jobLine.clear()
   _ = pc.fileReadAt(JOB_PLAN, jobPlanPos, jobLine)
   e := 0
-  for e < jobLine.len() and jobLine[e] != 10 do e += 1
+  for e < jobLine.len() and jobLine[e] != '\n' do e += 1
   if e >= jobLine.len() # (the plan's end, or it can't be read)
     jobPlanPos = jobPlanEnd
     return
   end
   jobPlanPos += e + 1
   kind := jobLine[0]
-  jobMaking = kind == 100
-  if kind == 100 # d to: a folder made
+  jobMaking = kind == 'd'
+  if kind == 'd' # d to: a folder made
     jobTo.clear()
     _ = jobTo.pushAll(jobLine[2..<e])
     jobFrom.clear()
@@ -309,7 +309,7 @@ jobDo :: proc()
     jobMade += 1
     t := jobTo.asString()
     slash := t.len() - 1
-    for slash > 0 and t[slash] != 47 do slash -= 1
+    for slash > 0 and t[slash] != '/' do slash -= 1
     if t[0..<max(slash, 1)] == here() # (one made here: shown, so the screen's not "(empty)" while it fills)
       reopen(t[slash + 1..<t.len()])
     end
@@ -317,11 +317,11 @@ jobDo :: proc()
   end
   sp := 2 # (f size from<tab>to, x size path: the size)
   n := 0
-  for sp < e and jobLine[sp] != 32
+  for sp < e and jobLine[sp] != ' '
     n = n * 10 + jobLine[sp] - 48
     sp += 1
   end
-  if kind == 120 # x: a file deleted
+  if kind == 'x' # x: a file deleted
     jobTo.clear()
     _ = jobTo.pushAll(jobLine[sp + 1..<e])
     if pc.fileDelete(jobTo.asString()) == 0
@@ -334,7 +334,7 @@ jobDo :: proc()
     return
   end
   tab := sp + 1 # f: a file copied, its first piece (all of it, if it's small), read then written as one
-  for tab < e and jobLine[tab] != 9 do tab += 1
+  for tab < e and jobLine[tab] != '\t' do tab += 1
   jobFrom.clear()
   _ = jobFrom.pushAll(jobLine[sp + 1..<tab])
   jobTo.clear()
@@ -430,7 +430,7 @@ jobFrame :: proc() -> Bool
     jobBegin(true, true, "")
     s := 0
     for i in 0..<jobBuf.len()
-      if jobBuf[i] == 10
+      if jobBuf[i] == '\n'
         jobAdd(jobBuf[s..<i].asString(), "")
         s = i + 1
       end

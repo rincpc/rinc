@@ -888,7 +888,7 @@ notedSize* :: proc(path: String) -> [2]Int
   _ = pc.imageNotes(path, notes)
   if notes.len() > 7 and notes[0..<7].asString() == "sprite "
     e := 7
-    for e < notes.len() and notes[e] != 10 and notes[e] != 32
+    for e < notes.len() and notes[e] != '\n' and notes[e] != ' '
       e += 1
     end
     s := sizeIn(notes[7..<e].asString())
@@ -901,7 +901,7 @@ end
 # the word s has from byte at on (to the next space or its end)
 wordAt :: proc(s: String, at: Int) -> String
   e := at
-  for e < s.len() and s[e] != 32
+  for e < s.len() and s[e] != ' '
     e += 1
   end
   return s[min(at, s.len())..<e]
@@ -910,10 +910,10 @@ end
 wordStart :: proc(s: String, k: Int) -> Int
   at := 0
   for n in 0..<k
-    for at < s.len() and s[at] != 32
+    for at < s.len() and s[at] != ' '
       at += 1
     end
-    for at < s.len() and s[at] == 32
+    for at < s.len() and s[at] == ' '
       at += 1
     end
   end
@@ -962,7 +962,7 @@ end
 lineEnds :: proc(e: Int, next: Int) -> Bool
   lineFrom = ioPos
   lineTo = e
-  if lineTo > lineFrom and work[lineTo - 1] == 13
+  if lineTo > lineFrom and work[lineTo - 1] == '\r'
     lineTo -= 1
   end
   ioPos = next
@@ -974,7 +974,7 @@ nextLine :: proc() -> Bool
   lineNo += 1
   e := ioPos
   for true
-    for e < ioLen and work[e] != 10
+    for e < ioLen and work[e] != '\n'
       e += 1
     end
     if e < ioLen # (its line break)
@@ -1156,7 +1156,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
     if startsWith(s, "sheet ") and version >= 3
       # sheet N path SIZE (rinc map 3: then across A; its path may have spaces: its size from its end)
       a := s.len()
-      for a > 0 and s[a - 1] != 32
+      for a > 0 and s[a - 1] != ' '
         a -= 1
       end
       e := s.len()
@@ -1167,7 +1167,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
         end
       end
       z := e
-      for z > 0 and s[z - 1] != 32
+      for z > 0 and s[z - 1] != ' '
         z -= 1
       end
       sprite := sizeIn(s[z..<e])
@@ -1233,7 +1233,7 @@ Map.readAs :: proc(keep: Bool) -> Bool
       return fails("a line before its first layer")
     case startsWith(s, "tiles ") and version == 2
       a := s.len() # (its path, then its tiles' size, after the last space)
-      for a > 6 and s[a - 1] != 32
+      for a > 6 and s[a - 1] != ' '
         a -= 1
       end
       if keep

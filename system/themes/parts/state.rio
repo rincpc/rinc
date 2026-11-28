@@ -88,7 +88,7 @@ nameOk :: proc(s: String) -> Bool
     return false
   end
   for k in 0..<s.len()
-    if not isNameChar(s[k]) and s[k] != 45
+    if not isNameChar(s[k]) and s[k] != '-'
       return false
     end
   end

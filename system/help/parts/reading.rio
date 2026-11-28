@@ -48,7 +48,7 @@ end
 
 # after a set's title, a project's +
 addSetStar :: proc(set: Blob)
-  if set.len() > 0 and set[end] == 43
+  if set.len() > 0 and set[end] == '+'
     addSrc(" +") # (a link's text is as it is: no emphasis)
   end
 end
@@ -92,9 +92,9 @@ addTitle :: proc()
   head.clear()
   _ = pc.helpRead(readme.asString(), head)
   n := head.len()
-  if n > 2 and head[0] == 35 and head[1] == 32
+  if n > 2 and head[0] == '#' and head[1] == ' '
     e := 2
-    for e < n and head[e] != 10 and head[e] != 13
+    for e < n and head[e] != '\n' and head[e] != '\r'
       e += 1
     end
     addSrcBlob(head[2..<e])
@@ -118,7 +118,7 @@ listApps :: proc()
     appNameIn: Blob[..] = appName
     n := min(pc.appName(i, appNameIn), 32)
     ok := appsNow.pushAll(appName[0..<n])
-    ok = appsNow.push(44)
+    ok = appsNow.push(',')
   end
 end
 
@@ -129,7 +129,7 @@ makeContents :: proc()
   nameCount = 0
   at := 0
   for k in 0..<got.len()
-    if nameCount < min(found, 128) and names[k] == 10
+    if nameCount < min(found, 128) and names[k] == '\n'
       nameAt[nameCount] = at
       nameLen[nameCount] = k - at
       nameCount += 1
@@ -142,7 +142,7 @@ makeContents :: proc()
     n := names[nameAt[i]..<nameAt[i] + nameLen[i]]
     slash := -1
     for k in 0..<n.len()
-      if slash < 0 and n[k] == 47
+      if slash < 0 and n[k] == '/'
         slash = k
       end
     end
@@ -220,12 +220,12 @@ contents :: proc()
     if n > 0
       k := 0
       b := 0
-      for k < n and keptText[k] != 10
+      for k < n and keptText[k] != '\n'
         b = b * 10 + keptText[k] - 48
         k += 1
       end
       k += 1
-      for k < n and keptText[k] != 10
+      for k < n and keptText[k] != '\n'
         ok := keptApps.push(keptText[k])
         k += 1
       end
@@ -251,9 +251,9 @@ contents :: proc()
   keptBoot = pc.boot()
   keptText.clear()
   ok = keptText.print(keptBoot)
-  ok = keptText.push(10)
+  ok = keptText.push('\n')
   ok = keptText.pushAll(keptApps[0..<keptApps.len()])
-  ok = keptText.push(10)
+  ok = keptText.push('\n')
   ok = keptText.pushAll(kept[0..<kept.len()])
   ok = pc.fileWrite("stash:contents", keptText[0..<keptText.len()].asString()) == 0
 end
@@ -265,7 +265,7 @@ open :: proc(name: Blob, anchor: Blob) -> Bool
   else
     got: Blob[..] = src[0..<SRC]
     n := 0
-    if name[0] == 47 # (a file's path: Files, opening a .md file here)
+    if name[0] == '/' # (a file's path: Files, opening a .md file here)
       n = pc.fileRead(name.asString(), got)
     else
       n = pc.helpRead(name.asString(), got)
@@ -307,13 +307,13 @@ resolve :: proc(l: Int) -> Bool
   t := targets[targetAt[l]..<targetAt[l] + targetLen[l]]
   goName.clear()
   goAnchor.clear()
-  if t.len() >= 4 and t[0] == 104 and t[1] == 116 and t[2] == 116 and t[3] == 112 # (http: a web page)
+  if t.len() >= 4 and t[0] == 'h' and t[1] == 't' and t[2] == 't' and t[3] == 'p' # (http: a web page)
     say("A web page: not here")
     return false
   end
   hash := t.len()
   for k in 0..<t.len()
-    if t[k] == 35 and hash == t.len()
+    if t[k] == '#' and hash == t.len()
       hash = k
     end
   end
@@ -327,7 +327,7 @@ resolve :: proc(l: Int) -> Bool
   end
   if doc.len() > 0 # (from the shown text's folder)
     d := doc.len()
-    for d > 0 and doc[d - 1] != 47
+    for d > 0 and doc[d - 1] != '/'
       d -= 1
     end
     ok := goName.pushAll(doc[0..<d])
@@ -335,26 +335,26 @@ resolve :: proc(l: Int) -> Bool
   k := 0
   for k < path.len()
     e := k
-    for e < path.len() and path[e] != 47
+    for e < path.len() and path[e] != '/'
       e += 1
     end
     part := path[k..<e]
-    if part.len() == 2 and part[0] == 46 and part[1] == 46 # (..: the folder up)
+    if part.len() == 2 and part[0] == '.' and part[1] == '.' # (..: the folder up)
       if goName.len() > 0
         _ = goName.pop()
       end
-      for goName.len() > 0 and goName[end] != 47
+      for goName.len() > 0 and goName[end] != '/'
         _ = goName.pop()
       end
-    case not (part.len() == 1 and part[0] == 46) and part.len() > 0
+    case not (part.len() == 1 and part[0] == '.') and part.len() > 0
       ok := goName.pushAll(part)
       if e < path.len()
-        ok = goName.push(47)
+        ok = goName.push('/')
       end
     end
     k = e + 1
   end
-  if goName.len() > 3 and goName[end - 2] == 46 and goName[end - 1] == 109 and goName[end] == 100
+  if goName.len() > 3 and goName[end - 2] == '.' and goName[end - 1] == 'm' and goName[end] == 'd'
     _ = goName.pop() # (.md left off)
     _ = goName.pop()
     _ = goName.pop()
@@ -416,11 +416,11 @@ savePlace :: proc()
   histTop[histAt] = top
   place.clear()
   ok := place.print(histAt)
-  ok = place.push(10)
+  ok = place.push('\n')
   for i in 0..<histLen
     ok = place.print(histTop[i], " ")
     ok = place.pushAll(histName[i][0..<histName[i].len()])
-    ok = place.push(10)
+    ok = place.push('\n')
   end
   ok = pc.fileWrite("stash:place", place[0..<place.len()].asString()) == 0
   placeDirty = false
@@ -436,13 +436,13 @@ restorePlace :: proc() -> Bool
   end
   at := 0
   k := 0
-  for k < n and place[k] != 10
+  for k < n and place[k] != '\n'
     at = at * 10 + place[k] - 48
     k += 1
   end
   k += 1
   histLen = 0
-  for k < n and histLen < 32 and place[k] != 10
+  for k < n and histLen < 32 and place[k] != '\n'
     t := 0
     for k < n and place[k] >= 48 and place[k] <= 57
       t = t * 10 + place[k] - 48
@@ -450,7 +450,7 @@ restorePlace :: proc() -> Bool
     end
     k += 1 # (the space)
     histName[histLen].clear()
-    for k < n and place[k] != 10
+    for k < n and place[k] != '\n'
       ok := histName[histLen].push(place[k])
       k += 1
     end
@@ -484,7 +484,7 @@ up :: proc()
   end
   slash := -1
   for k in 0..<doc.len()
-    if slash < 0 and doc[k] == 47
+    if slash < 0 and doc[k] == '/'
       slash = k
     end
   end

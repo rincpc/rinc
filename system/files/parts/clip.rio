@@ -94,11 +94,11 @@ keepView :: proc()
   if picked() >= 0
     ok := kept.pushAll(nameOf(picked()))
   end
-  ok := kept.push(10)
+  ok := kept.push('\n')
   for k in 0..<count
     if marked[k] and kept.len() + nameLen[k] + 1 < 2048
       ok = kept.pushAll(nameOf(k))
-      ok = kept.push(10)
+      ok = kept.push('\n')
     end
   end
   saved := pc.fileWrite("stash:view", kept[0..<kept.len()].asString())
@@ -116,7 +116,7 @@ viewLine :: proc(n: Int) -> String
   at := 0
   k := 0
   for i in 0..<kept.len()
-    if kept[i] == 10
+    if kept[i] == '\n'
       if k == n
         return kept[at..<i].asString()
       end
@@ -170,7 +170,7 @@ end
 clipLines :: proc() -> Int
   n := 0
   for i in 2..<clipHeld.len()
-    if clipHeld[i] == 10
+    if clipHeld[i] == '\n'
       n += 1
     end
   end
@@ -185,16 +185,16 @@ take :: proc(cut: Bool)
     return
   end
   clipHeld.clear()
-  ok := clipHeld.push(99)
+  ok := clipHeld.push('c')
   if cut
     clipHeld[0] = 120
   end
-  ok = clipHeld.push(10)
+  ok = clipHeld.push('\n')
   n := 0
   for k in 0..<count
     if chosen(k) and clipHeld.len() + path.len() + nameLen[k] + 2 < 2048
       ok = clipHeld.pushAll(pathTo(nameOf(k)))
-      ok = clipHeld.push(10)
+      ok = clipHeld.push('\n')
       n += 1
     end
   end
@@ -219,7 +219,7 @@ fresh: Blob[..80]
 freshName :: proc(name: String) -> String
   dot := name.len()
   for i in 1..<name.len()
-    if name[i] == 46
+    if name[i] == '.'
       dot = i
     end
   end
@@ -249,26 +249,26 @@ paste :: proc()
   if jobBusy()
     return
   end
-  cut := clipHeld[0] == 120
+  cut := clipHeld[0] == 'x'
   done := 0
   failed := 0
   at := 2
   begun := false # (a job, for what's copied: planned, then done, a box showing it: jobs.rio)
   for i in 2..<clipHeld.len()
-    if clipHeld[i] == 10
+    if clipHeld[i] == '\n'
       pasteFrom.clear()
       ok := pasteFrom.pushAll(clipHeld[at..<i])
       at = i + 1
       p := pasteFrom[0..<pasteFrom.len()].asString()
       slash := p.len() - 1
-      for slash > 0 and p[slash] != 47
+      for slash > 0 and p[slash] != '/'
         slash -= 1
       end
       pasteName.clear()
       ok = pasteName.pushAll(p[slash + 1..<p.len()])
       name := pasteName[0..<pasteName.len()].asString()
       into := here()
-      inside := into == p or (into.len() > p.len() and into[0..<p.len()] == p and into[p.len()] == 47) # (it, or a folder in it)
+      inside := into == p or (into.len() > p.len() and into[0..<p.len()] == p and into[p.len()] == '/') # (it, or a folder in it)
       res := -1
       if inside or (cut and p[0..<max(slash, 1)] == into) # (not into itself; moved to where it is: nothing to do)
         res = -1

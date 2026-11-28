@@ -77,7 +77,7 @@ topicIn: Blob[..] = topic[0..<96]
 topicLen := min(pc.helpTopic(topicIn), 96)
 hash := topicLen
 for k in 0..<topicLen
-  if topic[k] == 35 and hash == topicLen
+  if topic[k] == '#' and hash == topicLen
     hash = k
   end
 end

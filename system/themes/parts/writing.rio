@@ -33,12 +33,12 @@ save :: proc(t: Int) -> Bool
   for r in 0..<ROLES
     fine = out.print(roleNames[r], "*")
     for _ in roleNames[r].len() + 1..<8 # (lined up: comment*, the longest, is 8)
-      fine = out.push(32)
+      fine = out.push(' ')
     end
     c := colors[t * ROLES + r]
     fine = out.print(" :: ", c)
     for _ in 0..<4 - (c >= 10).toInt() - (c >= 100).toInt()
-      fine = out.push(32)
+      fine = out.push(' ')
     end
     fine = out.print("# ", colorName(c), "\n")
   end
@@ -52,7 +52,7 @@ make :: proc(t: Int, owner: String, id: String, plus: Bool, keep: Bool) -> Int
   idBuf.clear()
   fine = idBuf.print(owner, "/", id)
   if plus
-    fine = idBuf.push(43)
+    fine = idBuf.push('+')
   end
   if count >= MOST or find(idBuf[0..<idBuf.len()].asString()) >= 0
     return -1

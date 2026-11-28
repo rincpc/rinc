@@ -19,7 +19,7 @@ end
 # its owner and its id, either side of the slash (a copy's + left on the id)
 slashOf :: proc(n: String) -> Int
   for k in 0..<n.len()
-    if n[k] == 47
+    if n[k] == '/'
       return k
     end
   end
@@ -81,13 +81,13 @@ parse :: proc(t: Int, n: Int)
     colors[t * ROLES + r] = defaults[r]
   end
   i := 0
-  if n > 0 and fileBuf[0] == 35 # (the title)
+  if n > 0 and fileBuf[0] == '#' # (the title)
     i = 1
-    for i < n and fileBuf[i] == 32
+    for i < n and fileBuf[i] == ' '
       i += 1
     end
     a := i
-    for i < n and fileBuf[i] != 10 and fileBuf[i] != 13
+    for i < n and fileBuf[i] != '\n' and fileBuf[i] != '\r'
       i += 1
     end
     titleAt[t] = titleAt[t]
@@ -100,7 +100,7 @@ parse :: proc(t: Int, n: Int)
     end
   end
   for i < n
-    for i < n and (fileBuf[i] == 32 or fileBuf[i] == 9)
+    for i < n and (fileBuf[i] == ' ' or fileBuf[i] == '\t')
       i += 1
     end
     a := i
@@ -108,15 +108,15 @@ parse :: proc(t: Int, n: Int)
       i += 1
     end
     b := i
-    if i < n and fileBuf[i] == 42
+    if i < n and fileBuf[i] == '*'
       i += 1
     end
-    for i < n and fileBuf[i] == 32
+    for i < n and fileBuf[i] == ' '
       i += 1
     end
-    if b > a and i + 1 < n and fileBuf[i] == 58 and fileBuf[i + 1] == 58
+    if b > a and i + 1 < n and fileBuf[i] == ':' and fileBuf[i + 1] == ':'
       i += 2
-      for i < n and fileBuf[i] == 32
+      for i < n and fileBuf[i] == ' '
         i += 1
       end
       v := 0
@@ -133,7 +133,7 @@ parse :: proc(t: Int, n: Int)
         end
       end
     end
-    for i < n and fileBuf[i] != 10
+    for i < n and fileBuf[i] != '\n'
       i += 1
     end
     i += 1
@@ -202,9 +202,9 @@ scanThemes :: proc(folder: String, owner: String, where: Int)
   n := pc.dir(pathBuf.asString(), got)
   at := 0
   for i in 0..<got.len()
-    if n > 0 and sub[i] == 10
+    if n > 0 and sub[i] == '\n'
       e := sub[at + 2..<i].asString() # (its name, after "f ")
-      if sub[at] == 102 and e.len() > 10 and e[e.len() - 10..<e.len()] == ".theme.rio"
+      if sub[at] == 'f' and e.len() > 10 and e[e.len() - 10..<e.len()] == ".theme.rio"
         idBuf.clear()
         fine = idBuf.pushAll(e[0..<e.len() - 10])
         file: Blob[..112]
@@ -229,13 +229,13 @@ scanAll :: proc(root: String, where: Int)
   n := pc.dir(root, got)
   at := 0
   for i in 0..<got.len()
-    if n > 0 and topListing[i] == 10
-      if topListing[at] == 100
+    if n > 0 and topListing[i] == '\n'
+      if topListing[at] == 'd'
         e := topListing[at + 2..<i].asString()
         ownerBuf.clear()
         fine = ownerBuf.pushAll(e)
         if where == PROJECTS
-          fine = ownerBuf.push(43) # (a project's: its +)
+          fine = ownerBuf.push('+') # (a project's: its +)
         end
         folderBuf.clear()
         fine = folderBuf.print(root, "/", e)
@@ -259,7 +259,7 @@ findAll :: proc()
   got: Blob[..] = setting
   _ = pc.fileRead("settings:theme", got)
   n := got.len()
-  for n > 0 and (setting[n - 1] == 10 or setting[n - 1] == 13 or setting[n - 1] == 32)
+  for n > 0 and (setting[n - 1] == '\n' or setting[n - 1] == '\r' or setting[n - 1] == ' ')
     n -= 1
   end
   want := "rinc/steel" # (no setting: Rinc's own colors)

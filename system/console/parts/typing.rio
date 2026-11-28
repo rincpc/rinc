@@ -45,7 +45,7 @@ saveName: Blob[..100] # (an app, or a file of its own: chord/parts/sound.rio)
 
 blank :: proc(t: String) -> Bool
   for c in t
-    if c != 32
+    if c != ' '
       return false
     end
   end
@@ -55,10 +55,10 @@ end
 trim :: proc(t: String) -> String
   a := 0
   b := t.len()
-  for a < b and t[a] == 32
+  for a < b and t[a] == ' '
     a += 1
   end
-  for b > a and t[b - 1] == 32
+  for b > a and t[b - 1] == ' '
     b -= 1
   end
   return t[a..<b]
@@ -77,10 +77,10 @@ histLine :: proc(b: Int) -> String
   stop := hist.len() - 1 # (the newline after it)
   for _ in 1..<b
     stop -= 1
-    for hist[stop] != 10 do stop -= 1
+    for hist[stop] != '\n' do stop -= 1
   end
   start := stop
-  for start > 0 and hist[start - 1] != 10 do start -= 1
+  for start > 0 and hist[start - 1] != '\n' do start -= 1
   return hist[start..<stop].asString()
 end
 # a line typed, kept for up and down (the same again: once); the oldest go, to make room
@@ -90,7 +90,7 @@ addLine :: proc(t: String)
   end
   for histCount > 0 and hist.len() + t.len() + 1 > HISTORY_MOST
     k := 0
-    for hist[k] != 10 do k += 1
+    for hist[k] != '\n' do k += 1
     k += 1
     n := hist.len()
     for i in 0..<n - k do hist[i] = hist[i + k]
@@ -98,7 +98,7 @@ addLine :: proc(t: String)
     histCount -= 1
   end
   _ = hist.pushAll(t)
-  _ = hist.push(10)
+  _ = hist.push('\n')
   histCount += 1
 end
 remember :: proc(t: String) # (and in its file: there again after a restart, or another app's run)
@@ -112,9 +112,9 @@ readHistory :: proc() # (as it starts: the lines kept, back)
     hist.clear()
     return
   end
-  if hist[hist.len() - 1] != 10 do _ = hist.push(10) # (cut short, or written by hand: a last line)
+  if hist[hist.len() - 1] != '\n' do _ = hist.push('\n') # (cut short, or written by hand: a last line)
   for c in hist
-    if c == 10 do histCount += 1
+    if c == '\n' do histCount += 1
   end
 end
 readHistory()

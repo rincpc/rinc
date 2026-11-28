@@ -108,7 +108,7 @@ promptDone :: proc()
   if m == NAMING # (a new file, as a new project's main file)
     ok := true
     for c in s
-      ok = ok and ((c >= 97 and c <= 122) or (c >= 65 and c <= 90) or (c >= 48 and c <= 57) or c == 95 or c == 45)
+      ok = ok and ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_' or c == '-')
     end
     if s.len() == 0 or s.len() > 32 or not ok
       say("A name is letters, digits, _ and -", errorColor)
@@ -116,7 +116,7 @@ promptDone :: proc()
     end
     refBuf.clear()
     pushed := refBuf.pushAll(s)
-    pushed = refBuf.push(43)
+    pushed = refBuf.push('+')
     if sourceLen(refBuf[0..<refBuf.len()].asString()) >= 0
       say("There's a project of that name already", errorColor)
       return

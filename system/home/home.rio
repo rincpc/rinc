@@ -44,7 +44,7 @@ refresh :: proc()
     infoLen[i] = min(pc.appInfo(i, infosIn), 96)
     titleLen[i] = 0
     for k in 0..<min(infoLen[i], 24)
-      if titleLen[i] == 0 and infos[bt + k] == 58 # (the colon)
+      if titleLen[i] == 0 and infos[bt + k] == ':' # (the colon)
         titleLen[i] = k
       end
     end

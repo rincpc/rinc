@@ -39,7 +39,7 @@ include "parts/screen.rio"
 # else the active app or project's main file (another app may have made another one active), or, if
 # that's where it was, where it was, else a new file
 numbersBuf: Blob[..1] # (line numbers, if they were shown last time)
-showNumbers(pc.fileRead("save:numbers", numbersBuf) == 1 and numbersBuf[0] == 49)
+showNumbers(pc.fileRead("save:numbers", numbersBuf) == 1 and numbersBuf[0] == '1')
 lastBuf: Blob[..128]
 _ = pc.fileRead("save:last", lastBuf)
 lastPath := pathOf(lastBuf.asString())

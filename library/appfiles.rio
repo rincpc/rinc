@@ -161,7 +161,7 @@ copy* :: proc(from: String, to: String) -> Int
     end
     start := at
     e := at
-    for e < entries.len() and entries[e] != 10
+    for e < entries.len() and entries[e] != '\n'
       e += 1
     end
     name := entries[start + 2..<e].asString()

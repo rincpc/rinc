@@ -11,7 +11,7 @@ pathTo :: proc(name: String) -> String
   full.clear()
   ok := full.pushAll(path[0..<path.len()])
   if path.len() > 1
-    ok = full.push(47)
+    ok = full.push('/')
   end
   ok = full.pushAll(name)
   return full[0..<full.len()].asString()
@@ -150,9 +150,9 @@ open :: proc(p: String) -> Bool
   end
   at := 0
   for i in 0..<got.len()
-    if listing[i] == 10 and count < MOST and n > 0
+    if listing[i] == '\n' and count < MOST and n > 0
       kind[count] = FILE
-      if listing[at] == 100
+      if listing[at] == 'd'
         kind[count] = FOLDER
       end
       nameAt[count] = at + 2
@@ -183,7 +183,7 @@ goUp :: proc()
     return
   end
   slash := path.len() - 1
-  for slash > 0 and path[slash] != 47
+  for slash > 0 and path[slash] != '/'
     slash -= 1
   end
   came.clear()
@@ -218,7 +218,7 @@ appRef :: proc(k: Int) -> String
   if kind[k] == FOLDER and (inApps() or inProjects())
     ok := refBuf.pushAll(nameOf(k))
     if inProjects()
-      ok = refBuf.push(43)
+      ok = refBuf.push('+')
     end
   case kind[k] == FILE
     p := here()
@@ -233,7 +233,7 @@ appRef :: proc(k: Int) -> String
         if n.len() == app.len() + 4 and n[0..<app.len()] == app and n[app.len()..<n.len()] == ".rio"
           ok := refBuf.pushAll(app)
           if prefix == 1
-            ok = refBuf.push(43)
+            ok = refBuf.push('+')
           end
         end
       end
@@ -285,7 +285,7 @@ showFile :: proc(k: Int)
   lineCount = 1
   lineAt[0] = 0
   for i in 0..<viewLen
-    if view[i] == 10 and lineCount < 2048
+    if view[i] == '\n' and lineCount < 2048
       lineAt[lineCount] = i + 1
       lineCount += 1
     end

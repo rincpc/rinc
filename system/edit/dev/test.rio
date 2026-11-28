@@ -99,10 +99,10 @@ laid :: proc(s: String, at: Int) -> Int
 end
 c := laid("x:=f( a,b )\ny:=2", 8)
 assert(text[0..<textLen].asString() == "x := f(a, b)\ny := 2", "laid out")
-assert(text[c] == 98, "the cursor still on b")
+assert(text[c] == 'b', "the cursor still on b")
 c = laid("if a\n      x:=1\nend", 11)
 assert(text[0..<textLen].asString() == "if a\n  x := 1\nend", "indented")
-assert(text[c] == 120, "the cursor still on x")
+assert(text[c] == 'x', "the cursor still on x")
 undo()
 assert(text[0..<textLen].asString() == "if a\n      x:=1\nend", "and undone")
 

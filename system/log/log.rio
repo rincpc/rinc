@@ -28,8 +28,8 @@ findApps :: proc()
   _ = pc.dir("/cache", listing)
   at := 0
   for i in 0..<listing.len()
-    if listing[i] == 10
-      if listing[at] == 100 and appCount < 64 # (d name: a folder, an app's, if it has a log)
+    if listing[i] == '\n'
+      if listing[at] == 'd' and appCount < 64 # (d name: a folder, an app's, if it has a log)
         name := listing[at + 2..<i].asString()
         path: Blob[..96]
         _ = path.print("/cache/", name, "/log")
@@ -38,7 +38,7 @@ findApps :: proc()
           appAt[appCount] = apps.len()
           appLen[appCount] = name.len()
           ok := apps.pushAll(name)
-          ok = apps.push(10)
+          ok = apps.push('\n')
           appCount += 1
         end
       end
@@ -69,7 +69,7 @@ show :: proc(k: Int)
   _ = pc.fileRead(path.asString(), text)
   at := 0
   for i in 0..<text.len() + 1
-    if i == text.len() or text[i] == 10
+    if i == text.len() or text[i] == '\n'
       if i < text.len() or i > at # (a line, not the nothing after the last: its rows, COLS characters each)
         for r in 0..<max(1, (i - at + COLS - 1) / COLS)
           if rowCount < 1024

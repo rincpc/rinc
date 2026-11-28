@@ -130,7 +130,7 @@ command :: proc(t: String) -> Bool
     return true
   end
   w := 0
-  for w < t.len() and t[w] != 32
+  for w < t.len() and t[w] != ' '
     w += 1
   end
   if w == t.len()
@@ -188,7 +188,7 @@ enter :: proc()
   shown: Blob[..256]
   t := trim(line[].asString())
   indent := 0
-  for indent < line.len() and line[indent] == 32
+  for indent < line.len() and line[indent] == ' '
     indent += 1
   end
   # (a step back out, if the indent is still all there: not when Backspace already took it)
@@ -214,7 +214,7 @@ enter :: proc()
     end
   case acc.len() == 0 and command(trim(text))
     acc.clear()
-  case not (acc.pushAll(text) and acc.push(10))
+  case not (acc.pushAll(text) and acc.push('\n'))
     say("(input too long)", errorColor)
     acc.clear()
   else
@@ -223,7 +223,7 @@ enter :: proc()
     if r == 1
       setLine("")
       for _ in 0..<pc.rioIndent(acc[].asString()) * 2
-        _ = line.push(32)
+        _ = line.push(' ')
       end
       cur = line.len()
       autoIndent = cur
@@ -238,7 +238,7 @@ enter :: proc()
 end
 
 typing :: proc(c: Int)
-  if c != 32
+  if c != ' '
     autoIndent = 0
   end
   switch c

@@ -100,9 +100,9 @@ inline :: proc(a: Int, b: Int, base: Int)
         end
         i = e + 1
       end
-    case c == 42 and i + 1 < b and src[i + 1] == 42 # **bold**
+    case c == '*' and i + 1 < b and src[i + 1] == '*' # **bold**
       e := i + 2
-      for e + 1 < b and not (src[e] == 42 and src[e + 1] == 42)
+      for e + 1 < b and not (src[e] == '*' and src[e + 1] == '*')
         e += 1
       end
       if e + 1 >= b
@@ -114,7 +114,7 @@ inline :: proc(a: Int, b: Int, base: Int)
         end
         i = e + 2
       end
-    case c == 42 and i + 1 < b and src[i + 1] != 32 # *emphasis*
+    case c == '*' and i + 1 < b and src[i + 1] != ' ' # *emphasis*
       e := find(42, i + 1, b)
       if e < 0
         emit(c, base)
@@ -127,11 +127,11 @@ inline :: proc(a: Int, b: Int, base: Int)
       end
     case c == 91 # [text](to)
       e := find(93, i + 1, b)
-      if e < 0 or e + 1 >= b or src[e + 1] != 40
+      if e < 0 or e + 1 >= b or src[e + 1] != '('
         emit(c, base)
         i += 1
       else
-        t := find(41, e + 2, b)
+        t := find(')', e + 2, b)
         if t < 0
           emit(c, base)
           i += 1
@@ -147,7 +147,7 @@ inline :: proc(a: Int, b: Int, base: Int)
           end
           k := i + 1
           for k < e
-            if src[k] != 96
+            if src[k] != '`'
               emit(src[k], LINK)
             end
             k += 1
@@ -161,7 +161,7 @@ inline :: proc(a: Int, b: Int, base: Int)
       end
     case c == 60 and startsWith(i, b, "<!--") # (a comment)
       e := i + 4
-      for e + 2 < b and not (src[e] == 45 and src[e + 1] == 45 and src[e + 2] == 62)
+      for e + 2 < b and not (src[e] == '-' and src[e + 1] == '-' and src[e + 2] == '>')
         e += 1
       end
       i = min(b, e + 3)
@@ -178,7 +178,7 @@ end
 # the end of the line starting at a (its newline, or the text's end)
 lineEnd :: proc(a: Int) -> Int
   e := a
-  for e < srcLen and src[e] != 10
+  for e < srcLen and src[e] != '\n'
     e += 1
   end
   return e
@@ -187,7 +187,7 @@ end
 # the line's end, without a \r or spaces at the end
 trimEnd :: proc(a: Int, e: Int) -> Int
   k := e
-  for k > a and (src[k - 1] == 13 or src[k - 1] == 32)
+  for k > a and (src[k - 1] == '\r' or src[k - 1] == ' ')
     k -= 1
   end
   return k
@@ -195,7 +195,7 @@ end
 
 spaces :: proc(a: Int, e: Int) -> Int
   k := a
-  for k < e and src[k] == 32
+  for k < e and src[k] == ' '
     k += 1
   end
   return k - a
@@ -253,7 +253,7 @@ wrap :: proc()
       n := min(width, e - a)
       if a + n < e and logBack[l] == 0 # (break at the last space that fits)
         k := n
-        for k > 0 and out[a + k] != 32
+        for k > 0 and out[a + k] != ' '
           k -= 1
         end
         if k > 0
@@ -268,7 +268,7 @@ wrap :: proc()
         rowCount += 1
       end
       a += n
-      if a < e and out[a] == 32 and logBack[l] == 0
+      if a < e and out[a] == ' ' and logBack[l] == 0
         a += 1
       end
       indent = logIndent[l]
@@ -312,16 +312,16 @@ render :: proc()
       end
     case startsWith(s, e, "<!--") # (a comment, to its end)
       k := s
-      for k + 2 < srcLen and not (src[k] == 45 and src[k + 1] == 45 and src[k + 2] == 62)
+      for k + 2 < srcLen and not (src[k] == '-' and src[k + 1] == '-' and src[k + 2] == '>')
         k += 1
       end
       next = lineEnd(k) + 1
     case s == e # (a blank line: the block ends)
       inPara = false
       tableRow = 0
-    case src[s] == 35 # a heading
+    case src[s] == '#' # a heading
       level := 0
-      for s + level < e and src[s + level] == 35
+      for s + level < e and src[s + level] == '#'
         level += 1
       end
       blank()
@@ -337,7 +337,7 @@ render :: proc()
       addHead(from)
       blank()
       inPara = false
-    case src[s] == 124 # a table's row: its cells, a | between
+    case src[s] == '|' # a table's row: its cells, a | between
       if tableRow == 0
         blank()
       end
@@ -354,9 +354,9 @@ render :: proc()
           to := trimEnd(from, c)
           if from < to
             if not first
-              emit(32, DIM)
+              emit(' ', DIM)
               emit(124, DIM)
-              emit(32, DIM)
+              emit(' ', DIM)
             end
             style := PLAIN
             if tableRow == 0
@@ -370,20 +370,20 @@ render :: proc()
         tableRow += 1
       end
       inPara = false
-    case (src[s] == 45 or src[s] == 42) and s + 1 < e and src[s + 1] == 32 # a list item
+    case (src[s] == '-' or src[s] == '*') and s + 1 < e and src[s + 1] == ' ' # a list item
       if not inPara
         blank()
       end
       newLine(lead + 2, 0)
       for _ in 0..<lead
-        emit(32, PLAIN)
+        emit(' ', PLAIN)
       end
-      emit(45, DIM)
-      emit(32, PLAIN)
+      emit('-', DIM)
+      emit(' ', PLAIN)
       inline(s + 2, e, PLAIN)
       inPara = true
-    case src[s] >= 48 and src[s] <= 57 and find(46, s, min(e, s + 4)) > s and find(46, s, min(e, s + 4)) + 1 < e and src[find(46, s, min(e, s + 4)) + 1] == 32 # 1. a numbered item
-      d := find(46, s, e)
+    case src[s] >= '0' and src[s] <= '9' and find('.', s, min(e, s + 4)) > s and find('.', s, min(e, s + 4)) + 1 < e and src[find('.', s, min(e, s + 4)) + 1] == ' ' # 1. a numbered item
+      d := find('.', s, e)
       if not inPara
         blank()
       end
@@ -391,17 +391,17 @@ render :: proc()
       for k in a..<d + 1
         emit(src[k], DIM)
       end
-      emit(32, PLAIN)
+      emit(' ', PLAIN)
       inline(d + 2, e, PLAIN)
       inPara = true
-    case src[s] == 62 # > a quote
+    case src[s] == '>' # > a quote
       if not inPara
         blank()
         newLine(2, 0)
         emit(124, DIM)
-        emit(32, PLAIN)
+        emit(' ', PLAIN)
       else
-        emit(32, PLAIN)
+        emit(' ', PLAIN)
       end
       inline(min(e, s + 2), e, PLAIN)
       inPara = true
@@ -409,13 +409,13 @@ render :: proc()
       blank()
       newLine(0, 0)
       for _ in 0..<COLS
-        emit(45, DIM)
+        emit('-', DIM)
       end
       blank()
       inPara = false
     else # a paragraph's line (or a list item's, going on)
       if inPara
-        emit(32, PLAIN)
+        emit(' ', PLAIN)
       else
         blank()
         newLine(0, 0)

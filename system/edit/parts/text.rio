@@ -45,7 +45,7 @@ rebuildLines :: proc()
   lineCount = 1
   lineAt[0] = 0
   for i in 0..<textLen
-    if text[i] == 10 and lineCount < MAX_LINES
+    if text[i] == '\n' and lineCount < MAX_LINES
       lineAt[lineCount] = i + 1
       lineCount += 1
     end
@@ -55,7 +55,7 @@ end
 newlines :: proc(s: String) -> Int
   n := 0
   for c in s
-    if c == 10
+    if c == '\n'
       n += 1
     end
   end
@@ -107,7 +107,7 @@ end
 sayName :: proc(s: String, t: String, color: Int)
   say(s, color)
   k := path.len()
-  for k > 0 and path[k - 1] != 47
+  for k > 0 and path[k - 1] != '/'
     k -= 1
   end
   for c in path[k..<path.len()]
