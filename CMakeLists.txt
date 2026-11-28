@@ -40,7 +40,7 @@ endif()
 include(${RIO_DIR}/library.cmake)
 # the most host procs a vm holds, on every Rinc (rio_MAX_FFI, below; tools/web.py's too):
 # the pc test fails if rinc registers more
-set(RINC_MAX_FFI 122)
+set(RINC_MAX_FFI 112)
 # rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
 # so an app behaves the same everywhere: its log lines and error texts as long, say
 target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})
@@ -378,6 +378,8 @@ else()
     add_test(NAME command_list COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/cmdlist.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/command-list-work)
     set_tests_properties(command_list PROPERTIES PASS_REGULAR_EXPRESSION "the command list came through")
     add_test(NAME stale_lib COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/stalelib.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/stale-lib-work)
+    add_test(NAME areas COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/areas.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/areas-work)
+    set_tests_properties(areas PROPERTIES PASS_REGULAR_EXPRESSION "own areas came through")
     add_test(NAME check_lib COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/checklib.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/check-lib-work)
     set_tests_properties(check_lib PROPERTIES PASS_REGULAR_EXPRESSION "fits, completes and marks errors")
     add_test(NAME help_place COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/helpplace.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/help-place-work)

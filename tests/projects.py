@@ -18,9 +18,9 @@ def run(name, want, why):
   if not out.startswith(want): sys.exit('FAIL: %s: got %r, wanted %r' % (why, out, want))
 
 app = '''note: Blob[..16]
-_ = pc.saveRead("note", note)
+_ = pc.fileRead("save:note", note)
 log("%s", note.asString())
-ok := pc.saveWrite("note", "%s")
+ok := pc.fileWrite("save:note", "%s")
 '''
 shutil.rmtree(data, ignore_errors=True)
 put('apps/chord/chord.rio', app % ('app', 'by the app'))
@@ -52,8 +52,8 @@ for img in ('cache/rinc/apps/chord.rioi', 'cache/rinc/projects/chord.rioi'): # (
   if not os.path.exists(os.path.join(data, *img.split('/'))): sys.exit('FAIL: no ' + img)
 run('helpls', 'chord+/README # Chord, in work', "the project's help, listed and read")
 put('apps/setact/setact.rio', '''v: Blob[..34]
-log(pc.settingRead("active", v), pc.settingWrite("active", "chord+"))
-_ = pc.settingRead("active", v)
+log(pc.fileRead("settings:active", v), pc.fileWrite("settings:active", "chord+"))
+_ = pc.fileRead("settings:active", v)
 log(v.asString())
 ''')
 run('setact', '-1 0\nchord+', 'the active setting, shared by the apps')
@@ -64,7 +64,7 @@ if get('apps/chord/chord.rio') != get('projects/chord/chord.rio') or get('apps/c
 if get('apps/chord/save/note') is not None: sys.exit("FAIL: install copied the project's saves")
 run('chord', 'project by the app', 'the installed project, as the app, with the app\'s saves')
 put('apps/ops/ops.rio', '''log(pc.appCopy("chord", "tune+"), pc.appCopy("chord", "tune+"), pc.appCopy("chord", "nope"))
-log(pc.appRename("tune+", "song+"), pc.appRename("chord", "x+"), pc.settingWrite("active", "song+"))
+log(pc.appRename("tune+", "song+"), pc.appRename("chord", "x+"), pc.fileWrite("settings:active", "song+"))
 log(pc.appDelete("song+"), pc.appDelete("song+"))
 ''')
 run('ops', '0 -1 -1\n0 -1 0\n0 -1', 'copy, rename, delete')

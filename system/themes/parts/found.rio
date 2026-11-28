@@ -257,7 +257,7 @@ findAll :: proc()
   scanAll("/save", OWN)
   current = -1
   got: Blob[..] = setting
-  _ = pc.settingRead("theme", got)
+  _ = pc.fileRead("settings:theme", got)
   n := got.len()
   for n > 0 and (setting[n - 1] == 10 or setting[n - 1] == 13 or setting[n - 1] == 32)
     n -= 1

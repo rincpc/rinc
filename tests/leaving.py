@@ -28,7 +28,7 @@ def check(ok, why):
   failed += not ok
 
 # an app that keeps what's typed only on leaving
-put('apps/stay/stay.rio', 'typed: Blob[..32]\nleaving* :: proc()\n  if typed.len() > 0\n    ok := pc.stashWrite("typed", typed.asString())\n  end\nend\n'
+put('apps/stay/stay.rio', 'typed: Blob[..32]\nleaving* :: proc()\n  if typed.len() > 0\n    ok := pc.fileWrite("stash:typed", typed.asString())\n  end\nend\n'
     'update* :: proc()\n  c := pc.key()\n  for c >= 0\n    ok := typed.push(c)\n    c = pc.key()\n  end\nend\n')
 said = run('stay', 'abc\\se')
 check(get('stash/stay/typed') == 'abc', 'the system key with Esc: leaving* called first, its stash written (%r %s)' % (get('stash/stay/typed'), said))

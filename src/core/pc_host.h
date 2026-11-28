@@ -183,19 +183,6 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_helpRead_SIG "sB>i"
 #define pc_help_SIG "s"
 #define pc_helpTopic_SIG "B>i"
-#define pc_saveRead_SIG "sB>i"
-#define pc_saveWrite_SIG "ss>i"
-#define pc_saveDelete_SIG "s>i"
-#define pc_stashWrite_SIG "ss>i"
-#define pc_stashRead_SIG "sB>i"
-#define pc_stashReadAt_SIG "siB>i"
-#define pc_stashWriteAt_SIG "sis>i"
-#define pc_stashDelete_SIG "s>i"
-#define pc_cacheRead_SIG "sB>i"
-#define pc_cacheWrite_SIG "ss>i"
-#define pc_cacheDelete_SIG "s>i"
-#define pc_settingRead_SIG "sB>i"
-#define pc_settingWrite_SIG "ss>i"
 #define pc_theme_SIG "Enum{bg,bar,text,soft,dim,faint,accent,heading,pick,select,link,error,ok,codeBg,code,punct,keyword,type,call,number,string,comment}>i"
 #define pc_boot_SIG ">i"
 #define pc_rioStart_SIG "bbs>i"
@@ -306,19 +293,6 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(helpRead, pc_helpRead_SIG) \
   X(help, pc_help_SIG) \
   X(helpTopic, pc_helpTopic_SIG) \
-  X(saveRead, pc_saveRead_SIG) \
-  X(saveWrite, pc_saveWrite_SIG) \
-  X(saveDelete, pc_saveDelete_SIG) \
-  X(stashWrite, pc_stashWrite_SIG) \
-  X(stashRead, pc_stashRead_SIG) \
-  X(stashReadAt, pc_stashReadAt_SIG) \
-  X(stashWriteAt, pc_stashWriteAt_SIG) \
-  X(stashDelete, pc_stashDelete_SIG) \
-  X(cacheRead, pc_cacheRead_SIG) \
-  X(cacheWrite, pc_cacheWrite_SIG) \
-  X(cacheDelete, pc_cacheDelete_SIG) \
-  X(settingRead, pc_settingRead_SIG) \
-  X(settingWrite, pc_settingWrite_SIG) \
   X(theme, pc_theme_SIG) \
   X(boot, pc_boot_SIG) \
   X(rioStart, pc_rioStart_SIG) \
@@ -329,7 +303,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0xac3852e5u /* (rio_hashText of the source) */
+#define pc_HASH 0x54989c3au /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -706,10 +680,19 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "\n" \
   "# ---------------------------------------------------------------- files, by path, for a file browser\n" \
   "\n" \
-  "# A path is absolute (/rinc/save/chord/best), in /rinc, the root: looking goes anywhere in it, changing\n" \
-  "# only inside it. Or, not starting with /, it's one of the app's own files, in its folder (as a project,\n" \
-  "# /rinc/projects/chord/, or installed, /rinc/apps/chord/): imageRead(\"sprites.png\", pixels), for reading\n" \
-  "# only. What reads into a builder adds to what's in it, as much as fits: out.len() tells how much it holds\n" \
+  "# A path is absolute (/save/chord/best), in Rinc's root: looking goes anywhere in it, changing only\n" \
+  "# inside it. Or, not starting with /, it's one of the app's own files, in its folder (as a project,\n" \
+  "# /projects/chord/, or installed, /apps/chord/): imageRead(\"sprites.png\", pixels), for reading only.\n" \
+  "# Or it's in one of the app's own areas, by a word and a colon, then names with / between (folders), each\n" \
+  "# 1 to 32 letters, digits, _, - and . (not first); the word and colon alone are the area itself:\n" \
+  "#   save:best      its save space (/save/chord/best; a project's own, chord+, in its dev folder)\n" \
+  "#   stash:view     its stash (/stash/chord/view): where it was, for its next start, written as it goes;\n" \
+  "#                  Rinc drops it all on Sys+Q and Sys+R, where it never touches the save space\n" \
+  "#   cache:thumbs   its cache (/cache/chord/thumbs; a project's own): what it can make again, any of it\n" \
+  "#                  gone at any time. Rinc keeps the app's log there, as log\n" \
+  "#   settings:theme the whole Rinc's settings (/settings/theme), shared by the apps: settings:active is the\n" \
+  "#                  app or project being worked on (chord, or chord+)\n" \
+  "# What reads into a builder adds to what's in it, as much as fits: out.len() tells how much it holds\n" \
   "dir* :: host proc(path: String, out: Blob[..]) -> Int      # its entries, folders first, a line each (\"d name\", \"f name\"): how many, or -1\n" \
   "fileRead* :: host proc(path: String, out: Blob[..]) -> Int # its whole length, or -1\n" \
   "fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1\n" \
@@ -917,36 +900,6 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "# the help app, after this frame, at a help text (and maybe a heading): help(\"rio/spec/statements#if\")\n" \
   "help* :: host proc(topic: String)\n" \
   "helpTopic* :: host proc(out: Blob[..]) -> Int         # for the help app: the topic it was opened at, taken (0: none)\n" \
-  "\n" \
-  "# ---------------------------------------------------------------- this app's own files: /rinc/save/<app>\n" \
-  "\n" \
-  "# a file's contents added to out, as much as fits: its whole length, or -1 if there's no such file. Names\n" \
-  "# are 1 to 32 letters, digits, _, - and . (not first)\n" \
-  "saveRead* :: host proc(file: String, out: Blob[..]) -> Int\n" \
-  "saveWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1\n" \
-  "saveDelete* :: host proc(file: String) -> Int               # 0, or -1\n" \
-  "\n" \
-  "# ---------------------------------------------------------------- this app's stash: /rinc/stash/<app>/<key>\n" \
-  "\n" \
-  "# what an app keeps of where it was, for its next start, under keys of its own (named as save files are),\n" \
-  "# written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space\n" \
-  "stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1\n" \
-  "stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none\n" \
-  "stashReadAt* :: host proc(key: String, at: Int, out: Blob[..]) -> Int # as fileReadAt, what's kept under key\n" \
-  "stashWriteAt* :: host proc(key: String, at: Int, data: String) -> Int # as fileWriteAt\n" \
-  "stashDelete* :: host proc(key: String) -> Int               # 0, or -1\n" \
-  "# ---------------------------------------------------------------- this app's cache: /rinc/cache/<app>\n" \
-  "\n" \
-  "# what an app can make again (a project's, chord+, its own), named as save files are; any of it may go at\n" \
-  "# any time. Rinc keeps the app's log there, as log: what it logged lately, and what Rinc said about it\n" \
-  "cacheRead* :: host proc(file: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none\n" \
-  "cacheWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1\n" \
-  "cacheDelete* :: host proc(file: String) -> Int               # 0, or -1\n" \
-  "\n" \
-  "# the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): \"active\" is the app or project\n" \
-  "# being worked on (chord, or chord+); keys are named as save files are\n" \
-  "settingRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1\n" \
-  "settingWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1\n" \
   "\n" \
   "# the theme: a color for each role, which the system apps draw with, so they look alike and a theme (the\n" \
   "# theme setting: owner/id, a file owner/themes/id.theme.rio) changes them all. Read at each app's start\n" \

@@ -584,7 +584,7 @@ copy :: proc(cut: Bool)
   end
   lines.clear() # (whole lines: their number kept, so they paste above a line while they're the newest)
   if line do _ = lines.print(clip.number())
-  _ = pc.stashWrite("lines", lines.asString())
+  _ = pc.fileWrite("stash:lines", lines.asString())
   if cut
     merging = 0
     ok := edit(a, b, "", 0)
@@ -602,7 +602,7 @@ paste :: proc()
     return
   end
   lines.clear()
-  _ = pc.stashRead("lines", lines)
+  _ = pc.fileRead("stash:lines", lines)
   newest: Blob[..12]
   _ = newest.print(clip.number())
   if lines.len() > 0 and lines.asString() == newest.asString() and cursor == anchor # (whole lines, the editor's: above this one)

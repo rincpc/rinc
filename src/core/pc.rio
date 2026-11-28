@@ -373,10 +373,19 @@ appRename* :: host proc(from: String, to: String) -> Int   # project from (from*
 
 # ---------------------------------------------------------------- files, by path, for a file browser
 
-# A path is absolute (/rinc/save/chord/best), in /rinc, the root: looking goes anywhere in it, changing
-# only inside it. Or, not starting with /, it's one of the app's own files, in its folder (as a project,
-# /rinc/projects/chord/, or installed, /rinc/apps/chord/): imageRead("sprites.png", pixels), for reading
-# only. What reads into a builder adds to what's in it, as much as fits: out.len() tells how much it holds
+# A path is absolute (/save/chord/best), in Rinc's root: looking goes anywhere in it, changing only
+# inside it. Or, not starting with /, it's one of the app's own files, in its folder (as a project,
+# /projects/chord/, or installed, /apps/chord/): imageRead("sprites.png", pixels), for reading only.
+# Or it's in one of the app's own areas, by a word and a colon, then names with / between (folders), each
+# 1 to 32 letters, digits, _, - and . (not first); the word and colon alone are the area itself:
+#   save:best      its save space (/save/chord/best; a project's own, chord+, in its dev folder)
+#   stash:view     its stash (/stash/chord/view): where it was, for its next start, written as it goes;
+#                  Rinc drops it all on Sys+Q and Sys+R, where it never touches the save space
+#   cache:thumbs   its cache (/cache/chord/thumbs; a project's own): what it can make again, any of it
+#                  gone at any time. Rinc keeps the app's log there, as log
+#   settings:theme the whole Rinc's settings (/settings/theme), shared by the apps: settings:active is the
+#                  app or project being worked on (chord, or chord+)
+# What reads into a builder adds to what's in it, as much as fits: out.len() tells how much it holds
 dir* :: host proc(path: String, out: Blob[..]) -> Int      # its entries, folders first, a line each ("d name", "f name"): how many, or -1
 fileRead* :: host proc(path: String, out: Blob[..]) -> Int # its whole length, or -1
 fileWrite* :: host proc(path: String, data: String) -> Int # 0, or -1
@@ -584,36 +593,6 @@ helpRead* :: host proc(name: String, out: Blob[..]) -> Int
 # the help app, after this frame, at a help text (and maybe a heading): help("rio/spec/statements#if")
 help* :: host proc(topic: String)
 helpTopic* :: host proc(out: Blob[..]) -> Int         # for the help app: the topic it was opened at, taken (0: none)
-
-# ---------------------------------------------------------------- this app's own files: /rinc/save/<app>
-
-# a file's contents added to out, as much as fits: its whole length, or -1 if there's no such file. Names
-# are 1 to 32 letters, digits, _, - and . (not first)
-saveRead* :: host proc(file: String, out: Blob[..]) -> Int
-saveWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1
-saveDelete* :: host proc(file: String) -> Int               # 0, or -1
-
-# ---------------------------------------------------------------- this app's stash: /rinc/stash/<app>/<key>
-
-# what an app keeps of where it was, for its next start, under keys of its own (named as save files are),
-# written as it goes; Rinc drops all of it on Sys+Q and Sys+R, where it never touches the save space
-stashWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
-stashRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none
-stashReadAt* :: host proc(key: String, at: Int, out: Blob[..]) -> Int # as fileReadAt, what's kept under key
-stashWriteAt* :: host proc(key: String, at: Int, data: String) -> Int # as fileWriteAt
-stashDelete* :: host proc(key: String) -> Int               # 0, or -1
-# ---------------------------------------------------------------- this app's cache: /rinc/cache/<app>
-
-# what an app can make again (a project's, chord+, its own), named as save files are; any of it may go at
-# any time. Rinc keeps the app's log there, as log: what it logged lately, and what Rinc said about it
-cacheRead* :: host proc(file: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1 for none
-cacheWrite* :: host proc(file: String, data: String) -> Int  # 0, or -1
-cacheDelete* :: host proc(file: String) -> Int               # 0, or -1
-
-# the whole Rinc's settings, shared by the apps (/rinc/settings/<key>): "active" is the app or project
-# being worked on (chord, or chord+); keys are named as save files are
-settingRead* :: host proc(key: String, out: Blob[..]) -> Int  # added to out, as much as fits: its whole length, or -1
-settingWrite* :: host proc(key: String, data: String) -> Int  # 0, or -1
 
 # the theme: a color for each role, which the system apps draw with, so they look alike and a theme (the
 # theme setting: owner/id, a file owner/themes/id.theme.rio) changes them all. Read at each app's start

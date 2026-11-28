@@ -93,10 +93,10 @@ owWhat :: proc(i: Int) -> String # (what it calls such a file)
   return ""
 end
 # the setting for the extension's app: files/appreg/png
-regKey: Blob[..32]
+regKey: Blob[..48]
 regFor :: proc() -> String
   regKey.clear()
-  ok := regKey.pushAll("files/appreg/")
+  ok := regKey.pushAll("settings:files/appreg/")
   ok = regKey.pushAll(owExt[0..<owExt.len()])
   return regKey[0..<regKey.len()].asString()
 end
@@ -132,7 +132,7 @@ openFile :: proc(k: Int)
     return
   end
   chosenApp.clear()
-  if pc.settingRead(regFor(), chosenApp) > 0
+  if pc.fileRead(regFor(), chosenApp) > 0
     for i in 0..<owCount
       if owApp(i) == chosenApp[0..<chosenApp.len()].asString()
         openIn(i, k)
@@ -154,7 +154,7 @@ openWith :: proc(i: Int, always: Bool)
     return
   end
   if (always or owFirst) and owExt.len() > 0
-    saved := pc.settingWrite(regFor(), owApp(i))
+    saved := pc.fileWrite(regFor(), owApp(i))
   end
   openIn(i, owTarget)
 end

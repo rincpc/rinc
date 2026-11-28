@@ -18,13 +18,13 @@ Its top is Rinc's own folders, each a name Rinc gives, never an app or a device:
 /apps/rinc/themes/...    Rinc's own themes (see themes): rinc is no app, so it isn't listed
 /projects/chord/...      its project, chord+: the app in work (see projects)
 /projects/chord/dev/...  its dev folder: its maker's, not the app's (its own saves, its tests)
-/save/chord/...          its own files (pc.saveRead and so on): only the app changes them
-/stash/chord/...         where it was, for its next start (pc.stashRead): Rinc may drop it
-/cache/chord/...         what it can make again: anything may clear it
+/save/chord/...          its own files (save:best, to the app): only the app changes them
+/stash/chord/...         where it was, for its next start (stash:view): Rinc may drop it
+/cache/chord/...         what it can make again (cache:thumbs): anything may clear it
 /cache/rinc/apps/chord.rioi   Rinc's own cache: the app, compiled (see compiled apps)
 /cache/rinc/projects/chord.rioi   and its project
 /help/...                help texts that are no app's own (Rinc's and Rio's docs)
-/settings/...            the whole Rinc's settings, shared by the apps: active, the app in work
+/settings/...            the whole Rinc's settings, shared by the apps (settings:active, the app in work)
 /stick/...               the stick, while one's in: a thumb drive on the board, a zip or a folder
                          dropped on the desktop, a zip dropped on a page
 ```
@@ -97,26 +97,34 @@ isn't an app), so an app can tell when its buffer was too small.
 
 ## An app's own files
 
-Every app has a save space of its own, `/save/<app>`, for high scores, settings and the like. A
-file's name is 1 to 32 letters, digits, `_`, `-` and `.`, not starting with a dot:
+Every app has a save space of its own, `/save/<app>`, for high scores, settings and the like. The
+file calls (see files) reach it, and the app's other areas, by a word and a colon, with no need to
+know the app's name:
 
-| proc | |
+| path | |
 |---|---|
-| `pc.saveRead(file, out) -> Int` | the file's contents, added to `out`, as much as fits: its whole length, or -1 if there's no such file |
-| `pc.saveWrite(file, data) -> Int` | `data` becomes the file's contents: 0, or -1 |
-| `pc.saveDelete(file) -> Int` | removes it: 0, or -1 |
+| `save:best` | its save space, `/save/<app>/best` (a project's own: see projects) |
+| `stash:view` | its stash, `/stash/<app>/view`: where it was (see its stash) |
+| `cache:thumbs` | its cache, `/cache/<app>/thumbs` (see its cache) |
+| `settings:theme` | the whole Rinc's settings, `/settings/theme`, shared by the apps (see settings) |
+
+After the colon come names with `/` between them, for folders (`save:levels/1`), each 1 to 32 letters,
+digits, `_`, `-` and `.`, not starting with a dot; the word and colon alone are the area itself, to
+look in (`pc.dir("save:", out)`), not to change. A colon is in no file's name, so these can't be
+mistaken for a file in the app's own folder (`sprites.png`), and an absolute path still reaches
+another app's (`/stash/rinc/clip`, the clipboard).
 
 Whatever reads into `out` takes a byte builder (`Blob[..N]`, or a view, `Blob[..]`, over an array or
 part of one) and adds to what it holds, so `out.len()` tells how much came in; the result says how long
 the whole thing is, so more than came in means it didn't all fit.
 
 ```rio
-log(pc.saveWrite("best.txt", "42"))
+log(pc.fileWrite("save:best.txt", "42"))
 out: Blob[..16]
-n := pc.saveRead("best.txt", out)
-log(n, out.asString(), pc.saveRead("nope.txt", out))
+n := pc.fileRead("save:best.txt", out)
+log(n, out.asString(), pc.fileRead("save:nope.txt", out))
 out.clear()
-log(pc.saveDelete("best.txt"), pc.saveRead("best.txt", out))
+log(pc.fileDelete("save:best.txt"), pc.fileRead("save:best.txt", out))
 ```
 
 ```output
@@ -160,7 +168,8 @@ app's, in `/save`). The rest, each 0 or -1:
 ## Files
 
 Any app can look through storage by path, as Files (`system/files/files.rio`) does: absolute paths,
-`/save/chord/best`, with no `.` or `..` parts. `/` is the root: looking goes anywhere in it,
+`/save/chord/best`, with no `.` or `..` parts; or its own areas, `save:best` and the like (see an app's
+own files); or, for reading, a file of its own folder, `sprites.png`. `/` is the root: looking goes anywhere in it,
 changing only inside its folders, never `/` itself. (An exported program's storage is its own folder,
 still `/` to its apps.) Reading sees a bundle's files too (see bundles), after
 storage's: an exported game's own files, say, or the themes a web page carries; changes go to storage.
@@ -348,9 +357,9 @@ end
 ## Settings
 
 The whole Rinc's settings, not any one app's, are in `/settings`, a file a key, and any app can
-read and change them: `pc.settingRead(key, out) -> Int` (added to `out`, as much as fits: its whole length, or -1 if
-there's none) and `pc.settingWrite(key, data) -> Int` (0, or -1). Keys are named as save files are, or
-are such names with `/` between them, for settings in folders (`files/appreg/png`).
+read and change them with the file calls, as `settings:key`: `pc.fileRead("settings:theme", out)`,
+`pc.fileWrite("settings:theme", "rinc/slate")`. Keys are named as save files are, or are such names
+with `/` between them, for settings in folders (`settings:files/appreg/png`).
 
 `active` is the app or project being worked on: `chord`, or its project, `chord+` (an installed app
 can be active too, to read its source). The editor makes what it opens active, and starts with what's
@@ -411,12 +420,12 @@ are), and writes it whenever it likes, as it goes. Unlike its save space, which 
 the Rinc drops all of an app's stash when it's told to start the app afresh: the system key with R
 (this app again) or Q (back to the app before).
 
+The file calls keep it, as `stash:key`: `pc.fileWrite("stash:place", data)`, `pc.fileRead("stash:place",
+out)` (-1 if there's none), `pc.fileDelete("stash:place")`; and `fileReadAt` and `fileWriteAt`, a part
+at a time, for a stash too big to hold at once (an undo log, say).
+
 | proc | |
 |---|---|
-| `pc.stashWrite(key, data) -> Int` | `data` becomes what's kept under `key`: 0, or -1 |
-| `pc.stashRead(key, out) -> Int` | what's kept under `key`, added to `out`, as much as fits: its whole length, or -1 if there's none |
-| `pc.stashReadAt(key, at, out) -> Int`, `pc.stashWriteAt(key, at, data) -> Int` | as `fileReadAt` and `fileWriteAt`, what's kept under `key`: a part of it, for a stash too big to hold at once (an undo log, say) |
-| `pc.stashDelete(key) -> Int` | drops it: 0, or -1 |
 | `pc.boot() -> Int` | how many times this Rinc has started (kept in `/save/rinc/boot`; 0 without storage): to tell a restart from being opened again |
 
 Rinc keeps an app's stash when the app changes (a newer one installed, a project edited), so its drafts
@@ -439,7 +448,7 @@ draft, to have again.
 ```rio
 place: Blob[..64]
 leaving* :: proc()
-  ok := pc.stashWrite("place", place.asString())
+  ok := pc.fileWrite("stash:place", place.asString())
 end
 ```
 
@@ -507,14 +516,9 @@ SOLID :: 1
 ## Its cache, and its log
 
 What an app can always make again (thumbnails, an index, a download) goes in its cache space,
-`/cache/<app>` (a project's, `chord+`, its own), under names as save files have them. Anything may
-clear that, at any time, and the app carries on, only slower.
-
-| proc | |
-|---|---|
-| `pc.cacheWrite(file, data) -> Int` | `data` becomes the file: 0, or -1 |
-| `pc.cacheRead(file, out) -> Int` | the file, added to `out`, as much as fits: its whole length, or -1 if there's none |
-| `pc.cacheDelete(file) -> Int` | removes it: 0, or -1 |
+`/cache/<app>` (a project's, `chord+`, its own), which the file calls reach as `cache:name`
+(`pc.fileWrite("cache:thumbs", data)`). Anything may clear it, at any time, and the app carries on, only
+slower.
 
 Rinc keeps each app's log there too, as `log`: what the app logged lately and what Rinc said about it
 (a runtime error, an `imageRead` that needs more room), the newest 4 KB of it, with a `-- started` line

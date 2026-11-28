@@ -101,7 +101,7 @@ keepView :: proc()
       ok = kept.push(10)
     end
   end
-  saved := pc.stashWrite("view", kept[0..<kept.len()].asString())
+  saved := pc.fileWrite("stash:view", kept[0..<kept.len()].asString())
 end
 # leaving for another app (the system key's Tab, say): where it is, kept now, not after the moment's rest
 leaving* :: proc()
@@ -129,7 +129,7 @@ end
 # as it was kept, if it's of the folder shown
 restoreView :: proc()
   kept.clear()
-  if pc.stashRead("view", kept) < 0 or viewLine(0) != here()
+  if pc.fileRead("stash:view", kept) < 0 or viewLine(0) != here()
     return
   end
   t := 0

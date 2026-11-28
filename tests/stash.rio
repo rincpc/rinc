@@ -1,10 +1,10 @@
-# Stash: what it had stashed last time under two keys, if anything, then this time's (pc.stashRead, stashWrite,
-# stashDelete); and pc.boot, counting starts
+# Stash: what it had stashed last time under two keys, if anything, then this time's (stash:key, by the
+# file calls); and pc.boot, counting starts
 buf: Blob[..16]
-if pc.stashRead("where", buf) < 0
+if pc.fileRead("stash:where", buf) < 0
   log("none")
 else
   log(buf.asString())
 end
-log(pc.stashWrite("where", "here"), pc.stashWrite("other", "x"), pc.stashDelete("other"), pc.stashRead("other", buf))
-log(pc.stashRead("../x", buf), pc.boot() > 0)
+log(pc.fileWrite("stash:where", "here"), pc.fileWrite("stash:other", "x"), pc.fileDelete("stash:other"), pc.fileRead("stash:other", buf))
+log(pc.fileRead("stash:../x", buf), pc.boot() > 0)

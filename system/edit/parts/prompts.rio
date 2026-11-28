@@ -70,7 +70,7 @@ toggleNumbers :: proc()
   if numbers
     v = "1"
   end
-  saved := pc.saveWrite("numbers", v)
+  saved := pc.fileWrite("save:numbers", v)
 end
 
 # Ctrl+F's text, found after the selection (or from the start, after the end), and selected

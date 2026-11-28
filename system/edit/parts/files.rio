@@ -127,13 +127,13 @@ remember :: proc()
   last.clear()
   ok := last.pushAll(path[0..<path.len()])
   _ = last.print(" ", cursor, " ", top, " ", anchor, " ", left)
-  saved := pc.saveWrite("last", last[0..<last.len()].asString())
+  saved := pc.fileWrite("save:last", last[0..<last.len()].asString())
   if path.len() > 0
     files.note(here(), last[path.len()..<last.len()].asString()) # (its place: " cursor top anchor left")
   end
   a := appOf(here())
   if a.len() > 0
-    saved = pc.settingWrite("active", a)
+    saved = pc.fileWrite("settings:active", a)
   end
 end
 
@@ -371,9 +371,9 @@ callFiles :: proc(how: String)
     say("There's no Files app here", errorColor)
     return
   end
-  ok := pc.stashWrite("draft", text[0..<textLen].asString())
-  ok = pc.stashWrite("draftPath", here())
-  ok = pc.stashWrite("calling", how)
+  ok := pc.fileWrite("stash:draft", text[0..<textLen].asString())
+  ok = pc.fileWrite("stash:draftPath", here())
+  ok = pc.fileWrite("stash:calling", how)
   remember()
   toFiles = true # (what's typed next is Files')
   argsBuf.clear()
@@ -382,7 +382,7 @@ callFiles :: proc(how: String)
   p := here()
   if p.len() == 0
     a: Blob[..34]
-    _ = pc.settingRead("active", a)
+    _ = pc.fileRead("settings:active", a)
     p = "/projects"
     if a.len() > 0
       p = mainPath(a.asString())

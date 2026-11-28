@@ -952,12 +952,7 @@ more :: proc() -> Bool
   ioPos = 0
   ioLen = keep
   into: Blob[..] = work[ioLen..<WORK]
-  n := 0
-  if ioKind == FROM_FILE
-    n = pc.fileReadAt(ioName.asString(), ioAt + ioLen, into)
-  else
-    n = pc.stashReadAt(ioName.asString(), ioAt + ioLen, into)
-  end
+  n := pc.fileReadAt(ioName.asString(), ioAt + ioLen, into)
   ioBad = ioBad or n < 0
   ioWhole = ioAt == 0 and ioLen == 0 and n == into.len()
   ioLen += into.len()
@@ -1008,6 +1003,9 @@ openIo :: proc(kind: Int, name: String, again: Bool)
   end
   ioKind = kind
   ioName.clear()
+  if kind == FROM_STASH # (a key of the app's stash: its path, stash:key)
+    _ = ioName.pushAll("stash:")
+  end
   fine := ioName.pushAll(name)
   ioAt = 0
   ioPos = 0
@@ -1016,14 +1014,10 @@ openIo :: proc(kind: Int, name: String, again: Bool)
 end
 flushIo :: proc()
   n := 0
-  if ioKind == FROM_FILE and ioAt == 0
+  if ioAt == 0
     n = pc.fileWrite(ioName.asString(), work[0..<ioLen].asString())
-  case ioKind == FROM_FILE
-    n = pc.fileWriteAt(ioName.asString(), ioAt, work[0..<ioLen].asString())
-  case ioAt == 0
-    n = pc.stashWrite(ioName.asString(), work[0..<ioLen].asString())
   else
-    n = pc.stashWriteAt(ioName.asString(), ioAt, work[0..<ioLen].asString())
+    n = pc.fileWriteAt(ioName.asString(), ioAt, work[0..<ioLen].asString())
   end
   ioBad = ioBad or n < 0
   ioAt += ioLen

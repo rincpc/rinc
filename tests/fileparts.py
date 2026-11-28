@@ -1,5 +1,5 @@
 """python fileparts.py path/to/rinc data-folder: pc.fileReadAt and pc.fileWriteAt, a part of a file at a time
-(docs/spec/apps.md#files), and pc.stashReadAt and pc.stashWriteAt, the same in an app's stash: a file
+(docs/spec/apps.md#files), and the same in an app's stash (stash:key): a file
 made by writing at its end, added to, written over in the middle (not cut short), not written past its
 end; read from a byte on, past its end (nothing, and its length), not before its start; every byte
 kept (0 and 255 too), as the card has it after; an app's own files read but not written; and a stash
@@ -40,9 +40,9 @@ log("bytes", pc.fileWriteAt("/save/parts/bytes", -1, bytes.asString()))
 back: Blob[..8]
 log("bytes back", pc.fileReadAt("/save/parts/bytes", 1, back), back[0], back[1], back[2])
 log("own", pc.fileReadAt("own.txt", 4, out), out.asString(), pc.fileWriteAt("own.txt", -1, "?"))
-log("stash", pc.stashWriteAt("undo", -1, "one"), pc.stashWriteAt("undo", -1, "two"), pc.stashWriteAt("undo", 0, "ON"))
+log("stash", pc.fileWriteAt("stash:undo", -1, "one"), pc.fileWriteAt("stash:undo", -1, "two"), pc.fileWriteAt("stash:undo", 0, "ON"))
 kept: Blob[..16]
-log("stash back", pc.stashReadAt("undo", 1, kept), kept.asString(), pc.stashReadAt("none", 0, kept))
+log("stash back", pc.fileReadAt("stash:undo", 1, kept), kept.asString(), pc.fileReadAt("stash:none", 0, kept))
 ''')
 r = subprocess.run([rinc, '-data', data, '-app', 'parts', '-frames', '2'], capture_output=True, text=True, timeout=60)
 said = (r.stdout + r.stderr).strip().replace('\r', '')

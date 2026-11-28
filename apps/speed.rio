@@ -265,21 +265,21 @@ files :: proc()
   for i in 0..<8000 do _ = data.push((i % 26 + 97))
   sheet := pc.Image{pixels = sheetPixels[], size = {64, 64}}
   start()
-  for _ in 0..<10 do _ = pc.saveWrite("small.txt", data[0..<100].asString())
+  for _ in 0..<10 do _ = pc.fileWrite("save:small.txt", data[0..<100].asString())
   done("write100")
   start()
-  for _ in 0..<5 do _ = pc.saveWrite("big.txt", data[].asString())
+  for _ in 0..<5 do _ = pc.fileWrite("save:big.txt", data[].asString())
   done("write8000")
   start()
   for _ in 0..<10
     back.clear()
-    _ = pc.saveRead("small.txt", back)
+    _ = pc.fileRead("save:small.txt", back)
   end
   done("read100")
   start()
   for _ in 0..<10
     back.clear()
-    _ = pc.saveRead("big.txt", back)
+    _ = pc.fileRead("save:big.txt", back)
   end
   done("read8000")
   start()
@@ -302,7 +302,7 @@ end
 instructions()
 drawing()
 files()
-_ = pc.saveWrite("speed.txt", out[].asString())
+_ = pc.fileWrite("save:speed.txt", out[].asString())
 said := "speed: done (in /save/speed/speed.txt)"
 draw* :: proc()
   pc.cls(0)

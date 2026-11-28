@@ -1,6 +1,6 @@
 """python logs.py path/to/rinc path/to/system folder: each app's log, in its cache space (/cache/<app>/log):
-what it logged and Rinc's runtime error, kept across runs; an app's own cache files (pc.cacheRead, cacheWrite,
-cacheDelete); and Sys+O, the log app at the app's log. docs/spec/apps.md#logs"""
+what it logged and Rinc's runtime error, kept across runs; an app's own cache files (cache:name,
+by the file calls); and Sys+O, the log app at the app's log. docs/spec/apps.md#logs"""
 import os, shutil, subprocess, sys
 
 rinc, system, data = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2]), sys.argv[3]
@@ -29,10 +29,10 @@ got = get('cache/oops/log') or ''
 check(got.count('-- started') == 2 and got.count('hello from oops') == 2, 'a second run, after the first: %r' % got)
 
 # an app's own cache: read, written and deleted, beside its log
-put('apps/keeper/keeper.rio', '''ok := pc.cacheWrite("thumbs", "abc")
+put('apps/keeper/keeper.rio', '''ok := pc.fileWrite("cache:thumbs", "abc")
 got: Blob[..8]
-n := pc.cacheRead("thumbs", got)
-log("cached", ok, n, got.asString(), pc.cacheRead("../x", got), pc.cacheDelete("thumbs"), pc.cacheRead("thumbs", got))
+n := pc.fileRead("cache:thumbs", got)
+log("cached", ok, n, got.asString(), pc.fileRead("cache:../x", got), pc.fileDelete("cache:thumbs"), pc.fileRead("cache:thumbs", got))
 ''')
 out = run('keeper')
 check('cached 0 3 abc -1 0 -1' in out, "an app's cache files: %r" % out)

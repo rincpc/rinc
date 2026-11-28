@@ -98,7 +98,7 @@ change2 :: proc(log: &undolog.Log, i: Int, v: Int)
 end
 change2(&y, 5, 2)
 y.flush()
-fine = pc.stashWriteAt("undo", y.at - 1, "z") >= 0
+fine = pc.fileWriteAt("stash:undo", y.at - 1, "z") >= 0
 assert(not y.undo(apply) and y.broke and doc[5] == 2, "a damaged step: not undone, the log started again")
 
 # swapping: a step holds what was there (a byte), and undo or redo trades it with what's there now

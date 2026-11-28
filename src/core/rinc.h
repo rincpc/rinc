@@ -388,7 +388,7 @@ void rinc_setHome(const char *name); /* for this session only (NULL: none) */
 /* an app's source from storage, read into buf: its length, -1 if storage has no such app, or -2 if it
    doesn't fit */
 int rinc_readApp(const char *name, char *buf, uint32_t cap);
-/* the app running now, by name: its save space is /rinc/save/<name> (pc.saveRead and so on) */
+/* the app running now, by name: its save space is /rinc/save/<name> (save:name, to the app's file calls) */
 void rinc_setAppName(const char *name);
 
 /* a REPL over any text stream: feed it characters, it echoes them and runs each complete input.

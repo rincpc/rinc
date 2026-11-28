@@ -22,9 +22,9 @@ remember :: proc()
   fine = state.push(screen)
   fine = state.push(pick)
   fine = state.push(role)
-  ok := pc.stashWrite("view", state[0..<state.len()].asString())
+  ok := pc.fileWrite("stash:view", state[0..<state.len()].asString())
   if editing >= 0
-    ok = pc.stashWrite("edit", nameOf(editing))
+    ok = pc.fileWrite("stash:edit", nameOf(editing))
   end
 end
 
@@ -44,7 +44,7 @@ follow :: proc()
 end
 
 use :: proc(t: Int)
-  if pc.settingWrite("theme", nameOf(t)) == 0
+  if pc.fileWrite("settings:theme", nameOf(t)) == 0
     current = t
     message.clear()
     fine = message.print("Using ", titleName(t), ": apps started from now")

@@ -215,7 +215,7 @@ contents :: proc()
   if kept.len() == 0 and keptBoot < 0 # (the first time: what was kept, if anything)
     keptBoot = 0
     keptText.clear()
-    _ = pc.stashRead("contents", keptText)
+    _ = pc.fileRead("stash:contents", keptText)
     n := keptText.len()
     if n > 0
       k := 0
@@ -255,7 +255,7 @@ contents :: proc()
   ok = keptText.pushAll(keptApps[0..<keptApps.len()])
   ok = keptText.push(10)
   ok = keptText.pushAll(kept[0..<kept.len()])
-  ok = pc.stashWrite("contents", keptText[0..<keptText.len()].asString()) == 0
+  ok = pc.fileWrite("stash:contents", keptText[0..<keptText.len()].asString()) == 0
 end
 
 # help text name, shown from row 0 (or its heading anchor): false if there's none
@@ -422,14 +422,14 @@ savePlace :: proc()
     ok = place.pushAll(histName[i][0..<histName[i].len()])
     ok = place.push(10)
   end
-  ok = pc.stashWrite("place", place[0..<place.len()].asString()) == 0
+  ok = pc.fileWrite("stash:place", place[0..<place.len()].asString()) == 0
   placeDirty = false
 end
 
 # where it was last, from its save file: false if there's none to go back to
 restorePlace :: proc() -> Bool
   place.clear()
-  _ = pc.stashRead("place", place)
+  _ = pc.fileRead("stash:place", place)
   n := place.len()
   if n == 0
     return false

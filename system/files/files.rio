@@ -91,7 +91,7 @@ include "parts/screen.rio"
 
 # ---------------------------------------------------------------- starting
 
-_ = pc.settingRead("active", active)
+_ = pc.fileRead("settings:active", active)
 args: Blob[96]
 argsIn: Blob[..] = args
 argsLen := min(pc.args(argsIn), 96)
@@ -105,7 +105,7 @@ if argsLen >= 4 and (args[0..<4].asString() == "pick" or args[0..<4].asString() 
 end
 fromStash := start.len() == 0
 if fromStash
-  _ = pc.stashRead("place", start)
+  _ = pc.fileRead("stash:place", start)
 end
 made := pc.dirMake("/projects") # (where projects go: there to be found, even before the first)
 if start.len() == 0 or not open(start[0..<start.len()].asString())

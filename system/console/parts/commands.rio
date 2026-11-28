@@ -121,7 +121,7 @@ command :: proc(t: String) -> Bool
     return true
   case "active"                          # the active app or project, the whole Rinc's setting
     v: Blob[..34]
-    if pc.settingRead("active", v) > 0
+    if pc.fileRead("settings:active", v) > 0
       _ = msg.print("active: ", v)
       say(msg[].asString(), softColor)
     else
@@ -147,7 +147,7 @@ command :: proc(t: String) -> Bool
     startSave(name)
   case "active"                          # app or project (name+) name, active: the editor opens it next
     msgIn: Blob[..] = msg[0..<0]
-    if pc.appSource(name, msgIn) >= 0 and pc.settingWrite("active", name) == 0
+    if pc.appSource(name, msgIn) >= 0 and pc.fileWrite("settings:active", name) == 0
       _ = msg.print("active: ", name)
       say(msg[].asString(), softColor)
     else

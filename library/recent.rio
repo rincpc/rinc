@@ -29,11 +29,15 @@ one: Blob[..160] # (a line, as it's written)
 lines: Blob[..LINES]      # (the list's lines as the stash had them, a walk's: one list an app)
 picked: Blob[..160]       # (the file to open, as the walk ended on it: its line)
 
-Recent.stashKey :: proc() -> String
+stashed: Blob[..48] # (the list's path: stash:recent, or stash: and its key)
+Recent.stashPath :: proc() -> String
+  stashed.clear()
   if self.key.len() == 0
-    return "recent"
+    _ = stashed.print("stash:recent")
+  else
+    _ = stashed.print("stash:", self.key)
   end
-  return self.key
+  return stashed.asString()
 end
 # line k of a list (from 0; "" past its end), and how many it has
 lineOf :: proc(t: String, k: Int) -> String
@@ -72,7 +76,7 @@ placeIn* :: proc(l: String) -> String do return l[min(tabIn(l) + 1, l.len())..<l
 # the stash's list, read into list
 Recent.read :: proc()
   lines.clear()
-  _ = pc.stashRead(self.stashKey(), lines)
+  _ = pc.fileRead(self.stashPath(), lines)
 end
 # the list written: first (none: ""), then the lines read that are kept (not skip's path; a line from
 # before, without a tab, left out), MOST at most: a line at a time, so no second copy's needed
@@ -81,18 +85,18 @@ Recent.write :: proc(first: String, skip: String)
   at := 0
   n := 0
   if first.len() > 0
-    _ = pc.stashWrite(self.stashKey(), first)
+    _ = pc.fileWrite(self.stashPath(), first)
     at = first.len()
     n = 1
   else
-    _ = pc.stashWrite(self.stashKey(), "")
+    _ = pc.fileWrite(self.stashPath(), "")
   end
   for k in 0..<linesOf(t)
     l := lineOf(t, k)
     if n < MOST and pathIn(l) != skip and tabIn(l) < l.len() and tabIn(l) > 0
       one.clear()
       fine := one.pushAll(l) and one.push(10)
-      _ = pc.stashWriteAt(self.stashKey(), at, one.asString())
+      _ = pc.fileWriteAt(self.stashPath(), at, one.asString())
       at += one.len()
       n += 1
     end

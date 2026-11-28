@@ -172,7 +172,7 @@ open :: proc(p: String) -> Bool
   top = 0
   narrow()
   selectOnly(pick)
-  saved := pc.stashWrite("place", p)
+  saved := pc.fileWrite("stash:place", p)
   return true
 end
 
@@ -256,7 +256,7 @@ canChange :: proc(k: Int) -> Bool
 end
 
 edit :: proc(ref: String)
-  if pc.settingWrite("active", ref) == 0
+  if pc.fileWrite("settings:active", ref) == 0
     pc.launch("edit")
   else
     say("No storage: nothing can be edited", errorColor)

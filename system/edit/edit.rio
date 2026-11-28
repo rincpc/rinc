@@ -38,28 +38,28 @@ include "parts/screen.rio"
 # else the active app or project's main file (another app may have made another one active), or, if
 # that's where it was, where it was, else a new file
 numbersBuf: Blob[..1] # (line numbers, if they were shown last time)
-showNumbers(pc.saveRead("numbers", numbersBuf) == 1 and numbersBuf[0] == 49)
+showNumbers(pc.fileRead("save:numbers", numbersBuf) == 1 and numbersBuf[0] == 49)
 lastBuf: Blob[..128]
-_ = pc.saveRead("last", lastBuf)
+_ = pc.fileRead("save:last", lastBuf)
 lastPath := pathOf(lastBuf.asString())
 place := placeOf(lastBuf.asString()) # (cursor, top, anchor, left)
 calling: Blob[..8]
-callingLen := pc.stashRead("calling", calling)
+callingLen := pc.fileRead("stash:calling", calling)
 picked: Blob[128]
 pickedIn: Blob[..] = picked
 pickedLen := pc.result(pickedIn)
 opening: Blob[..112]
 _ = pc.args(opening)
 activeBuf: Blob[..34]
-_ = pc.settingRead("active", activeBuf)
+_ = pc.fileRead("settings:active", activeBuf)
 if callingLen > 0
-  ok := pc.stashDelete("calling")
+  ok := pc.fileDelete("stash:calling")
   draftPath: Blob[..96]
-  if pc.stashRead("draftPath", draftPath) > 0
+  if pc.fileRead("stash:draftPath", draftPath) > 0
     setPath(draftPath.asString())
   end
   draft: Blob[..] = text[0..<CAP]
-  _ = pc.stashRead("draft", draft)
+  _ = pc.fileRead("stash:draft", draft)
   settle(draft.len())
   sizeOnly: Blob[..] = one[0..<0]
   disk := pc.fileRead(here(), sizeOnly)

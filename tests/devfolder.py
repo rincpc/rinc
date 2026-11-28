@@ -23,7 +23,7 @@ def check(ok, what, got=''):
   failed += not ok
 
 shutil.rmtree(work, ignore_errors=True)
-game = {'game/game.rio': 'include "parts/a.rio"\n_ = pc.saveWrite("best", part())\nlog("game", part())\n',
+game = {'game/game.rio': 'include "parts/a.rio"\n_ = pc.fileWrite("save:best", part())\nlog("game", part())\n',
         'game/parts/a.rio': 'part :: proc() -> String do return "a"\n',
         'game/tune.mus': 'not rio: installed all the same\n',
         'game/dev/test.rio': 'include "parts/a.rio"\nassert(part() == "a", "its part")\nlog("tests passed")\n',
@@ -39,7 +39,7 @@ got = run(['-app', 'game+'])
 check('game a' in got and there('projects/game/dev/save/best'), 'a project\'s own saves: in its dev folder, dev/save', got)
 got = run(['-app', 'game+/dev/test'])
 check('tests passed' in got, 'its tests run as the project: game+/dev/test', got)
-put('data/projects/old/old.rio', 'out: Blob[..8]\nlog("kept", pc.saveRead("kept", out), out.asString())\n')
+put('data/projects/old/old.rio', 'out: Blob[..8]\nlog("kept", pc.fileRead("save:kept", out), out.asString())\n')
 put('data/projects/old/save/kept', 'yes')
 got = run(['-app', 'old+'])
 check('kept 3 yes' in got and there('projects/old/dev/save/kept') and not there('projects/old/save'), 'a project\'s saves from before the dev folder (save/): moved in, as they were', got)

@@ -67,7 +67,7 @@ remember :: proc()   # (once it's rested a moment: not each step of a drag or a 
   if still == 30 and picked != saved
     saved = picked
     stashed[0] = picked
-    ok := pc.stashWrite("pick", stashed[].asString())
+    ok := pc.fileWrite("stash:pick", stashed[].asString())
   end
 end
 # leaving for another app (the system key's Tab, say): the color, kept now, not after the moment's rest

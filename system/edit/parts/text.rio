@@ -159,11 +159,11 @@ savedText: Blob[..12]
 keepSaved :: proc()
   savedText.clear()
   _ = savedText.print(savedAt)
-  _ = pc.stashWrite("undo.saved", savedText.asString())
+  _ = pc.fileWrite("stash:undo.saved", savedText.asString())
 end
 savedKept :: proc() -> Int
   savedText.clear()
-  if pc.stashRead("undo.saved", savedText) <= 0
+  if pc.fileRead("stash:undo.saved", savedText) <= 0
     return -1
   end
   v := 0

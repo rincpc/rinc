@@ -42,7 +42,7 @@ if argsLen >= 4 and args[0..<4].asString() == "pick" # (pick, or pick 12)
   end
 end
 back: Blob[..4]
-_ = pc.stashRead("pick", back)
+_ = pc.fileRead("stash:pick", back)
 if back.len() >= 1
   picked = back[0]
 end

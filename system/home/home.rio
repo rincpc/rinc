@@ -132,14 +132,14 @@ end
 # the active app or project, the whole Rinc's setting (what the editor opens): Ctrl+Enter makes the
 # picked one active, and opens the editor
 active: Blob[..34]
-_ = pc.settingRead("active", active)
+_ = pc.fileRead("settings:active", active)
 edit :: proc()
   if nshown == 0
     return
   end
   k := shown[pick]
   n := names[nameAt[k]..<nameAt[k] + nameLen[k]].asString()
-  if pc.settingWrite("active", n) == 0
+  if pc.fileWrite("settings:active", n) == 0
     pc.launch("edit")
   end
 end

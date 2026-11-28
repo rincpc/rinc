@@ -26,7 +26,11 @@ Nothing here is decided; the user picks. All of it breaks apps, so it belongs be
 | Help | `helps`, `helpRead`, `helpTopic`, `help` | `dir` and `fileRead` on help's folder. `help(topic)` stays | 2 |
 
 Storage first, recommended: the largest cut, it makes reaching files one API, and it fits apps being
-islands (paths relative to the app).
+islands (paths relative to the app). Done (2026-11-28, the user choosing the colon): the app's own areas
+by a word and a colon, `save:best`, `stash:view`, `cache:thumbs`, `settings:theme`, through the file calls
+(rinc.c's rinc_area; docs/spec/apps.md#an-apps-own-files; tests/areas.py); the 13 procs gone, 108 left,
+`RINC_MAX_FFI` 112 (from 122), 320 bytes of the board's RAM back. Not yet on the board (the system apps
+installed again with the firmware: tools/install.py --system).
 
 ## Reasonable merges (about 9)
 
