@@ -183,7 +183,7 @@ promptDone :: proc()
         res := 0
         ref := appRef(j)
         if kind[j] == FOLDER and ref.len() > 0
-          res = pc.appDelete(ref)
+          res = appfiles.remove(ref)
         else # (a piece at a time: jobs.rio)
           if not begun do jobBegin(true, false, "")
           begun = true
@@ -220,7 +220,7 @@ promptDone :: proc()
     res := 0
     ref := appRef(k)
     if kind[k] == FOLDER and ref.len() > 0
-      res = pc.appDelete(ref)
+      res = appfiles.remove(ref)
     case kind[k] == FOLDER # (a folder: planned, then deleted, a box showing it: jobs.rio)
       jobBegin(true, false, "")
       jobAdd(pathTo(nameOf(k)), "")
@@ -252,7 +252,7 @@ promptDone :: proc()
   if m == NEW
     to := projectRef(s)
     inputIn: Blob[..] = input[0..<0]
-    if pc.appSource(to, inputIn) >= 0
+    if appfiles.source(to, inputIn) >= 0
       say("There's a project of that name already", errorColor)
       return
     end
@@ -260,7 +260,7 @@ promptDone :: proc()
     ok := header.pushAll("# ")
     ok = header.pushAll(s)
     ok = header.pushAll(": what it does\n")
-    if pc.appSave(to, header[0..<header.len()].asString()) == 0
+    if appfiles.save(to, header[0..<header.len()].asString()) == 0
       edit(to)
     else
       say("Couldn't make it", errorColor)
@@ -269,9 +269,9 @@ promptDone :: proc()
   end
   if app
     if m == COPY
-      res = pc.appCopy(appRef(k), projectRef(s))
+      res = appfiles.copy(appRef(k), projectRef(s))
     else
-      res = pc.appRename(appRef(k), projectRef(s))
+      res = appfiles.rename(appRef(k), projectRef(s))
     end
   else
     from.clear()

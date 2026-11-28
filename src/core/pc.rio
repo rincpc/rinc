@@ -362,17 +362,11 @@ appError* :: host proc(path: Blob[..], message: Blob[..]) -> AppError
 # the last checkRio's error, as appError has an app's (line 0: none), its file the main file or one it
 # includes or imports (/rinc/...): for an editor's underline. Checking the whole file finds its first
 checkError* :: host proc(path: Blob[..], message: Blob[..]) -> AppError
-# an app's source added to out, as much as fits: its whole length, or -1 if there's no such app
-appSource* :: host proc(name: String, out: Blob[..]) -> Int
-appSave* :: host proc(name: String, text: String) -> Int   # 0, or -1
-appDelete* :: host proc(name: String) -> Int               # all of its folder, its compiled image too: 0, or -1
 appInstall* :: host proc(name: String) -> Int              # project name* installed as app name: 0, or -1
-appCopy* :: host proc(from: String, to: String) -> Int     # app or project from, as new project to (to*): 0, or -1
 # the installed apps that open files ending .ext (as each one's opens.txt says: a line each, the
 # extension, then what such a file is), into out a line each, "name what": how many. The one picked for
 # them is the setting files/appreg/ext; an app is given one as pc.call(name, "open /its/path")
 appsFor* :: host proc(ext: String, out: Blob[..]) -> Int
-appRename* :: host proc(from: String, to: String) -> Int   # project from (from*) as new project to (to*): 0, or -1
 
 # ---------------------------------------------------------------- files, by path, for a file browser
 

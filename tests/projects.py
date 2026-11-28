@@ -63,18 +63,28 @@ if get('apps/chord/chord.rio') != get('projects/chord/chord.rio') or get('apps/c
   sys.exit("FAIL: install didn't copy the project")
 if get('apps/chord/save/note') is not None: sys.exit("FAIL: install copied the project's saves")
 run('chord', 'project by the app', 'the installed project, as the app, with the app\'s saves')
-put('apps/ops/ops.rio', '''log(pc.appCopy("chord", "tune+"), pc.appCopy("chord", "tune+"), pc.appCopy("chord", "nope"))
-log(pc.appRename("tune+", "song+"), pc.appRename("chord", "x+"), pc.fileWrite("settings:active", "song+"))
-log(pc.appDelete("song+"), pc.appDelete("song+"))
+put('apps/ops/ops.rio', '''import appfiles
+log(appfiles.copy("chord", "tune+"), appfiles.copy("chord", "tune+"), appfiles.copy("chord", "nope"))
+log(appfiles.rename("tune+", "song+"), appfiles.rename("chord", "x+"), pc.fileWrite("settings:active", "song+"))
+log(appfiles.remove("song+"), appfiles.remove("song+"))
 ''')
 run('ops', '0 -1 -1\n0 -1 0\n0 -1', 'copy, rename, delete')
 if get('settings/active') is not None: sys.exit("FAIL: the deleted project is still active")
 if os.path.exists(os.path.join(data, 'projects', 'song')) or os.path.exists(os.path.join(data, 'projects', 'tune')):
   sys.exit("FAIL: a deleted or renamed project's folder is still there")
-put('apps/ops2/ops2.rio', '''log(pc.appCopy("chord", "tune+"))
-log(pc.appRename("tune+", "song+"))
+put('apps/ops2/ops2.rio', '''import appfiles
+log(appfiles.copy("chord", "tune+"))
+log(appfiles.rename("tune+", "song+"))
 ''')
 run('ops2', '0\n0', 'copy, then rename')
 if get('projects/song/song.rio') != get('apps/chord/chord.rio') or get('projects/song/help/README.md') is None:
   sys.exit("FAIL: the copy, renamed, isn't the app's files under its new name")
+if get('projects/chord/dev/save/note') is None: sys.exit("FAIL: chord+ has no dev folder to leave behind")
+put('apps/ops3/ops3.rio', '''import appfiles
+none: Blob[..1]
+log(appfiles.copy("chord+", "twin+"), appfiles.copy("chord+", "../x+"), appfiles.source("a/b", none), appfiles.main("twin+"))
+''')
+run('ops3', '0 -1 -1 /projects/twin/twin.rio', "a project copied (its dev folder aside); names that aren't an app's refused")
+if get('projects/twin/twin.rio') != get('projects/chord/chord.rio'): sys.exit("FAIL: the project's copy isn't its source, renamed")
+if os.path.exists(os.path.join(data, 'projects', 'twin', 'dev')): sys.exit("FAIL: a project's copy took its dev folder")
 print('projects came through')

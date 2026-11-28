@@ -49,7 +49,7 @@ The desktop rinc carries two web players and gives a page the smaller one it can
 
 - **VM-only** (54 KB gzipped): runs compiled apps, the common case.
 - **With the compiler** (114 KB gzipped): for a page with an app that runs Rio itself
-  ([`pc.rio*`](../spec/rio.md), as the console does) or writes apps (`pc.appSave`, as the editor does).
+  ([`pc.rio*`](../spec/rio.md), as the console does) or writes apps (importing Rinc's library `appfiles`, as the editor and Files do).
   It also runs apps saved to storage, from source, and such a page carries its apps as source, so the
   editor can open them.
 

@@ -8,6 +8,8 @@
 
 COLS :: 53        # 6x9 characters, on the 320x240 screen
 ROWS :: 26
+import appfiles     # (rinc's library: apps and projects by name, their sources)
+
 backColor := pc.theme(pc.Role.bg) # colors: the theme's (pc.Role)
 textColor := pc.theme(pc.Role.text)
 softColor := pc.theme(pc.Role.soft)

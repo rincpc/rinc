@@ -38,6 +38,16 @@ starts), no longer "since it was last asked", so asking twice can't lose them (E
 marks the wheel used, so the text under it doesn't scroll too). `pointer(mode)` stays. 103 host procs
 left, `RINC_MAX_FFI` 108.
 
+App files done too (2026-11-28, the user: "plain paths", no host procs where a library does): an app's
+source is a file, /apps/<name>/<name>.rio (reading finds a bundled app's), and Rinc's library appfiles
+does apps and projects by name with what goes with them (source, save, remove: its compiled image and
+the active setting too; copy as a project: its main file renamed, a project's dev folder aside, a bundled
+app's source from the bundle; rename). Compiled images need no dropping to stay right (each is checked
+against its source's hash), only to free their room. The desktop's export knows an app that writes apps
+by its importing appfiles (tests/webplayer.py). 98 host procs left, `RINC_MAX_FFI` 102. The cost: an app
+that imports appfiles keeps a few hundred bytes of its paths, and the big locals of the procs it doesn't
+call (Rio drops their code, not their room): the console, 7,608 bytes free before, 2,708 now.
+
 ## Reasonable merges (about 9)
 
 - `transformBy` into `transform(m, by?)`: 1.

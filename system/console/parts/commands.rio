@@ -22,7 +22,7 @@ end
 load :: proc(name: String)
   msg: Blob[..80]
   fileIn: Blob[..] = file
-  n := pc.appSource(name, fileIn)
+  n := appfiles.source(name, fileIn)
   if n < 0
     _ = msg.print("can't open ", name)
     say(msg[].asString(), errorColor)
@@ -69,7 +69,7 @@ saveTo :: proc() -> Int
     end
   end
   if slash < 0
-    return pc.appSave(saveName[].asString(), file[..<fileLen].asString())
+    return appfiles.save(saveName[].asString(), file[..<fileLen].asString())
   end
   if slash == 0
     return -1
@@ -147,7 +147,7 @@ command :: proc(t: String) -> Bool
     startSave(name)
   case "active"                          # app or project (name+) name, active: the editor opens it next
     msgIn: Blob[..] = msg[0..<0]
-    if pc.appSource(name, msgIn) >= 0 and pc.fileWrite("settings:active", name) == 0
+    if appfiles.source(name, msgIn) >= 0 and pc.fileWrite("settings:active", name) == 0
       _ = msg.print("active: ", name)
       say(msg[].asString(), softColor)
     else
@@ -163,7 +163,7 @@ command :: proc(t: String) -> Bool
       say(msg[].asString(), errorColor)
     end
   case "delete"
-    if pc.appDelete(name) == 0
+    if appfiles.remove(name) == 0
       _ = msg.print("deleted ", name)
       say(msg[].asString(), softColor)
     else

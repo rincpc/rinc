@@ -249,6 +249,8 @@ extern int (*rinc_native)(rio_Vm *vm);
    rinc_storageChanged(path) for each file it writes or removes; rinc_cacheDrop drops an app's image.
    rinc_buildId: this build's (build_id.c): another build's images are compiled again */
 extern int rinc_cacheTrust;
+/* set once a compile imports Rinc's library appfiles: an app that writes apps (the desktop's export: its page needs the compiler) */
+extern int rinc_importsAppfiles;
 /* an app run from the host's own files (the desktop's rinc game/): its files come from this folder,
    through rinc_hostRead (path in it: up to n bytes from byte at, how many, 0 at its end, or -1 if it
    isn't there), not storage */

@@ -87,13 +87,21 @@ again. A web page carries it in base64.
 | `pc.apps() -> Int` | looks again, in storage and in the bundle, and says how many apps there are (the first 64, by name; `home` aside) |
 | `pc.appName(i, out) -> Int` | app `i`'s name, from 0, in order of name ignoring case |
 | `pc.appInfo(i, out) -> Int` | app `i`'s description: its first line after `#` and any spaces, if it starts with `#` |
-| `pc.appSource(name, out) -> Int` | app `name`'s source (from storage, else the bundle), added to `out`, as much as fits: its whole length, or -1 if there's none |
-| `pc.appSave(name, text) -> Int` | `text` becomes app `name`'s source in storage (its folder too, if it's new): 0, or -1 |
-| `pc.appDelete(name) -> Int` | removes app `name`'s source from storage, and its folder if that's all it held: 0, or -1 |
 | `pc.launch(name)` | after this frame, leave this app and run app `name` |
 
-`appName`, `appInfo` and `appSource` copy as much as fits, and give the whole length (0 for an `i` that
-isn't an app), so an app can tell when its buffer was too small.
+`appName` and `appInfo` copy as much as fits, and give the whole length (0 for an `i` that isn't an
+app), so an app can tell when its buffer was too small.
+
+An app's source is a file, `/apps/<name>/<name>.rio`, which the file calls read and change (reading
+finds a bundled app's too). Rinc's library `appfiles` (see Rinc's library) does it by name, an app's
+or a project's, with what goes with it:
+
+| proc | |
+|---|---|
+| `appfiles.source(name, out) -> Int` | app `name`'s source (from storage, else the bundle), added to `out`, as much as fits: its whole length, or -1 if there's none |
+| `appfiles.save(name, text) -> Int` | `text` becomes app `name`'s source (its folder too, if it's new): 0, or -1 |
+| `appfiles.remove(name) -> Int` | all of app `name`'s folder, its compiled image, and the active setting if it was the active one: 0, or -1 |
+| `appfiles.main(name)`, `appfiles.folder(name)` | its paths, `/apps/chord/chord.rio` and `/apps/chord` (a project's, `chord+`: `/projects/chord/...`), or `""` for a name no app can have |
 
 ## An app's own files
 
@@ -155,15 +163,15 @@ app's saves are copied in, so it starts from real data. Deleting its `dev/save` 
 from the app's again. Nothing goes back the other way. (A project's saves from before the dev folder, in
 `save/`, are moved into it, as they are, the first time it runs.)
 
-`pc.launch("chord+")` runs the project (and `pc.launch("chord+/dev/test")` its tests: see an app's tests), and `pc.appSource`, `pc.appSave` and `pc.appDelete` take a
-project's name too (`pc.appDelete` removes all of its folder: a project's own saves too, but never the
+`pc.launch("chord+")` runs the project (and `pc.launch("chord+/dev/test")` its tests: see an app's tests), and `appfiles`' procs take a
+project's name too (`appfiles.remove` removes all of its folder: a project's own saves too, but never the
 app's, in `/save`). The rest, each 0 or -1:
 
 | proc | |
 |---|---|
 | `pc.appInstall("chord")` | project `chord+` installed as app `chord`: its files copied over the app's (its save space aside); the console's `install chord` too |
-| `pc.appCopy(from, "tune+")` | app or project `from` copied as new project `tune+`: its files, its main file renamed `tune.rio` (a project's own saves aside) |
-| `pc.appRename("tune+", "song+")` | project `tune+` renamed `song+`: its folder and its main file (and the active setting, if it was the active one) |
+| `appfiles.copy(from, "tune+")` | app or project `from` copied as new project `tune+`: its files, its main file renamed `tune.rio` (a project's own saves aside; a bundled app's source, from the bundle) |
+| `appfiles.rename("tune+", "song+")` | project `tune+` renamed `song+`: its folder and its main file (and the active setting, if it was the active one) |
 
 ## Files
 
@@ -740,6 +748,8 @@ tune.tick()                               # only to show where it's playing: tun
 ```
 
 - `clip`: the clipboard every app shares (see the clipboard).
+- `appfiles`: apps and projects by name, their sources and folders: read, saved, copied as projects,
+  renamed, removed (see finding apps, and projects). Files, the editor and the console use it.
 - `recent`: the files an app had lately, the latest first, each with where it was (a note of the app's
   own), in its stash: Ctrl+Tab walks them (the list on the screen while Ctrl's held, letting go opens the
   pick), Ctrl+W closes one (out of the list). The editor and studio's apps use it.

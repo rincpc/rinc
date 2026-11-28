@@ -40,7 +40,7 @@ endif()
 include(${RIO_DIR}/library.cmake)
 # the most host procs a vm holds, on every Rinc (rio_MAX_FFI, below; tools/web.py's too):
 # the pc test fails if rinc registers more
-set(RINC_MAX_FFI 108)
+set(RINC_MAX_FFI 102)
 # rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
 # so an app behaves the same everywhere: its log lines and error texts as long, say
 target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})
@@ -479,6 +479,9 @@ else()
         set_tests_properties(web_drop PROPERTIES SKIP_RETURN_CODE 77 PASS_REGULAR_EXPRESSION "web drops came through")
         # the demo site's pages, made as the site is (tools/demosite.py), each played; the whole Rinc as a program too
         # a page's storage in IndexedDB, other tabs told of each change, what localStorage had moved in
+        # the smaller player a page can have: the one with the compiler for an app that writes apps (appfiles)
+        add_test(NAME web_player COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/webplayer.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/web-player)
+        set_tests_properties(web_player PROPERTIES PASS_REGULAR_EXPRESSION "each page got its player")
         add_test(NAME web_storage COMMAND Python3::Interpreter ${CMAKE_CURRENT_LIST_DIR}/tests/webstore.py $<TARGET_FILE:rinc> ${CMAKE_CURRENT_BINARY_DIR}/web-storage)
         set_tests_properties(web_storage PROPERTIES SKIP_RETURN_CODE 77 PASS_REGULAR_EXPRESSION "web storage came through")
         # a zip as the stick (/stick, read only): listed, read, copied off; a drop on a Rinc with home is one

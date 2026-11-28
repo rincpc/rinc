@@ -1,0 +1,210 @@
+# appfiles: apps and projects by name, with the file calls (docs/spec/apps.md#finding-apps). An app's
+# name is chord (/apps/chord, its source /apps/chord/chord.rio, or the bundle's) and its project's
+# chord+ (/projects/chord, /projects/chord/chord.rio). Each gives 0, or -1: no such app, a name taken,
+# or a name no app can have (1 to 32 letters, digits, _ and -, and a + after it for a project).
+#
+#   import appfiles
+#   n := appfiles.source("chord", out)     (its source added to out, as much as fits: its whole length,
+#                                           or -1 for none)
+#   _ = appfiles.save("tune+", text)       (its source; its folder made, if it's new)
+#   _ = appfiles.copy("chord", "tune+")    (an app or project, as a new project: its files, its main
+#                                           file renamed tune.rio, a project's dev folder aside)
+#   _ = appfiles.rename("tune+", "song+")  (a project, its folder and main file, active if it was)
+#   _ = appfiles.remove("song+")           (all of its folder, its compiled image, active no more)
+#   appfiles.main("tune+"), appfiles.folder("tune+")   (its paths: /projects/tune/tune.rio, /projects/tune)
+
+PROJECT :: '+' # (after a project's name)
+DEV :: "dev"  # (a project's own folder: its maker's saves and tests, not copied)
+
+# a name an app or a project can have
+named* :: proc(name: String) -> Bool
+  n := name.len()
+  if n > 1 and name[n - 1] == PROJECT
+    n -= 1
+  end
+  if n < 1 or n > 32
+    return false
+  end
+  for c in name[0..<n]
+    if not ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_' or c == '-')
+      return false
+    end
+  end
+  return true
+end
+isProject :: proc(name: String) -> Bool do return name.len() > 1 and name[name.len() - 1] == PROJECT
+base :: proc(name: String) -> String # (chord, of chord or chord+)
+  if isProject(name)
+    return name[0..<name.len() - 1]
+  end
+  return name
+end
+# its folder, or its main file, added to out: false if the name's no good, or it doesn't fit
+folderInto :: proc(out: Blob[..], name: String) -> Bool
+  if not named(name)
+    return false
+  end
+  if isProject(name)
+    return out.print("/projects/", base(name))
+  end
+  return out.print("/apps/", base(name))
+end
+mainInto :: proc(out: Blob[..], name: String) -> Bool do return folderInto(out, name) and out.print("/", base(name), ".rio")
+
+folderText: Blob[..48]
+mainText: Blob[..88]
+folder* :: proc(name: String) -> String # ("" if the name's no good)
+  folderText.clear()
+  if not folderInto(folderText, name)
+    folderText.clear()
+  end
+  return folderText.asString()
+end
+main* :: proc(name: String) -> String # ("" if the name's no good)
+  mainText.clear()
+  if not mainInto(mainText, name)
+    mainText.clear()
+  end
+  return mainText.asString()
+end
+
+source* :: proc(name: String, out: Blob[..]) -> Int
+  if not named(name)
+    return -1
+  end
+  return pc.fileRead(main(name), out)
+end
+save* :: proc(name: String, text: String) -> Int
+  if not named(name)
+    return -1
+  end
+  return pc.fileWrite(main(name), text)
+end
+
+none: Blob[..1] # (a source's length, read without its text: a byte at most)
+exists :: proc(name: String) -> Bool # (its source: in storage, or the bundle)
+  none.clear()
+  return named(name) and pc.fileRead(main(name), none) >= 0
+end
+active: Blob[..40]
+isActive :: proc(name: String) -> Bool
+  active.clear()
+  return pc.fileRead("settings:active", active) == name.len() and active.asString() == name
+end
+image: Blob[..64]
+dropImage :: proc(name: String) # (its compiled image, Rinc's cache of it: made again from its source as it's run)
+  image.clear()
+  if isProject(name)
+    _ = image.print("/cache/rinc/projects/", base(name), ".rioi")
+  else
+    _ = image.print("/cache/rinc/apps/", base(name), ".rioi")
+  end
+  _ = pc.fileDelete(image.asString())
+end
+
+remove* :: proc(name: String) -> Int
+  if not exists(name)
+    return -1
+  end
+  _ = pc.fileDelete(folder(name)) # (a bundled app's: nothing in storage to delete)
+  dropImage(name)
+  if isActive(name)
+    _ = pc.fileDelete("settings:active")
+  end
+  return 0
+end
+
+# app from's source, a piece at a time (from the bundle, say), as project to's: 0, or -1
+copySource :: proc(from: String, to: String) -> Int
+  fromPath: Blob[..100]
+  toPath: Blob[..100]
+  piece: Blob[..256]
+  if not mainInto(fromPath, from) or not mainInto(toPath, to) or pc.fileWrite(toPath.asString(), "") != 0
+    return -1
+  end
+  at := 0
+  for true
+    piece.clear()
+    whole := pc.fileReadAt(fromPath.asString(), at, piece)
+    if whole < 0 or (piece.len() > 0 and pc.fileWriteAt(toPath.asString(), at, piece.asString()) < 0)
+      return -1
+    end
+    at += piece.len()
+    if at >= whole or piece.len() == 0
+      return 0
+    end
+  end
+  return 0
+end
+# app or project from, as new project to: each of its files and folders copied (a project's dev folder
+# aside), its main file renamed for to's name. One only in the bundle: its source. (Its room, the
+# folder's lines and their paths, its own: an app that doesn't copy doesn't keep it)
+copy* :: proc(from: String, to: String) -> Int
+  fromDir: Blob[..48]
+  toDir: Blob[..48]
+  fromPath: Blob[..100]
+  toPath: Blob[..100]
+  entries: Blob[..1024] # (from's folder: a line each, as pc.dir gives them)
+  if not named(from) or not isProject(to) or not named(to) or exists(to) or not folderInto(fromDir, from) or not folderInto(toDir, to)
+    return -1
+  end
+  if pc.dir(toDir.asString(), entries) >= 0 # (a folder there already)
+    return -1
+  end
+  entries.clear()
+  n := pc.dir(fromDir.asString(), entries)
+  _ = pc.dirMake(toDir.asString())
+  at := 0
+  for i in 0..<max(n, 0) # (a line each: "d name" or "f name"; those that fit)
+    if at + 2 >= entries.len()
+      break
+    end
+    start := at
+    e := at
+    for e < entries.len() and entries[e] != 10
+      e += 1
+    end
+    name := entries[start + 2..<e].asString()
+    at = e + 1
+    if isProject(from) and entries[start] == 'd' and name == DEV
+      continue
+    end
+    fromPath.clear()
+    toPath.clear()
+    if fromPath.print(fromDir.asString(), "/", name) and toPath.print(toDir.asString(), "/", name)
+      _ = pc.fileCopy(fromPath.asString(), toPath.asString())
+    end
+  end
+  fromPath.clear()
+  toPath.clear()
+  if fromPath.print(toDir.asString(), "/", base(from), ".rio") and mainInto(toPath, to) and base(from) != base(to)
+    _ = pc.fileRename(fromPath.asString(), toPath.asString())
+  end
+  if not exists(to) # (none of it in storage, a bundled app: its source, from the bundle)
+    return copySource(from, to)
+  end
+  return 0
+end
+
+# project from as new project to: its folder and main file renamed, and the active setting with it
+rename* :: proc(from: String, to: String) -> Int
+  fromDir: Blob[..48]
+  toDir: Blob[..48]
+  fromPath: Blob[..100]
+  toPath: Blob[..100]
+  listed: Blob[..1]
+  if not isProject(from) or not named(from) or not isProject(to) or not named(to) or not folderInto(fromDir, from) or not folderInto(toDir, to)
+    return -1
+  end
+  if pc.dir(toDir.asString(), listed) >= 0 or pc.fileRename(fromDir.asString(), toDir.asString()) != 0 # (to there already, or from not)
+    return -1
+  end
+  if fromPath.print(toDir.asString(), "/", base(from), ".rio") and mainInto(toPath, to)
+    _ = pc.fileRename(fromPath.asString(), toPath.asString())
+  end
+  dropImage(from)
+  if isActive(from)
+    _ = pc.fileWrite("settings:active", to)
+  end
+  return 0
+end

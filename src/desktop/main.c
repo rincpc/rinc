@@ -109,17 +109,19 @@ static int rinc_compileApp(const char *app) {
 
 /* the app compiled, as an image in image[]: its size, or 0 after reporting why not. list: print the
    host procs its code calls, one per line */
-/* whether an app made runs Rio itself (pc.rio*) or writes apps (pc.appSave): its page needs the
-   compiler, and the bundle carries sources, so its apps can be read and changed too */
+/* whether an app made runs Rio itself (pc.rio*) or writes apps (it imports Rinc's library appfiles): its
+   page needs the compiler, and the bundle carries sources, so its apps can be read and changed too */
 static int rinc_nested;
 static uint32_t rinc_makeImage(const char *app, int list) {
   uint32_t size, pc, n; uint8_t used[rio_MAX_FFI] = {0}; int k; rio_Instr in;
+  rinc_importsAppfiles = 0;
   if (rinc_compileApp(app)) return 0;
+  if (rinc_importsAppfiles) rinc_nested = 1;
   for (pc = 0; (n = rio_instrAt(&rinc_vm, pc, &in)) != 0; pc += n) if (in.op == rio_Op_ffi && in.c < rio_MAX_FFI) used[in.c] = 1;
   for (k = 0; k < rinc_vm.ffiCount; k++) {
     if (!used[k]) continue;
     if (list) printf("host %s\n", rinc_vm.ffi[k].name);
-    if (!strncmp(rinc_vm.ffi[k].name, "pc.rio", 6) || !strcmp(rinc_vm.ffi[k].name, "pc.appSave") || !strcmp(rinc_vm.ffi[k].name, "pc.checkRio") ||
+    if (!strncmp(rinc_vm.ffi[k].name, "pc.rio", 6) || !strcmp(rinc_vm.ffi[k].name, "pc.checkRio") ||
         !strcmp(rinc_vm.ffi[k].name, "pc.completeRio") || !strcmp(rinc_vm.ffi[k].name, "pc.formatRio"))
       rinc_nested = 1; /* (the compiler's, all of them) */
   }

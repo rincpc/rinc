@@ -1512,11 +1512,9 @@ static void rinc_hostModsHeld(rio_Vm *v, rio_Val *a) { /* (as key() adds them: 2
   a[0].i = m < 0 && !pad ? -1 : (m > 0 ? (m & 1 ? 256 : 0) | (m & 2 ? 512 : 0) | (m & 4 ? 1024 : 0) : 0) | pad | rinc_locks;
 }
 
-/* apps' sources, for a console or an editor: appSource(name, out) -> Int copies app name's source (from
-   storage, else the bundle) into out, as much as fits, and gives its whole length (-1: no such source);
-   appSave(name, text) -> Int and appDelete(name) -> Int change storage: 0, or -1. Each reads its name
-   first: a[0], the name's address, takes the result. An app's own areas (save:, stash:, cache:,
-   settings:) are the file calls', by path: rinc_area, below */
+/* a name argument (an app's, a save file's), checked and copied: a[0], the name's address, takes the
+   result. Apps' sources are files (/apps/<name>/<name>.rio: library/appfiles.rio does them by name), and
+   an app's own areas (save:, stash:, cache:, settings:) the file calls', by path: rinc_area, below */
 static int rinc_argName(rio_Vm *v, rio_Val *name, char *out, int dots) {
   const char *s = (const char *)rio_sliceBytes(v, name); int n = (int)name[1].u;
   if (!rinc_nameOk(s, n, dots)) return 0;
@@ -1645,44 +1643,6 @@ static int rinc_appRemove(const char *name) {
   if (!rinc_readFile("/rinc/settings/active", active, sizeof active - 1, &total) && total < sizeof active && (active[total] = 0, !strcmp(active, name)))
     rinc_fs->remove("/rinc/settings/active");
   return 0;
-}
-/* appCopy(from, to) -> Int: app or project from, copied as new project to (a + after it): its
-   files, its main one renamed (its own saves aside). appRename(from, to) -> Int: project from as new
-   project to. Each 0, or -1 (to there already, say) */
-static void rinc_hostAppCopy(rio_Vm *v, rio_Val *a) {
-  char from[rinc_REF], to[rinc_REF], fromDir[64], toDir[64], path[96], main[96]; uint32_t total; int n, k;
-  int named = rinc_argRef(v, a, from) && rinc_argRef(v, a + 2, to);
-  a[0].i = -1;
-  if (!named || !rinc_fs || (n = (int)strlen(to)) < 2 || to[n - 1] != rinc_PROJECT || !rinc_appFolder(from, fromDir, sizeof fromDir) || !rinc_appFolder(to, toDir, sizeof toDir)) return;
-  if (!rinc_appPath(to, path, sizeof path) || !rinc_readFile(path, 0, 0, &total) || !rinc_fs->list(toDir, rinc_treeFound, 0)) { rinc_treeUsed = 0; return; } /* (there already) */
-  rinc_treeUsed = 0;
-  if (rinc_copyTree(fromDir, toDir, rinc_DEV, 0) && rinc_readApp(to, 0, 0) == -1) { /* (-1: not there; -2 is there, too big for no room) */ /* (an app in the bundle: its source, from there) */
-    const rinc_App *b = rinc_bundled(from);
-    if (!b || b->image || rinc_fs->open(path, 1)) return;
-    k = rinc_fs->write(b->data, (int)b->len) != (int)b->len;
-    if (rinc_fs->close() || k) return;
-    a[0].i = 0;
-    return;
-  }
-  k = (int)strlen(from) - (from[strlen(from) - 1] == rinc_PROJECT);
-  snprintf(main, sizeof main, "%s/%.*s.rio", toDir, k, from); /* (its main file, by its old name: renamed) */
-  a[0].i = rinc_fs->rename(main, path) && rinc_readApp(to, 0, 0) == -1 ? -1 : 0;
-}
-static void rinc_hostAppRename(rio_Vm *v, rio_Val *a) {
-  char from[rinc_REF], to[rinc_REF], fromDir[64], toDir[64], path[96], main[96], active[rinc_REF]; uint32_t total; int n, m;
-  int named = rinc_argRef(v, a, from) && rinc_argRef(v, a + 2, to);
-  a[0].i = -1;
-  if (!named || !rinc_fs || (n = (int)strlen(from)) < 2 || from[n - 1] != rinc_PROJECT || (m = (int)strlen(to)) < 2 || to[m - 1] != rinc_PROJECT ||
-      !rinc_appFolder(from, fromDir, sizeof fromDir) || !rinc_appFolder(to, toDir, sizeof toDir) || !rinc_appPath(to, path, sizeof path)) return;
-  if (!rinc_fs->list(toDir, rinc_treeFound, 0)) { rinc_treeUsed = 0; return; } /* (there already) */
-  rinc_treeUsed = 0;
-  if (rinc_fs->rename(fromDir, toDir)) return;
-  snprintf(main, sizeof main, "%s/%.*s.rio", toDir, n - 1, from);
-  rinc_fs->rename(main, path);
-  rinc_cacheDrop(from);
-  if (!rinc_readFile("/rinc/settings/active", active, sizeof active - 1, &total) && total < sizeof active && (active[total] = 0, !strcmp(active, from)) &&
-      !rinc_fs->open("/rinc/settings/active", 1)) { rinc_fs->write(to, m); rinc_fs->close(); } /* (the active one: by its new name) */
-  a[0].i = 0;
 }
 /* files by path, for a file browser (docs/spec/apps.md#files): a path is absolute, /rinc/save/chord/best,
    with no . or .. parts. Looking (dir, fileRead) goes anywhere in /rinc, the root (for now); changing
@@ -1997,18 +1957,6 @@ static void rinc_hostAppInstall(rio_Vm *v, rio_Val *a) {
   snprintf(to, sizeof to, "/rinc/apps/%s", name);
   a[0].i = rinc_copyTree(from, to, rinc_DEV, 0);
 }
-static void rinc_hostAppSource(rio_Vm *v, rio_Val *a) {
-  char name[rinc_REF], path[96]; const rinc_App *b;
-  int named = rinc_argRef(v, a, name);
-  a[0].i = -1;
-  if (!named) return;
-  if (rinc_appPath(name, path, sizeof path) && rinc_exists(path)) a[0].i = rinc_readOut(v, a + 2, path);
-  else if ((b = rinc_bundled(name)) && !b->image) {
-    uint32_t total = rinc_appLen(b);
-    rinc_addOut(v, a + 2, (const char *)b->data, (int)total);
-    a[0].i = (int32_t)total;
-  }
-}
 static void rinc_writeFile(rio_Vm *v, rio_Val *a, const char *path) {
   const char *text = (const char *)rio_sliceBytes(v, a + 2); int n = (int)a[3].u, bad;
   a[0].i = -1;
@@ -2016,15 +1964,6 @@ static void rinc_writeFile(rio_Vm *v, rio_Val *a, const char *path) {
   rinc_charge(rinc_Cost_fileWrite, n > 0 ? (uint32_t)n : 0);
   bad = n > 0 && (!text || rinc_fs->write(text, n) != n);
   a[0].i = rinc_fs->close() || bad ? -1 : 0;
-}
-static void rinc_hostAppSave(rio_Vm *v, rio_Val *a) {
-  char name[rinc_REF], path[96]; int named = rinc_argRef(v, a, name) && rinc_appPath(name, path, sizeof path);
-  if (named) rinc_writeFile(v, a, path); else a[0].i = -1;
-}
-static int rinc_appRemove(const char *name);
-static void rinc_hostAppDelete(rio_Vm *v, rio_Val *a) { /* (all of it: rinc_appRemove) */
-  char name[rinc_REF]; int named = rinc_argRef(v, a, name);
-  a[0].i = named ? rinc_appRemove(name) : -1;
 }
 /* an app's stash, /rinc/stash/<app>/<key>: what it keeps of where it was, for its next start (a place,
    a draft, something slow to make again), under keys of its own, written as it goes. Rinc drops it all,
@@ -2493,10 +2432,12 @@ static int rinc_loadFile(const char *path, rio_Source *out, int host) {
   out->name = host ? r->path : r->path + 6;
   return 0;
 }
+int rinc_importsAppfiles;
 static int rinc_loader(void *ud, const char *path, int kind, rio_Source *out) {
   static char base[64], bundleBase[64], tryPath[104], name[640]; const char *last; const rinc_File *f; int n = (int)strlen(rinc_loadApp), project, k, res;
   int host = !(kind & rio_LoadKind_package) && rinc_hostFolder[0]; /* (an app run from the host's files: its own, from there) */
   (void)ud;
+  if ((kind & rio_LoadKind_package) && !strcmp(path, "appfiles")) rinc_importsAppfiles = 1;
   if (!rinc_srcOn || strstr(path, "..") || strlen(path) > 48) return 1;
   project = n > 1 && rinc_loadApp[n - 1] == rinc_PROJECT;
   if (kind & rio_LoadKind_package) { snprintf(base, sizeof base, "/rinc/lib/"); snprintf(bundleBase, sizeof bundleBase, "lib/"); }
@@ -3175,21 +3116,18 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.fromHex", pc_fromHex_SIG, rinc_hostFromhex) || rio_addFfi(vm, "pc.formatRio", pc_formatRio_SIG, rinc_hostFormatrio) || rio_addFfi(vm, "pc.moduleSource", pc_moduleSource_SIG, rinc_hostModulesource) || rio_addFfi(vm, "pc.stick", pc_stick_SIG, rinc_hostStick) || rio_addFfi(vm, "pc.trigger", pc_trigger_SIG, rinc_hostTrigger) ||
          rio_addFfi(vm, "pc.key", pc_key_SIG, rinc_hostKey) || rio_addFfi(vm, "pc.modsHeld", pc_modsHeld_SIG, rinc_hostModsHeld) || rio_addFfi(vm, "pc.keyHeld", pc_keyHeld_SIG, rinc_hostKeyHeld) || rio_addFfi(vm, "pc.apps", pc_apps_SIG, rinc_hostApps) || rio_addFfi(vm, "pc.appName", pc_appName_SIG, rinc_hostAppName) ||
          rio_addFfi(vm, "pc.appInfo", pc_appInfo_SIG, rinc_hostAppInfo) || rio_addFfi(vm, "pc.launch", pc_launch_SIG, rinc_hostLaunch) ||
-         rio_addFfi(vm, "pc.appSource", pc_appSource_SIG, rinc_hostAppSource) || rio_addFfi(vm, "pc.appSave", pc_appSave_SIG, rinc_hostAppSave) ||
-         rio_addFfi(vm, "pc.appDelete", pc_appDelete_SIG, rinc_hostAppDelete) ||
          rio_addFfi(vm, "pc.helps", pc_helps_SIG, rinc_hostHelps) ||
          rio_addFfi(vm, "pc.helpRead", pc_helpRead_SIG, rinc_hostHelpRead) || rio_addFfi(vm, "pc.help", pc_help_SIG, rinc_hostHelp) ||
          rio_addFfi(vm, "pc.helpTopic", pc_helpTopic_SIG, rinc_hostHelpTopic) ||
          rio_addFfi(vm, "pc.boot", pc_boot_SIG, rinc_hostBoot) ||
          rio_addFfi(vm, "pc.theme", pc_theme_SIG, rinc_hostTheme) ||
          rio_addFfi(vm, "pc.pointer", pc_pointer_SIG, rinc_hostPointer) || rio_addFfi(vm, "pc.appInstall", pc_appInstall_SIG, rinc_hostAppInstall) ||
-         rio_addFfi(vm, "pc.appCopy", pc_appCopy_SIG, rinc_hostAppCopy) ||
          rio_addFfi(vm, "pc.call", pc_call_SIG, rinc_hostCall) || rio_addFfi(vm, "pc.args", pc_args_SIG, rinc_hostArgs) ||
          rio_addFfi(vm, "pc.done", pc_done_SIG, rinc_hostDone) || rio_addFfi(vm, "pc.result", pc_result_SIG, rinc_hostResult) ||
          rio_addFfi(vm, "pc.appError", pc_appError_SIG, rinc_hostAppError) ||
          rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
          rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileReadAt", pc_fileReadAt_SIG, rinc_hostFileReadAt) || rio_addFfi(vm, "pc.fileWriteAt", pc_fileWriteAt_SIG, rinc_hostFileWriteAt) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.imageLoad", pc_imageLoad_SIG, rinc_hostImageLoad) || rio_addFfi(vm, "pc.imageWrite", pc_imageWrite_SIG, rinc_hostImageWrite) || rio_addFfi(vm, "pc.imageNotes", pc_imageNotes_SIG, rinc_hostImageNotes) || rio_addFfi(vm, "pc.imageFlags", pc_imageFlags_SIG, rinc_hostImageFlags) || rio_addFfi(vm, "pc.imageSpriteFlags", pc_imageSpriteFlags_SIG, rinc_hostImageSpriteFlags) || rio_addFfi(vm, "pc.imageFlag", pc_imageFlag_SIG, rinc_hostImageFlag) ||
-         rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerState", pc_pointerState_SIG, rinc_hostPointerState) ||
+         rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.pointerState", pc_pointerState_SIG, rinc_hostPointerState) ||
 
          rio_addFfi(vm, "pc.rioStart", pc_rioStart_SIG, rinc_hostRioStart) ||
          rio_addFfi(vm, "pc.rioEval", pc_rioEval_SIG, rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", pc_rioFrame_SIG, rinc_hostRioFrame) ||

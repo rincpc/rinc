@@ -80,6 +80,7 @@ end
 # ---------------------------------------------------------------- its parts
 
 import clip         # (rinc's library: the clipboard every app shares)
+import appfiles     # (and apps and projects by name: copied, renamed, deleted)
 include "parts/folder.rio"
 include "parts/opening.rio"
 include "parts/jobs.rio"

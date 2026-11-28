@@ -190,7 +190,7 @@ end
 # how long app name's source is, without reading it: -1 if there's no such app
 sourceLen :: proc(name: String) -> Int
   none: Blob[..] = one[0..<0]
-  return pc.appSource(name, none)
+  return appfiles.source(name, none)
 end
 # is file p text, n bytes long: UTF-8, with no control bytes but tab, line breaks and a 13 before a 10?
 # (Anything else, a sheet's pixels say, saving here would change: 13s are taken out as it's read, and
@@ -264,7 +264,7 @@ load :: proc(p: String) -> Bool
   else
     if bundled
       textIn: Blob[..] = text[0..<CAP]
-      n = pc.appSource(a, textIn)
+      n = appfiles.source(a, textIn)
     else
       got: Blob[..] = text[0..<CAP]
       n = pc.fileRead(p, got)
@@ -433,7 +433,7 @@ save :: proc() -> Bool
     refBuf.clear()
     ok := refBuf.pushAll(a)
     ok = refBuf.push(43)
-    if sourceLen(refBuf[0..<refBuf.len()].asString()) < 0 and pc.appCopy(a, refBuf[0..<refBuf.len()].asString()) != 0
+    if sourceLen(refBuf[0..<refBuf.len()].asString()) < 0 and appfiles.copy(a, refBuf[0..<refBuf.len()].asString()) != 0
       say("Couldn't make its project", errorColor)
       return false
     end
