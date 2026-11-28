@@ -3090,6 +3090,7 @@ int rinc_pointerMode, rinc_pointerAtX = 160, rinc_pointerAtY = 120;
 volatile int rinc_pointerOnScreen;
 uint8_t rinc_pointerImage[8][8];
 static float rinc_pointerX = 160, rinc_pointerY = 120, rinc_scrolled[2];
+static int rinc_scrollSteps[2]; /* (this frame's whole steps, taken from rinc_scrolled as it starts: pointerState's) */
 static int rinc_mouseHeld, rinc_pointerHeld;
 static void rinc_pointerShow(int on) {
   static const char *const arrow[8] = {"K.......", "KK......", "KWK.....", "KWWK....", "KWWWK...", "KWWWWK..", "KWWKKKK.", "KKK....."};
@@ -3144,23 +3145,19 @@ static void rinc_pointerFrame(void) {
     if (held & ~rinc_pointerHeld) rinc_pointerShow(1);
   }
   rinc_pointerHeld = held;
+  rinc_scrollSteps[0] = (int)rinc_scrolled[0]; rinc_scrolled[0] -= (float)rinc_scrollSteps[0]; /* (whole steps; a trackpad's fractions wait) */
+  rinc_scrollSteps[1] = (int)rinc_scrolled[1]; rinc_scrolled[1] -= (float)rinc_scrollSteps[1];
 }
-/* pointer(mode); pointerX() -> Int, pointerY() -> Int; pointerDown(i) -> Int (0 primary, 1 secondary, 2
-   middle); pointerShown() -> Int; scroll(i) -> Int: the whole steps scrolled since (0 across, + right; 1
-   up and down, + up), taken */
+/* pointer(mode); pointerState() -> PointerState: where it is, its buttons (primary, secondary, middle),
+   shown, and this frame's whole steps scrolled (across, + right; up and down, + up) */
 static void rinc_hostPointer(rio_Vm *v, rio_Val *a) { (void)v; rinc_pointerMode = a[0].i < 0 || a[0].i > 2 ? 0 : a[0].i; rinc_pointerShow(rinc_pointerOn); }
-static void rinc_hostPointerX(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX >> rinc_zoom; } /* (in the app's screen's pixels) */
-static void rinc_hostPointerAt(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerX >> rinc_zoom; a[1].i = (int)rinc_pointerY >> rinc_zoom; } /* ({x, y}) */
-static void rinc_hostPointerY(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = (int)rinc_pointerY >> rinc_zoom; }
-static void rinc_hostPointerDown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = a[0].u < 3 && !rinc_cmdSettle ? rinc_pointerHeld >> a[0].i & 1 : 0; }
-static void rinc_hostPointerShown(rio_Vm *v, rio_Val *a) { (void)v; a[0].i = rinc_pointerOnScreen; }
-static void rinc_hostScroll(rio_Vm *v, rio_Val *a) {
-  int k;
-  (void)v;
-  if (a[0].u > 1) { a[0].i = 0; return; }
-  k = (int)rinc_scrolled[a[0].i];
-  rinc_scrolled[a[0].i] -= (float)k;
-  a[0].i = k;
+static void rinc_hostPointerState(rio_Vm *v, rio_Val *a) { /* (a PointerState: at, in the app's screen's pixels; the buttons; shown; this frame's scrolling) */
+  int held = rinc_cmdSettle ? 0 : rinc_pointerHeld; pc_PointerState r;
+  r.at[0] = (int32_t)rinc_pointerX >> rinc_zoom; r.at[1] = (int32_t)rinc_pointerY >> rinc_zoom;
+  r.primary = held & 1; r.secondary = held >> 1 & 1; r.middle = held >> 2 & 1;
+  r.shown = rinc_pointerOnScreen != 0;
+  r.scrolled[0] = rinc_scrollSteps[0]; r.scrolled[1] = rinc_scrollSteps[1];
+  rio_putStruct(v, a, &r, sizeof r);
 }
 
 /* pc's source, pc.rio, as pc_host.h has it (rio -H: with the sigs above), for compiling apps against */
@@ -3192,9 +3189,8 @@ int rinc_hostProcs(rio_Vm *vm) {
          rio_addFfi(vm, "pc.appError", pc_appError_SIG, rinc_hostAppError) ||
          rio_addFfi(vm, "pc.dir", pc_dir_SIG, rinc_hostDir) || rio_addFfi(vm, "pc.fileRead", pc_fileRead_SIG, rinc_hostFileRead) ||
          rio_addFfi(vm, "pc.fileWrite", pc_fileWrite_SIG, rinc_hostFileWrite) || rio_addFfi(vm, "pc.fileReadAt", pc_fileReadAt_SIG, rinc_hostFileReadAt) || rio_addFfi(vm, "pc.fileWriteAt", pc_fileWriteAt_SIG, rinc_hostFileWriteAt) || rio_addFfi(vm, "pc.fileDelete", pc_fileDelete_SIG, rinc_hostFileDelete) || rio_addFfi(vm, "pc.imageLoad", pc_imageLoad_SIG, rinc_hostImageLoad) || rio_addFfi(vm, "pc.imageWrite", pc_imageWrite_SIG, rinc_hostImageWrite) || rio_addFfi(vm, "pc.imageNotes", pc_imageNotes_SIG, rinc_hostImageNotes) || rio_addFfi(vm, "pc.imageFlags", pc_imageFlags_SIG, rinc_hostImageFlags) || rio_addFfi(vm, "pc.imageSpriteFlags", pc_imageSpriteFlags_SIG, rinc_hostImageSpriteFlags) || rio_addFfi(vm, "pc.imageFlag", pc_imageFlag_SIG, rinc_hostImageFlag) ||
-         rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerX", pc_pointerX_SIG, rinc_hostPointerX) || rio_addFfi(vm, "pc.pointerAt", pc_pointerAt_SIG, rinc_hostPointerAt) ||
-         rio_addFfi(vm, "pc.pointerY", pc_pointerY_SIG, rinc_hostPointerY) || rio_addFfi(vm, "pc.pointerDown", pc_pointerDown_SIG, rinc_hostPointerDown) ||
-         rio_addFfi(vm, "pc.pointerShown", pc_pointerShown_SIG, rinc_hostPointerShown) || rio_addFfi(vm, "pc.scroll", pc_scroll_SIG, rinc_hostScroll) ||
+         rio_addFfi(vm, "pc.fileCopy", pc_fileCopy_SIG, rinc_hostFileCopy) || rio_addFfi(vm, "pc.dirMake", pc_dirMake_SIG, rinc_hostDirMake) || rio_addFfi(vm, "pc.fileRename", pc_fileRename_SIG, rinc_hostFileRename) || rio_addFfi(vm, "pc.appRename", pc_appRename_SIG, rinc_hostAppRename) || rio_addFfi(vm, "pc.pointerState", pc_pointerState_SIG, rinc_hostPointerState) ||
+
          rio_addFfi(vm, "pc.rioStart", pc_rioStart_SIG, rinc_hostRioStart) ||
          rio_addFfi(vm, "pc.rioEval", pc_rioEval_SIG, rinc_hostRioEval) || rio_addFfi(vm, "pc.rioFrame", pc_rioFrame_SIG, rinc_hostRioFrame) ||
          rio_addFfi(vm, "pc.rioType", pc_rioType_SIG, rinc_hostRioType) || rio_addFfi(vm, "pc.rioError", pc_rioError_SIG, rinc_hostRioError) ||
@@ -3234,7 +3230,7 @@ int rinc_appBegin(rio_Vm *vm, void *space, uint32_t size, const char *name, void
   rinc_recentAdd(name);
   rinc_tmReset(); /* (a new app: plain) */
   rinc_startButtons = rinc_buttons; memcpy(rinc_startKeys, rinc_keysHeld, sizeof rinc_startKeys); /* (what's held as it starts, the key that started it, say: not the app's, till let go) */
-  rinc_pointerMode = 0; rinc_scrolled[0] = rinc_scrolled[1] = 0; /* (a game's, until it says) */
+  rinc_pointerMode = 0; rinc_scrolled[0] = rinc_scrolled[1] = 0; rinc_scrollSteps[0] = rinc_scrollSteps[1] = 0; /* (a game's, until it says) */
   return 0;
 }
 void rinc_appFail(const char *name, const char *why) {

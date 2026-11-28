@@ -51,6 +51,17 @@ typedef char pc_Text_size[sizeof(pc_Text) == 64 ? 1 : -1]; /* (Rio's size) */
 #define pc_Text_LAYOUT "{width:Int,font:{image:{pixels:Blob,size:[2]Int,depth:Int},cell:[2]Int,across:Int,first:Int,last:Int,line:Int,gap:Int,colors:Int,glyphs:Blob}}"
 
 typedef struct {
+  int32_t at[2];
+  int32_t primary;
+  int32_t secondary;
+  int32_t middle;
+  int32_t shown;
+  int32_t scrolled[2];
+} pc_PointerState;
+typedef char pc_PointerState_size[sizeof(pc_PointerState) == 32 ? 1 : -1]; /* (Rio's size) */
+#define pc_PointerState_LAYOUT "{at:[2]Int,primary:Int,secondary:Int,middle:Int,shown:Int,scrolled:[2]Int}"
+
+typedef struct {
   int32_t bits;
   int32_t channels;
   float rate;
@@ -113,12 +124,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
 #define pc_appTimeReset_SIG ""
 #define pc_showCommands_SIG ""
 #define pc_pointer_SIG "Enum{game,ui,none}"
-#define pc_pointerAt_SIG ">ii"
-#define pc_pointerX_SIG ">i"
-#define pc_pointerY_SIG ">i"
-#define pc_pointerDown_SIG "i>i"
-#define pc_pointerShown_SIG ">i"
-#define pc_scroll_SIG "i>i"
+#define pc_pointerState_SIG ">" pc_PointerState_LAYOUT
 #define pc_fromHex_SIG "Bs>i"
 #define pc_formatRio_SIG "Bs>i"
 #define pc_moduleSource_SIG "sB>i"
@@ -223,12 +229,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(appTimeReset, pc_appTimeReset_SIG) \
   X(showCommands, pc_showCommands_SIG) \
   X(pointer, pc_pointer_SIG) \
-  X(pointerAt, pc_pointerAt_SIG) \
-  X(pointerX, pc_pointerX_SIG) \
-  X(pointerY, pc_pointerY_SIG) \
-  X(pointerDown, pc_pointerDown_SIG) \
-  X(pointerShown, pc_pointerShown_SIG) \
-  X(scroll, pc_scroll_SIG) \
+  X(pointerState, pc_pointerState_SIG) \
   X(fromHex, pc_fromHex_SIG) \
   X(formatRio, pc_formatRio_SIG) \
   X(moduleSource, pc_moduleSource_SIG) \
@@ -303,7 +304,7 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   X(rioLog, pc_rioLog_SIG) \
   X(rioIndent, pc_rioIndent_SIG)
 
-#define pc_HASH 0x54989c3au /* (rio_hashText of the source) */
+#define pc_HASH 0xecfbd1e1u /* (rio_hashText of the source) */
 #define pc_SOURCE \
   "# pc.rio: Rinc's host procs, the pc module. Apps don't import it: pc is there everywhere (pc.cls(0)).\n" \
   "# This is what pc is, written in Rio, and built into Rinc: each app compiles it first, against what\n" \
@@ -557,13 +558,16 @@ typedef char pc_ImageWrite_size[sizeof(pc_ImageWrite) == 24 ? 1 : -1]; /* (Rio's
   "  none  # never shown\n" \
   "end\n" \
   "pointer* :: host proc(mode: Pointer)\n" \
-  "pointerAt* :: host proc() -> [2]Int                 # where it points, in screen pixels: {x, y}\n" \
-  "pointerX* :: host proc() -> Int                     # (its x, and its y, alone)\n" \
-  "pointerY* :: host proc() -> Int\n" \
-  "pointerDown* :: host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle\n" \
-  "pointerShown* :: host proc() -> Int\n" \
-  "# the whole steps scrolled since it was last asked: 0 across, + right; 1 up and down, + up\n" \
-  "scroll* :: host proc(i: Int) -> Int\n" \
+  "# where the pointer is and what it's doing, this frame (each ask the same, all through it)\n" \
+  "PointerState* :: struct\n" \
+  "  at: [2]Int        # where it points, in screen pixels: {x, y}\n" \
+  "  primary: Bool     # its buttons held: the mouse's left (in a ui app, a controller's A, while it's shown)\n" \
+  "  secondary: Bool   # its right (B)\n" \
+  "  middle: Bool\n" \
+  "  shown: Bool       # drawn now\n" \
+  "  scrolled: [2]Int  # whole steps scrolled this frame: across (+ right), up and down (+ up)\n" \
+  "end\n" \
+  "pointerState* :: host proc() -> PointerState\n" \
   "\n" \
   "# ---------------------------------------------------------------- data\n" \
   "\n" \

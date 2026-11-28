@@ -302,10 +302,11 @@ update* :: proc()
   end
   # the pointer: a click picks, and a click on the one picked opens it (as Enter does, with the pointer
   # hidden); the secondary button shows the menu; in the menu, a click does that, outside it closes it
-  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
+  ps := pc.pointerState()
+  click := ps.primary.toInt() + ps.secondary.toInt() * 2
   if click & ~clicked != 0
-    px := pc.pointerX()
-    py := pc.pointerY()
+    px := ps.at.x
+    py := ps.at.y
     if mode == OPEN_WITH # (a click on one opens it in that; outside, closes it)
       i := owAt2(px, py)
       if i >= 0 and click & 1 != 0
@@ -345,8 +346,8 @@ update* :: proc()
     end
   end
   clicked = click
-  wasShown = pc.pointerShown()
-  s := pc.scroll(1)
+  wasShown = ps.shown.toInt()
+  s := ps.scrolled.y
   if s != 0 and (mode == NONE or mode == VIEW)
     move(-s * 2)
   end

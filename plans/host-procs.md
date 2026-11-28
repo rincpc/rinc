@@ -32,6 +32,12 @@ by a word and a colon, `save:best`, `stash:view`, `cache:thumbs`, `settings:them
 `RINC_MAX_FFI` 112 (from 122), 320 bytes of the board's RAM back. Not yet on the board (the system apps
 installed again with the firmware: tools/install.py --system).
 
+Pointer done too (2026-11-28): `pc.pointerState()` gives a `PointerState` (at, primary, secondary, middle,
+shown, scrolled), the same all through a frame; scrolling is this frame's whole steps (taken as each frame
+starts), no longer "since it was last asked", so asking twice can't lose them (Edit's completion list
+marks the wheel used, so the text under it doesn't scroll too). `pointer(mode)` stays. 103 host procs
+left, `RINC_MAX_FFI` 108.
+
 ## Reasonable merges (about 9)
 
 - `transformBy` into `transform(m, by?)`: 1.

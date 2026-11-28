@@ -117,10 +117,11 @@ update* :: proc()
     end
   end
   # a click: on a theme picks it (on the one picked, uses it); on a role, Colors for it
-  click := pc.pointerDown(0)
+  ps := pc.pointerState()
+  click := ps.primary.toInt()
   if click == 1 and clicked == 0 and prompting == 0
-    x := pc.pointerX()
-    y := pc.pointerY()
+    x := ps.at.x
+    y := ps.at.y
     if screen == LIST and x < PREVIEW_X - 4 and y >= 14
       t := top + (y - 14) / 12
       if t < count and t == pick

@@ -140,7 +140,7 @@ update* :: proc()
     end
     c = pc.key()
   end
-  s := pc.scroll(1)
+  s := pc.pointerState().scrolled.y
   if s != 0
     top = max(0, min(top + s, rowCount - ROWS))
   end

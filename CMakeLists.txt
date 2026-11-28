@@ -40,7 +40,7 @@ endif()
 include(${RIO_DIR}/library.cmake)
 # the most host procs a vm holds, on every Rinc (rio_MAX_FFI, below; tools/web.py's too):
 # the pc test fails if rinc registers more
-set(RINC_MAX_FFI 112)
+set(RINC_MAX_FFI 108)
 # rio's fixed caps, the same on every Rinc (the Fruit Jam's, MCU-sized, but room for Rinc's host procs),
 # so an app behaves the same everywhere: its log lines and error texts as long, say
 target_compile_definitions(riocore PUBLIC rio_SMALL rio_MAX_FFI=${RINC_MAX_FFI})

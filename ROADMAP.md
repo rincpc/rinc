@@ -28,7 +28,8 @@ app is a Rio program.
 ## Next
 
 - **Next, in order (the user, 2026-11-24, from Friday 2026-11-27):** 1. the API cleaned up
-  (plans/host-procs.md; storage done 2026-11-28: save:, stash:, cache:, settings: through the file calls); 2. maybe the UI library first, if it helps (the user, 2026-11-24): the text
+  (plans/host-procs.md; storage done 2026-11-28: save:, stash:, cache:, settings: through the file calls; the pointer
+  too: pc.pointerState()); 2. maybe the UI library first, if it helps (the user, 2026-11-24): the text
   field helper and the notice box folded into it; then the system and studio apps' UI cleaned up on it
   (plans/consistency.md: extremely
   clear for new users, extremely consistent, still very efficient for experienced ones); 3. more on

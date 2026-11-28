@@ -208,9 +208,10 @@ update* :: proc()
   end
   # a click on an app opens it (a click with the pointer hidden, and not on one, opens the picked
   # one); scrolling moves the pick
-  click := pc.pointerDown(0)
+  ps := pc.pointerState()
+  click := ps.primary.toInt()
   if click == 1 and clicked == 0
-    i := rowAt(pc.pointerX(), pc.pointerY())
+    i := rowAt(ps.at.x, ps.at.y)
     if i >= 0
       pick = i
       start()
@@ -219,9 +220,9 @@ update* :: proc()
     end
   end
   clicked = click
-  wasShown = pc.pointerShown()
+  wasShown = ps.shown.toInt()
   if nshown > 0
-    pick = max(0, min(pick - pc.scroll(1), nshown - 1))
+    pick = max(0, min(pick - ps.scrolled.y, nshown - 1))
   end
   bits := pc.btn(.up) + pc.btn(.down) * 2
   move := 0

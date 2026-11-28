@@ -123,18 +123,24 @@ above, so a Rinc fed by a serial terminal types the same keys. Modifiers come as
 
 ## The pointer
 
-A mouse moves a pointer, and Rinc draws it: a small arrow over the screen, which `pc.pointerX()` and
-`pc.pointerY()` give the point of, in screen pixels. Moving the mouse or pressing one of its buttons shows
+A mouse moves a pointer, and Rinc draws it: a small arrow over the screen. Moving the mouse or pressing one of its buttons shows
 it; typing hides it, as do the arrows (the d-pad's too), a controller's center buttons (Start, Back and
 guide) and the system key, and so does the mouse leaving the window, unless a button's held. So it's
 there only while it's in use, and a drag goes on outside the window till the button's let go.
 
 Without a mouse, the system key moves it too: with the arrows (or a controller's guide button and
 d-pad), a pixel a frame, faster the longer they're held, and V and C (A and B) are its primary and
-secondary buttons. That's every Rinc's pointer, in any mode but `none`; the app sees just the pointer. `pc.pointerShown()` is 1 while it's shown.
-`pc.pointerDown(i)` is 1 while button `i` is held: 0 the primary (left) one, 1 the secondary (right), 2
-the middle. `pc.scroll(i)` is the whole steps scrolled since it was last asked, the rest kept for later:
-`i` 0 across (+ right), 1 up and down (+ up, away from you, as on a wheel).
+secondary buttons. That's every Rinc's pointer, in any mode but `none`; the app sees just the pointer.
+
+`pc.pointerState()` gives all of it, as it is this frame (asking again in the same frame gives the
+same), as a `pc.PointerState`:
+
+| field | |
+|---|---|
+| `at: [2]Int` | where it points, in screen pixels |
+| `primary: Bool`, `secondary: Bool`, `middle: Bool` | its buttons held: the left one, the right one, the middle |
+| `shown: Bool` | it's drawn now |
+| `scrolled: [2]Int` | the whole steps scrolled this frame: across (+ right), and up and down (+ up, away from you, as on a wheel); a trackpad's fractions of a step wait for the frames after |
 
 `pc.pointer(mode)` says what the pointer is for, until the app ends, with a `pc.Pointer`:
 
@@ -163,8 +169,9 @@ update* :: proc()
     end
     k = pc.key()
   end
-  down := pc.pointerDown(0)
-  y := pc.pointerY()
+  p := pc.pointerState()
+  down := p.primary.toInt()
+  y := p.at.y
   if down == 1 and clicked == 0 and y >= 100 and y < 100 + 3 * 10
     picked = (y - 100) / 10
   end

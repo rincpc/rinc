@@ -153,8 +153,9 @@ update* :: proc()
   end
   # the pointer: held down over a color picks it (a drag goes through them); pressed on the one
   # already picked, or the big one, chooses it; the secondary button, the other half
-  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
-  p := pc.pointerAt()
+  ps := pc.pointerState()
+  click := ps.primary.toInt() + ps.secondary.toInt() * 2
+  p := ps.at
   if click & 1 != 0
     was := picked
     over := pointAt(p)
@@ -166,7 +167,7 @@ update* :: proc()
     otherHalf()
   end
   clicked = click
-  s := pc.scroll(1)
+  s := ps.scrolled.y
   if s != 0
     move({0, -s})
   end

@@ -116,9 +116,10 @@ update* :: proc()
   end
   # the pointer: a click on a link follows it (with the pointer hidden, and not on a link, the picked
   # one); the secondary button goes back (a controller's A and B: Enter and Esc); scrolling, two rows a step
-  click := pc.pointerDown(0) + pc.pointerDown(1) * 2
+  ps := pc.pointerState()
+  click := ps.primary.toInt() + ps.secondary.toInt() * 2
   if click & ~clicked & 1 != 0
-    l := linkAt(pc.pointerX(), pc.pointerY())
+    l := linkAt(ps.at.x, ps.at.y)
     if l >= 0
       pick = l
       follow()
@@ -130,8 +131,8 @@ update* :: proc()
     move(-1)
   end
   clicked = click
-  wasShown = pc.pointerShown()
-  scroll(-2 * pc.scroll(1))
+  wasShown = ps.shown.toInt()
+  scroll(-2 * ps.scrolled.y)
   bits := pc.btn(.left) + pc.btn(.right) * 2 + pc.btn(.up) * 4 + pc.btn(.down) * 8
   pressed := bits & ~held
   if pressed & 4 != 0

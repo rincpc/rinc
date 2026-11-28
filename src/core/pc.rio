@@ -250,13 +250,16 @@ Pointer* :: enum
   none  # never shown
 end
 pointer* :: host proc(mode: Pointer)
-pointerAt* :: host proc() -> [2]Int                 # where it points, in screen pixels: {x, y}
-pointerX* :: host proc() -> Int                     # (its x, and its y, alone)
-pointerY* :: host proc() -> Int
-pointerDown* :: host proc(i: Int) -> Int            # 1 while button i is held: 0 primary, 1 secondary, 2 middle
-pointerShown* :: host proc() -> Int
-# the whole steps scrolled since it was last asked: 0 across, + right; 1 up and down, + up
-scroll* :: host proc(i: Int) -> Int
+# where the pointer is and what it's doing, this frame (each ask the same, all through it)
+PointerState* :: struct
+  at: [2]Int        # where it points, in screen pixels: {x, y}
+  primary: Bool     # its buttons held: the mouse's left (in a ui app, a controller's A, while it's shown)
+  secondary: Bool   # its right (B)
+  middle: Bool
+  shown: Bool       # drawn now
+  scrolled: [2]Int  # whole steps scrolled this frame: across (+ right), up and down (+ up)
+end
+pointerState* :: host proc() -> PointerState
 
 # ---------------------------------------------------------------- data
 

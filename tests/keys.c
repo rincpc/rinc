@@ -173,12 +173,14 @@ int main(void) {
     for (p = out; *p; p++) if (*p == '\r') memmove((char *)p, p + 1, strlen(p));
     if (strcmp(out, "9\n265\n")) { printf("FAIL: RB and LB typed\n%s", out); return 1; }
   }
-  { /* the pointer: a mouse moves and shows it, typing hides it; in pointer mode, the left stick moves it
-       (and isn't the arrows), A clicks, and the wheel's steps add up; the d-pad hides it, as typing does */
+  { /* the pointer (pc.pointerState): a mouse moves and shows it, typing hides it; in pointer mode, the left
+       stick moves it (and isn't the arrows), A clicks, and the wheel's steps add up (a step a frame, the
+       rest waiting), the same each time it's asked in a frame; the d-pad hides it, as typing does */
     static const char game[] =
-      "update* :: proc()\n  log(pc.pointerX())\n  log(pc.pointerY())\n  log(pc.pointerDown(0))\n  log(pc.pointerShown())\n"
-      "  log(pc.scroll(1))\n  log(pc.btn(.right))\n  for pc.key() >= 0\n  end\n  if pc.btn(.back) == 1\n    pc.pointer(pc.Pointer.ui)\n  end\nend\n";
-    static const char want[] = "10\n20\n0\n1\n0\n0\n" "10\n20\n0\n0\n1\n0\n" "10\n20\n0\n0\n0\n1\n" "15\n20\n1\n1\n0\n0\n" "15\n20\n0\n0\n0\n0\n";
+      "update* :: proc()\n  p := pc.pointerState()\n  log(p.at.x)\n  log(p.at.y)\n  log(p.primary.toInt())\n  log(p.shown.toInt())\n"
+      "  log(p.scrolled.y)\n  log((pc.pointerState().scrolled == p.scrolled).toInt())\n  log(pc.btn(.right))\n  for pc.key() >= 0\n  end\n"
+      "  if pc.btn(.back) == 1\n    pc.pointer(pc.Pointer.ui)\n  end\nend\n";
+    static const char want[] = "10\n20\n0\n1\n0\n1\n0\n" "10\n20\n0\n0\n1\n1\n0\n" "10\n20\n0\n0\n0\n1\n1\n" "15\n20\n1\n1\n0\n1\n0\n" "15\n20\n0\n0\n0\n1\n0\n";
     outLen = 0; out[0] = 0;
     if (rinc_appBegin(&vm, space, sizeof space, "point", put) || rinc_appRun(&vm, space, sizeof space, "point", game, sizeof game - 1, 0) || !rinc_game) {
       printf("FAIL: %s\n", rio_error(&vm));
@@ -196,7 +198,7 @@ int main(void) {
   }
   { /* the system key's arrows move the pointer, and V is its primary button; with the system key
        locked (Ctrl and Shift tapped), they don't use the lock up. Sys+H with no help: a notice */
-    static const char game[] = "update* :: proc()\n  log(pc.pointerX())\n  log(pc.pointerDown(0))\nend\n";
+    static const char game[] = "update* :: proc()\n  p := pc.pointerState()\n  log(p.at.x)\n  log(p.primary.toInt())\nend\n";
     static const char want[] = "101\n0\n102\n1\n102\n0\n103\n0\n103\n0\n";
     outLen = 0; out[0] = 0;
     if (rinc_appBegin(&vm, space, sizeof space, "keyptr", put) || rinc_appRun(&vm, space, sizeof space, "keyptr", game, sizeof game - 1, 0) || !rinc_game) {
