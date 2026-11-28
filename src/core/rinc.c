@@ -2693,6 +2693,7 @@ static int rinc_checkLoader(void *ud, const char *path, int kind, rio_Source *ou
   if (out->read == rinc_readAt) name = ((rinc_Reader *)out->readData)->path; /* (storage's: /rinc/apps/...) */
   if (!strcmp(name, rinc_checkPath) || (!strncmp(rinc_checkPath, "/rinc/", 6) && !strcmp(name, rinc_checkPath + 6))) {
     out->src = rinc_checkCode; out->len = rinc_checkLen; out->read = 0; out->readData = 0;
+    out->endsCheck = 1; /* (cut at the cursor's line: the check ends with it) */
   } else out->declsOnly = 1; /* (the others: their declarations, for completion, not their procs' bodies) */
   return 0;
 }

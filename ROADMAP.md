@@ -983,7 +983,16 @@ app is a Rio program.
   errors aren't marked there (running still reports them); a check whose first sizes are short for one
   table is checked again with more room for it, as a compile is; a check's first shares suit host
   modules as pc (more types, fields and params a symbol); constants filling counts as a table filling.
-  Tests: tests/checklib.py (an app importing tilemap, in Edit's 61,440 bytes); Rio's tests/complete.c.
+  Tests: tests/checklib.py (an app importing tilemap, in Edit's room); Rio's tests/complete.c.
+  Then (2026-11-27), for big apps (Maps needed ~90 KB, Paint ~80 KB): an imported module's private procs
+  are skipped whole in a check (nothing outside can call them; if top-level code did, the check goes
+  again, keeping them); a check ends with the file being edited (rio_Source's endsCheck: a part cut at the
+  cursor, with the main file after it using the part's names past the cut, no longer fails); Edit's check
+  room is 94,208 bytes, its formatted buffer taking the 32 KB its scratch had (the text now moves in
+  place: pushAll moves, as memmove does, now in Rio's spec), so Edit's memory is as it was; Maps' and
+  Music's main files split into parts (every studio file under the 32 KB Edit opens). Test: studio's
+  tests/checks.py, every studio app's files checked as Edit checks them, in Edit's room. Still to try on
+  the board: a check's time on a big app, and Edit's memory.
 
 - Fixed 2026-11-24 (found making the shapes demo): what's held as an app starts (the Enter or A that
   started it from home) was the app's: a press on its first frame. Now the buttons and keys held as an app

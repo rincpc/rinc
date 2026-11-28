@@ -474,7 +474,7 @@ end
 
 # ---------------------------------------------------------------- laid out (rio fmt)
 
-formatted: Blob[61440] # the text, as rio fmt lays it out (more than the text can have); between saves, completion's check (pc.checkRio)
+formatted: Blob[94208] # the text, as rio fmt lays it out (more than the text can have); between saves, completion's check (pc.checkRio): room for a big app's, as Maps'
 
 # a character rio fmt keeps (it changes only spaces and line breaks, and may add a comma)
 kept :: proc(c: Int) -> Bool
